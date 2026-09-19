@@ -4,7 +4,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  // maxAge explicite (60 jours) : la session est mémorisée dans un cookie
+  // persistant, donc rouvrir le site plus tard ne redemande pas de
+  // connexion (voir la redirection automatique vers /dashboard sur "/",
+  // "/login" et "/register" quand une session valide existe déjà).
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 60 },
   pages: {
     signIn: "/login"
   },

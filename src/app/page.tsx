@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NETWORK_META, NETWORKS } from "@/lib/types";
@@ -23,7 +26,13 @@ const FEATURES = [
   }
 ];
 
-export default function LandingPage() {
+// Composant serveur : si une session valide existe déjà (cookie persistant,
+// voir src/lib/auth.ts), on saute directement au tableau de bord au lieu de
+// réafficher la page marketing à chaque ouverture du site.
+export default async function LandingPage() {
+  const session = await getServerSession(authOptions);
+  if (session?.user) redirect("/dashboard");
+
   return (
     <main className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />

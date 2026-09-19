@@ -3,13 +3,15 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode, REFERRAL_TRIAL_DAYS } from "@/lib/referral";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const schema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(8),
   brandName: z.string().min(2),
-  referralCode: z.string().trim().toUpperCase().optional()
+  referralCode: z.string().trim().toUpperCase().optional(),
+  turnstileToken: z.string().optional()
 });
 
 function slugify(input: string) {
@@ -28,7 +30,12 @@ export async function POST(req: Request) {
   if (!body.success) {
     return NextResponse.json({ error: body.error.flatten() }, { status: 400 });
   }
-  const { name, email, password, brandName, referralCode } = body.data;
+  const { name, email, password, brandName, referralCode, turnstileToken } = body.data;
+
+  const humanVerified = await verifyTurnstileToken(turnstileToken);
+  if (!humanVerified) {
+    return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
+  }
 
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {

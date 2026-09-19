@@ -51,6 +51,13 @@ model User {
   // Thème de couleurs choisi dans Paramètres (voir src/lib/themes.ts).
   // "nebula" = thème par défaut d'origine.
   themePreference String @default("nebula")
+
+  // --- Réinitialisation de mot de passe ---
+  // On ne stocke jamais le jeton en clair : passwordResetTokenHash est le
+  // hash SHA-256 du jeton envoyé par email (voir src/lib/password-reset.ts).
+  // Nullable pour les mêmes raisons que referralCode ci-dessus.
+  passwordResetTokenHash      String?   @unique
+  passwordResetTokenExpiresAt DateTime?
 }
 
 model Brand {
