@@ -13,27 +13,32 @@ const config: Config = {
           700: "#0f1729",
           600: "#161f38"
         },
+        // Pilotées par des variables CSS (voir globals.css + src/lib/themes.ts)
+        // plutôt que des hex en dur, pour que les ~10 thèmes de couleurs des
+        // Paramètres puissent recolorer TOUTE l'appli (chaque classe
+        // bg-nebula-500, text-aurora-300, etc. déjà utilisée partout) sans
+        // toucher au moindre composant.
         nebula: {
-          900: "#071033",
-          800: "#0b1a4d",
-          700: "#122a6e",
-          600: "#1a3d94",
-          500: "#2955c4",
-          400: "#4d78e8",
-          300: "#7ea1f5",
-          200: "#b4c8fa",
-          100: "#dfe9fd"
+          900: "rgb(var(--c-nebula-900) / <alpha-value>)",
+          800: "rgb(var(--c-nebula-800) / <alpha-value>)",
+          700: "rgb(var(--c-nebula-700) / <alpha-value>)",
+          600: "rgb(var(--c-nebula-600) / <alpha-value>)",
+          500: "rgb(var(--c-nebula-500) / <alpha-value>)",
+          400: "rgb(var(--c-nebula-400) / <alpha-value>)",
+          300: "rgb(var(--c-nebula-300) / <alpha-value>)",
+          200: "rgb(var(--c-nebula-200) / <alpha-value>)",
+          100: "rgb(var(--c-nebula-100) / <alpha-value>)"
         },
         aurora: {
-          500: "#5b8def",
-          400: "#7fb2ff",
-          300: "#63e6ff",
-          glow: "#8fd7ff"
+          500: "rgb(var(--c-aurora-500) / <alpha-value>)",
+          400: "rgb(var(--c-aurora-400) / <alpha-value>)",
+          300: "rgb(var(--c-aurora-300) / <alpha-value>)",
+          glow: "rgb(var(--c-aurora-glow) / <alpha-value>)"
         },
         accent: {
-          violet: "#7c6cf0",
-          cyan: "#3ee6dd",
-          magenta: "#e857b0"
+          violet: "rgb(var(--c-accent-violet) / <alpha-value>)",
+          cyan: "rgb(var(--c-accent-cyan) / <alpha-value>)",
+          magenta: "rgb(var(--c-accent-magenta) / <alpha-value>)"
         }
       },
       fontFamily: {
@@ -58,7 +63,8 @@ const config: Config = {
         float: "float 8s ease-in-out infinite",
         shimmer: "shimmer 2.5s linear infinite",
         "fade-in": "fadeIn 0.2s ease-out",
-        "fade-in-up": "fadeInUp 0.35s ease-out"
+        "fade-in-up": "fadeInUp 0.35s ease-out",
+        "ring-pulse": "ringPulse 2.6s ease-in-out infinite"
       },
       keyframes: {
         float: {
@@ -76,6 +82,10 @@ const config: Config = {
         fadeInUp: {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        ringPulse: {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(127,178,255,0.45)" },
+          "50%": { boxShadow: "0 0 0 5px rgba(127,178,255,0)" }
         }
       }
     }

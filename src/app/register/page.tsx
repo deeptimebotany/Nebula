@@ -1,17 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "" });
+  const searchParams = useSearchParams();
+  const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Un lien de parrainage (?ref=CODE) pré-remplit le champ automatiquement.
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) setForm((s) => ({ ...s, referralCode: ref.toUpperCase() }));
+  }, [searchParams]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,7 +28,7 @@ export default function RegisterPage() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
+      body: JSON.stringify({ ...form, referralCode: form.referralCode || undefined })
     });
 
     if (!res.ok) {
@@ -69,6 +76,18 @@ export default function RegisterPage() {
               />
             </div>
           ))}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-400">
+              Code de parrainage <span className="text-slate-600">(optionnel — 14 jours d&apos;IA offerts)</span>
+            </label>
+            <input
+              type="text"
+              value={form.referralCode}
+              onChange={(e) => setForm((s) => ({ ...s, referralCode: e.target.value.toUpperCase() }))}
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm uppercase tracking-widest text-white outline-none transition focus:border-aurora-400/60"
+              placeholder="ABCD1234"
+            />
+          </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Création..." : "Créer mon espace"}

@@ -45,16 +45,16 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   FREE: {
     id: "FREE",
     label: "Gratuit",
-    maxConnections: 4,
+    maxConnections: 3,
     maxPostsPerMonth: 20,
     aiEnabled: false,
     massPublishEnabled: false,
     tiers: [{ maxBrands: 1, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
     features: [
       "1 marque",
-      "4 comptes réseaux connectés au choix",
+      "3 comptes connectés (Instagram + Facebook comptent pour un seul)",
       "20 publications programmées / mois",
-      "Publier une même vidéo sur vos 4 réseaux en même temps",
+      "Publier une même vidéo sur vos réseaux en même temps",
       "Calendrier + analytics de base",
       "Sans assistant IA"
     ]
@@ -62,7 +62,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   PRO: {
     id: "PRO",
     label: "Pro",
-    maxConnections: 8, // 2 comptes × 4 réseaux disponibles
+    maxConnections: 8,
     maxPostsPerMonth: 100,
     aiEnabled: true,
     massPublishEnabled: false,
@@ -73,8 +73,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     ],
     features: [
       "Jusqu'à 3, 5 ou 10 marques au choix",
-      "Tous les réseaux, avec un 2e compte par réseau (double compte partout)",
+      "Avec un abonnement, ajoutez plusieurs comptes à votre marque sur chaque réseau",
       "100 publications programmées / mois et par marque",
+      "Publications envoyées plus rapidement",
       "Assistant IA (titres, légendes, chat)",
       "Analyse de rétention vidéo par IA",
       "Génération de miniatures"
@@ -98,6 +99,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Publications illimitées",
       "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
       "Assistant IA + analyse de rétention",
+      "Publications prioritaires",
       "Support prioritaire"
     ]
   }

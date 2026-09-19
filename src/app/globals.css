@@ -9,6 +9,29 @@
      sur les polices système. */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* Thème de couleurs par défaut ("Nébuleuse") — triplets "R G B" (sans
+     virgule) pour la syntaxe rgb(var(...) / <alpha>) de Tailwind. Un thème
+     choisi dans Paramètres réécrit ces mêmes variables sur <html>, voir
+     src/lib/themes.ts + src/components/theme-provider.tsx. Rien d'autre dans
+     l'appli n'a besoin de changer : toutes les classes bg-aurora-400,
+     text-nebula-300, etc. suivent automatiquement. */
+  --c-nebula-900: 7 16 51;
+  --c-nebula-800: 11 26 77;
+  --c-nebula-700: 18 42 110;
+  --c-nebula-600: 26 61 148;
+  --c-nebula-500: 41 85 196;
+  --c-nebula-400: 77 120 232;
+  --c-nebula-300: 126 161 245;
+  --c-nebula-200: 180 200 250;
+  --c-nebula-100: 223 233 253;
+  --c-aurora-500: 91 141 239;
+  --c-aurora-400: 127 178 255;
+  --c-aurora-300: 99 230 255;
+  --c-aurora-glow: 143 215 255;
+  --c-accent-violet: 124 108 240;
+  --c-accent-cyan: 62 230 221;
+  --c-accent-magenta: 232 87 176;
 }
 
 * {
@@ -32,6 +55,16 @@ body {
 ::selection {
   background: rgba(94, 146, 255, 0.35);
   color: #fff;
+}
+
+/* Halo discret qui respire autour de la case "aujourd'hui" du calendrier —
+   suit la couleur du thème actif via la variable CSS (voir themes.ts). */
+@keyframes today-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--c-aurora-400) / 0.5); }
+  50% { box-shadow: 0 0 0 6px rgb(var(--c-aurora-400) / 0); }
+}
+.today-glow {
+  animation: today-glow 2.6s ease-in-out infinite;
 }
 
 /* Scrollbar sombre */
@@ -65,6 +98,17 @@ body {
     border-color: rgba(120, 150, 255, 0.28);
     transform: translateY(-2px);
     box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -20px rgba(41, 85, 196, 0.35);
+  }
+
+  /* Variante plus opaque de .glass-panel, réservée aux menus déroulants
+     (sélecteur de marque, ajout de compte...) : un flou fort combiné à un
+     fond translucide rendait ces menus flottants trop flous/peu lisibles
+     par-dessus le contenu de la page. Fond plus couvrant + flou réduit. */
+  .glass-panel-solid {
+    background: linear-gradient(180deg, rgba(17, 23, 42, 0.97), rgba(7, 10, 20, 0.97));
+    border: 1px solid rgba(120, 150, 255, 0.18);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 20px 50px -20px rgba(0, 0, 0, 0.85);
   }
 
   /* Trame de points décorative en fond de page. Implémentée via ::before

@@ -12,6 +12,8 @@ import { NetworkBadge } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { IconUpload, IconSparkle } from "@/components/dashboard/icons";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { uploadMediaFile } from "@/lib/upload-client";
 import type { Plan } from "@/lib/plans";
 
 interface UploadedAsset {
@@ -39,12 +41,77 @@ type ScheduleMode = "now" | "date";
 
 const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
+// Extrait des frames d'une vidéo directement dans le navigateur (canvas),
+// sans passer par ffmpeg côté serveur : fonctionne partout, y compris sur
+// Vercel et avec des vidéos stockées sur Vercel Blob, contrairement à
+// l'ancienne extraction serveur qui échouait dans ces deux cas.
+async function captureVideoFrames(sourceUrl: string, count: number): Promise<Blob[]> {
+  const video = document.createElement("video");
+  video.src = sourceUrl;
+  video.muted = true;
+  video.playsInline = true;
+  video.crossOrigin = "anonymous";
+
+  await new Promise<void>((resolve, reject) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => reject(new Error("Impossible de lire cette vidéo pour en extraire des images."));
+  });
+
+  const duration = video.duration || 0;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 360;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Capture d'image non supportée par ce navigateur.");
+
+  const blobs: Blob[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = duration > 0 ? (duration * (i + 1)) / (count + 1) : 0;
+    await new Promise<void>((resolve, reject) => {
+      const onSeeked = () => {
+        video.removeEventListener("seeked", onSeeked);
+        resolve();
+      };
+      video.addEventListener("seeked", onSeeked);
+      video.currentTime = t;
+      video.onerror = () => reject(new Error("Erreur pendant l'extraction d'une image."));
+    });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (blob) blobs.push(blob);
+  }
+  return blobs;
+}
+
+async function uploadThumbnailBlob(blob: Blob): Promise<string> {
+  const form = new FormData();
+  form.append("file", new File([blob], "frame.jpg", { type: blob.type || "image/jpeg" }));
+  const res = await fetch("/api/media/thumbnails/upload", { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Échec de l'envoi de l'image.");
+  return data.url as string;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(new Error("Lecture de l'image impossible."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function ComposerPage() {
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
+  const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
+  const prefilledTime = searchParams.get("time"); // optionnel, depuis la vue heures du calendrier (HH:mm)
   const aiStatus = useAiStatus(activeBrand?.id);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
@@ -56,12 +123,16 @@ export default function ComposerPage() {
   const [caption, setCaption] = useState("");
   const [selectedNetworks, setSelectedNetworks] = useState<Network[]>([]);
   const [overrides, setOverrides] = useState<Partial<Record<Network, NetworkOverride>>>({});
-  const [mode, setMode] = useState<ScheduleMode>("now");
-  const [scheduleDate, setScheduleDate] = useState("");
+  const [mode, setMode] = useState<ScheduleMode>(prefilledDate ? "date" : "now");
+  const [scheduleDate, setScheduleDate] = useState(() =>
+    prefilledDate ? `${prefilledDate}T${prefilledTime ?? "12:00"}` : ""
+  );
   const [submitting, setSubmitting] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumbOptions, setThumbOptions] = useState<string[]>([]);
+  const [aiThumbLoading, setAiThumbLoading] = useState(false);
+  const lastCapturedFrame = useRef<Blob | null>(null);
 
   // Publication en masse (palier Agence uniquement) : au lieu d'un seul
   // compte par réseau, on publie la même vidéo sur un ensemble de comptes
@@ -167,32 +238,37 @@ export default function ComposerPage() {
     async (files: FileList | null) => {
       if (!files || !files.length || !activeBrand) return;
       setUploading(true);
-      const form = new FormData();
-      form.append("brandId", activeBrand.id);
-      const previews: { url: string }[] = [];
-      Array.from(files).forEach((f) => {
-        form.append("files", f);
-        previews.push({ url: URL.createObjectURL(f) });
-      });
 
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      setUploading(false);
-      if (!res.ok) {
-        toast.error(data.error ?? "Échec de l'upload.");
-        return;
-      }
-      const newAssets: UploadedAsset[] = data.assets.map(
-        (a: { id: string; url: string; filename: string; type: "VIDEO" | "IMAGE" }, i: number) => ({
-          id: a.id,
-          url: a.url,
-          filename: a.filename,
-          type: a.type,
-          previewUrl: previews[i]?.url ?? a.url
+      const fileList = Array.from(files);
+      const results = await Promise.allSettled(
+        fileList.map(async (f) => {
+          const previewUrl = URL.createObjectURL(f);
+          const asset = await uploadMediaFile(f, activeBrand.id);
+          return { asset, previewUrl };
         })
       );
-      setAssets((prev) => [...prev, ...newAssets]);
-      setThumbOptions([]);
+
+      setUploading(false);
+
+      const newAssets: UploadedAsset[] = [];
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          newAssets.push({
+            id: r.value.asset.id,
+            url: r.value.asset.url,
+            filename: r.value.asset.filename,
+            type: r.value.asset.type,
+            previewUrl: r.value.previewUrl
+          });
+        } else {
+          const message = r.reason instanceof Error ? r.reason.message : "Échec de l'envoi du fichier.";
+          toast.error(message);
+        }
+      }
+      if (newAssets.length) {
+        setAssets((prev) => [...prev, ...newAssets]);
+        setThumbOptions([]);
+      }
     },
     [activeBrand, toast]
   );
@@ -283,14 +359,43 @@ export default function ComposerPage() {
   async function onGenerateThumbnails() {
     if (!videoAsset) return;
     setThumbLoading(true);
-    const res = await fetch(`/api/media/${videoAsset.id}/thumbnails`, { method: "POST" });
-    const data = await res.json();
-    setThumbLoading(false);
-    if (!res.ok) {
-      toast.error(data.error ?? "Échec de la génération de miniatures.");
-      return;
+    try {
+      const blobs = await captureVideoFrames(videoAsset.previewUrl, 6);
+      if (!blobs.length) throw new Error("Aucune image n'a pu être extraite de cette vidéo.");
+      lastCapturedFrame.current = blobs[0];
+      const urls = await Promise.all(blobs.map(uploadThumbnailBlob));
+      setThumbOptions(urls);
+    } catch (err) {
+      toast.error((err as Error).message ?? "Échec de l'extraction de miniatures.");
+    } finally {
+      setThumbLoading(false);
     }
-    setThumbOptions(data.thumbnails ?? []);
+  }
+
+  async function onGenerateThumbnailWithAi() {
+    if (!videoAsset) return;
+    if (!lastCapturedFrame.current) {
+      await onGenerateThumbnails();
+    }
+    if (!lastCapturedFrame.current) return;
+    setAiThumbLoading(true);
+    try {
+      const base64 = await blobToBase64(lastCapturedFrame.current);
+      const res = await fetch(`/api/media/${videoAsset.id}/thumbnails/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Échec de la génération IA.");
+      setThumbOptions((prev) => [data.url, ...prev]);
+      await pickThumbnail(data.url);
+      toast.success("Miniature générée par l'IA ajoutée.");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Échec de la génération IA.");
+    } finally {
+      setAiThumbLoading(false);
+    }
   }
 
   async function pickThumbnail(url: string) {
@@ -433,12 +538,14 @@ export default function ComposerPage() {
       )}
 
       {noConnections && (
-        <GlassCard className="border-amber-500/30 bg-amber-500/[0.04]">
-          <p className="text-sm text-amber-200">
-            Aucun réseau connecté. <Link href="/accounts" className="underline">Connectez un compte</Link> pour
-            pouvoir publier — vous pouvez tout de même préparer votre import ci-dessous.
-          </p>
-        </GlassCard>
+        <Link href="/accounts" className="block">
+          <GlassCard className="border-amber-500/30 bg-amber-500/[0.04] transition hover:border-amber-400/50 hover:bg-amber-500/[0.07]">
+            <p className="text-sm text-amber-200">
+              Aucun réseau connecté. <span className="underline">Cliquez ici pour connecter un compte</span> et
+              pouvoir publier — vous pouvez tout de même préparer votre import ci-dessous.
+            </p>
+          </GlassCard>
+        </Link>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -493,15 +600,23 @@ export default function ComposerPage() {
 
             {videoAsset && (
               <div className="mt-4 border-t border-white/[0.06] pt-4">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-medium text-white">Miniature</h3>
-                  <Button variant="outline" onClick={onGenerateThumbnails} disabled={thumbLoading}>
-                    {thumbLoading ? "Extraction..." : "Générer des miniatures"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={onGenerateThumbnails} disabled={thumbLoading}>
+                      {thumbLoading ? "Extraction..." : "Générer des miniatures"}
+                    </Button>
+                    {aiStatus?.enabled && (
+                      <Button variant="outline" onClick={onGenerateThumbnailWithAi} disabled={aiThumbLoading || thumbLoading}>
+                        <IconSparkle className="h-4 w-4" />
+                        {aiThumbLoading ? "Génération IA..." : "Générer avec l'IA"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
-                  Images extraites directement de la vidéo (aucune IA nécessaire) — choisissez celle qui donne le
-                  plus envie de cliquer.
+                  Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de
+                  cliquer, ou laissez l&apos;IA en créer une version plus accrocheuse.
                 </p>
                 {thumbOptions.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -729,12 +844,9 @@ export default function ComposerPage() {
             </div>
 
             {mode === "date" && (
-              <input
-                type="datetime-local"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
-              />
+              <div className="mt-3">
+                <DateTimePicker value={scheduleDate} onChange={setScheduleDate} />
+              </div>
             )}
 
             <Button className="mt-4 w-full" disabled={submitting || !canSubmit} onClick={onSubmit}>

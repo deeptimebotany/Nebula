@@ -44,6 +44,16 @@ export async function saveUploadedFile(file: File): Promise<{
     };
   }
 
+  // Pas de jeton Blob : on écrirait sur le disque local, ce qui ne fonctionne
+  // pas sur Vercel (système de fichiers en lecture seule en production hors
+  // /tmp) et échouait donc silencieusement pour chaque upload. On le signale
+  // clairement plutôt que de laisser remonter une erreur système obscure.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "Le stockage des fichiers n'est pas configuré : ajoutez la variable d'environnement BLOB_READ_WRITE_TOKEN dans les paramètres du projet Vercel (Settings → Environment Variables), puis redéployez."
+    );
+  }
+
   const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
   const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
   await mkdir(absoluteDir, { recursive: true });

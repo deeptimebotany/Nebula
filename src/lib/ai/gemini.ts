@@ -10,6 +10,10 @@
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// Modèle avec génération d'image (utilisé uniquement pour les miniatures IA).
+// Réglable via .env si Google fait évoluer le nom du modèle disponible sur
+// le palier gratuit, sans toucher au code.
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 
 export function isAiEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
@@ -108,6 +112,59 @@ export async function generateCopy(input: {
 
   const text = await callGemini({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
   return text.trim().replace(/^"|"$/g, "");
+}
+
+export interface GeneratedThumbnail {
+  base64: string;
+  mimeType: string;
+}
+
+/**
+ * Génère une miniature "punchy" à partir d'une frame réelle de la vidéo
+ * (extraite côté navigateur, sans ffmpeg — voir composer/page.tsx) : Gemini
+ * reçoit l'image et un prompt lui demandant de la rendre plus accrocheuse
+ * (contraste, cadrage, éventuellement un court texte d'accroche), et renvoie
+ * une image générée qu'on propose comme option de miniature parmi d'autres.
+ */
+export async function generateThumbnail(input: {
+  frameBase64: string;
+  frameMimeType: string;
+  title: string;
+  network?: string;
+}): Promise<GeneratedThumbnail> {
+  const key = requireKey();
+  const prompt = [
+    "Tu vas créer une miniature vidéo accrocheuse à partir de cette image, extraite d'une vraie vidéo.",
+    `Titre de la vidéo : "${input.title || "sans titre"}"${input.network ? ` (réseau : ${input.network})` : ""}.`,
+    "Garde le sujet principal de l'image reconnaissable, mais rends le cadrage et le contraste plus percutants,",
+    "façon miniature YouTube/TikTok qui donne envie de cliquer. Tu peux ajouter un très court texte d'accroche",
+    "à l'écran si ça sert l'image, mais reste sobre et lisible. Format 16:9."
+  ].join(" ");
+
+  const res = await fetch(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }]
+        }
+      ]
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Erreur Gemini (${res.status})`);
+  }
+
+  const parts: GenerateContentPart[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p) => p.inline_data?.data);
+  if (!imagePart?.inline_data) {
+    throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");
+  }
+  return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
 }
 
 export interface FrameInput {

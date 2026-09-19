@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -159,9 +160,22 @@ export default function BillingPage() {
               <li key={f}>✓ {f}</li>
             ))}
           </ul>
-          <Button className="mt-5 w-full" variant={data?.plan === "FREE" ? "ghost" : "outline"} disabled>
-            {data?.plan === "FREE" ? "Palier actuel" : "Inclus"}
-          </Button>
+          {data?.plan === "FREE" ? (
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-sm">
+              <p className="text-white">Votre plan actuel</p>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Géré depuis la page{" "}
+                <Link href="/accounts" className="text-aurora-300 hover:underline">
+                  Comptes
+                </Link>
+                .
+              </p>
+            </div>
+          ) : (
+            <Button className="mt-5 w-full" variant="outline" disabled>
+              Inclus
+            </Button>
+          )}
         </GlassCard>
 
         {PAID_PLANS.map((planId) => {
@@ -209,7 +223,9 @@ export default function BillingPage() {
                 <span className="text-sm text-slate-400"> / {interval === "year" ? "an" : "mois"}</span>
               </p>
               {perMonthEquivalent !== null && (
-                <p className="text-xs text-slate-500">soit {perMonthEquivalent}€/mois</p>
+                <p className="mt-0.5 text-sm font-medium text-emerald-300">
+                  soit {perMonthEquivalent}€/mois <span className="text-emerald-400/80">— moins cher qu&apos;en mensuel</span>
+                </p>
               )}
 
               <ul className="mt-4 space-y-1.5 text-sm text-slate-300">

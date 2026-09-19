@@ -22,7 +22,9 @@ import {
   IconCard,
   IconUsers,
   IconHeart,
-  IconPlus
+  IconPlus,
+  IconSettings,
+  IconAvatar
 } from "./icons";
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
 
@@ -33,7 +35,8 @@ const NAV = [
   { href: "/analytics", label: "Analytics", icon: IconChart },
   { href: "/accounts", label: "Comptes", icon: IconLink },
   { href: "/community", label: "Communauté", icon: IconUsers },
-  { href: "/billing", label: "Facturation", icon: IconCard }
+  { href: "/billing", label: "Facturation", icon: IconCard },
+  { href: "/settings", label: "Paramètres", icon: IconSettings }
 ];
 
 const PLAN_BADGE_STYLE: Record<Plan, string> = {
@@ -134,18 +137,27 @@ export function TopNav() {
           {NAV.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
+            const needsAttention = item.href === "/accounts" && connections.length === 0 && Boolean(activeBrand);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition",
+                  "relative flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition",
                   active
                     ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow"
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 )}
               >
-                <Icon className={clsx("h-4 w-4", active ? "text-aurora-300" : "text-slate-500")} />
+                <span className="relative">
+                  <Icon className={clsx("h-4 w-4", active ? "text-aurora-300" : "text-slate-500")} />
+                  {needsAttention && (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-magenta ring-2 ring-void-950"
+                      title="Connectez un réseau pour commencer"
+                    />
+                  )}
+                </span>
                 <span className="hidden md:inline">{item.label}</span>
               </Link>
             );
@@ -176,8 +188,10 @@ export function TopNav() {
         <div className="relative shrink-0" ref={brandSwitcherRef}>
           <button
             onClick={() => setBrandSwitcherOpen((v) => !v)}
+            title="Changer de marque ou gérer votre compte"
             className="glass-panel flex items-center gap-2 rounded-xl px-3 py-1.5 text-left"
           >
+            <IconAvatar className="h-4 w-4 shrink-0 text-slate-400" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="max-w-[140px] truncate text-sm font-medium text-white">
@@ -192,7 +206,7 @@ export function TopNav() {
           </button>
 
           {brandSwitcherOpen && (
-            <div className="glass-panel absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-xl p-1.5">
+            <div className="glass-panel-solid absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-xl p-1.5">
               <p className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-wide text-slate-500">
                 Vos marques · {brandsOwned}/{maxBrands}
               </p>
@@ -294,7 +308,7 @@ export function TopNav() {
               <IconPlus className="h-3.5 w-3.5" />
             </button>
             {addAccountOpen && activeBrand && (
-              <div className="glass-panel absolute right-0 top-[calc(100%+6px)] z-20 w-64 rounded-xl p-1.5">
+              <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-64 rounded-xl p-1.5">
                 <p className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-wide text-slate-500">Connecter</p>
                 {PROVIDERS.map((p) => (
                   <a

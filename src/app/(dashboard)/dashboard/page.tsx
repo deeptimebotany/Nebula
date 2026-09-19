@@ -111,6 +111,34 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {!loading && connections.length === 0 && (
+        <GlassCard className="border-aurora-400/25 bg-nebula-700/[0.12]">
+          <p className="mb-3 text-sm font-medium text-white">Pour démarrer, trois étapes rapides :</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Link
+              href="/accounts"
+              className="flex flex-1 items-center gap-2 rounded-xl border border-aurora-400/40 bg-aurora-400/[0.08] px-3.5 py-2.5 text-sm text-white transition hover:bg-aurora-400/[0.14]"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aurora-400/20 text-xs font-semibold text-aurora-200">1</span>
+              Connecter un réseau
+            </Link>
+            <span className="hidden text-slate-600 sm:inline">→</span>
+            <Link
+              href="/analytics"
+              className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm text-slate-300 transition hover:border-white/25 hover:text-white"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-slate-300">2</span>
+              Synchroniser
+            </Link>
+            <span className="hidden text-slate-600 sm:inline">→</span>
+            <span className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm text-slate-500">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-slate-400">3</span>
+              Voir vos stats ici
+            </span>
+          </div>
+        </GlassCard>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Abonnés (total)" value={hasAnalytics ? totalFollowers.toLocaleString("fr-FR") : "—"} />
         <StatCard label="Portée (dernière sync.)" value={hasAnalytics ? totalReach.toLocaleString("fr-FR") : "—"} suffix={hasAnalytics ? "vues" : undefined} />
@@ -131,10 +159,16 @@ export default function DashboardPage() {
           {hasAnalytics ? (
             <GrowthChart data={chartData} seriesKeys={chartNetworks} />
           ) : (
-            <p className="py-10 text-center text-sm text-slate-500">
-              Pas encore de données — connectez un compte et synchronisez-le depuis la page{" "}
-              <Link href="/analytics" className="text-aurora-300 hover:underline">Analytics</Link>.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <p className="text-sm text-slate-500">
+                Pas encore de données — connectez un compte puis synchronisez-le pour remplir ce graphique.
+              </p>
+              <Link href={connections.length === 0 ? "/accounts" : "/analytics"}>
+                <Button variant="outline">
+                  {connections.length === 0 ? "Connecter un compte" : "Synchroniser vos comptes"}
+                </Button>
+              </Link>
+            </div>
           )}
         </GlassCard>
 

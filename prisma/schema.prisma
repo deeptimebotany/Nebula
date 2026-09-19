@@ -32,6 +32,25 @@ model User {
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
   subscription Subscription?
+
+  // --- Parrainage ---
+  // Code unique généré à l'inscription, à partager. referredByCode retient
+  // le code utilisé par CE compte à son inscription (traçabilité), et
+  // aiTrialUntil accorde l'accès IA gratuitement jusqu'à cette date, même
+  // sur le palier Gratuit (voir src/lib/billing/plan.ts).
+  // Nullable (plutôt que requis) pour que `prisma db push` ne casse jamais
+  // sur des comptes déjà existants en base au moment où ce champ est ajouté :
+  // les nouveaux comptes en reçoivent toujours un à l'inscription, et les
+  // anciens comptes se le voient générer à la première visite de la page
+  // Paramètres (voir /api/referral). Une valeur NULL n'entre pas en
+  // conflit avec la contrainte @unique (Postgres autorise plusieurs NULL).
+  referralCode   String?   @unique
+  referredByCode String?
+  aiTrialUntil   DateTime?
+
+  // Thème de couleurs choisi dans Paramètres (voir src/lib/themes.ts).
+  // "nebula" = thème par défaut d'origine.
+  themePreference String @default("nebula")
 }
 
 model Brand {

@@ -66,7 +66,18 @@ export default function AccountsPage() {
     load();
   }
 
-  const atLimit = planInfo ? connections.length >= planInfo.limits.maxConnections : false;
+  // Instagram et Facebook passent tous les deux par "Meta" et comptent pour
+  // UN SEUL compte dans le quota (voir countConnectionSlots côté serveur,
+  // src/lib/billing/plan.ts, qui applique la même règle).
+  const connectionSlots =
+    Math.max(
+      connections.filter((c) => c.network === "INSTAGRAM").length,
+      connections.filter((c) => c.network === "FACEBOOK").length
+    ) +
+    connections.filter((c) => c.network === "TIKTOK").length +
+    connections.filter((c) => c.network === "YOUTUBE").length;
+
+  const atLimit = planInfo ? connectionSlots >= planInfo.limits.maxConnections : false;
 
   return (
     <div className="space-y-6">
@@ -80,8 +91,8 @@ export default function AccountsPage() {
         </div>
         {planInfo && (
           <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">
-            {connections.length} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections}{" "}
-            comptes · palier {planInfo.limits.label}
+            {connectionSlots} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections}{" "}
+            comptes (Instagram + Facebook comptent ensemble) · palier {planInfo.limits.label}
           </span>
         )}
       </div>
