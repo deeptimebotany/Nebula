@@ -1,0 +1,285 @@
+// Nebula — schéma de données
+//
+// Provider par défaut : SQLite (zéro configuration pour démarrer en local).
+// Pour la production, remplacez le provider par "postgresql" et DATABASE_URL
+// par votre chaîne de connexion Postgres (Railway, Supabase, Neon, RDS...).
+// Note : SQLite ne supporte pas les enums natifs, on utilise donc des
+// champs String contraints par les types TypeScript / Zod côté application
+// (voir src/lib/types.ts) — ce choix reste valable si vous migrez vers Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime      @default(now())
+  memberships  Membership[]
+  posts        Post[]
+  forumThreads ForumThread[]
+  forumReplies ForumReply[]
+  sharedVideos SharedVideo[]
+  // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
+  // particulier : il gouverne combien de marques au total ce compte peut
+  // créer. Voir src/lib/plans.ts.
+  subscription Subscription?
+}
+
+model Brand {
+  id           String             @id @default(cuid())
+  name         String
+  slug         String             @unique
+  logoUrl      String?
+  timezone     String             @default("Europe/Paris")
+  createdAt    DateTime           @default(now())
+  memberships  Membership[]
+  connections  SocialConnection[]
+  posts        Post[]
+  media        MediaAsset[]
+}
+
+// plan     : "FREE" | "PRO" | "AGENCY" (voir src/lib/plans.ts)
+// status   : "ACTIVE" | "TRIALING" | "PAST_DUE" | "CANCELED" | "INCOMPLETE"
+// maxBrands: palier "nombre de marques" choisi (3/5/10 en Pro, 15/25/50 en
+//            Agence) — voir src/lib/plans.ts pour la grille de prix associée.
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  plan                 String    @default("FREE")
+  // "month" | "year" — intervalle de facturation choisi par le client.
+  interval             String    @default("month")
+  maxBrands            Int       @default(1)
+  status               String    @default("ACTIVE")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Rôle : "OWNER" | "EDITOR" | "VIEWER"
+model Membership {
+  id      String @id @default(cuid())
+  role    String @default("EDITOR")
+  userId  String
+  brandId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+}
+
+// network : "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE" | "X" | "LINKEDIN"
+// status  : "CONNECTED" | "EXPIRED" | "ERROR" | "DISCONNECTED"
+model SocialConnection {
+  id                String              @id @default(cuid())
+  brandId           String
+  network           String
+  externalAccountId String
+  displayName       String
+  handle            String?
+  avatarUrl         String?
+  accessToken       String
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  scopes            String              @default("")
+  status            String              @default("CONNECTED")
+  lastError         String?
+  connectedAt       DateTime            @default(now())
+  lastSyncedAt      DateTime?
+  brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  targets           PostTarget[]
+  analytics         AnalyticsSnapshot[]
+
+  @@unique([brandId, network, externalAccountId])
+}
+
+// type : "VIDEO" | "IMAGE"
+model MediaAsset {
+  id              String      @id @default(cuid())
+  brandId         String
+  type            String
+  url             String
+  filename        String
+  mimeType        String
+  sizeBytes       Int
+  durationSeconds Float?
+  width           Int?
+  height          Int?
+  thumbnailUrl    String?
+  createdAt       DateTime    @default(now())
+  brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  postMedia       PostMedia[]
+}
+
+// status : "DRAFT" | "SCHEDULED" | "PUBLISHING" | "PUBLISHED" | "FAILED" | "PARTIAL"
+model Post {
+  id           String        @id @default(cuid())
+  brandId      String
+  createdById  String
+  title        String        @default("") // utilisé notamment comme titre YouTube
+  caption      String        @default("") // description/légende par défaut
+  status       String        @default("DRAFT")
+  scheduledAt  DateTime?
+  duplicatedFromId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdBy    User          @relation(fields: [createdById], references: [id])
+  media        PostMedia[]
+  targets      PostTarget[]
+  messages     PostMessage[]
+}
+
+model PostMedia {
+  id           String     @id @default(cuid())
+  postId       String
+  mediaAssetId String
+  order        Int        @default(0)
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+}
+
+// network : voir SocialConnection.network
+// status  : "PENDING" | "SCHEDULED" | "PUBLISHING" | "PUBLISHED" | "FAILED"
+model PostTarget {
+  id               String            @id @default(cuid())
+  postId           String
+  connectionId     String
+  network          String
+  titleOverride    String?
+  captionOverride  String?
+  status           String            @default("PENDING")
+  externalPostId   String?
+  externalUrl      String?
+  errorMessage     String?
+  attempts         Int               @default(0)
+  publishedAt      DateTime?
+  post             Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  connection       SocialConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  insights         VideoInsight[]
+}
+
+// Analyse IA de la performance d'une publication vidéo (rétention YouTube +
+// lecture des frames aux points de décrochage). Voir src/lib/ai/*.
+model VideoInsight {
+  id             String     @id @default(cuid())
+  postTargetId   String
+  summary        String
+  dropOffPoints  String // JSON : [{ timeRatio, watchRatio, note }]
+  recommendations String // JSON : string[]
+  retentionCurve String // JSON : [{ timeRatio, watchRatio }]
+  createdAt      DateTime   @default(now())
+  postTarget     PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+
+  @@index([postTargetId, createdAt])
+}
+
+// role : "USER" | "ASSISTANT"
+model PostMessage {
+  id        String   @id @default(cuid())
+  postId    String
+  role      String
+  authorId  String?
+  content   String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model AnalyticsSnapshot {
+  id              String           @id @default(cuid())
+  connectionId    String
+  network         String
+  capturedAt      DateTime         @default(now())
+  followers       Int              @default(0)
+  followersDelta  Int              @default(0)
+  engagementRate  Float            @default(0)
+  impressions     Int              @default(0)
+  reach           Int              @default(0)
+  postsCount      Int              @default(0)
+  raw             String?
+  connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, capturedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Communauté Nebula — espace public, commun à tous les utilisateurs (pas de
+// scoping par marque). Forum de discussion, guides d'utilisation, et partage
+// volontaire de vidéos déjà publiées (lien + miniature uniquement, jamais de
+// réhébergement du fichier source).
+// ---------------------------------------------------------------------------
+
+// category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE"
+model ForumThread {
+  id        String       @id @default(cuid())
+  authorId  String
+  title     String
+  body      String
+  category  String       @default("GENERAL")
+  pinned    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replies   ForumReply[]
+
+  @@index([createdAt])
+}
+
+model ForumReply {
+  id        String      @id @default(cuid())
+  threadId  String
+  authorId  String
+  body      String
+  createdAt DateTime    @default(now())
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+// Contenu éditorial fixe (pas d'auteur "utilisateur") — géré via le script de
+// seed (prisma/seed.ts). Inclut un guide de démarrage pré-rempli.
+model Guide {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  summary   String
+  body      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Partage volontaire d'un post déjà publié par son auteur : on ne stocke que
+// le lien externe (vers la plateforme d'origine) et une miniature, jamais le
+// fichier vidéo lui-même — les données sont recopiées au moment du partage
+// pour ne pas dépendre du cycle de vie du post/brand d'origine.
+model SharedVideo {
+  id           String   @id @default(cuid())
+  authorId     String
+  postTargetId String? // simple référence informative, pas de relation FK
+  network      String
+  title        String
+  externalUrl  String
+  thumbnailUrl String?
+  note         String?
+  createdAt    DateTime @default(now())
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}

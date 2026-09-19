@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* "Inter" / "Space Grotesk" restent en tête : dès que next/font/google (ou
+     des fichiers de police auto-hébergés) les injecte, ils prennent le relais
+     automatiquement sans aucun autre changement. En attendant, repli propre
+     sur les polices système. */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #02040a;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45, 90, 220, 0.28), transparent 60%),
+    radial-gradient(circle at 15% 15%, rgba(124, 108, 240, 0.14), transparent 35%),
+    radial-gradient(circle at 85% 5%, rgba(62, 230, 221, 0.08), transparent 35%);
+  color: #eaf0ff;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(94, 146, 255, 0.35);
+  color: #fff;
+}
+
+/* Scrollbar sombre */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(94, 146, 255, 0.18);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(94, 146, 255, 0.32);
+}
+
+@layer components {
+  .glass-panel {
+    background: linear-gradient(180deg, rgba(20, 28, 50, 0.6), rgba(8, 12, 24, 0.55));
+    border: 1px solid rgba(120, 150, 255, 0.12);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 20px 50px -25px rgba(0, 0, 0, 0.7);
+  }
+
+  .glass-panel-hover {
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .glass-panel-hover:hover {
+    border-color: rgba(120, 150, 255, 0.28);
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -20px rgba(41, 85, 196, 0.35);
+  }
+
+  /* Trame de points décorative en fond de page. Implémentée via ::before
+     (plutôt qu'un mask-image direct sur l'élément) pour que le fondu ne
+     s'applique qu'au décor, jamais au contenu réel qu'il contient. */
+  .noise-grid {
+    position: relative;
+    isolation: isolate;
+  }
+  .noise-grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, rgba(120, 150, 255, 0.16) 1px, transparent 0);
+    background-size: 28px 28px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 70%);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 70%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(90deg, #b4c8fa, #7ea1f5 35%, #63e6ff 70%, #7c6cf0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .btn-glow {
+    background: linear-gradient(135deg, #2955c4, #4d78e8 60%, #3ee6dd);
+    box-shadow: 0 0 0 1px rgba(120, 160, 255, 0.35), 0 12px 30px -8px rgba(41, 85, 196, 0.65);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  }
+  .btn-glow:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow: 0 0 0 1px rgba(140, 180, 255, 0.5), 0 16px 36px -8px rgba(41, 85, 196, 0.8);
+  }
+  .btn-glow:active {
+    transform: translateY(0);
+  }
+
+  .shimmer-bg {
+    background: linear-gradient(
+      110deg,
+      rgba(120, 150, 255, 0.05) 8%,
+      rgba(120, 150, 255, 0.18) 18%,
+      rgba(120, 150, 255, 0.05) 33%
+    );
+    background-size: 200% 100%;
+  }
+}
