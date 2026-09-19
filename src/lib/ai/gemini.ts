@@ -9,10 +9,14 @@
 // Clé gratuite : https://aistudio.google.com/apikey
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// Google retire régulièrement les anciens modèles (gemini-2.5-flash a été
+// retiré pour les nouvelles clés le 19/09/2026, remplacé par gemini-3.6-flash
+// — message d'erreur retourné directement par l'API). Si ça se reproduit,
+// pas besoin de redéployer le code : réglez simplement GEMINI_MODEL (ou
+// GEMINI_IMAGE_MODEL) dans les variables d'environnement Vercel avec le nom
+// du nouveau modèle indiqué par l'erreur.
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 // Modèle avec génération d'image (utilisé uniquement pour les miniatures IA).
-// Réglable via .env si Google fait évoluer le nom du modèle disponible sur
-// le palier gratuit, sans toucher au code.
 const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 
 export function isAiEnabled(): boolean {

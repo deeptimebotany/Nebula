@@ -52,6 +52,9 @@ model User {
   // "nebula" = thème par défaut d'origine.
   themePreference String @default("nebula")
 
+  // Fond d'écran choisi dans Paramètres (voir src/lib/backgrounds.ts).
+  backgroundPreference String @default("mesh")
+
   // --- Réinitialisation de mot de passe ---
   // On ne stocke jamais le jeton en clair : passwordResetTokenHash est le
   // hash SHA-256 du jeton envoyé par email (voir src/lib/password-reset.ts).

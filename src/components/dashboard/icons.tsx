@@ -156,3 +156,11 @@ export const IconAvatar = ({ className = base }: IconProps) => (
     <path d="M4.5 20c0-4.1 3.4-7.4 7.5-7.4s7.5 3.3 7.5 7.4" strokeLinecap="round" />
   </svg>
 );
+
+export const IconLock = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+    <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+    <circle cx="12" cy="15.3" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
+);

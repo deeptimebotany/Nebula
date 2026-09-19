@@ -6,6 +6,7 @@ import { AiAssistant } from "@/components/dashboard/ai-assistant";
 import { BrandProvider } from "@/components/brand-context";
 import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
+import { EasterEggs } from "@/components/easter-eggs";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <div className="mx-auto max-w-7xl">{children}</div>
             </main>
             <AiAssistant />
+            <EasterEggs />
           </div>
         </ConfirmProvider>
       </ToastProvider>

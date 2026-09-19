@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
 import { THEMES } from "@/lib/themes";
 import { useTheme } from "@/components/theme-provider";
+import { useBackground } from "@/components/background-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { IconGift, IconSettings } from "@/components/dashboard/icons";
+import { BackgroundCarousel } from "@/components/settings/background-carousel";
+import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
 
 interface ReferralInfo {
   code: string;
@@ -25,6 +28,7 @@ function swatchPreview(vars: Record<string, string>) {
 
 export default function SettingsPage() {
   const { themeKey, setThemeKey } = useTheme();
+  const { backgroundKey, setBackgroundKey } = useBackground();
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
@@ -82,6 +86,17 @@ export default function SettingsPage() {
       </GlassCard>
 
       <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Fond d&apos;écran</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          30 fonds animés qui s&apos;accordent avec votre thème de couleurs. Faites défiler avec les flèches ou en
+          glissant à la souris.
+        </p>
+        <div className="mt-4">
+          <BackgroundCarousel selected={backgroundKey} onSelect={setBackgroundKey} />
+        </div>
+      </GlassCard>
+
+      <GlassCard>
         <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
           <IconGift className="h-4 w-4 text-aurora-300" /> Parrainage
         </h2>
@@ -112,6 +127,8 @@ export default function SettingsPage() {
           <p className="mt-4 text-sm text-slate-500">Chargement...</p>
         )}
       </GlassCard>
+
+      <AccountPrivacyCard />
     </div>
   );
 }

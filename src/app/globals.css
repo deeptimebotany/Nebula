@@ -32,6 +32,15 @@
   --c-accent-violet: 124 108 240;
   --c-accent-cyan: 62 230 221;
   --c-accent-magenta: 232 87 176;
+
+  /* Fond d'écran sélectionné dans Paramètres (voir src/lib/backgrounds.ts +
+     background-provider.tsx, qui réécrit cette variable sur <html>). Valeur
+     ci-dessous = le fond "mesh" par défaut, pour que le premier rendu (avant
+     que le JS client n'ait lu la préférence) corresponde déjà à ce que verra
+     un compte qui n'a jamais changé de fond. */
+  --app-bg: radial-gradient(circle at 15% 10%, rgb(var(--c-nebula-500) / 0.22), transparent 55%),
+    radial-gradient(circle at 85% 90%, rgb(var(--c-aurora-400) / 0.16), transparent 60%),
+    radial-gradient(circle at 1px 1px, rgb(var(--c-aurora-400) / 0.16) 1px, transparent 0), #05070f;
 }
 
 * {
@@ -124,10 +133,11 @@ body {
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background-image: radial-gradient(circle at 1px 1px, rgba(120, 150, 255, 0.16) 1px, transparent 0);
-    background-size: 28px 28px;
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 70%);
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 70%);
+    /* Fond choisi dans Paramètres (voir --app-bg ci-dessus) plutôt qu'un
+       motif fixe : chaque fond gère déjà sa propre taille/répétition. */
+    background: var(--app-bg);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35) 70%);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35) 70%);
   }
 
   .text-gradient {

@@ -130,6 +130,7 @@ function ComposerPageInner() {
   const [massPublishAllowed, setMassPublishAllowed] = useState(false);
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
   const [selectedNetworks, setSelectedNetworks] = useState<Network[]>([]);
@@ -249,6 +250,7 @@ function ComposerPageInner() {
     async (files: FileList | null) => {
       if (!files || !files.length || !activeBrand) return;
       setUploading(true);
+      setUploadError(null);
 
       const fileList = Array.from(files);
       const results = await Promise.allSettled(
@@ -262,6 +264,7 @@ function ComposerPageInner() {
       setUploading(false);
 
       const newAssets: UploadedAsset[] = [];
+      const errors: string[] = [];
       for (const r of results) {
         if (r.status === "fulfilled") {
           newAssets.push({
@@ -273,8 +276,15 @@ function ComposerPageInner() {
           });
         } else {
           const message = r.reason instanceof Error ? r.reason.message : "Échec de l'envoi du fichier.";
+          errors.push(message);
           toast.error(message);
         }
+      }
+      if (errors.length) {
+        // En plus du toast (qui disparaît tout seul), un message persistant
+        // et copiable sous la zone d'import : plus facile à lire/partager
+        // pour diagnostiquer un souci de configuration (ex: capture d'écran).
+        setUploadError(errors.join(" · "));
       }
       if (newAssets.length) {
         setAssets((prev) => [...prev, ...newAssets]);
@@ -587,6 +597,12 @@ function ComposerPageInner() {
               />
             </div>
             {uploading && <p className="mt-3 text-sm text-aurora-300">Envoi en cours...</p>}
+            {uploadError && (
+              <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
+                <p className="font-medium">Échec de l&apos;envoi</p>
+                <p className="mt-0.5 select-all text-xs text-red-300/80">{uploadError}</p>
+              </div>
+            )}
 
             {assets.length > 0 && (
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
