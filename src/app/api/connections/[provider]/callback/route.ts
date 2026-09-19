@@ -37,14 +37,27 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
 
   try {
     await assertConnectionQuota(brandId);
-    if (params.provider === "meta") {
+    if (params.provider === "facebook" || params.provider === "instagram") {
+      // Facebook et Instagram partagent la même boîte de dialogue OAuth Meta
+      // (une autorisation retourne les deux à la fois), mais on ne crée ici
+      // que les comptes du réseau que la personne a explicitement demandé de
+      // connecter — voir src/lib/providers.ts pour le contexte.
       const { instagramAccounts, facebookPages } = await exchangeMetaCode(code);
-      for (const ig of instagramAccounts) await upsertConnection(brandId, "INSTAGRAM", ig);
-      for (const fb of facebookPages) await upsertConnection(brandId, "FACEBOOK", fb);
-      if (instagramAccounts.length === 0 && facebookPages.length === 0) {
-        throw new Error("Aucun compte Instagram/Facebook éligible n'a été trouvé pour cet utilisateur.");
+      if (params.provider === "facebook") {
+        for (const fb of facebookPages) await upsertConnection(brandId, "FACEBOOK", fb);
+        if (facebookPages.length === 0) {
+          throw new Error("Aucune Page Facebook n'a été trouvée pour cet utilisateur.");
+        }
+        redirectTo.searchParams.set("count", String(facebookPages.length));
+      } else {
+        for (const ig of instagramAccounts) await upsertConnection(brandId, "INSTAGRAM", ig);
+        if (instagramAccounts.length === 0) {
+          throw new Error(
+            "Aucun compte Instagram Business/Creator (lié à une Page Facebook) n'a été trouvé pour cet utilisateur."
+          );
+        }
+        redirectTo.searchParams.set("count", String(instagramAccounts.length));
       }
-      redirectTo.searchParams.set("count", String(instagramAccounts.length + facebookPages.length));
     } else {
       const network = PROVIDER_TO_NETWORK[params.provider];
       if (!network) throw new Error("Fournisseur inconnu.");

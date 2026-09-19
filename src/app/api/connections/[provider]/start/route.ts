@@ -24,8 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
 
   try {
     const authUrl =
-      params.provider === "meta"
-        ? instagramClient.getAuthUrl(state) // OAuth Meta partagé Instagram + Facebook
+      params.provider === "facebook" || params.provider === "instagram"
+        ? instagramClient.getAuthUrl(state) // OAuth Meta partagé Instagram + Facebook, même URL pour les deux
         : getSocialClient(PROVIDER_TO_NETWORK[params.provider]).getAuthUrl(state);
     return NextResponse.redirect(authUrl);
   } catch (err) {
