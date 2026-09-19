@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { THEMES } from "@/lib/themes";
+import { THEMES, canUseTheme } from "@/lib/themes";
+import { getUserPlan } from "@/lib/billing/plan";
 
 // GET/PATCH /api/settings/theme — préférence de thème de couleurs, propre au
 // compte (pas à la marque), pour la retrouver en se connectant depuis un
@@ -26,11 +27,25 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  if (!THEMES.some((t) => t.key === parsed.data.theme)) {
+  const theme = THEMES.find((t) => t.key === parsed.data.theme);
+  if (!theme) {
     return NextResponse.json({ error: "Thème inconnu." }, { status: 400 });
   }
 
   const userId = (session.user as { id: string }).id;
+
+  // Ne jamais faire confiance au client pour les thèmes réservés à un palier
+  // (voir requiresPlan dans src/lib/themes.ts) : on revérifie ici.
+  if (theme.requiresPlan) {
+    const { plan } = await getUserPlan(userId);
+    if (!canUseTheme(theme, plan)) {
+      return NextResponse.json(
+        { error: `Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },
+        { status: 403 }
+      );
+    }
+  }
+
   await prisma.user.update({ where: { id: userId }, data: { themePreference: parsed.data.theme } });
   return NextResponse.json({ ok: true });
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
-import { IconPlus } from "@/components/dashboard/icons";
+import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar } from "@/components/dashboard/icons";
 
 interface ConnectionRow {
   id: string;
@@ -140,10 +140,24 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Abonnés (total)" value={hasAnalytics ? totalFollowers.toLocaleString("fr-FR") : "—"} />
-        <StatCard label="Portée (dernière sync.)" value={hasAnalytics ? totalReach.toLocaleString("fr-FR") : "—"} suffix={hasAnalytics ? "vues" : undefined} />
-        <StatCard label="Taux d'engagement" value={hasAnalytics ? avgEngagement.toFixed(1) : "—"} suffix={hasAnalytics ? "%" : undefined} />
-        <StatCard label="Posts ce mois-ci" value={String(postsThisMonth)} />
+        <StatCard
+          label="Abonnés (total)"
+          value={hasAnalytics ? totalFollowers.toLocaleString("fr-FR") : "—"}
+          icon={<IconUsers className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Portée (dernière sync.)"
+          value={hasAnalytics ? totalReach.toLocaleString("fr-FR") : "—"}
+          suffix={hasAnalytics ? "vues" : undefined}
+          icon={<IconChart className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Taux d'engagement"
+          value={hasAnalytics ? avgEngagement.toFixed(1) : "—"}
+          suffix={hasAnalytics ? "%" : undefined}
+          icon={<IconHeart className="h-4 w-4" />}
+        />
+        <StatCard label="Posts ce mois-ci" value={String(postsThisMonth)} icon={<IconCalendar className="h-4 w-4" />} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

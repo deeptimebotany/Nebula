@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { clsx } from "@/lib/clsx";
-import { THEMES } from "@/lib/themes";
+import { THEMES, canUseTheme } from "@/lib/themes";
 import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
 import { useToast } from "@/components/dashboard/toast";
-import { IconGift, IconSettings } from "@/components/dashboard/icons";
+import { IconGift, IconSettings, IconLock } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
+import type { Plan } from "@/lib/plans";
 
 interface ReferralInfo {
   code: string;
@@ -32,13 +34,27 @@ export default function SettingsPage() {
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
+  const [plan, setPlan] = useState<Plan>("FREE");
 
   useEffect(() => {
     fetch("/api/referral")
       .then((r) => (r.ok ? r.json() : null))
       .then(setReferral)
       .catch(() => undefined);
+    fetch("/api/billing/plan")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.plan && setPlan(d.plan))
+      .catch(() => undefined);
   }, []);
+
+  function onPickTheme(themeKeyToPick: string) {
+    const theme = THEMES.find((t) => t.key === themeKeyToPick);
+    if (theme && !canUseTheme(theme, plan)) {
+      toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Facturation.`);
+      return;
+    }
+    setThemeKey(themeKeyToPick);
+  }
 
   const referralUrl = referral ? `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral.code}` : "";
 
@@ -66,23 +82,43 @@ export default function SettingsPage() {
           appareil et sur votre compte.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          {THEMES.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setThemeKey(t.key)}
-              className={clsx(
-                "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition",
-                themeKey === t.key ? "border-aurora-400 bg-white/[0.04]" : "border-white/10 hover:border-white/25"
-              )}
-            >
-              <span
-                className="h-10 w-full rounded-lg shadow-inner"
-                style={{ background: swatchPreview(t.vars) }}
-              />
-              <span className="text-xs text-slate-300">{t.label}</span>
-            </button>
-          ))}
+          {THEMES.map((t) => {
+            const locked = !canUseTheme(t, plan);
+            return (
+              <button
+                key={t.key}
+                onClick={() => onPickTheme(t.key)}
+                className={clsx(
+                  "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition",
+                  themeKey === t.key
+                    ? "border-aurora-400 bg-white/[0.04]"
+                    : locked
+                      ? "border-white/5 opacity-60 hover:opacity-90"
+                      : "border-white/10 hover:border-white/25"
+                )}
+              >
+                {locked && (
+                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-void-950/90 text-slate-300">
+                    <IconLock className="h-3 w-3" />
+                  </span>
+                )}
+                <span
+                  className="h-10 w-full rounded-lg shadow-inner"
+                  style={{ background: swatchPreview(t.vars) }}
+                />
+                <span className="text-xs text-slate-300">{t.label}</span>
+                {locked && <span className="text-[10px] text-amber-400">Palier {t.requiresPlan}</span>}
+              </button>
+            );
+          })}
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Les thèmes verrouillés se débloquent avec un abonnement — voir{" "}
+          <Link href="/billing" className="text-aurora-300 hover:underline">
+            Facturation
+          </Link>
+          .
+        </p>
       </GlassCard>
 
       <GlassCard>

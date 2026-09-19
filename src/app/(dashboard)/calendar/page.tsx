@@ -6,7 +6,7 @@ import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkDot } from "@/components/ui/network-badge";
-import type { Network } from "@/lib/types";
+import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { QuotaBar } from "@/components/dashboard/quota-bar";
 import { PostEditModal } from "@/components/dashboard/post-edit-modal";
@@ -54,6 +54,9 @@ export default function CalendarPage() {
   const [connectionsByBrand, setConnectionsByBrand] = useState<Record<string, ConnectionRow[]>>({});
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [hiddenConnectionIds, setHiddenConnectionIds] = useState<Set<string>>(new Set());
+  // Filtre rapide par réseau, affiché juste au-dessus de la grille — distinct
+  // du panneau "Filtres" (marques/comptes précis) pour un accès en un clic.
+  const [hiddenNetworks, setHiddenNetworks] = useState<Set<Network>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
@@ -97,6 +100,21 @@ export default function CalendarPage() {
     [selectedBrandIds, connectionsByBrand]
   );
 
+  const availableNetworks = useMemo(() => {
+    const set = new Set<Network>();
+    for (const c of allConnections) set.add(c.network);
+    return Array.from(set);
+  }, [allConnections]);
+
+  function toggleNetworkFilter(n: Network) {
+    setHiddenNetworks((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
+  }
+
   const entriesByDay = useMemo(() => {
     const map = new Map<string, DayEntry[]>();
     const push = (key: string, entry: DayEntry) => map.set(key, [...(map.get(key) ?? []), entry]);
@@ -104,7 +122,9 @@ export default function CalendarPage() {
     for (const brandId of selectedBrandIds) {
       for (const p of postsByBrand[brandId] ?? []) {
         if (!p.scheduledAt) continue;
-        const visibleTargets = p.targets.filter((t) => !hiddenConnectionIds.has(t.connectionId));
+        const visibleTargets = p.targets.filter(
+          (t) => !hiddenConnectionIds.has(t.connectionId) && !hiddenNetworks.has(t.network)
+        );
         if (p.targets.length > 0 && visibleTargets.length === 0) continue; // tous les comptes de ce post sont masqués
         const d = new Date(p.scheduledAt);
         push(dateKey(d), {
@@ -119,7 +139,7 @@ export default function CalendarPage() {
     }
     for (const list of map.values()) list.sort((a, b) => a.time.localeCompare(b.time));
     return map;
-  }, [postsByBrand, selectedBrandIds, hiddenConnectionIds]);
+  }, [postsByBrand, selectedBrandIds, hiddenConnectionIds, hiddenNetworks]);
 
   const grid = useMemo(() => {
     const first = new Date(cursor);
@@ -231,6 +251,29 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+
+      {availableNetworks.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Réseaux :</span>
+          {availableNetworks.map((n) => {
+            const active = !hiddenNetworks.has(n);
+            return (
+              <button
+                key={n}
+                onClick={() => toggleNetworkFilter(n)}
+                className={clsx(
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                  active
+                    ? "border-aurora-400/40 bg-aurora-400/[0.08] text-white"
+                    : "border-white/10 bg-white/[0.02] text-slate-500 hover:border-white/20"
+                )}
+              >
+                <NetworkDot network={n} /> {NETWORK_META[n].label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {view === "month" ? (
         <GlassCard>

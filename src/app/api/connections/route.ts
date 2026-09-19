@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
       status: true,
       connectedAt: true,
       lastSyncedAt: true,
-      lastError: true
+      lastError: true,
+      tokenExpiresAt: true
     },
     orderBy: { connectedAt: "desc" }
   });

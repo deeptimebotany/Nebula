@@ -53,6 +53,45 @@ export default function AnalyticsPage() {
   const hasRealData = connections.some((c) => c.snapshots.length > 0);
   const networksToShow: Network[] = connections.map((c) => c.network);
 
+  // Export CSV côté navigateur (aucune dépendance ajoutée) : d'abord un
+  // résumé par réseau (dernière synchro), puis le détail jour par jour tel
+  // qu'affiché sur le graphique — assez pour un tableur ou un partage rapide.
+  function exportCsv() {
+    const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines: string[] = [];
+    lines.push("Résumé par réseau");
+    lines.push(["Réseau", "Compte", "Abonnés", "Portée", "Impressions"].map(escape).join(","));
+    for (const c of connections) {
+      const latest = c.snapshots.at(-1);
+      lines.push(
+        [
+          NETWORK_META[c.network].label,
+          c.displayName,
+          latest?.followers ?? 0,
+          latest?.reach ?? 0,
+          latest?.impressions ?? 0
+        ]
+          .map(escape)
+          .join(",")
+      );
+    }
+    lines.push("");
+    lines.push("Évolution des abonnés par jour");
+    lines.push(["Date", ...networksToShow.map((n) => NETWORK_META[n].label)].map(escape).join(","));
+    for (const point of chartData) {
+      lines.push([point.date, ...networksToShow.map((n) => point[n] ?? "")].map(escape).join(","));
+    }
+
+    const csv = "﻿" + lines.join("\n"); // BOM pour un affichage correct des accents dans Excel
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nebula-analytics-${activeBrand?.slug ?? "export"}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const chartData = useMemo(() => {
     const byDate = new Map<string, ChartPoint>();
     for (const c of connections) {
@@ -77,9 +116,14 @@ export default function AnalyticsPage() {
               : "Connectez puis synchronisez un compte pour voir vos vraies statistiques ici."}
           </p>
         </div>
-        <Button onClick={onSync} disabled={syncing || connections.length === 0}>
-          {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
+            Exporter le rapport (CSV)
+          </Button>
+          <Button onClick={onSync} disabled={syncing || connections.length === 0}>
+            {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
+          </Button>
+        </div>
       </div>
 
       {connections.length === 0 && !loading ? (

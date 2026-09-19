@@ -78,7 +78,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Publications envoyées plus rapidement",
       "Assistant IA (titres, légendes, chat)",
       "Analyse de rétention vidéo par IA",
-      "Génération de miniatures"
+      "Génération de miniatures",
+      "Thème de couleurs exclusif « Saphir »"
     ]
   },
   AGENCY: {
@@ -100,7 +101,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
       "Assistant IA + analyse de rétention",
       "Publications prioritaires",
-      "Support prioritaire"
+      "Support prioritaire",
+      "Thème de couleurs exclusif « Or Impérial »"
     ]
   }
 };

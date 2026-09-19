@@ -2,11 +2,21 @@
 // mêmes variables CSS que globals.css (:root) : appliquer un thème revient à
 // réécrire ces variables sur <html>, et TOUTE l'appli suit automatiquement
 // puisque tailwind.config.ts fait pointer nebula-*/aurora-*/accent-* dessus.
+//
+// requiresPlan (optionnel) réserve un thème aux comptes ayant AU MOINS ce
+// palier — voir src/lib/plans.ts pour la hiérarchie FREE < PRO < AGENCY. Un
+// thème sans requiresPlan reste disponible à tout le monde. Important :
+// souscrire au palier requis ne CHANGE jamais le thème actif tout seul, ça
+// débloque simplement l'option dans Paramètres — c'est la personne qui doit
+// ensuite le sélectionner elle-même (voir /api/settings/theme, qui refait la
+// même vérification côté serveur pour ne jamais faire confiance au client).
+import type { Plan } from "./plans";
 
 export interface ThemeDefinition {
   key: string;
   label: string;
   vars: Record<string, string>;
+  requiresPlan?: Plan;
 }
 
 function v(rgb: number[]): string {
@@ -234,9 +244,106 @@ export const THEMES: ThemeDefinition[] = [
       "--c-accent-magenta": v([143, 124, 182]),
     }
   },
+  {
+    key: "cerise",
+    label: "Cerise",
+    vars: {
+      "--c-nebula-900": v([54, 10, 26]),
+      "--c-nebula-800": v([84, 15, 40]),
+      "--c-nebula-700": v([117, 22, 56]),
+      "--c-nebula-600": v([153, 29, 74]),
+      "--c-nebula-500": v([194, 38, 94]),
+      "--c-nebula-400": v([214, 74, 124]),
+      "--c-nebula-300": v([224, 116, 152]),
+      "--c-nebula-200": v([234, 158, 180]),
+      "--c-nebula-100": v([243, 201, 209]),
+      "--c-aurora-500": v([230, 53, 120]),
+      "--c-aurora-400": v([236, 98, 145]),
+      "--c-aurora-300": v([242, 143, 171]),
+      "--c-aurora-glow": v([244, 161, 184]),
+      "--c-accent-violet": v([226, 68, 165]),
+      "--c-accent-cyan": v([88, 205, 200]),
+      "--c-accent-magenta": v([226, 68, 90]),
+    }
+  },
+  {
+    key: "menthe",
+    label: "Menthe",
+    vars: {
+      "--c-nebula-900": v([8, 48, 40]),
+      "--c-nebula-800": v([13, 74, 62]),
+      "--c-nebula-700": v([19, 104, 87]),
+      "--c-nebula-600": v([26, 137, 115]),
+      "--c-nebula-500": v([34, 174, 146]),
+      "--c-nebula-400": v([72, 196, 171]),
+      "--c-nebula-300": v([115, 210, 192]),
+      "--c-nebula-200": v([158, 224, 211]),
+      "--c-nebula-100": v([203, 239, 231]),
+      "--c-aurora-500": v([52, 220, 178]),
+      "--c-aurora-400": v([98, 230, 196]),
+      "--c-aurora-300": v([144, 238, 214]),
+      "--c-aurora-glow": v([163, 241, 222]),
+      "--c-accent-violet": v([100, 209, 150]),
+      "--c-accent-cyan": v([82, 226, 212]),
+      "--c-accent-magenta": v([209, 209, 120]),
+    }
+  },
+  {
+    key: "saphir",
+    label: "Saphir",
+    requiresPlan: "PRO",
+    vars: {
+      "--c-nebula-900": v([8, 20, 56]),
+      "--c-nebula-800": v([12, 31, 87]),
+      "--c-nebula-700": v([17, 44, 121]),
+      "--c-nebula-600": v([23, 58, 160]),
+      "--c-nebula-500": v([29, 74, 204]),
+      "--c-nebula-400": v([66, 109, 223]),
+      "--c-nebula-300": v([109, 146, 231]),
+      "--c-nebula-200": v([153, 183, 238]),
+      "--c-nebula-100": v([199, 215, 246]),
+      "--c-aurora-500": v([47, 99, 239]),
+      "--c-aurora-400": v([94, 134, 243]),
+      "--c-aurora-300": v([141, 170, 247]),
+      "--c-aurora-glow": v([160, 184, 248]),
+      "--c-accent-violet": v([113, 90, 235]),
+      "--c-accent-cyan": v([62, 201, 230]),
+      "--c-accent-magenta": v([214, 73, 196]),
+    }
+  },
+  {
+    key: "or-imperial",
+    label: "Or Impérial (Agence)",
+    requiresPlan: "AGENCY",
+    vars: {
+      "--c-nebula-900": v([20, 16, 8]),
+      "--c-nebula-800": v([33, 26, 11]),
+      "--c-nebula-700": v([51, 39, 14]),
+      "--c-nebula-600": v([74, 56, 18]),
+      "--c-nebula-500": v([181, 138, 36]),
+      "--c-nebula-400": v([214, 171, 74]),
+      "--c-nebula-300": v([227, 196, 124]),
+      "--c-nebula-200": v([238, 216, 168]),
+      "--c-nebula-100": v([247, 236, 211]),
+      "--c-aurora-500": v([224, 175, 56]),
+      "--c-aurora-400": v([232, 193, 99]),
+      "--c-aurora-300": v([240, 211, 142]),
+      "--c-aurora-glow": v([243, 220, 161]),
+      "--c-accent-violet": v([201, 140, 235]),
+      "--c-accent-cyan": v([99, 214, 196]),
+      "--c-accent-magenta": v([235, 140, 90]),
+    }
+  },
 ];
 
 export const DEFAULT_THEME_KEY = "nebula";
+
+/** true si ce compte (selon son palier) peut sélectionner ce thème. */
+export function canUseTheme(theme: ThemeDefinition, plan: Plan): boolean {
+  if (!theme.requiresPlan) return true;
+  const order: Plan[] = ["FREE", "PRO", "AGENCY"];
+  return order.indexOf(plan) >= order.indexOf(theme.requiresPlan);
+}
 
 export function findTheme(key: string | null | undefined): ThemeDefinition {
   return THEMES.find((t) => t.key === key) ?? THEMES[0];

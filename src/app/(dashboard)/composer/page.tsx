@@ -8,7 +8,7 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge } from "@/components/ui/network-badge";
+import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { IconUpload, IconSparkle } from "@/components/dashboard/icons";
@@ -156,6 +156,11 @@ function ComposerPageInner() {
   // Quel compte utiliser pour chaque réseau sélectionné en mode normal —
   // utile dès qu'un réseau a plusieurs comptes connectés (palier Pro+).
   const [selectedConnectionByNetwork, setSelectedConnectionByNetwork] = useState<Partial<Record<Network, string>>>({});
+
+  // Réseau affiché dans l'aperçu à droite (voir carte "Aperçu" ci-dessous) —
+  // se recale automatiquement sur le premier réseau sélectionné tant que la
+  // personne n'a pas cliqué sur un autre onglet réseau dans l'aperçu.
+  const [previewNetwork, setPreviewNetwork] = useState<Network | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const draftRestored = useRef(false);
@@ -504,6 +509,17 @@ function ComposerPageInner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [submitting, canSubmit, onSubmit]);
 
+  // Aperçu en temps réel (carte "Aperçu", colonne de droite) : retombe sur le
+  // premier réseau sélectionné si celui choisi manuellement n'est plus dans
+  // la sélection (ex : décoché), et utilise le texte personnalisé de ce
+  // réseau quand il est ouvert, sinon le titre/légende commun.
+  const effectivePreviewNetwork: Network | null =
+    previewNetwork && selectedNetworks.includes(previewNetwork) ? previewNetwork : selectedNetworks[0] ?? null;
+  const previewOverride = effectivePreviewNetwork ? overrides[effectivePreviewNetwork] : undefined;
+  const previewTitle = previewOverride?.open && previewOverride.title ? previewOverride.title : title;
+  const previewCaption = previewOverride?.open && previewOverride.caption ? previewOverride.caption : caption;
+  const previewAsset = assets[0];
+
   const noConnections = connections.length === 0;
   const tightestLimit =
     selectedNetworks.length > 0
@@ -836,6 +852,70 @@ function ComposerPageInner() {
         </div>
 
         <div className="space-y-5">
+          <GlassCard>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-base font-medium text-white">Aperçu</h2>
+              {selectedNetworks.length > 1 && (
+                <div className="flex gap-1">
+                  {selectedNetworks.map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setPreviewNetwork(n)}
+                      className={clsx(
+                        "rounded-full p-0.5 transition",
+                        effectivePreviewNetwork === n ? "ring-2 ring-aurora-400" : "opacity-50 hover:opacity-80"
+                      )}
+                      title={`Aperçu ${NETWORK_META[n].label}`}
+                    >
+                      <NetworkDot network={n} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-void-950/60">
+              <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white">
+                  {(activeBrand?.name ?? "N").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-white">{activeBrand?.name ?? "Votre marque"}</p>
+                  {effectivePreviewNetwork && (
+                    <p className="text-[10px] text-slate-500">{NETWORK_META[effectivePreviewNetwork].label}</p>
+                  )}
+                </div>
+                {effectivePreviewNetwork && <NetworkDot network={effectivePreviewNetwork} />}
+              </div>
+              <div className="flex aspect-square w-full items-center justify-center bg-black/40">
+                {previewAsset ? (
+                  previewAsset.type === "VIDEO" ? (
+                    <video
+                      src={previewAsset.previewUrl}
+                      poster={previewAsset.thumbnailUrl}
+                      className="h-full w-full object-cover"
+                      muted
+                    />
+                  ) : (
+                    <img src={previewAsset.previewUrl} alt="" className="h-full w-full object-cover" />
+                  )
+                ) : (
+                  <p className="px-4 text-center text-xs text-slate-600">
+                    Votre média apparaîtra ici dès que vous en importerez un.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1 px-3 py-2.5">
+                {previewTitle && <p className="truncate text-xs font-semibold text-white">{previewTitle}</p>}
+                <p className="line-clamp-4 whitespace-pre-wrap text-xs text-slate-300">
+                  {previewCaption || "Votre légende apparaîtra ici au fil de la saisie..."}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-slate-500">
+              Rendu indicatif — la mise en page réelle varie selon la plateforme.
+            </p>
+          </GlassCard>
+
           <GlassCard className="border-white/10 bg-white/[0.015]">
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span className="text-aurora-300">💡</span>

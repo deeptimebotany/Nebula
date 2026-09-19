@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { PROVIDERS } from "@/lib/providers";
+import { clsx } from "@/lib/clsx";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
@@ -19,6 +20,17 @@ interface ConnectionRow {
   handle?: string | null;
   status: string;
   lastError?: string | null;
+  tokenExpiresAt?: string | null;
+}
+
+const TOKEN_WARNING_DAYS = 7;
+
+function tokenStatus(tokenExpiresAt: string | null | undefined): { level: "ok" | "soon" | "expired"; daysLeft: number } | null {
+  if (!tokenExpiresAt) return null;
+  const daysLeft = Math.ceil((new Date(tokenExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (daysLeft <= 0) return { level: "expired", daysLeft };
+  if (daysLeft <= TOKEN_WARNING_DAYS) return { level: "soon", daysLeft };
+  return null; // encore largement valide, pas besoin d'un indicateur qui encombre l'écran
 }
 
 interface PlanInfo {
@@ -143,21 +155,43 @@ function AccountsPageInner() {
 
               <ul className="space-y-2">
                 {linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
-                {linked.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <NetworkBadge network={c.network} size="sm" />
-                        <p className="truncate text-sm text-white">{c.displayName}</p>
+                {linked.map((c) => {
+                  const expiry = tokenStatus(c.tokenExpiresAt);
+                  return (
+                    <li key={c.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <NetworkBadge network={c.network} size="sm" />
+                          <p className="truncate text-sm text-white">{c.displayName}</p>
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
+                        {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}
+                        {expiry && (
+                          <p className={clsx("mt-0.5 text-xs", expiry.level === "expired" ? "text-red-400" : "text-amber-400")}>
+                            {expiry.level === "expired"
+                              ? "Connexion expirée — reconnectez ce compte pour continuer à publier."
+                              : `Expire dans ${expiry.daysLeft} jour${expiry.daysLeft > 1 ? "s" : ""}.`}
+                          </p>
+                        )}
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
-                      {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}
-                    </div>
-                    <Button variant="ghost" onClick={() => disconnect(provider.id, c.id, c.displayName)}>
-                      Déconnecter
-                    </Button>
-                  </li>
-                ))}
+                      <div className="flex shrink-0 items-center gap-1">
+                        {expiry && activeBrand && (
+                          <a href={`/api/connections/${provider.id}/start?brandId=${activeBrand.id}`}>
+                            <Button
+                              variant="outline"
+                              className={expiry.level === "expired" ? "border-red-500/40 text-red-300 hover:bg-red-500/10" : undefined}
+                            >
+                              Reconnecter
+                            </Button>
+                          </a>
+                        )}
+                        <Button variant="ghost" onClick={() => disconnect(provider.id, c.id, c.displayName)}>
+                          Déconnecter
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
 
               <p className="mt-3 border-t border-white/[0.06] pt-3 text-xs text-slate-500">
