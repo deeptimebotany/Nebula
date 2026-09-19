@@ -29,7 +29,7 @@ export async function GET() {
               name: true,
               slug: true,
               createdAt: true,
-              connections: { select: { network: true, displayName: true, handle: true, status: true, createdAt: true } },
+              connections: { select: { network: true, displayName: true, handle: true, status: true, connectedAt: true } },
               posts: {
                 select: {
                   title: true,
