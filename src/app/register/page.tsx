@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 
+// useSearchParams() (utilisé ci-dessous pour lire ?ref=CODE) impose que le
+// composant qui l'appelle soit entouré d'un <Suspense>, sinon Next.js
+// refuse de pré-générer la page au build ("useSearchParams() should be
+// wrapped in a suspense boundary"). D'où cet export par défaut qui ne fait
+// que poser la limite, le vrai contenu étant dans RegisterForm ci-dessous.
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });

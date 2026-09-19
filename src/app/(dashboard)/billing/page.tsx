@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -20,7 +20,18 @@ interface PlanResponse {
 
 const PAID_PLANS: Plan[] = ["PRO", "AGENCY"];
 
+// useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
+// sinon Next.js refuse de pré-générer la page au build (même erreur que
+// celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function BillingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BillingPageInner />
+    </Suspense>
+  );
+}
+
+function BillingPageInner() {
   const toast = useToast();
   const [data, setData] = useState<PlanResponse | null>(null);
   const [loadingTier, setLoadingTier] = useState<string | null>(null);

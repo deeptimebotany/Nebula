@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -104,7 +104,18 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+// useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
+// sinon Next.js refuse de pré-générer la page au build (même erreur que
+// celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function ComposerPage() {
+  return (
+    <Suspense fallback={null}>
+      <ComposerPageInner />
+    </Suspense>
+  );
+}
+
+function ComposerPageInner() {
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();

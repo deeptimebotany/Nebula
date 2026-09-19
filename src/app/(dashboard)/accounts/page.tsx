@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -26,7 +26,18 @@ interface PlanInfo {
   limits: { maxConnections: number; label: string };
 }
 
+// useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
+// sinon Next.js refuse de pré-générer la page au build (même erreur que
+// celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function AccountsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AccountsPageInner />
+    </Suspense>
+  );
+}
+
+function AccountsPageInner() {
   const { activeBrand } = useBrand();
   const toast = useToast();
   const confirmDialog = useConfirm();
