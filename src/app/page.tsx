@@ -103,8 +103,19 @@ export default async function LandingPage() {
       </section>
 
       <footer className="relative z-10 border-t border-white/[0.06] px-6 py-8 text-center text-xs text-slate-500">
-        Nebula — projet personnel. Chaque publication réelle nécessite vos propres identifiants API par réseau
-        (voir le README).
+        <p>
+          Nebula — projet personnel. Chaque publication réelle nécessite vos propres identifiants API par
+          réseau (voir le README).
+        </p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Link href="/terms" className="hover:text-slate-300 hover:underline">
+            Conditions d&apos;utilisation
+          </Link>
+          <span>·</span>
+          <Link href="/privacy" className="hover:text-slate-300 hover:underline">
+            Politique de confidentialité
+          </Link>
+        </p>
       </footer>
     </main>
   );
