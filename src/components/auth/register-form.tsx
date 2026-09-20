@@ -74,15 +74,18 @@ function RegisterFormInner() {
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           {[
-            { key: "name", label: "Votre nom", type: "text", placeholder: "Alex Martin" },
-            { key: "email", label: "Email", type: "email", placeholder: "vous@marque.com" },
-            { key: "password", label: "Mot de passe", type: "password", placeholder: "8 caractères min." },
-            { key: "brandName", label: "Nom de la marque / du compte", type: "text", placeholder: "Ma Marque" }
+            { key: "name", label: "Votre nom", type: "text", placeholder: "Alex Martin", autoComplete: "name" },
+            { key: "email", label: "Email", type: "email", placeholder: "vous@marque.com", autoComplete: "username" },
+            { key: "password", label: "Mot de passe", type: "password", placeholder: "8 caractères min.", autoComplete: "new-password" },
+            { key: "brandName", label: "Nom de la marque / du compte", type: "text", placeholder: "Ma Marque", autoComplete: "organization" }
           ].map((f) => (
             <div key={f.key}>
               <label className="mb-1.5 block text-xs font-medium text-slate-400">{f.label}</label>
               <input
                 type={f.type}
+                name={f.key}
+                id={`register-${f.key}`}
+                autoComplete={f.autoComplete}
                 required
                 minLength={f.key === "password" ? 8 : 2}
                 value={form[f.key as keyof typeof form]}

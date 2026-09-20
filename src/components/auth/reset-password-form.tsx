@@ -74,6 +74,9 @@ function ResetPasswordFormInner() {
               <label className="mb-1.5 block text-xs font-medium text-slate-400">Nouveau mot de passe</label>
               <input
                 type="password"
+                name="new-password"
+                id="reset-new-password"
+                autoComplete="new-password"
                 required
                 minLength={8}
                 value={password}
@@ -86,6 +89,9 @@ function ResetPasswordFormInner() {
               <label className="mb-1.5 block text-xs font-medium text-slate-400">Confirmez-le</label>
               <input
                 type="password"
+                name="confirm-password"
+                id="reset-confirm-password"
+                autoComplete="new-password"
                 required
                 minLength={8}
                 value={confirm}

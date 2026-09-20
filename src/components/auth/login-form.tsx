@@ -42,6 +42,9 @@ export function LoginForm() {
             <label className="mb-1.5 block text-xs font-medium text-slate-400">Email</label>
             <input
               type="email"
+              name="email"
+              id="login-email"
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -58,6 +61,9 @@ export function LoginForm() {
             </div>
             <input
               type="password"
+              name="password"
+              id="login-password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

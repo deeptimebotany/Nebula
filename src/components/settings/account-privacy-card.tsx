@@ -103,6 +103,9 @@ export function AccountPrivacyCard() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input
             type="password"
+            name="current-password"
+            id="settings-current-password"
+            autoComplete="current-password"
             required
             placeholder="Mot de passe actuel"
             value={currentPassword}
@@ -111,6 +114,9 @@ export function AccountPrivacyCard() {
           />
           <input
             type="password"
+            name="new-password"
+            id="settings-new-password"
+            autoComplete="new-password"
             required
             minLength={8}
             placeholder="Nouveau mot de passe (8 car. min.)"
@@ -143,6 +149,9 @@ export function AccountPrivacyCard() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
             type="password"
+            name="delete-account-password"
+            id="settings-delete-password"
+            autoComplete="current-password"
             placeholder="Votre mot de passe"
             value={deletePassword}
             onChange={(e) => setDeletePassword(e.target.value)}
