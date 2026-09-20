@@ -108,11 +108,11 @@ export default async function LandingPage() {
           réseau (voir le README).
         </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <Link href="/terms" className="hover:text-slate-300 hover:underline">
+          <Link href="/legal#conditions" className="hover:text-slate-300 hover:underline">
             Conditions d&apos;utilisation
           </Link>
           <span>·</span>
-          <Link href="/privacy" className="hover:text-slate-300 hover:underline">
+          <Link href="/legal#confidentialite" className="hover:text-slate-300 hover:underline">
             Politique de confidentialité
           </Link>
         </p>
