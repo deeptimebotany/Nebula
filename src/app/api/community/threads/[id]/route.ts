@@ -10,10 +10,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const thread = await prisma.forumThread.findUnique({
     where: { id: params.id },
     include: {
-      author: { select: { id: true, name: true } },
+      author: { select: { id: true, name: true, subscription: { select: { plan: true, status: true, createdAt: true } } } },
       replies: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true } } }
+        include: { author: { select: { id: true, name: true, subscription: { select: { plan: true, status: true, createdAt: true } } } } }
       }
     }
   });

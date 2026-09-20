@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const threads = await prisma.forumThread.findMany({
     where: category ? { category } : undefined,
     include: {
-      author: { select: { id: true, name: true } },
+      author: { select: { id: true, name: true, subscription: { select: { plan: true, status: true, createdAt: true } } } },
       _count: { select: { replies: true } }
     },
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }]

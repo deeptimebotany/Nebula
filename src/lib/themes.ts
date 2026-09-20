@@ -312,26 +312,30 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
   {
+    // Repensé pour un rendu "haute couture" : fond quasi noir onyx (plutôt que
+    // brun terne) qui monte vers un or vif et lumineux, avec des accents
+    // émeraude/améthyste en contrepoint plutôt que des tons jaune-brun plats —
+    // l'objectif est un vrai effet "Wouah" à l'écran, pas juste un filtre sépia.
     key: "or-imperial",
     label: "Or Impérial (Agence)",
     requiresPlan: "AGENCY",
     vars: {
-      "--c-nebula-900": v([20, 16, 8]),
-      "--c-nebula-800": v([33, 26, 11]),
-      "--c-nebula-700": v([51, 39, 14]),
-      "--c-nebula-600": v([74, 56, 18]),
-      "--c-nebula-500": v([181, 138, 36]),
-      "--c-nebula-400": v([214, 171, 74]),
-      "--c-nebula-300": v([227, 196, 124]),
-      "--c-nebula-200": v([238, 216, 168]),
-      "--c-nebula-100": v([247, 236, 211]),
-      "--c-aurora-500": v([224, 175, 56]),
-      "--c-aurora-400": v([232, 193, 99]),
-      "--c-aurora-300": v([240, 211, 142]),
-      "--c-aurora-glow": v([243, 220, 161]),
-      "--c-accent-violet": v([201, 140, 235]),
-      "--c-accent-cyan": v([99, 214, 196]),
-      "--c-accent-magenta": v([235, 140, 90]),
+      "--c-nebula-900": v([15, 12, 7]),
+      "--c-nebula-800": v([27, 21, 10]),
+      "--c-nebula-700": v([45, 34, 13]),
+      "--c-nebula-600": v([71, 53, 17]),
+      "--c-nebula-500": v([196, 149, 38]),
+      "--c-nebula-400": v([224, 180, 82]),
+      "--c-nebula-300": v([236, 202, 128]),
+      "--c-nebula-200": v([244, 220, 168]),
+      "--c-nebula-100": v([250, 237, 212]),
+      "--c-aurora-500": v([236, 178, 46]),
+      "--c-aurora-400": v([243, 197, 92]),
+      "--c-aurora-300": v([248, 216, 140]),
+      "--c-aurora-glow": v([250, 226, 168]),
+      "--c-accent-violet": v([215, 150, 245]),
+      "--c-accent-cyan": v([110, 224, 205]),
+      "--c-accent-magenta": v([240, 120, 80]),
     }
   },
 ];

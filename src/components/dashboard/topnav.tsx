@@ -266,7 +266,7 @@ export function TopNav() {
 
       {/* Ligne 2 — marque active, comptes connectés, mise à niveau */}
       <div className="flex h-14 items-center gap-3 border-t border-white/[0.04] px-4 sm:px-6">
-        <div className="relative shrink-0" ref={brandSwitcherRef}>
+        <div className={clsx("relative shrink-0", plan !== "FREE" && "glow-border-gold rounded-xl")} ref={brandSwitcherRef}>
           <button
             onClick={() => setBrandSwitcherOpen((v) => !v)}
             title="Changer de marque ou gérer votre compte"
@@ -278,7 +278,13 @@ export function TopNav() {
                 <p className="max-w-[140px] truncate text-sm font-medium text-white">
                   {activeBrand?.name ?? "Sélectionner une marque"}
                 </p>
-                <span className={clsx("shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", PLAN_BADGE_STYLE[plan])}>
+                <span
+                  className={clsx(
+                    "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    PLAN_BADGE_STYLE[plan],
+                    plan !== "FREE" && "shadow-[0_0_8px_rgba(234,179,8,0.3)]"
+                  )}
+                >
                   {plan === "FREE" ? "Gratuit" : plan === "PRO" ? "Pro" : "Agence"}
                 </span>
               </div>

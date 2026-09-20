@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
 import { PLAN_LIMITS, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
 import { useToast } from "@/components/dashboard/toast";
+import { PremiumSparkBurst } from "@/components/premium/spark-burst";
 
 interface PlanResponse {
   plan: Plan;
@@ -103,6 +104,14 @@ function BillingPageInner() {
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get("checkout");
 
+  // Animation VIP (étincelles dorées) déclenchée UNE SEULE fois au retour de
+  // Stripe Checkout — pas à chaque re-rendu de la page tant que le paramètre
+  // ?checkout=success reste dans l'URL.
+  const [showSparkBurst, setShowSparkBurst] = useState(false);
+  useEffect(() => {
+    if (checkoutStatus === "success") setShowSparkBurst(true);
+  }, [checkoutStatus]);
+
   useEffect(() => {
     fetch("/api/billing/plan")
       .then((r) => r.json())
@@ -137,6 +146,8 @@ function BillingPageInner() {
 
   return (
     <div className="space-y-6">
+      {showSparkBurst && <PremiumSparkBurst onDone={() => setShowSparkBurst(false)} />}
+
       <div>
         <h1 className="font-display text-2xl font-semibold text-white">Facturation</h1>
         <p className="mt-1 text-sm text-slate-400">Gérez l&apos;abonnement de votre compte Nebula.</p>
@@ -253,7 +264,6 @@ function BillingPageInner() {
           const p = PLAN_LIMITS[planId];
           const tier = p.tiers.find((t) => t.maxBrands === selectedTier[planId]) ?? p.tiers[0];
           const price = interval === "year" ? tier.priceYearly : tier.priceMonthly;
-          const perMonthEquivalent = interval === "year" ? Math.round((tier.priceYearly / 12) * 10) / 10 : null;
           const isCurrent = data?.plan === planId && data?.interval === interval && data?.maxBrands === tier.maxBrands;
           const key = `${planId}-${tier.maxBrands}`;
 
@@ -293,11 +303,6 @@ function BillingPageInner() {
                 <span className="font-display text-3xl text-white">{price}€</span>
                 <span className="text-sm text-slate-400"> / {interval === "year" ? "an" : "mois"}</span>
               </p>
-              {perMonthEquivalent !== null && (
-                <p className="mt-0.5 text-sm font-medium text-emerald-300">
-                  soit {perMonthEquivalent}€/mois <span className="text-emerald-400/80">— moins cher qu&apos;en mensuel</span>
-                </p>
-              )}
 
               <ul className="mt-4 space-y-1.5 text-sm text-slate-300">
                 {p.features.map((f) => (

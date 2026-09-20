@@ -98,7 +98,6 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Jusqu'à 15, 25 ou 50 marques au choix",
       "Comptes réseaux illimités par marque",
       "Publications illimitées",
-      "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
       "Assistant IA + analyse de rétention",
       "Publications prioritaires",
       "Support prioritaire",

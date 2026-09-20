@@ -5,11 +5,14 @@ import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
+import { PremiumName } from "@/components/ui/premium-name";
+import { PremiumBadge } from "@/components/ui/premium-badge";
 import { useToast } from "@/components/dashboard/toast";
 import { clsx } from "@/lib/clsx";
 import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
+import { computePremiumInfo } from "@/lib/premium";
 
 type Tab = "forum" | "guides" | "videos";
 
@@ -89,7 +92,7 @@ interface Thread {
   category: string;
   pinned: boolean;
   createdAt: string;
-  author: { id: string; name: string };
+  author: { id: string; name: string; subscription: { plan: string; status: string; createdAt: string } | null };
   _count: { replies: number };
 }
 
@@ -294,9 +297,11 @@ export default function CommunityPage() {
           )}
 
           <div className="space-y-2">
-            {threads.map((t) => (
+            {threads.map((t) => {
+              const authorPremium = computePremiumInfo(t.author?.subscription);
+              return (
               <Link key={t.id} href={`/community/${t.id}`}>
-                <GlassCard className="flex items-center justify-between gap-3">
+                <GlassCard className={clsx("flex items-center justify-between gap-3", authorPremium.isPremium && "glow-border-gold")}>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       {t.pinned && <span className="text-xs">📌</span>}
@@ -305,8 +310,12 @@ export default function CommunityPage() {
                       </span>
                     </div>
                     <p className="mt-1 truncate font-display text-sm font-medium text-white">{t.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      par {t.author?.name ?? "utilisateur"} · {new Date(t.createdAt).toLocaleDateString("fr-FR")}
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                      par <PremiumName name={t.author?.name ?? "utilisateur"} isPremium={authorPremium.isPremium} />
+                      {authorPremium.tenureTier && authorPremium.tenureLabel && (
+                        <PremiumBadge tier={authorPremium.tenureTier} label={authorPremium.tenureLabel} />
+                      )}
+                      · {new Date(t.createdAt).toLocaleDateString("fr-FR")}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-400">
@@ -314,7 +323,8 @@ export default function CommunityPage() {
                   </div>
                 </GlassCard>
               </Link>
-            ))}
+              );
+            })}
             {threads.length === 0 && (
               <p className="py-8 text-center text-sm text-slate-500">Aucune discussion pour l&apos;instant — lancez la première !</p>
             )}
