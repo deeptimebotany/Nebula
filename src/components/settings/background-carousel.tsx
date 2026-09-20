@@ -14,7 +14,13 @@ const CARD_WIDTH = 108; // largeur d'une vignette + espace (voir gap-3 = 12px, w
  */
 export function BackgroundCarousel({ selected, onSelect }: { selected: string; onSelect: (key: string) => void }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{ startX: number; startScroll: number; dragging: boolean; moved: boolean } | null>(null);
+  const dragState = useRef<{
+    startX: number;
+    startScroll: number;
+    dragging: boolean;
+    moved: boolean;
+    pointerId: number;
+  } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   function scrollByAmount(amount: number) {
@@ -23,21 +29,40 @@ export function BackgroundCarousel({ selected, onSelect }: { selected: string; o
 
   function onPointerDown(e: React.PointerEvent) {
     if (!trackRef.current) return;
-    dragState.current = { startX: e.clientX, startScroll: trackRef.current.scrollLeft, dragging: true, moved: false };
-    trackRef.current.setPointerCapture(e.pointerId);
-    setIsDragging(true);
+    // On ne capture PAS le pointeur ici : le faire dès le pointerdown
+    // empêche le navigateur d'émettre le "click" sur la vignette (bouton)
+    // en dessous, donc un simple clic ne sélectionnait plus jamais de fond.
+    // On ne capture qu'une fois qu'un vrai glissement est détecté (voir
+    // onPointerMove), ce qui laisse le clic simple fonctionner normalement.
+    dragState.current = {
+      startX: e.clientX,
+      startScroll: trackRef.current.scrollLeft,
+      dragging: true,
+      moved: false,
+      pointerId: e.pointerId
+    };
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const state = dragState.current;
     if (!state?.dragging || !trackRef.current) return;
     const delta = e.clientX - state.startX;
-    if (Math.abs(delta) > 4) state.moved = true;
-    trackRef.current.scrollLeft = state.startScroll - delta;
+    if (Math.abs(delta) > 4) {
+      if (!state.moved) trackRef.current.setPointerCapture(state.pointerId);
+      state.moved = true;
+    }
+    if (state.moved) {
+      trackRef.current.scrollLeft = state.startScroll - delta;
+      setIsDragging(true);
+    }
   }
 
   function endDrag(e: React.PointerEvent) {
-    if (dragState.current?.dragging && trackRef.current) {
+    // On ne relâche la capture que si un glissement a effectivement eu lieu
+    // (c'est seulement dans ce cas qu'on l'a prise, voir onPointerMove) —
+    // sinon releasePointerCapture peut lever une erreur pour un pointeur
+    // jamais capturé.
+    if (dragState.current?.moved && trackRef.current?.hasPointerCapture(e.pointerId)) {
       trackRef.current.releasePointerCapture(e.pointerId);
     }
     dragState.current = dragState.current ? { ...dragState.current, dragging: false } : null;

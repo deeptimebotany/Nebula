@@ -607,14 +607,34 @@ function ComposerPageInner() {
     return data.text as string;
   }
 
+  // Empêche le spam-click sur les petits boutons "IA" (titre/description,
+  // globaux ou par réseau) : sans ça, chaque clic pendant qu'une génération
+  // est déjà en cours partait comme une requête Gemini séparée, gaspillant
+  // du quota et faisant parfois "sauter" le résultat entre deux réponses.
+  const [generatingKeys, setGeneratingKeys] = useState<Set<string>>(new Set());
+  function generationKey(field: "title" | "description", network?: Network) {
+    return network ? `${field}:${network}` : field;
+  }
+
   async function onGenerateOne(field: "title" | "description", network?: Network) {
-    const text = await generateField(field, network);
-    if (!text) return;
-    if (!network) {
-      if (field === "title") setTitle(text);
-      else setCaption(text);
-    } else {
-      setOverrideField(network, field === "title" ? "title" : "caption", text);
+    const key = generationKey(field, network);
+    if (generatingKeys.has(key)) return;
+    setGeneratingKeys((prev) => new Set(prev).add(key));
+    try {
+      const text = await generateField(field, network);
+      if (!text) return;
+      if (!network) {
+        if (field === "title") setTitle(text);
+        else setCaption(text);
+      } else {
+        setOverrideField(network, field === "title" ? "title" : "caption", text);
+      }
+    } finally {
+      setGeneratingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
@@ -875,7 +895,7 @@ function ComposerPageInner() {
             </Button>
           )}
           {aiStatus?.enabled && (
-            <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
+            <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll || generatingKeys.size > 0}>
               <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
             </Button>
           )}
@@ -1076,9 +1096,15 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("title")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                    disabled={generatingKeys.has("title")}
+                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-50 disabled:hover:no-underline"
                   >
-                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                    {generatingKeys.has("title") ? (
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
+                    ) : (
+                      <IconSparkle className="h-3.5 w-3.5" />
+                    )}
+                    IA
                   </button>
                 )}
               </div>
@@ -1113,9 +1139,15 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("description")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                    disabled={generatingKeys.has("description")}
+                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-50 disabled:hover:no-underline"
                   >
-                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                    {generatingKeys.has("description") ? (
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
+                    ) : (
+                      <IconSparkle className="h-3.5 w-3.5" />
+                    )}
+                    IA
                   </button>
                 )}
               </div>
@@ -1230,8 +1262,16 @@ function ComposerPageInner() {
                               className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button onClick={() => onGenerateOne("title", n)} className="text-aurora-300">
-                                <IconSparkle className="h-4 w-4" />
+                              <button
+                                onClick={() => onGenerateOne("title", n)}
+                                disabled={generatingKeys.has(generationKey("title", n))}
+                                className="text-aurora-300 disabled:cursor-wait disabled:opacity-50"
+                              >
+                                {generatingKeys.has(generationKey("title", n)) ? (
+                                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
+                                ) : (
+                                  <IconSparkle className="h-4 w-4" />
+                                )}
                               </button>
                             )}
                           </div>
@@ -1244,8 +1284,16 @@ function ComposerPageInner() {
                               className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button onClick={() => onGenerateOne("description", n)} className="text-aurora-300">
-                                <IconSparkle className="h-4 w-4" />
+                              <button
+                                onClick={() => onGenerateOne("description", n)}
+                                disabled={generatingKeys.has(generationKey("description", n))}
+                                className="text-aurora-300 disabled:cursor-wait disabled:opacity-50"
+                              >
+                                {generatingKeys.has(generationKey("description", n)) ? (
+                                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
+                                ) : (
+                                  <IconSparkle className="h-4 w-4" />
+                                )}
                               </button>
                             )}
                           </div>
