@@ -157,6 +157,74 @@ export const IconAvatar = ({ className = base }: IconProps) => (
   </svg>
 );
 
+export const IconSun = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="4.2" />
+    <path
+      d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const IconMoon = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path
+      d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.8 6.8 0 0 0 10.7 10.7Z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const IconEmoji = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.3 14.2c1 1.3 2.2 1.9 3.7 1.9s2.7-.6 3.7-1.9" strokeLinecap="round" />
+    <path d="M8.7 9.5h.01M15.3 9.5h.01" strokeLinecap="round" strokeWidth="2.4" />
+  </svg>
+);
+
+// Glyphes simplifiés (pas les logos officiels, juste une forme reconnaissable
+// dans le style trait de l'appli) pour repérer chaque réseau d'un coup d'œil
+// dans "Réseaux cibles" du Composer.
+export const IconTikTok = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path
+      d="M14 3v10.8a3.3 3.3 0 1 1-2.6-3.23"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M14 3c.35 2.4 2.05 4.1 4.5 4.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const IconYouTube = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="2.7" y="6" width="18.6" height="12" rx="3.5" />
+    <path d="M10.3 9.6v4.8l4.3-2.4Z" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const IconInstagram = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+    <circle cx="12" cy="12" r="4" />
+    <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const IconFacebook = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14 8.5h-1.6c-.9 0-1.4.5-1.4 1.4V11H14l-.3 2.2h-2.7V21" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const IconLock = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <rect x="5" y="10.5" width="14" height="10" rx="2.2" />

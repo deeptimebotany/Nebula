@@ -8,13 +8,30 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
-import { NETWORK_META, type Network } from "@/lib/types";
+import { NetworkBadge, NetworkDot, NetworkLogo } from "@/components/ui/network-badge";
+import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconUpload, IconSparkle } from "@/components/dashboard/icons";
+import {
+  IconUpload,
+  IconSparkle,
+  IconHeart,
+  IconMessage,
+  IconSend,
+  IconAvatar,
+  IconEmoji,
+  IconHash
+} from "@/components/dashboard/icons";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
 import type { Plan } from "@/lib/plans";
+
+// Petite sélection d'émojis courants pour l'insertion rapide dans le titre /
+// la description (voir insertIntoField ci-dessous).
+const EMOJIS = [
+  "😀", "😂", "🔥", "❤️", "👍", "🎉", "✨", "😍",
+  "🙌", "💯", "😎", "🤩", "👏", "😅", "🥳", "🚀",
+  "⭐", "💡", "📸", "🎬", "😉", "🤔", "👀", "💪"
+];
 
 interface UploadedAsset {
   id: string;
@@ -144,7 +161,56 @@ function ComposerPageInner() {
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumbOptions, setThumbOptions] = useState<string[]>([]);
   const [aiThumbLoading, setAiThumbLoading] = useState(false);
+  const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
+  const thumbFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Aperçu : format auto-détecté (court 9:16 vs 16:9) à partir des vraies
+  // dimensions du fichier importé, et simulateur d'interface TikTok (voir
+  // rendu de la carte "Aperçu" plus bas).
+  const [previewAspectClass, setPreviewAspectClass] = useState("aspect-square");
+  const [showTiktokUi, setShowTiktokUi] = useState(false);
+
+  // Bulle émojis + insertion au curseur pour Titre/Description.
+  const [emojiPickerFor, setEmojiPickerFor] = useState<"title" | "caption" | null>(null);
+  const emojiPopoverRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const captionInputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!emojiPickerFor) return;
+    function onClickOutside(e: MouseEvent) {
+      if (emojiPopoverRef.current && !emojiPopoverRef.current.contains(e.target as Node)) {
+        setEmojiPickerFor(null);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [emojiPickerFor]);
+
+  function insertIntoField(kind: "title" | "caption", text: string) {
+    if (kind === "title") {
+      const el = titleInputRef.current;
+      const start = el?.selectionStart ?? title.length;
+      const end = el?.selectionEnd ?? title.length;
+      const next = title.slice(0, start) + text + title.slice(end);
+      setTitle(next);
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(start + text.length, start + text.length);
+      });
+    } else {
+      const el = captionInputRef.current;
+      const start = el?.selectionStart ?? caption.length;
+      const end = el?.selectionEnd ?? caption.length;
+      const next = caption.slice(0, start) + text + caption.slice(end);
+      setCaption(next);
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(start + text.length, start + text.length);
+      });
+    }
+  }
 
   // Publication en masse (palier Agence uniquement) : au lieu d'un seul
   // compte par réseau, on publie la même vidéo sur un ensemble de comptes
@@ -257,7 +323,8 @@ function ComposerPageInner() {
       setUploading(true);
       setUploadError(null);
 
-      const fileList = Array.from(files);
+      // Un seul média à la fois : un nouveau fichier remplace le précédent.
+      const fileList = Array.from(files).slice(0, 1);
       const results = await Promise.allSettled(
         fileList.map(async (f) => {
           const previewUrl = URL.createObjectURL(f);
@@ -292,8 +359,12 @@ function ComposerPageInner() {
         setUploadError(errors.join(" · "));
       }
       if (newAssets.length) {
-        setAssets((prev) => [...prev, ...newAssets]);
+        // Remplace le média existant plutôt que de l'ajouter (limite à 1
+        // fichier — voir le commentaire plus haut).
+        setAssets(newAssets);
         setThumbOptions([]);
+        setPreviewAspectClass("aspect-square");
+        setShowTiktokUi(false);
       }
     },
     [activeBrand, toast]
@@ -301,6 +372,7 @@ function ComposerPageInner() {
 
   function removeAsset(id: string) {
     setAssets((prev) => prev.filter((a) => a.id !== id));
+    setPreviewAspectClass("aspect-square");
   }
 
   function toggleNetwork(n: Network) {
@@ -421,6 +493,22 @@ function ComposerPageInner() {
       toast.error((err as Error).message ?? "Échec de la génération IA.");
     } finally {
       setAiThumbLoading(false);
+    }
+  }
+
+  async function onThumbFileChosen(file: File | null) {
+    if (!file || !videoAsset) return;
+    setThumbUploading(true);
+    try {
+      const url = await uploadThumbnailBlob(file);
+      setThumbOptions((prev) => [url, ...prev]);
+      await pickThumbnail(url);
+      toast.success("Miniature ajoutée depuis votre ordinateur.");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Échec de l'envoi de la miniature.");
+    } finally {
+      setThumbUploading(false);
+      if (thumbFileInputRef.current) thumbFileInputRef.current.value = "";
     }
   }
 
@@ -600,13 +688,10 @@ function ComposerPageInner() {
             >
               <IconUpload className="h-6 w-6 text-aurora-400" />
               <p className="text-sm text-slate-300">Glissez-déposez une vidéo/image, ou cliquez pour sélectionner</p>
-              <p className="text-xs text-slate-500">
-                MP4, MOV, JPG, PNG — plusieurs images possibles pour un carrousel
-              </p>
+              <p className="text-xs text-slate-500">MP4, MOV, JPG, PNG — un seul fichier à la fois</p>
               <input
                 ref={inputRef}
                 type="file"
-                multiple
                 accept="video/*,image/*"
                 className="hidden"
                 onChange={(e) => onFilesChosen(e.target.files)}
@@ -631,7 +716,7 @@ function ComposerPageInner() {
                     )}
                     <button
                       onClick={() => removeAsset(a.id)}
-                      className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-1.5 py-0.5 text-xs text-white opacity-0 transition group-hover:opacity-100"
+                      className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-1.5 py-0.5 text-xs text-white opacity-0 transition duration-150 hover:scale-125 group-hover:opacity-100"
                     >
                       ✕
                     </button>
@@ -655,6 +740,16 @@ function ComposerPageInner() {
                         {aiThumbLoading ? "Génération IA..." : "Générer avec l'IA"}
                       </Button>
                     )}
+                    <Button variant="outline" onClick={() => thumbFileInputRef.current?.click()} disabled={thumbUploading}>
+                      {thumbUploading ? "Envoi..." : "Depuis mon ordinateur"}
+                    </Button>
+                    <input
+                      ref={thumbFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => onThumbFileChosen(e.target.files?.[0] ?? null)}
+                    />
                   </div>
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
@@ -684,41 +779,107 @@ function ComposerPageInner() {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-base font-medium text-white">2. Titre</h2>
-              {aiStatus?.enabled && (
+              <div className="relative flex items-center gap-3">
                 <button
-                  onClick={() => onGenerateOne("title")}
-                  className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                  onClick={() => insertIntoField("title", "#")}
+                  title="Insérer un hashtag"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
                 >
-                  <IconSparkle className="h-3.5 w-3.5" /> IA
+                  <IconHash className="h-3.5 w-3.5" />
                 </button>
-              )}
+                <button
+                  onClick={() => setEmojiPickerFor((v) => (v === "title" ? null : "title"))}
+                  title="Insérer un émoji"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
+                >
+                  <IconEmoji className="h-3.5 w-3.5" />
+                </button>
+                {aiStatus?.enabled && (
+                  <button
+                    onClick={() => onGenerateOne("title")}
+                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                  >
+                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                  </button>
+                )}
+                {emojiPickerFor === "title" && (
+                  <div
+                    ref={emojiPopoverRef}
+                    className="glass-panel-solid absolute right-0 top-[calc(100%+8px)] z-20 grid w-60 grid-cols-8 gap-1 rounded-xl p-2"
+                  >
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => insertIntoField("title", e)}
+                        className="rounded-md p-1 text-base transition hover:scale-125 hover:bg-white/10"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <input
+              ref={titleInputRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Titre de la publication (utilisé notamment comme titre YouTube)..."
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
             />
           </GlassCard>
 
           <GlassCard>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-base font-medium text-white">3. Description</h2>
-              {aiStatus?.enabled && (
+              <div className="relative flex items-center gap-3">
                 <button
-                  onClick={() => onGenerateOne("description")}
-                  className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                  onClick={() => insertIntoField("caption", "#")}
+                  title="Insérer un hashtag"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
                 >
-                  <IconSparkle className="h-3.5 w-3.5" /> IA
+                  <IconHash className="h-3.5 w-3.5" />
                 </button>
-              )}
+                <button
+                  onClick={() => setEmojiPickerFor((v) => (v === "caption" ? null : "caption"))}
+                  title="Insérer un émoji"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
+                >
+                  <IconEmoji className="h-3.5 w-3.5" />
+                </button>
+                {aiStatus?.enabled && (
+                  <button
+                    onClick={() => onGenerateOne("description")}
+                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                  >
+                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                  </button>
+                )}
+                {emojiPickerFor === "caption" && (
+                  <div
+                    ref={emojiPopoverRef}
+                    className="glass-panel-solid absolute right-0 top-[calc(100%+8px)] z-20 grid w-60 grid-cols-8 gap-1 rounded-xl p-2"
+                  >
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => insertIntoField("caption", e)}
+                        className="rounded-md p-1 text-base transition hover:scale-125 hover:bg-white/10"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <textarea
+              ref={captionInputRef}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
               placeholder="Légende / description commune à tous les réseaux sélectionnés..."
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
             />
             <div className="mt-1.5 flex items-center justify-between text-xs">
               <span className={clsx(tightestLimit && caption.length > tightestLimit ? "text-red-400" : "text-slate-500")}>
@@ -731,12 +892,25 @@ function ComposerPageInner() {
           {!massMode ? (
             <GlassCard>
               <h2 className="mb-3 font-display text-base font-medium text-white">4. Réseaux cibles</h2>
-              {noConnections ? (
-                <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {availableNetworks.map((n) => (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {NETWORKS.map((n) => {
+                    const connected = availableNetworks.includes(n);
+                    if (!connected) {
+                      return (
+                        <a
+                          key={n}
+                          href={activeBrand ? `/api/connections/${n.toLowerCase()}/start?brandId=${activeBrand.id}` : "/accounts"}
+                          title={`Connecter ${NETWORK_META[n].label}`}
+                          className="flex items-center gap-1.5 rounded-full border border-dashed border-white/15 px-2.5 py-1 text-xs text-slate-500 opacity-70 transition hover:border-aurora-400/40 hover:text-white hover:opacity-100"
+                        >
+                          <NetworkLogo network={n} className="h-3.5 w-3.5" />
+                          {NETWORK_META[n].label}
+                          <span className="text-[10px] text-aurora-300">connecter</span>
+                        </a>
+                      );
+                    }
+                    return (
                       <button
                         key={n}
                         onClick={() => toggleNetwork(n)}
@@ -744,8 +918,14 @@ function ComposerPageInner() {
                       >
                         <NetworkBadge network={n} />
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
+                </div>
+
+                {noConnections ? (
+                  <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>
+                ) : (
+                  <>
 
                   {selectedNetworks.map((n) => {
                     const networkConnections = connections.filter((c) => c.network === n);
@@ -810,8 +990,9 @@ function ComposerPageInner() {
                     </div>
                   );
                   })}
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </GlassCard>
           ) : (
             <GlassCard>
@@ -855,23 +1036,38 @@ function ComposerPageInner() {
           <GlassCard>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-base font-medium text-white">Aperçu</h2>
-              {selectedNetworks.length > 1 && (
-                <div className="flex gap-1">
-                  {selectedNetworks.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setPreviewNetwork(n)}
-                      className={clsx(
-                        "rounded-full p-0.5 transition",
-                        effectivePreviewNetwork === n ? "ring-2 ring-aurora-400" : "opacity-50 hover:opacity-80"
-                      )}
-                      title={`Aperçu ${NETWORK_META[n].label}`}
-                    >
-                      <NetworkDot network={n} />
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {effectivePreviewNetwork === "TIKTOK" && previewAsset && (
+                  <button
+                    onClick={() => setShowTiktokUi((v) => !v)}
+                    className={clsx(
+                      "rounded-full border px-2 py-0.5 text-[10px] font-medium transition",
+                      showTiktokUi
+                        ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
+                        : "border-white/10 text-slate-500 hover:text-white"
+                    )}
+                  >
+                    Interface TikTok {showTiktokUi ? "ON" : "OFF"}
+                  </button>
+                )}
+                {selectedNetworks.length > 1 && (
+                  <div className="flex gap-1">
+                    {selectedNetworks.map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setPreviewNetwork(n)}
+                        className={clsx(
+                          "rounded-full p-0.5 transition",
+                          effectivePreviewNetwork === n ? "ring-2 ring-aurora-400" : "opacity-50 hover:opacity-80"
+                        )}
+                        title={`Aperçu ${NETWORK_META[n].label}`}
+                      >
+                        <NetworkDot network={n} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="overflow-hidden rounded-xl border border-white/10 bg-void-950/60">
               <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
@@ -886,22 +1082,72 @@ function ComposerPageInner() {
                 </div>
                 {effectivePreviewNetwork && <NetworkDot network={effectivePreviewNetwork} />}
               </div>
-              <div className="flex aspect-square w-full items-center justify-center bg-black/40">
+              <div className={clsx("relative flex w-full items-center justify-center bg-black/40", previewAspectClass)}>
                 {previewAsset ? (
                   previewAsset.type === "VIDEO" ? (
                     <video
+                      key={previewAsset.id}
                       src={previewAsset.previewUrl}
                       poster={previewAsset.thumbnailUrl}
                       className="h-full w-full object-cover"
-                      muted
+                      controls
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        setPreviewAspectClass(
+                          v.videoHeight > v.videoWidth
+                            ? "aspect-[9/16]"
+                            : v.videoWidth > v.videoHeight
+                              ? "aspect-video"
+                              : "aspect-square"
+                        );
+                      }}
                     />
                   ) : (
-                    <img src={previewAsset.previewUrl} alt="" className="h-full w-full object-cover" />
+                    <img
+                      key={previewAsset.id}
+                      src={previewAsset.previewUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        setPreviewAspectClass(
+                          img.naturalHeight > img.naturalWidth
+                            ? "aspect-[9/16]"
+                            : img.naturalWidth > img.naturalHeight
+                              ? "aspect-video"
+                              : "aspect-square"
+                        );
+                      }}
+                    />
                   )
                 ) : (
                   <p className="px-4 text-center text-xs text-slate-600">
                     Votre média apparaîtra ici dès que vous en importerez un.
                   </p>
+                )}
+
+                {/* Simulateur d'interface TikTok — purement visuel, activé via
+                    le bouton "Interface TikTok ON/OFF" ci-dessus. */}
+                {showTiktokUi && effectivePreviewNetwork === "TIKTOK" && previewAsset && (
+                  <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute bottom-3 right-2.5 flex flex-col items-center gap-4 text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-white/20 backdrop-blur">
+                        <IconAvatar className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <IconHeart className="h-6 w-6" />
+                        <span className="text-[10px] font-semibold">12,4k</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <IconMessage className="h-6 w-6" />
+                        <span className="text-[10px] font-semibold">348</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <IconSend className="h-6 w-6" />
+                        <span className="text-[10px] font-semibold">Partager</span>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
               <div className="space-y-1 px-3 py-2.5">

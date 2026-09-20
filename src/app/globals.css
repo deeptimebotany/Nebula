@@ -66,6 +66,25 @@ body {
   color: #fff;
 }
 
+/* Mode Clair (bulle de profil, voir mode-provider.tsx) — bascule TOUTE
+   l'appli (fond, texte, panneaux verre, bordures...) sans avoir à réécrire
+   chaque composant : on inverse les luminosités de <body> avec un filtre
+   CSS (invert + hue-rotate ramène les teintes à peu près à leur place),
+   et on ré-inverse en sens inverse tout ce qui est un VRAI média (photo,
+   vidéo, miniature) pour que ces images-là restent en couleurs normales au
+   lieu de ressortir en "négatif". Ça marche par-dessus n'importe lequel des
+   14 thèmes de couleurs choisis dans Paramètres (voir themes.ts) : le mode
+   Clair/Sombre est un axe indépendant du thème. Le thème "Nébuleuse" bleu
+   foncé reste le réglage par défaut (mode Sombre, aucun filtre appliqué). */
+[data-mode="light"] body {
+  filter: invert(1) hue-rotate(180deg);
+}
+[data-mode="light"] img,
+[data-mode="light"] video,
+[data-mode="light"] canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 /* Halo discret qui respire autour de la case "aujourd'hui" du calendrier —
    suit la couleur du thème actif via la variable CSS (voir themes.ts). */
 @keyframes today-glow {

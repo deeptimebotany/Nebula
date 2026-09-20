@@ -8,6 +8,7 @@ import { clsx } from "@/lib/clsx";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
+import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { IconGift, IconSettings, IconLock } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
@@ -31,10 +32,29 @@ function swatchPreview(vars: Record<string, string>) {
 export default function SettingsPage() {
   const { themeKey, setThemeKey } = useTheme();
   const { backgroundKey, setBackgroundKey } = useBackground();
+  const { activeBrand, renameBrand } = useBrand();
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
   const [plan, setPlan] = useState<Plan>("FREE");
+  const [pseudo, setPseudo] = useState("");
+  const [savingPseudo, setSavingPseudo] = useState(false);
+
+  useEffect(() => {
+    setPseudo(activeBrand?.name ?? "");
+  }, [activeBrand?.id, activeBrand?.name]);
+
+  async function onSavePseudo() {
+    if (!activeBrand || !pseudo.trim() || pseudo.trim() === activeBrand.name) return;
+    setSavingPseudo(true);
+    const res = await renameBrand(activeBrand.id, pseudo.trim());
+    setSavingPseudo(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "Erreur lors du renommage.");
+      return;
+    }
+    toast.success("Pseudo de la marque mis à jour.");
+  }
 
   useEffect(() => {
     fetch("/api/referral")
@@ -74,6 +94,30 @@ export default function SettingsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-400">Personnalisez votre espace Nebula.</p>
       </div>
+
+      <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Pseudo de la marque</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Le nom affiché pour <strong className="text-slate-300">{activeBrand?.name ?? "cette marque"}</strong>{" "}
+          dans l&apos;aperçu du Composer, le sélecteur de marque, etc.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            value={pseudo}
+            onChange={(e) => setPseudo(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSavePseudo()}
+            disabled={!activeBrand}
+            placeholder="Pseudo de la marque"
+            className="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60 disabled:opacity-50"
+          />
+          <Button
+            onClick={onSavePseudo}
+            disabled={!activeBrand || savingPseudo || !pseudo.trim() || pseudo.trim() === activeBrand?.name}
+          >
+            {savingPseudo ? "Enregistrement..." : "Enregistrer"}
+          </Button>
+        </div>
+      </GlassCard>
 
       <GlassCard>
         <h2 className="font-display text-base font-medium text-white">Thème de couleurs</h2>

@@ -55,6 +55,12 @@ model User {
   // Fond d'écran choisi dans Paramètres (voir src/lib/backgrounds.ts).
   backgroundPreference String @default("mesh")
 
+  // Mode clair/sombre choisi via la bulle de profil (voir mode-provider.tsx).
+  // "dark" = défaut d'origine (Nébuleuse bleu foncé). Indépendant du thème
+  // de couleurs (themePreference) : le mode inverse simplement les surfaces
+  // (fond/texte/panneaux) par-dessus n'importe quel thème choisi.
+  colorMode String @default("dark")
+
   // --- Réinitialisation de mot de passe ---
   // On ne stocke jamais le jeton en clair : passwordResetTokenHash est le
   // hash SHA-256 du jeton envoyé par email (voir src/lib/password-reset.ts).

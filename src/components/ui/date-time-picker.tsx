@@ -111,6 +111,11 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
 
   const todayKey = new Date().toDateString();
   const selectedKey = value ? selected.toDateString() : null;
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   function pickDay(d: Date) {
     const next = new Date(d);
@@ -189,15 +194,22 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
                 const inMonth = d.getMonth() === cursor.getMonth();
                 const isToday = d.toDateString() === todayKey;
                 const isSelected = selectedKey && d.toDateString() === selectedKey;
+                // Jours déjà passés (avant aujourd'hui) : grisés et non
+                // cliquables — on ne programme pas une publication dans le
+                // passé. Le jour même reste sélectionnable (heure encore à
+                // choisir peut être dans le futur).
+                const isPast = d < todayStart && d.toDateString() !== todayKey;
                 return (
                   <button
                     type="button"
                     key={d.toISOString()}
-                    onClick={() => pickDay(d)}
+                    onClick={() => !isPast && pickDay(d)}
+                    disabled={isPast}
                     className={clsx(
                       "flex h-7 w-7 items-center justify-center rounded-full text-xs transition",
-                      !inMonth && "text-slate-600",
-                      inMonth && !isSelected && "text-slate-300 hover:bg-white/5",
+                      !inMonth && "text-slate-700",
+                      inMonth && !isSelected && !isPast && "text-slate-300 hover:bg-white/5",
+                      isPast && "cursor-not-allowed text-slate-700 opacity-40",
                       isToday && !isSelected && "today-glow ring-1 ring-aurora-400/50 text-aurora-300",
                       isSelected && "bg-nebula-500 text-white"
                     )}
@@ -213,20 +225,22 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
               <select
                 value={hour}
                 onChange={(e) => applyTime(Number(e.target.value), minute)}
+                style={{ colorScheme: "dark" }}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>{pad(h)}</option>
+                  <option key={h} value={h} className="bg-void-900 text-white">{pad(h)}</option>
                 ))}
               </select>
               <span className="text-slate-500">:</span>
               <select
                 value={minute}
                 onChange={(e) => applyTime(hour, Number(e.target.value))}
+                style={{ colorScheme: "dark" }}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
-                  <option key={m} value={m}>{pad(m)}</option>
+                  <option key={m} value={m} className="bg-void-900 text-white">{pad(m)}</option>
                 ))}
               </select>
               <button

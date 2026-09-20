@@ -1,5 +1,19 @@
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
+import { IconTikTok, IconYouTube, IconInstagram, IconFacebook } from "@/components/dashboard/icons";
+
+const NETWORK_ICONS: Record<Network, (props: { className?: string }) => JSX.Element> = {
+  TIKTOK: IconTikTok,
+  YOUTUBE: IconYouTube,
+  INSTAGRAM: IconInstagram,
+  FACEBOOK: IconFacebook
+};
+
+/** Glyphe du réseau (voir icons.tsx) — utilisé notamment dans "Réseaux cibles". */
+export function NetworkLogo({ network, className = "h-5 w-5" }: { network: Network; className?: string }) {
+  const Icon = NETWORK_ICONS[network];
+  return <Icon className={className} />;
+}
 
 export function NetworkBadge({ network, size = "md" }: { network: Network; size?: "sm" | "md" }) {
   const meta = NETWORK_META[network];
@@ -15,10 +29,7 @@ export function NetworkBadge({ network, size = "md" }: { network: Network; size?
         color: meta.color
       }}
     >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ background: meta.color, boxShadow: `0 0 8px ${meta.glow}` }}
-      />
+      <NetworkLogo network={network} className={size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"} />
       {meta.label}
     </span>
   );

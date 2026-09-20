@@ -17,6 +17,7 @@ interface BrandContextValue {
   loading: boolean;
   refresh: () => Promise<void>;
   createBrand: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  renameBrand: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 const BrandContext = createContext<BrandContextValue | null>(null);
@@ -79,8 +80,23 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     [refresh, setActiveBrandId]
   );
 
+  const renameBrand = useCallback(
+    async (id: string, name: string) => {
+      const res = await fetch(`/api/brands/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error ?? "Erreur lors du renommage." };
+      await refresh();
+      return { ok: true };
+    },
+    [refresh]
+  );
+
   return (
-    <BrandContext.Provider value={{ brands, activeBrand, setActiveBrandId, loading, refresh, createBrand }}>
+    <BrandContext.Provider value={{ brands, activeBrand, setActiveBrandId, loading, refresh, createBrand, renameBrand }}>
       {children}
     </BrandContext.Provider>
   );

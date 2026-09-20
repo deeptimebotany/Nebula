@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
+import { useMode } from "@/components/mode-provider";
 import { PROVIDERS } from "@/lib/providers";
 import type { Network } from "@/lib/types";
 import type { Plan } from "@/lib/plans";
@@ -24,7 +25,9 @@ import {
   IconHeart,
   IconPlus,
   IconSettings,
-  IconAvatar
+  IconAvatar,
+  IconSun,
+  IconMoon
 } from "./icons";
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
 
@@ -56,6 +59,9 @@ export function TopNav() {
   const pathname = usePathname();
   const { brands, activeBrand, setActiveBrandId, createBrand } = useBrand();
   const toast = useToast();
+  const { mode, setMode } = useMode();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const [plan, setPlan] = useState<Plan>("FREE");
   const [maxBrands, setMaxBrands] = useState(1);
@@ -99,6 +105,9 @@ export function TopNav() {
       }
       if (addAccountRef.current && !addAccountRef.current.contains(e.target as Node)) {
         setAddAccountOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -174,6 +183,61 @@ export function TopNav() {
         >
           <IconHeart className="h-[18px] w-[18px]" />
         </Link>
+
+        {/* Bulle de profil — bascule Sombre/Clair (voir mode-provider.tsx),
+            appliquée par-dessus n'importe lequel des 14 thèmes de couleurs. */}
+        <div className="relative shrink-0" ref={profileRef}>
+          <button
+            onClick={() => setProfileOpen((v) => !v)}
+            title="Profil"
+            className={clsx(
+              "flex h-9 w-9 items-center justify-center rounded-full border transition",
+              profileOpen
+                ? "border-aurora-400/60 bg-aurora-400/10 text-white"
+                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+            )}
+          >
+            <IconAvatar className="h-4 w-4" />
+          </button>
+          {profileOpen && (
+            <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-60 rounded-xl p-3">
+              <p className="px-1 pb-2 text-[11px] uppercase tracking-wide text-slate-500">Apparence</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setMode("dark")}
+                  className={clsx(
+                    "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
+                    mode === "dark" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"
+                  )}
+                >
+                  <IconMoon className="h-4 w-4" />
+                  Sombre
+                </button>
+                <button
+                  onClick={() => setMode("light")}
+                  className={clsx(
+                    "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
+                    mode === "light" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"
+                  )}
+                >
+                  <IconSun className="h-4 w-4" />
+                  Clair
+                </button>
+              </div>
+              <p className="mt-2 px-1 text-[11px] text-slate-500">
+                S&apos;applique par-dessus votre thème de couleurs actuel.
+              </p>
+              <Link
+                href="/settings"
+                onClick={() => setProfileOpen(false)}
+                className="mt-2 flex items-center gap-1.5 rounded-lg border-t border-white/[0.06] px-1 pt-2.5 text-xs text-aurora-300 hover:underline"
+              >
+                <IconSettings className="h-3.5 w-3.5" /> Paramètres du compte
+              </Link>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           title="Déconnexion"
