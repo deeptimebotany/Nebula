@@ -19,12 +19,17 @@ export async function GET() {
     select: { id: true, name: true, referralCode: true }
   });
 
-  const counts: { referredByCode: string | null; _count: { _all: number } }[] = await prisma.user.groupBy({
+  const counts = await prisma.user.groupBy({
     by: ["referredByCode"],
     where: { referredByCode: { not: null } },
     _count: { _all: true }
   });
-  const countByCode = new Map(counts.map((c) => [c.referredByCode as string, c._count._all]));
+  const countByCode = new Map(
+    (counts as { referredByCode: string | null; _count: { _all: number } }[]).map((c) => [
+      c.referredByCode as string,
+      c._count._all
+    ])
+  );
 
   interface UserRow {
     id: string;
