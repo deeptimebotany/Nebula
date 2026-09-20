@@ -9,7 +9,27 @@ import { Button } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
-import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar } from "@/components/dashboard/icons";
+import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconSparkle } from "@/components/dashboard/icons";
+
+const WEEKDAY_LABEL: Record<string, string> = {
+  Dimanche: "le dimanche",
+  Lundi: "le lundi",
+  Mardi: "le mardi",
+  Mercredi: "le mercredi",
+  Jeudi: "le jeudi",
+  Vendredi: "le vendredi",
+  Samedi: "le samedi"
+};
+
+interface InsightsResponse {
+  hasEnoughData: boolean;
+  sampleSize: { snapshots: number; posts: number };
+  minRequired: { snapshots: number; posts: number };
+  bestHour: number | null;
+  bestHourScore: number | null;
+  topWeekday: string | null;
+  topWeekdayCount: number;
+}
 
 interface ConnectionRow {
   id: string;
@@ -41,6 +61,7 @@ export default function DashboardPage() {
   const [analyticsConnections, setAnalyticsConnections] = useState<AnalyticsConnection[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -56,6 +77,10 @@ export default function DashboardPage() {
         setPosts(postsData.posts ?? []);
       })
       .finally(() => setLoading(false));
+    fetch(`/api/analytics/insights?brandId=${activeBrand.id}`)
+      .then((r) => r.json())
+      .then(setInsights)
+      .catch(() => undefined);
   }, [activeBrand]);
 
   const chartNetworks: Network[] = connections.map((c) => c.network);
@@ -159,6 +184,39 @@ export default function DashboardPage() {
         />
         <StatCard label="Posts ce mois-ci" value={String(postsThisMonth)} icon={<IconCalendar className="h-4 w-4" />} />
       </div>
+
+      <GlassCard className="border-aurora-400/20 bg-nebula-700/[0.08]">
+        <div className="mb-2 flex items-center gap-2">
+          <IconSparkle className="h-4 w-4 text-aurora-300" />
+          <h2 className="font-display text-base font-medium text-white">Insights IA</h2>
+        </div>
+        {!insights ? (
+          <p className="text-sm text-slate-500">Chargement...</p>
+        ) : insights.hasEnoughData ? (
+          <div className="flex flex-col gap-1.5 text-sm text-slate-300 sm:flex-row sm:items-center sm:gap-6">
+            {insights.bestHour !== null && (
+              <p>
+                Vos comptes progressent le mieux autour de{" "}
+                <span className="font-medium text-white">{insights.bestHour}h</span> — basé sur{" "}
+                {insights.sampleSize.snapshots} relevés analytics réels.
+              </p>
+            )}
+            {insights.topWeekday && (
+              <p>
+                Vous publiez surtout <span className="font-medium text-white">{WEEKDAY_LABEL[insights.topWeekday]}</span>{" "}
+                ({insights.topWeekdayCount} publication{insights.topWeekdayCount > 1 ? "s" : ""} envoyée{insights.topWeekdayCount > 1 ? "s" : ""}).
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Pas encore assez d&apos;historique pour une recommandation fiable ({insights.sampleSize.snapshots}/
+            {insights.minRequired.snapshots} relevés analytics, {insights.sampleSize.posts}/{insights.minRequired.posts} publications
+            envoyées). Continuez à publier et à synchroniser vos comptes (page Analytics) — ce widget se basera
+            toujours sur vos vraies données, jamais sur des chiffres inventés.
+          </p>
+        )}
+      </GlassCard>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <GlassCard className="lg:col-span-2">

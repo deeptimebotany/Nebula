@@ -41,6 +41,14 @@ export interface SocialClient {
   exchangeCodeForToken(code: string): Promise<OAuthTokenResult>;
   publishPost(connection: ConnectionLike, input: PublishInput): Promise<PublishResult>;
   fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult>;
+  /**
+   * Ajoute le "premier commentaire" (voir bulle dédiée dans le Composer) sur
+   * une publication déjà publiée. Optionnel : tous les réseaux ne le
+   * supportent pas encore (voir src/lib/social/*.ts) — l'appelant
+   * (src/lib/publish.ts) vérifie sa présence avant d'appeler, et traite tout
+   * échec comme non-bloquant (la publication elle-même reste un succès).
+   */
+  postComment?(connection: ConnectionLike, externalPostId: string, comment: string): Promise<void>;
 }
 
 export class SocialApiError extends Error {

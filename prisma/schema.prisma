@@ -19,7 +19,10 @@ datasource db {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
-  passwordHash String
+  // Nullable : un compte créé via la connexion rapide Google/Apple (voir
+  // src/lib/auth.ts) n'a pas de mot de passe Nebula — authorize() dans
+  // auth.ts vérifie sa présence avant toute comparaison bcrypt.
+  passwordHash String?
   name         String
   avatarUrl    String?
   createdAt    DateTime      @default(now())
@@ -60,6 +63,14 @@ model User {
   // de couleurs (themePreference) : le mode inverse simplement les surfaces
   // (fond/texte/panneaux) par-dessus n'importe quel thème choisi.
   colorMode String @default("dark")
+
+  // --- Marque blanche (palier Agence uniquement, voir src/lib/plans.ts) ---
+  // Remplace "Nebula" par votre propre nom/logo dans la barre de navigation
+  // (voir topnav.tsx) — utile pour une agence qui montre l'outil à ses
+  // clients. Champs nullables : tant qu'ils sont vides, "Nebula" reste
+  // affiché normalement, même pour un compte Agence.
+  whiteLabelBrandName String?
+  whiteLabelLogoUrl   String?
 
   // --- Réinitialisation de mot de passe ---
   // On ne stocke jamais le jeton en clair : passwordResetTokenHash est le
@@ -166,6 +177,12 @@ model Post {
   createdById  String
   title        String        @default("") // utilisé notamment comme titre YouTube
   caption      String        @default("") // description/légende par défaut
+  // Commentaire publié automatiquement juste après la publication (bulle
+  // "Premier commentaire" du Composer/Importation). Optionnel — laissé vide
+  // si l'utilisateur ne souhaite pas en ajouter. Voir src/lib/publish.ts et
+  // SocialClient.postComment (src/lib/social/base.ts) : best-effort, ne fait
+  // jamais échouer la publication elle-même si l'ajout du commentaire échoue.
+  firstComment String?
   status       String        @default("DRAFT")
   scheduledAt  DateTime?
   duplicatedFromId String?

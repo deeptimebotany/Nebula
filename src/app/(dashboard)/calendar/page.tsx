@@ -59,6 +59,11 @@ export default function CalendarPage() {
   const [hiddenNetworks, setHiddenNetworks] = useState<Set<Network>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  // Glisser-déposer : reprogrammation rapide d'un post sur une autre date en
+  // le faisant glisser dans la grille (garde l'heure d'origine, change juste
+  // le jour) — voir rescheduleToDay ci-dessous.
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
@@ -93,6 +98,18 @@ export default function CalendarPage() {
         .then((r) => r.json())
         .then((d) => setPostsByBrand((prev) => ({ ...prev, [brandId]: d.posts ?? [] })));
     });
+  }
+
+  async function rescheduleToDay(entryId: string, time: string, newDay: Date) {
+    const [h, m] = time.split(":").map(Number);
+    const newDate = new Date(newDay);
+    newDate.setHours(h, m, 0, 0);
+    await fetch(`/api/posts/${entryId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledAt: newDate.toISOString() })
+    }).catch(() => undefined);
+    refreshPosts();
   }
 
   const allConnections = useMemo(
@@ -300,7 +317,32 @@ export default function CalendarPage() {
               const entries = entriesByDay.get(key) ?? [];
               const isToday = key === todayKey;
               return (
-                <div key={key} className={clsx("group/cell relative min-h-[112px] bg-void-900/60 p-2 align-top", !inMonth && "opacity-30")}>
+                <div
+                  key={key}
+                  onDragOver={(ev) => {
+                    ev.preventDefault();
+                    setDragOverKey(key);
+                  }}
+                  onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
+                  onDrop={(ev) => {
+                    ev.preventDefault();
+                    setDragOverKey(null);
+                    setDraggingId(null);
+                    const raw = ev.dataTransfer.getData("text/plain");
+                    if (!raw) return;
+                    try {
+                      const { id, time } = JSON.parse(raw) as { id: string; time: string };
+                      rescheduleToDay(id, time, day);
+                    } catch {
+                      // charge utile invalide — on ignore simplement
+                    }
+                  }}
+                  className={clsx(
+                    "group/cell relative min-h-[112px] bg-void-900/60 p-2 align-top transition",
+                    !inMonth && "opacity-30",
+                    dragOverKey === key && "ring-2 ring-inset ring-aurora-400/60 bg-aurora-400/[0.06]"
+                  )}
+                >
                   <div className="mb-1.5 flex items-center justify-between">
                     <span
                       className={clsx(
@@ -324,9 +366,20 @@ export default function CalendarPage() {
                     {entries.slice(0, 3).map((e) => (
                       <button
                         key={e.id}
+                        draggable
+                        onDragStart={(ev) => {
+                          ev.dataTransfer.setData("text/plain", JSON.stringify({ id: e.id, time: e.time }));
+                          ev.dataTransfer.effectAllowed = "move";
+                          setDraggingId(e.id);
+                        }}
+                        onDragEnd={() => setDraggingId(null)}
                         onClick={() => setEditingPostId(e.id)}
-                        title={e.title}
-                        className="flex w-full items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:z-10 hover:scale-[1.04] hover:bg-nebula-700/70 hover:shadow-glow"
+                        title={`${e.title} — glissez vers un autre jour pour reprogrammer`}
+                        style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
+                        className={clsx(
+                          "flex w-full cursor-grab items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:z-10 hover:scale-[1.04] hover:bg-nebula-700/70 hover:shadow-glow active:cursor-grabbing",
+                          draggingId === e.id && "opacity-40"
+                        )}
                       >
                         {e.thumbnailUrl ? (
                           <img src={e.thumbnailUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
@@ -379,6 +432,7 @@ export default function CalendarPage() {
                       <button
                         key={e.id}
                         onClick={() => setEditingPostId(e.id)}
+                        style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
                         className="flex items-center gap-1.5 rounded-md bg-nebula-700/40 py-1 pl-1 pr-2 text-left text-[11px] text-slate-100 transition hover:scale-[1.03] hover:bg-nebula-700/70"
                       >
                         {e.thumbnailUrl && <img src={e.thumbnailUrl} alt="" className="h-6 w-6 rounded object-cover" />}

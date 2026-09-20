@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -150,6 +150,15 @@ function ComposerPageInner() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
+  // Bulle "Premier commentaire" (voir carte dédiée plus bas) : commentaire
+  // optionnel posté automatiquement juste après la publication.
+  const [firstComment, setFirstComment] = useState("");
+  const [firstCommentOpen, setFirstCommentOpen] = useState(false);
+
+  // Compteur de popularité des hashtags (voir carte "3. Description") :
+  // combien de fois CETTE marque a déjà utilisé chaque hashtag tapé, tiré
+  // de son vrai historique de publications (pas une popularité globale).
+  const [hashtagCounts, setHashtagCounts] = useState<Record<string, number>>({});
   const [selectedNetworks, setSelectedNetworks] = useState<Network[]>([]);
   const [overrides, setOverrides] = useState<Partial<Record<Network, NetworkOverride>>>({});
   const [mode, setMode] = useState<ScheduleMode>(prefilledDate ? "date" : "now");
@@ -187,6 +196,27 @@ function ComposerPageInner() {
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [emojiPickerFor]);
+
+  const captionHashtags = useMemo(() => {
+    const matches = caption.match(/#(\w[\w-]*)/g) ?? [];
+    return Array.from(new Set(matches.map((m) => m.slice(1).toLowerCase())));
+  }, [caption]);
+
+  // Debounce (400ms) avant d'interroger /api/posts/hashtags pour éviter une
+  // requête à chaque frappe pendant la rédaction.
+  useEffect(() => {
+    if (!activeBrand || captionHashtags.length === 0) {
+      setHashtagCounts({});
+      return;
+    }
+    const timeout = setTimeout(() => {
+      fetch(`/api/posts/hashtags?brandId=${activeBrand.id}&tags=${captionHashtags.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => setHashtagCounts(d.counts ?? {}))
+        .catch(() => undefined);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [activeBrand, captionHashtags]);
 
   function insertIntoField(kind: "title" | "caption", text: string) {
     if (kind === "title") {
@@ -260,6 +290,10 @@ function ComposerPageInner() {
         if (!post) return;
         setTitle(post.title ?? "");
         setCaption(post.caption ?? "");
+        if (post.firstComment) {
+          setFirstComment(post.firstComment);
+          setFirstCommentOpen(true);
+        }
         setAssets(
           post.media.map((m: { mediaAsset: { id: string; url: string; filename: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string } }) => ({
             id: m.mediaAsset.id,
@@ -284,10 +318,14 @@ function ComposerPageInner() {
     try {
       const raw = localStorage.getItem(DRAFT_KEY_PREFIX + activeBrand.id);
       if (raw) {
-        const draft = JSON.parse(raw) as { title: string; caption: string; selectedNetworks: Network[] };
+        const draft = JSON.parse(raw) as { title: string; caption: string; firstComment?: string; selectedNetworks: Network[] };
         if (draft.title || draft.caption) {
           setTitle(draft.title ?? "");
           setCaption(draft.caption ?? "");
+          if (draft.firstComment) {
+            setFirstComment(draft.firstComment);
+            setFirstCommentOpen(true);
+          }
           setSelectedNetworks(draft.selectedNetworks ?? []);
           toast.info("Brouillon restauré depuis votre dernière visite.");
         }
@@ -304,11 +342,11 @@ function ComposerPageInner() {
         localStorage.removeItem(DRAFT_KEY_PREFIX + activeBrand.id);
         return;
       }
-      localStorage.setItem(DRAFT_KEY_PREFIX + activeBrand.id, JSON.stringify({ title, caption, selectedNetworks }));
+      localStorage.setItem(DRAFT_KEY_PREFIX + activeBrand.id, JSON.stringify({ title, caption, firstComment, selectedNetworks }));
     } catch {
       // ignore
     }
-  }, [activeBrand, duplicateId, title, caption, selectedNetworks]);
+  }, [activeBrand, duplicateId, title, caption, firstComment, selectedNetworks]);
 
   const availableNetworks = Array.from(new Set(connections.map((c) => c.network)));
   const videoAsset = assets.find((a) => a.type === "VIDEO");
@@ -563,6 +601,7 @@ function ComposerPageInner() {
         brandId: activeBrand.id,
         title,
         caption,
+        firstComment: firstComment.trim() || undefined,
         scheduledAt,
         mediaAssetIds: assets.map((a) => a.id),
         targets,
@@ -583,7 +622,7 @@ function ComposerPageInner() {
       // ignore
     }
     router.push(`/posts/${data.postId}`);
-  }, [activeBrand, canSubmit, massMode, massConnectionIds, selectedNetworks, selectedConnectionByNetwork, connections, overrides, mode, scheduleDate, title, caption, assets, toast, router]);
+  }, [activeBrand, canSubmit, massMode, massConnectionIds, selectedNetworks, selectedConnectionByNetwork, connections, overrides, mode, scheduleDate, title, caption, firstComment, assets, toast, router]);
 
   // Raccourci clavier Cmd/Ctrl+Entrée pour publier sans lâcher le clavier.
   useEffect(() => {
@@ -618,7 +657,7 @@ function ComposerPageInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Composer</h1>
+          <h1 className="font-display text-2xl font-semibold text-white">Importation</h1>
           <p className="mt-1 text-sm text-slate-400">
             Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
           </p>
@@ -887,6 +926,24 @@ function ComposerPageInner() {
                 {tightestLimit ? ` / ${tightestLimit} (limite la plus stricte des réseaux sélectionnés)` : ""}
               </span>
             </div>
+            {captionHashtags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {captionHashtags.map((tag) => {
+                  const count = hashtagCounts[tag];
+                  return (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400"
+                    >
+                      #{tag}
+                      <span className="text-aurora-300">
+                        {count === undefined ? "…" : count === 0 ? "jamais utilisé" : `utilisé ${count}×`}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </GlassCard>
 
           {!massMode ? (
@@ -1030,6 +1087,35 @@ function ComposerPageInner() {
               </div>
             </GlassCard>
           )}
+
+          <GlassCard>
+            <button
+              onClick={() => setFirstCommentOpen((v) => !v)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+                <IconMessage className="h-4 w-4 text-slate-400" /> 5. Premier commentaire
+                <span className="text-xs font-normal text-slate-500">(optionnel)</span>
+              </h2>
+              <span className="text-xs text-slate-400">{firstCommentOpen ? "▲ réduire" : "▼ ajouter"}</span>
+            </button>
+            {firstCommentOpen && (
+              <div className="mt-3 animate-fade-in-up rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <p className="mb-2 text-xs text-slate-400">
+                  Publié automatiquement juste après la publication, en commentaire sous le post (Instagram et
+                  Facebook pour le moment — les comptes déjà connectés devront se reconnecter une fois pour
+                  autoriser les commentaires).
+                </p>
+                <textarea
+                  value={firstComment}
+                  onChange={(e) => setFirstComment(e.target.value)}
+                  rows={2}
+                  placeholder="Ex : Lien en bio 👇"
+                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
+                />
+              </div>
+            )}
+          </GlassCard>
         </div>
 
         <div className="space-y-5">

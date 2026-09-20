@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
-import { IconGift, IconSettings, IconLock } from "@/components/dashboard/icons";
+import { IconGift, IconSettings, IconLock, IconUpload } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
 import type { Plan } from "@/lib/plans";
@@ -40,6 +40,13 @@ export default function SettingsPage() {
   const [pseudo, setPseudo] = useState("");
   const [savingPseudo, setSavingPseudo] = useState(false);
 
+  // Marque blanche (palier Agence) — voir carte dédiée plus bas.
+  const [wlName, setWlName] = useState("");
+  const [wlLogoUrl, setWlLogoUrl] = useState<string | null>(null);
+  const [wlUploading, setWlUploading] = useState(false);
+  const [wlSaving, setWlSaving] = useState(false);
+  const wlFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     setPseudo(activeBrand?.name ?? "");
   }, [activeBrand?.id, activeBrand?.name]);
@@ -65,7 +72,46 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.plan && setPlan(d.plan))
       .catch(() => undefined);
+    fetch("/api/settings/white-label")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setWlName(d.brandName ?? "");
+        setWlLogoUrl(d.logoUrl ?? null);
+      })
+      .catch(() => undefined);
   }, []);
+
+  async function saveWhiteLabel(next: { brandName?: string | null; logoUrl?: string | null }) {
+    setWlSaving(true);
+    const res = await fetch("/api/settings/white-label", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next)
+    });
+    setWlSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Erreur lors de l'enregistrement.");
+      return;
+    }
+    toast.success("Marque blanche mise à jour.");
+  }
+
+  async function onWlLogoChosen(file: File) {
+    setWlUploading(true);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/media/thumbnails/upload", { method: "POST", body: form });
+    const data = await res.json();
+    setWlUploading(false);
+    if (!res.ok) {
+      toast.error(data.error ?? "Échec de l'envoi du logo.");
+      return;
+    }
+    setWlLogoUrl(data.url);
+    saveWhiteLabel({ logoUrl: data.url });
+  }
 
   function onPickTheme(themeKeyToPick: string) {
     const theme = THEMES.find((t) => t.key === themeKeyToPick);
@@ -99,7 +145,7 @@ export default function SettingsPage() {
         <h2 className="font-display text-base font-medium text-white">Pseudo de la marque</h2>
         <p className="mt-1 text-sm text-slate-400">
           Le nom affiché pour <strong className="text-slate-300">{activeBrand?.name ?? "cette marque"}</strong>{" "}
-          dans l&apos;aperçu du Composer, le sélecteur de marque, etc.
+          dans l&apos;aperçu d&apos;Importation, le sélecteur de marque, etc.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -174,6 +220,60 @@ export default function SettingsPage() {
         <div className="mt-4">
           <BackgroundCarousel selected={backgroundKey} onSelect={setBackgroundKey} />
         </div>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-medium text-white">Marque blanche</h2>
+          {plan !== "AGENCY" && (
+            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
+              <IconLock className="h-3 w-3" /> Palier Agence
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-slate-400">
+          Remplacez &laquo; Nebula &raquo; par votre propre nom et logo dans la barre de navigation — utile pour
+          une agence qui présente l&apos;outil à ses clients.
+        </p>
+        {plan !== "AGENCY" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Disponible avec le palier Agence.{" "}
+            <Link href="/billing" className="text-aurora-300 hover:underline">
+              Voir Facturation
+            </Link>
+            .
+          </p>
+        ) : (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+              {wlLogoUrl ? (
+                <img src={wlLogoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <IconUpload className="h-5 w-5 text-slate-500" />
+              )}
+            </div>
+            <input
+              ref={wlFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && onWlLogoChosen(e.target.files[0])}
+            />
+            <Button variant="outline" onClick={() => wlFileInputRef.current?.click()} disabled={wlUploading}>
+              {wlUploading ? "Envoi..." : "Changer le logo"}
+            </Button>
+            <input
+              value={wlName}
+              onChange={(e) => setWlName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveWhiteLabel({ brandName: wlName.trim() })}
+              placeholder="Nom affiché (ex : Studio Martin)"
+              className="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+            />
+            <Button onClick={() => saveWhiteLabel({ brandName: wlName.trim() })} disabled={wlSaving}>
+              {wlSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </div>
+        )}
       </GlassCard>
 
       <GlassCard>

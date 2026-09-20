@@ -30,7 +30,24 @@ function tokenStatus(tokenExpiresAt: string | null | undefined): { level: "ok" |
   const daysLeft = Math.ceil((new Date(tokenExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (daysLeft <= 0) return { level: "expired", daysLeft };
   if (daysLeft <= TOKEN_WARNING_DAYS) return { level: "soon", daysLeft };
-  return null; // encore largement valide, pas besoin d'un indicateur qui encombre l'écran
+  return { level: "ok", daysLeft };
+}
+
+// Indicateur de santé du jeton OAuth — toujours visible (pas seulement en cas
+// de souci) pour repérer une expiration avant qu'elle ne bloque une
+// publication. Vert = largement valide, orange = expire bientôt, rouge =
+// expiré, gris = pas de date d'expiration connue pour ce réseau.
+function TokenHealthDot({ level }: { level: "ok" | "soon" | "expired" | "unknown" }) {
+  const color = level === "expired" ? "#f87171" : level === "soon" ? "#f59e0b" : level === "ok" ? "#34d399" : "#6b7280";
+  const title =
+    level === "expired"
+      ? "Connexion expirée"
+      : level === "soon"
+        ? "Expire bientôt"
+        : level === "ok"
+          ? "Connexion saine"
+          : "Durée de validité inconnue pour ce réseau";
+  return <span title={title} className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />;
 }
 
 interface PlanInfo {
@@ -161,12 +178,13 @@ function AccountsPageInner() {
                     <li key={c.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
+                          <TokenHealthDot level={expiry?.level ?? "unknown"} />
                           <NetworkBadge network={c.network} size="sm" />
                           <p className="truncate text-sm text-white">{c.displayName}</p>
                         </div>
                         <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
                         {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}
-                        {expiry && (
+                        {expiry && expiry.level !== "ok" && (
                           <p className={clsx("mt-0.5 text-xs", expiry.level === "expired" ? "text-red-400" : "text-amber-400")}>
                             {expiry.level === "expired"
                               ? "Connexion expirée — reconnectez ce compte pour continuer à publier."
@@ -175,7 +193,7 @@ function AccountsPageInner() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        {expiry && activeBrand && (
+                        {expiry && expiry.level !== "ok" && activeBrand && (
                           <a href={`/api/connections/${provider.id}/start?brandId=${activeBrand.id}`}>
                             <Button
                               variant="outline"

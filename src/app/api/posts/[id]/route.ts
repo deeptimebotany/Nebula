@@ -58,6 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         createdById: userId,
         title: source.title,
         caption: source.caption,
+        firstComment: source.firstComment,
         status: "DRAFT",
         duplicatedFromId: source.id,
         media: {

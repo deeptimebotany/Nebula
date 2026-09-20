@@ -57,6 +57,16 @@ export async function publishPost(postId: string) {
         }
       });
       successCount++;
+
+      // "Premier commentaire" (bulle du Composer/Importation) : best-effort,
+      // ne fait jamais échouer la publication elle-même. Certains réseaux ne
+      // le supportent pas encore (postComment absent du client) — on ignore
+      // simplement dans ce cas.
+      if (post.firstComment && client.postComment) {
+        await client.postComment(target.connection, result.externalPostId, post.firstComment).catch((err) => {
+          console.error(`[premier commentaire] échec sur ${target.network} pour le post ${post.id} :`, err);
+        });
+      }
     } catch (err) {
       failureCount++;
       await prisma.postTarget.update({

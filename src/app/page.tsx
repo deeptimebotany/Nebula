@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NETWORK_META, NETWORKS } from "@/lib/types";
 import { OnboardingCarousel } from "@/components/marketing/onboarding-carousel";
+import { PreviewWidget } from "@/components/marketing/preview-widget";
 
 const FEATURES = [
   {
@@ -75,6 +76,7 @@ export default async function LandingPage() {
         </div>
 
         <OnboardingCarousel />
+        <PreviewWidget />
       </section>
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">

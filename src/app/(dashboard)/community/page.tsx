@@ -6,8 +6,10 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { useToast } from "@/components/dashboard/toast";
-import { IconUsers, IconMessage, IconHeart } from "@/components/dashboard/icons";
+import { clsx } from "@/lib/clsx";
+import { IconUsers, IconMessage, IconHeart, IconTrophy } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
+import type { EarnedBadge } from "@/lib/badges";
 
 type Tab = "forum" | "guides" | "videos";
 
@@ -55,6 +57,7 @@ export default function CommunityPage() {
   const [guides, setGuides] = useState<Guide[]>([]);
   const [videos, setVideos] = useState<SharedVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -79,6 +82,13 @@ export default function CommunityPage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    fetch("/api/community/badges")
+      .then((r) => r.json())
+      .then((d) => setBadges(d.badges ?? []))
+      .catch(() => undefined);
+  }, []);
 
   async function createThread() {
     if (!newTitle.trim() || !newBody.trim()) {
@@ -117,6 +127,43 @@ export default function CommunityPage() {
           Un espace public, ouvert à tous les utilisateurs de Nebula : entraide, guides et partage de vidéos déjà publiées.
         </p>
       </div>
+
+      {badges && badges.some((b) => b.count > 0 || b.nextThreshold !== null) && (
+        <GlassCard>
+          <div className="mb-3 flex items-center gap-2">
+            <IconTrophy className="h-4 w-4 text-amber-300" />
+            <h2 className="font-display text-base font-medium text-white">Vos badges</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {badges.map((b) => (
+              <div key={b.category} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-white">{b.label}</p>
+                  {b.tier && (
+                    <span
+                      className={clsx(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        b.tier === "or"
+                          ? "bg-amber-400/15 text-amber-300"
+                          : b.tier === "argent"
+                            ? "bg-slate-300/15 text-slate-200"
+                            : "bg-orange-700/20 text-orange-300"
+                      )}
+                    >
+                      {b.tier}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {b.nextThreshold !== null
+                    ? `${b.count} / ${b.nextThreshold} pour le palier ${b.nextTier}`
+                    : `${b.count} — palier maximum atteint`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
 
       <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.015] p-1">
         {(

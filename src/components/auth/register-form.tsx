@@ -7,21 +7,26 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { IconGoogle, IconApple } from "@/components/dashboard/icons";
+
+interface RegisterFormProps {
+  oauth?: { google: boolean; apple: boolean };
+}
 
 // useSearchParams() (utilisé ci-dessous pour lire ?ref=CODE) impose que le
 // composant qui l'appelle soit entouré d'un <Suspense>, sinon Next.js
 // refuse de pré-générer la page au build ("useSearchParams() should be
 // wrapped in a suspense boundary"). D'où cet export qui ne fait que poser
 // la limite, le vrai contenu étant dans RegisterFormInner ci-dessous.
-export function RegisterForm() {
+export function RegisterForm({ oauth }: RegisterFormProps) {
   return (
     <Suspense fallback={null}>
-      <RegisterFormInner />
+      <RegisterFormInner oauth={oauth} />
     </Suspense>
   );
 }
 
-function RegisterFormInner() {
+function RegisterFormInner({ oauth }: RegisterFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });
@@ -72,7 +77,35 @@ function RegisterFormInner() {
         </h1>
         <p className="mt-1 text-sm text-slate-400">Un espace, plusieurs réseaux, zéro friction.</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {(oauth?.google || oauth?.apple) && (
+          <div className="mt-6 space-y-2">
+            {oauth.google && (
+              <button
+                type="button"
+                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
+              >
+                <IconGoogle className="h-4 w-4" /> Continuer avec Google
+              </button>
+            )}
+            {oauth.apple && (
+              <button
+                type="button"
+                onClick={() => signIn("apple", { callbackUrl: "/dashboard" })}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
+              >
+                <IconApple className="h-4 w-4" /> Continuer avec Apple
+              </button>
+            )}
+            <div className="flex items-center gap-3 pt-2">
+              <span className="h-px flex-1 bg-white/10" />
+              <span className="text-xs text-slate-500">ou créez votre espace avec un email</span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-4">
           {[
             { key: "name", label: "Votre nom", type: "text", placeholder: "Alex Martin", autoComplete: "name" },
             { key: "email", label: "Email", type: "email", placeholder: "vous@marque.com", autoComplete: "username" },

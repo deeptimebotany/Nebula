@@ -225,6 +225,38 @@ export const IconFacebook = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Logos simplifiés (traits, pas les marques officielles) pour les boutons de
+// connexion rapide sur /login et /register — voir oauth-providers.ts.
+export const IconGoogle = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.17-1.96H12v3.7h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.96-4.33 2.96-7.26Z" />
+    <path fill="#34A853" d="M12 22c2.43 0 4.47-.8 5.96-2.17l-3.24-2.5c-.9.6-2.06.96-2.72.96-2.1 0-3.87-1.4-4.5-3.3H4.4v2.55A9.98 9.98 0 0 0 12 22Z" />
+    <path fill="#FBBC05" d="M7.5 14.99a5.9 5.9 0 0 1 0-3.98V8.46H4.4a9.98 9.98 0 0 0 0 9.08l3.1-2.55Z" />
+    <path fill="#EA4335" d="M12 6.7c1.32 0 2.5.45 3.44 1.34l2.87-2.87A9.6 9.6 0 0 0 12 2a9.98 9.98 0 0 0-7.6 4.46l3.1 2.55c.63-1.9 2.4-3.3 4.5-3.3Z" />
+  </svg>
+);
+
+export const IconApple = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M16.5 12.6c0-1.86 1.02-2.85 1.6-3.36-.9-1.29-2.25-1.5-2.73-1.53-1.24-.12-2.4.72-3 .72-.63 0-1.62-.7-2.66-.68-1.37.02-2.63.8-3.32 2.04-1.42 2.46-.36 6.5.87 8.7.6 1.06 1.32 2.25 2.28 2.2.9-.03 1.26-.6 2.36-.6s1.42.6 2.4.58c1-.02 1.65-1.02 2.25-2.08.53-.94.9-1.85 1-2-.02 0-1.05-.4-1.05-2Z" />
+    <path d="M14.5 6.15c.5-.62.86-1.5.76-2.4-.72.06-1.6.5-2.13 1.12-.47.55-.9 1.44-.78 2.28.8.06 1.62-.42 2.15-1Z" />
+  </svg>
+);
+
+export const IconCommand = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M8 6.5A2.5 2.5 0 1 0 5.5 9H8m0-2.5V9m0-2.5H16m0 0A2.5 2.5 0 1 1 18.5 9H16m0-2.5V9m0 6.5A2.5 2.5 0 1 0 18.5 18H16m0-2.5V18m0-2.5H8m0 0A2.5 2.5 0 1 1 5.5 18H8m0-2.5V18" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconTrophy = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M7 5.5H4.5a2 2 0 0 0-2 2v.5a3.5 3.5 0 0 0 3.5 3.5H7M17 5.5h2.5a2 2 0 0 1 2 2v.5a3.5 3.5 0 0 1-3.5 3.5H17" strokeLinecap="round" />
+    <path d="M12 14v3M8.5 20.5h7M9.5 20.5V18a2.5 2.5 0 0 1 5 0v2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const IconLock = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <rect x="5" y="10.5" width="14" height="10" rx="2.2" />

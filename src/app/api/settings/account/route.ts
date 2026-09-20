@@ -25,8 +25,13 @@ export async function DELETE(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
-  const valid = await bcrypt.compare(password ?? "", user.passwordHash);
-  if (!valid) return NextResponse.json({ error: "Mot de passe incorrect." }, { status: 400 });
+  // Un compte créé via Google/Apple (voir src/lib/auth.ts) n'a pas de mot de
+  // passe Nebula : on ne peut pas le vérifier, donc pas de re-confirmation
+  // possible par ce biais — la suppression continue directement pour lui.
+  if (user.passwordHash) {
+    const valid = await bcrypt.compare(password ?? "", user.passwordHash);
+    if (!valid) return NextResponse.json({ error: "Mot de passe incorrect." }, { status: 400 });
+  }
 
   const ownedMemberships = await prisma.membership.findMany({
     where: { userId, role: "OWNER" },

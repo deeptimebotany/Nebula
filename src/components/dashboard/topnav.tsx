@@ -34,7 +34,7 @@ import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
 const NAV = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: IconHome },
   { href: "/calendar", label: "Calendrier", icon: IconCalendar },
-  { href: "/composer", label: "Composer", icon: IconUpload },
+  { href: "/composer", label: "Importation", icon: IconUpload },
   { href: "/analytics", label: "Analytics", icon: IconChart },
   { href: "/accounts", label: "Comptes", icon: IconLink },
   { href: "/community", label: "Communauté", icon: IconUsers },
@@ -75,6 +75,13 @@ export function TopNav() {
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
 
+  // Marque blanche (palier Agence, voir Paramètres) : remplace le logo et le
+  // nom "Nebula" quand renseignés.
+  const [whiteLabel, setWhiteLabel] = useState<{ brandName: string | null; logoUrl: string | null }>({
+    brandName: null,
+    logoUrl: null
+  });
+
   const brandSwitcherRef = useRef<HTMLDivElement>(null);
   const addAccountRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +93,10 @@ export function TopNav() {
         setMaxBrands(d.maxBrands ?? 1);
         setBrandsOwned(d.brandsOwned ?? 0);
       })
+      .catch(() => undefined);
+    fetch("/api/settings/white-label")
+      .then((r) => r.json())
+      .then((d) => setWhiteLabel({ brandName: d.brandName ?? null, logoUrl: d.logoUrl ?? null }))
       .catch(() => undefined);
   }, [brands.length]);
 
@@ -136,10 +147,16 @@ export function TopNav() {
       {/* Ligne 1 — logo, onglets, actions de compte */}
       <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
         <Link href="/dashboard" className="mr-2 flex shrink-0 items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-500 to-accent-cyan text-white shadow-glow">
-            <IconSparkle className="h-4 w-4" />
-          </div>
-          <span className="hidden font-display text-lg font-semibold text-white sm:inline">Nebula</span>
+          {whiteLabel.logoUrl ? (
+            <img src={whiteLabel.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-500 to-accent-cyan text-white shadow-glow">
+              <IconSparkle className="h-4 w-4" />
+            </div>
+          )}
+          <span className="hidden font-display text-lg font-semibold text-white sm:inline">
+            {whiteLabel.brandName || "Nebula"}
+          </span>
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">

@@ -16,7 +16,7 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    eyebrow: "1. Composer",
+    eyebrow: "1. Importation",
     title: "Un post, tous vos réseaux",
     desc: "Un média, un titre, une description — adaptez le texte par plateforme si besoin, avec un bouton IA sur chaque champ (titre YouTube, légende Instagram...).",
     accent: "from-nebula-500 to-accent-cyan"

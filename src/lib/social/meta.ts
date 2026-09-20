@@ -26,7 +26,12 @@ function getMetaAuthUrl(state: string): string {
     "pages_show_list",
     "pages_read_engagement",
     "pages_manage_posts",
-    "business_management"
+    "business_management",
+    // Nécessaires pour la fonction "premier commentaire" (bulle du Composer/
+    // Importation) — voir postComment ci-dessous. Les comptes déjà connectés
+    // avant l'ajout de ces scopes devront se reconnecter pour en bénéficier.
+    "instagram_manage_comments",
+    "pages_manage_engagement"
   ].join(",");
   const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
   url.searchParams.set("client_id", appId);
@@ -108,6 +113,21 @@ export async function exchangeMetaCode(code: string): Promise<{
   }
 
   return { instagramAccounts, facebookPages };
+}
+
+/**
+ * Poste un commentaire sur un média Instagram ou une publication Facebook
+ * déjà publiée — utilisé pour la fonction "premier commentaire" (voir la
+ * bulle dédiée dans le Composer/Importation et src/lib/publish.ts).
+ * Nécessite instagram_manage_comments (IG) ou pages_manage_engagement (FB) —
+ * voir les scopes demandés dans getMetaAuthUrl ci-dessus.
+ */
+async function postGraphComment(network: "INSTAGRAM" | "FACEBOOK", targetId: string, accessToken: string, message: string) {
+  await fetchJson<{ id: string }>(network, `${GRAPH_BASE}/${targetId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ message, access_token: accessToken }).toString()
+  });
 }
 
 export const instagramClient: SocialClient = {
@@ -217,6 +237,10 @@ export const instagramClient: SocialClient = {
       reach: metric("reach"),
       postsCount: profile.media_count
     };
+  },
+
+  async postComment(connection, externalPostId, comment) {
+    await postGraphComment("INSTAGRAM", externalPostId, connection.accessToken, comment);
   }
 };
 
@@ -262,5 +286,9 @@ export const facebookClient: SocialClient = {
       reach: 0,
       postsCount: 0
     };
+  },
+
+  async postComment(connection, externalPostId, comment) {
+    await postGraphComment("FACEBOOK", externalPostId, connection.accessToken, comment);
   }
 };

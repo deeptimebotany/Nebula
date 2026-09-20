@@ -16,6 +16,7 @@ const bodySchema = z.object({
   brandId: z.string(),
   title: z.string().default(""),
   caption: z.string().default(""),
+  firstComment: z.string().max(2200).optional(),
   scheduledAt: z.string().datetime().optional(),
   mediaAssetIds: z.array(z.string()).default([]),
   targets: z.array(targetSchema).min(1),
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, title, caption, scheduledAt, mediaAssetIds, targets, publishNow } = parsed.data;
+  const { brandId, title, caption, firstComment, scheduledAt, mediaAssetIds, targets, publishNow } = parsed.data;
 
   try {
     await assertPostQuota(brandId);
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       createdById: userId,
       title,
       caption,
+      firstComment: firstComment?.trim() || null,
       status,
       scheduledAt: scheduledDate,
       media: { create: mediaAssetIds.map((id, order) => ({ mediaAssetId: id, order })) },

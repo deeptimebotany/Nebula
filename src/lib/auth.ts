@@ -1,7 +1,52 @@
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { generateUniqueReferralCode } from "@/lib/referral";
+
+function slugifyBrand(input: string) {
+  return (
+    input
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || `marque-${Date.now()}`
+  );
+}
+
+// Crée le compte Nebula + sa marque par défaut au premier login Google/Apple
+// (mêmes étapes que /api/auth/register, sans mot de passe — voir passwordHash
+// nullable sur User). Idempotent : ne fait rien si le compte existe déjà.
+async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: string | null) {
+  const normalizedEmail = email.toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existing) return existing;
+
+  const brandName = name || normalizedEmail.split("@")[0];
+  let slug = slugifyBrand(brandName);
+  const slugTaken = await prisma.brand.findUnique({ where: { slug } });
+  if (slugTaken) slug = `${slug}-${Math.floor(Math.random() * 10000)}`;
+
+  const referralCode = await generateUniqueReferralCode();
+  return prisma.user.create({
+    data: {
+      name: brandName,
+      email: normalizedEmail,
+      passwordHash: null,
+      avatarUrl: avatarUrl ?? undefined,
+      referralCode,
+      memberships: {
+        create: {
+          role: "OWNER",
+          brand: { create: { name: brandName, slug } }
+        }
+      }
+    }
+  });
+}
 
 export const authOptions: NextAuthOptions = {
   // maxAge explicite (60 jours) : la session est mémorisée dans un cookie
@@ -25,18 +70,49 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() }
         });
-        if (!user) return null;
+        // Un compte créé via Google/Apple n'a pas de passwordHash — pas de
+        // connexion par mot de passe possible pour lui (voir le champ
+        // nullable sur User, et les boutons de connexion rapide plus bas).
+        if (!user || !user.passwordHash) return null;
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
         return { id: user.id, email: user.email, name: user.name };
       }
-    })
+    }),
+    // Connexion rapide (voir bulle "Continuer avec Google/Apple" sur /login
+    // et /register) — n'apparaissent dans la liste QUE si les identifiants
+    // OAuth correspondants sont renseignés dans .env (voir .env.example et
+    // src/lib/oauth-providers.ts, qui pilote l'affichage des boutons).
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+      : []),
+    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
+      ? [AppleProvider({ clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET })]
+      : [])
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.uid = user.id;
+    // Premier login Google/Apple : crée le compte Nebula + sa marque par
+    // défaut avant que jwt() ne cherche à résoudre l'id (voir ci-dessous).
+    async signIn({ user, account }) {
+      if (account?.provider === "google" || account?.provider === "apple") {
+        if (!user.email) return false;
+        await findOrCreateOAuthUser(user.email, user.name ?? "", user.image);
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (user) {
+        if (account?.provider === "google" || account?.provider === "apple") {
+          const dbUser = user.email
+            ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } })
+            : null;
+          if (dbUser) token.uid = dbUser.id;
+        } else {
+          token.uid = user.id;
+        }
+      }
       return token;
     },
     async session({ session, token }) {

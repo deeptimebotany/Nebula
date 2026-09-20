@@ -27,8 +27,14 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
-  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-  if (!valid) return NextResponse.json({ error: "Mot de passe actuel incorrect." }, { status: 400 });
+  // Un compte créé via Google/Apple (voir src/lib/auth.ts) n'a pas encore de
+  // mot de passe Nebula : on l'autorise à en définir un directement (pas
+  // d'ancien mot de passe à vérifier), pour pouvoir aussi se connecter par
+  // email ensuite si besoin.
+  if (user.passwordHash) {
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) return NextResponse.json({ error: "Mot de passe actuel incorrect." }, { status: 400 });
+  }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });

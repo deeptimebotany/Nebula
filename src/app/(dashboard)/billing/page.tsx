@@ -20,6 +20,64 @@ interface PlanResponse {
 
 const PAID_PLANS: Plan[] = ["PRO", "AGENCY"];
 
+// Calculateur de ROI : purement indicatif, basé sur des hypothèses que VOUS
+// ajustez (nombre de comptes gérés, minutes passées à poster manuellement
+// sur chacun, publications par mois) — aucune donnée n'est prétendue réelle,
+// c'est un ordre de grandeur pour visualiser le temps qu'économise le fait
+// de publier une fois sur Nebula plutôt que réseau par réseau.
+function RoiCalculator() {
+  const [accounts, setAccounts] = useState(4);
+  const [minutesPerPost, setMinutesPerPost] = useState(6);
+  const [postsPerMonth, setPostsPerMonth] = useState(20);
+
+  const manualMinutes = accounts * minutesPerPost * postsPerMonth;
+  const nebulaMinutes = minutesPerPost * postsPerMonth; // un seul post rédigé, distribué partout
+  const savedHours = Math.max(0, (manualMinutes - nebulaMinutes) / 60);
+
+  const fields: [string, number, (v: number) => void, number, number][] = [
+    ["Comptes/réseaux gérés", accounts, setAccounts, 1, 50],
+    ["Minutes par publication (rédaction + mise en forme par réseau)", minutesPerPost, setMinutesPerPost, 1, 60],
+    ["Publications par mois", postsPerMonth, setPostsPerMonth, 1, 500]
+  ];
+
+  return (
+    <GlassCard>
+      <h2 className="font-display text-base font-medium text-white">Calculateur de temps économisé</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Ajustez les curseurs selon votre réalité — le résultat est une estimation, pas une donnée mesurée.
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {fields.map(([label, value, setValue, min, max]) => (
+          <div key={label}>
+            <label className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
+              <span>{label}</span>
+              <span className="font-medium text-white">{value}</span>
+            </label>
+            <input
+              type="range"
+              min={min}
+              max={max}
+              value={value}
+              onChange={(e) => setValue(Number(e.target.value))}
+              className="w-full accent-aurora-500"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p className="text-xs text-slate-400">Temps estimé sans Nebula (par réseau, un par un)</p>
+          <p className="mt-1 font-display text-xl text-white">{Math.round(manualMinutes / 60)} h / mois</p>
+        </div>
+        <div className="rounded-xl border border-aurora-400/30 bg-aurora-400/[0.06] px-4 py-3">
+          <p className="text-xs text-aurora-200">Temps économisé estimé avec Nebula</p>
+          <p className="mt-1 font-display text-xl text-white">≈ {Math.round(savedHours)} h / mois</p>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 // useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
 // sinon Next.js refuse de pré-générer la page au build (même erreur que
 // celle rencontrée sur /register — voir ce fichier pour le détail).
@@ -139,6 +197,8 @@ function BillingPageInner() {
           </div>
         </GlassCard>
       )}
+
+      <RoiCalculator />
 
       <div className="flex items-center justify-center gap-3">
         <span className={clsx("text-sm", interval === "month" ? "text-white" : "text-slate-500")}>Mensuel</span>
