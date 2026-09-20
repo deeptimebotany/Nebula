@@ -23,7 +23,6 @@ import {
 } from "@/components/dashboard/icons";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
-import type { Plan } from "@/lib/plans";
 
 // Petite sélection d'émojis courants pour l'insertion rapide dans le titre /
 // la description (voir insertIntoField ci-dessous).
@@ -143,8 +142,6 @@ function ComposerPageInner() {
   const aiStatus = useAiStatus(activeBrand?.id);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [massPublishAllowed, setMassPublishAllowed] = useState(false);
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -242,14 +239,7 @@ function ComposerPageInner() {
     }
   }
 
-  // Publication en masse (palier Agence uniquement) : au lieu d'un seul
-  // compte par réseau, on publie la même vidéo sur un ensemble de comptes
-  // choisis librement, à travers TOUS les réseaux à la fois (ex : 3 comptes
-  // Instagram + 2 pages Facebook + 1 chaîne YouTube en un seul clic).
-  const [massMode, setMassMode] = useState(false);
-  const [massConnectionIds, setMassConnectionIds] = useState<string[]>([]);
-
-  // Quel compte utiliser pour chaque réseau sélectionné en mode normal —
+  // Quel compte utiliser pour chaque réseau sélectionné —
   // utile dès qu'un réseau a plusieurs comptes connectés (palier Pro+).
   const [selectedConnectionByNetwork, setSelectedConnectionByNetwork] = useState<Partial<Record<Network, string>>>({});
 
@@ -271,13 +261,6 @@ function ComposerPageInner() {
     fetch(`/api/connections?brandId=${activeBrand.id}`)
       .then((r) => r.json())
       .then((d) => setConnections(d.connections ?? []));
-    fetch(`/api/billing/plan?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setPlan(d.plan ?? "FREE");
-        setMassPublishAllowed(Boolean(d.limits?.massPublishEnabled));
-      })
-      .catch(() => undefined);
   }, [activeBrand]);
 
   // Pré-remplissage depuis un post existant (bouton "Dupliquer")
@@ -350,10 +333,6 @@ function ComposerPageInner() {
 
   const availableNetworks = Array.from(new Set(connections.map((c) => c.network)));
   const videoAsset = assets.find((a) => a.type === "VIDEO");
-  const connectionsByNetwork = availableNetworks.map((n) => ({
-    network: n,
-    connections: connections.filter((c) => c.network === n)
-  }));
 
   const onFilesChosen = useCallback(
     async (files: FileList | null) => {
@@ -435,15 +414,6 @@ function ComposerPageInner() {
 
   function setOverrideField(n: Network, field: "title" | "caption", value: string) {
     setOverrides((prev) => ({ ...prev, [n]: { open: true, title: "", caption: "", ...prev[n], [field]: value } }));
-  }
-
-  function toggleMassMode() {
-    setMassMode((v) => !v);
-    setMassConnectionIds([]);
-  }
-
-  function toggleMassConnection(id: string) {
-    setMassConnectionIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function generateField(field: "title" | "description", network?: Network) {
@@ -560,37 +530,27 @@ function ComposerPageInner() {
     setAssets((prev) => prev.map((a) => (a.id === videoAsset.id ? { ...a, thumbnailUrl: url } : a)));
   }
 
-  const canSubmit =
-    assets.length > 0 &&
-    (massMode ? massConnectionIds.length > 0 : selectedNetworks.length > 0) &&
-    !!activeBrand;
+  const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand;
 
   const onSubmit = useCallback(async () => {
     if (!activeBrand || !canSubmit) return;
     setSubmitting(true);
 
-    const targets = massMode
-      ? massConnectionIds
-          .map((connectionId) => {
-            const connection = connections.find((c) => c.id === connectionId);
-            return connection ? { connectionId, network: connection.network } : null;
-          })
-          .filter((t): t is NonNullable<typeof t> => t !== null)
-      : selectedNetworks
-          .map((network) => {
-            const connection =
-              connections.find((c) => c.id === selectedConnectionByNetwork[network]) ||
-              connections.find((c) => c.network === network);
-            if (!connection) return null;
-            const ov = overrides[network];
-            return {
-              connectionId: connection.id,
-              network,
-              titleOverride: ov?.open && ov.title ? ov.title : undefined,
-              captionOverride: ov?.open && ov.caption ? ov.caption : undefined
-            };
-          })
-          .filter((t): t is NonNullable<typeof t> => t !== null);
+    const targets = selectedNetworks
+      .map((network) => {
+        const connection =
+          connections.find((c) => c.id === selectedConnectionByNetwork[network]) ||
+          connections.find((c) => c.network === network);
+        if (!connection) return null;
+        const ov = overrides[network];
+        return {
+          connectionId: connection.id,
+          network,
+          titleOverride: ov?.open && ov.title ? ov.title : undefined,
+          captionOverride: ov?.open && ov.caption ? ov.caption : undefined
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
 
     const scheduledAt = mode === "date" && scheduleDate ? new Date(scheduleDate).toISOString() : undefined;
 
@@ -622,7 +582,7 @@ function ComposerPageInner() {
       // ignore
     }
     router.push(`/posts/${data.postId}`);
-  }, [activeBrand, canSubmit, massMode, massConnectionIds, selectedNetworks, selectedConnectionByNetwork, connections, overrides, mode, scheduleDate, title, caption, firstComment, assets, toast, router]);
+  }, [activeBrand, canSubmit, selectedNetworks, selectedConnectionByNetwork, connections, overrides, mode, scheduleDate, title, caption, firstComment, assets, toast, router]);
 
   // Raccourci clavier Cmd/Ctrl+Entrée pour publier sans lâcher le clavier.
   useEffect(() => {
@@ -663,11 +623,6 @@ function ComposerPageInner() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {massPublishAllowed && (
-            <Button variant={massMode ? "glow" : "outline"} onClick={toggleMassMode}>
-              {massMode ? "Quitter le mode masse" : "Publication en masse"}
-            </Button>
-          )}
           {aiStatus?.enabled && (
             <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
               <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
@@ -687,16 +642,6 @@ function ComposerPageInner() {
                 Voir les paliers
               </Link>
             )}
-          </p>
-        </GlassCard>
-      )}
-
-      {massMode && (
-        <GlassCard className="border-aurora-400/30 bg-nebula-700/[0.15]">
-          <p className="text-sm text-slate-200">
-            <strong className="text-white">Mode publication en masse</strong> — cochez librement les comptes sur
-            lesquels publier en même temps, toutes plateformes confondues (aucune limite de comptes, réservé au
-            palier Agence).
           </p>
         </GlassCard>
       )}
@@ -946,8 +891,7 @@ function ComposerPageInner() {
             )}
           </GlassCard>
 
-          {!massMode ? (
-            <GlassCard>
+          <GlassCard>
               <h2 className="mb-3 font-display text-base font-medium text-white">4. Réseaux cibles</h2>
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
@@ -1051,42 +995,6 @@ function ComposerPageInner() {
                 )}
               </div>
             </GlassCard>
-          ) : (
-            <GlassCard>
-              <h2 className="mb-3 font-display text-base font-medium text-white">4. Comptes cibles (masse)</h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>{massConnectionIds.length} compte(s) sélectionné(s) sur {connections.length}</span>
-                  <button onClick={() => setMassConnectionIds(connections.map((c) => c.id))} className="text-aurora-300 hover:underline">
-                    Tout sélectionner
-                  </button>
-                </div>
-                {connectionsByNetwork.map(({ network, connections: netConnections }) => (
-                  <div key={network} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <NetworkBadge network={network} size="sm" />
-                    </div>
-                    <ul className="space-y-1.5">
-                      {netConnections.map((c) => (
-                        <li key={c.id}>
-                          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/[0.02] px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.04]">
-                            <input
-                              type="checkbox"
-                              checked={massConnectionIds.includes(c.id)}
-                              onChange={() => toggleMassConnection(c.id)}
-                              className="accent-aurora-500"
-                            />
-                            {c.displayName}
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                {connections.length === 0 && <p className="text-sm text-slate-500">Aucun compte connecté.</p>}
-              </div>
-            </GlassCard>
-          )}
 
           <GlassCard>
             <button

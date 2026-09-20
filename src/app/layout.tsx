@@ -12,7 +12,7 @@ import { Providers } from "@/components/providers";
 export const metadata: Metadata = {
   title: "Nebula — Command Center Social",
   description:
-    "Planifiez, publiez en masse et analysez votre présence sur tous les réseaux sociaux depuis un seul cockpit sombre et lumineux."
+    "Planifiez, publiez et analysez votre présence sur tous les réseaux sociaux depuis un seul cockpit sombre et lumineux."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
