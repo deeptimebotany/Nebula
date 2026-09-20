@@ -88,7 +88,14 @@ export async function chatComplete(messages: ChatMessage[], systemInstruction: s
   });
 }
 
-/** Génère un titre ou une description/légende adaptée à un réseau donné. */
+/**
+ * Génère un titre ou une description/légende adaptée à un réseau donné.
+ * Quand une frame/image réelle du média est fournie (frameBase64), Gemini
+ * la reçoit directement (vision) et doit s'appuyer STRICTEMENT sur ce qui y
+ * est visible — sans ça (mediaHint texte seul, ex: "vidéo"), le modèle n'a
+ * aucune idée du contenu réel et tend à halluciner un texte générique de
+ * marque plutôt que de décrire la publication elle-même.
+ */
 export async function generateCopy(input: {
   field: "title" | "description";
   network?: string;
@@ -96,26 +103,76 @@ export async function generateCopy(input: {
   brandName: string;
   existingTitle?: string;
   existingCaption?: string;
-  mediaHint?: string; // ex: "vidéo verticale de 42s" — décrit le média, pas une lecture réelle du fichier
+  mediaHint?: string; // ex: "vidéo" — utilisé seulement en repli si aucune image n'a pu être extraite
+  frameBase64?: string;
+  frameMimeType?: string;
 }): Promise<string> {
-  const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint } = input;
+  const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = input;
 
-  const prompt = [
+  const promptLines = [
     `Tu es un assistant de community management pour la marque "${brandName}" sur Nebula.`,
+    frameBase64
+      ? "Voici une image réelle extraite du média que la personne s'apprête à publier. Base-toi STRICTEMENT sur ce que tu vois (sujet, action, décor, ambiance) : n'invente rien qui ne soit pas visible sur cette image, et ne rédige surtout pas un texte de présentation générique de la marque."
+      : mediaHint
+        ? `Média joint : ${mediaHint} (aucune image n'a pu être analysée cette fois — reste prudent et générique sur le contenu visuel plutôt que d'inventer des détails).`
+        : "",
     field === "title"
       ? `Rédige UN SEUL titre accrocheur (sans guillemets, sans hashtag) pour cette publication${network ? ` sur ${network}` : ""}.`
       : `Rédige UNE SEULE description/légende engageante${network ? ` adaptée à ${network}` : ""}, avec 2-3 hashtags pertinents à la fin.`,
     maxLength ? `Reste sous ${maxLength} caractères.` : "",
     existingTitle ? `Titre actuel (à améliorer, pas juste reformuler) : ${existingTitle}` : "",
     existingCaption ? `Description actuelle / contexte : ${existingCaption}` : "",
-    mediaHint ? `Média joint : ${mediaHint}` : "",
     "Réponds uniquement avec le texte final, sans préambule ni explication."
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean);
 
-  const text = await callGemini({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
+  const parts: GenerateContentPart[] = [{ text: promptLines.join("\n") }];
+  if (frameBase64 && frameMimeType) {
+    parts.push({ inline_data: { mime_type: frameMimeType, data: frameBase64 } });
+  }
+
+  const text = await callGemini({ contents: [{ role: "user", parts }] });
   return text.trim().replace(/^"|"$/g, "");
+}
+
+export interface FrameCandidate {
+  index: number;
+  base64: string;
+  mimeType: string;
+}
+
+/**
+ * Fait choisir à Gemini les meilleures frames parmi plusieurs candidates
+ * extraites d'une même vidéo, pour la génération de miniatures (voir
+ * "Générer des miniatures" dans composer/page.tsx) — évite de proposer des
+ * frames de transition, floues ou sans intérêt visuel qui sortiraient d'un
+ * simple échantillonnage à intervalles fixes.
+ */
+export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<number[]> {
+  const { frames, count } = input;
+  const promptText = [
+    "Tu es un directeur artistique qui choisit la meilleure image de couverture (miniature) parmi plusieurs frames extraites de la même vidéo, numérotées dans l'ordre chronologique (index 0 à " +
+      (frames.length - 1) +
+      ").",
+    "Choisis celles qui feraient les meilleures miniatures : nettes (pas de flou de mouvement), bien cadrées, sujet principal clairement visible et reconnaissable, moment ou expression engageant. Évite les frames de transition, noires, floues, ou sans intérêt visuel.",
+    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndexes": [index1, index2, ...]}, en donnant jusqu'à ${count} indices, du meilleur au moins bon.`
+  ].join("\n");
+
+  const parts: GenerateContentPart[] = [{ text: promptText }];
+  for (const frame of frames) {
+    parts.push({ text: `Frame index ${frame.index} :` });
+    parts.push({ inline_data: { mime_type: frame.mimeType, data: frame.base64 } });
+  }
+
+  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
+  try {
+    const parsed = JSON.parse(raw);
+    const indexes: number[] = Array.isArray(parsed.bestIndexes)
+      ? parsed.bestIndexes.filter((n: unknown): n is number => typeof n === "number")
+      : [];
+    return indexes.slice(0, count);
+  } catch {
+    return [];
+  }
 }
 
 export interface GeneratedThumbnail {

@@ -1,25 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { isAiEnabled, generateCopy } from "@/lib/ai/gemini";
+import { isAiEnabled, pickBestFrames } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
-import { NETWORK_META, type Network } from "@/lib/types";
 import { z } from "zod";
 
 const bodySchema = z.object({
   brandId: z.string(),
-  field: z.enum(["title", "description"]),
-  network: z.string().optional(),
-  existingTitle: z.string().optional(),
-  existingCaption: z.string().optional(),
-  mediaHint: z.string().optional(),
-  frameBase64: z.string().optional(),
-  frameMimeType: z.string().optional()
+  count: z.number().int().min(1).max(12).default(6),
+  frames: z
+    .array(
+      z.object({
+        index: z.number().int(),
+        base64: z.string(),
+        mimeType: z.string()
+      })
+    )
+    .min(1)
+    .max(24)
 });
 
-// POST /api/ai/generate-copy — génère un titre ou une description via
-// Gemini, adapté aux contraintes de longueur du réseau ciblé.
+// POST /api/ai/pick-best-frames — demande à Gemini de choisir, parmi
+// plusieurs frames candidates extraites d'une même vidéo côté navigateur
+// (voir onGenerateThumbnails dans composer/page.tsx), lesquelles feraient
+// les meilleures miniatures (nettes, bien cadrées, sujet reconnaissable) —
+// évite de proposer des frames de transition ou floues issues d'un simple
+// échantillonnage à intervalles fixes.
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -33,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, field, network, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = parsed.data;
+  const { brandId, count, frames } = parsed.data;
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.aiEnabled) {
@@ -43,22 +49,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const brand = await prisma.brand.findUnique({ where: { id: brandId } });
-  if (!brand) return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
-
   try {
-    const text = await generateCopy({
-      field,
-      network,
-      maxLength: network ? NETWORK_META[network as Network]?.maxCaption : undefined,
-      brandName: brand.name,
-      existingTitle,
-      existingCaption,
-      mediaHint,
-      frameBase64,
-      frameMimeType
-    });
-    return NextResponse.json({ text });
+    const bestIndexes = await pickBestFrames({ frames, count });
+    return NextResponse.json({ bestIndexes });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

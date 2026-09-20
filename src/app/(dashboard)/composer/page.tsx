@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -27,13 +28,105 @@ import type { RepurposedContent } from "@/lib/ai/gemini";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
 
-// Petite sélection d'émojis courants pour l'insertion rapide dans le titre /
-// la description (voir insertIntoField ci-dessous).
-const EMOJIS = [
-  "😀", "😂", "🔥", "❤️", "👍", "🎉", "✨", "😍",
-  "🙌", "💯", "😎", "🤩", "👏", "😅", "🥳", "🚀",
-  "⭐", "💡", "📸", "🎬", "😉", "🤔", "👀", "💪"
+// Large sélection d'émojis organisée par catégorie pour l'insertion rapide
+// dans le titre / la description (voir insertIntoField ci-dessous). Curatée
+// à la main plutôt que le catalogue Unicode complet (~3700 émojis) qui
+// serait ingérable dans un petit sélecteur — ici de quoi couvrir la quasi-
+// totalité des usages réseaux sociaux (~270 émojis) sans devenir un annuaire.
+const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
+  {
+    label: "Populaires",
+    emojis: ["😀", "😂", "🔥", "❤️", "👍", "🎉", "✨", "😍", "🙌", "💯", "😎", "🤩", "👏", "😅", "🥳", "🚀", "⭐", "💡", "📸", "🎬", "😉", "🤔", "👀", "💪"]
+  },
+  {
+    label: "Émotions",
+    emojis: [
+      "😊", "😁", "😆", "😇", "🙂", "🙃", "😋", "😜", "🤪", "😝", "🤗", "🤭", "🥰", "😘", "😗", "😚", "😙", "🥲", "😌",
+      "😐", "😑", "😶", "🙄", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭",
+      "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤤", "😴", "🤒", "🤕", "🤢", "🤮",
+      "🥱", "😷", "🤠", "🥸", "🤡", "👻", "💀", "☠️"
+    ]
+  },
+  {
+    label: "Gestes",
+    emojis: ["👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🙏", "✍️", "💅", "🤳", "💪"]
+  },
+  {
+    label: "Cœurs",
+    emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"]
+  },
+  {
+    label: "Célébration",
+    emojis: ["🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "🎗️", "🎯", "🎆", "🎇", "🧨", "✨", "🌟", "⭐", "💫", "🎵", "🎶", "🎤", "🎸", "🥂", "🍾", "🍰", "🎂"]
+  },
+  {
+    label: "Nature",
+    emojis: ["☀️", "🌤️", "⛅", "🌥️", "☁️", "🌦️", "🌧️", "⛈️", "🌩️", "❄️", "☃️", "⛄", "🌈", "🔥", "💧", "🌊", "🌙", "⭐", "🌸", "🌺", "🌻", "🌼", "🌷", "🌹", "🍀", "🌴", "🌵", "🍃", "🍂", "🌿"]
+  },
+  {
+    label: "Nourriture",
+    emojis: ["🍕", "🍔", "🍟", "🌭", "🌮", "🌯", "🥗", "🍣", "🍱", "🍜", "🍦", "🍩", "🍪", "🍫", "🍬", "🍭", "☕", "🍵", "🧋", "🥤", "🍹", "🍷", "🍺", "🥂"]
+  },
+  {
+    label: "Activités",
+    emojis: ["⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸", "🥊", "🏋️", "🧘", "🏃", "🚴", "🏄", "🎮", "🎧", "📱", "💻", "📷", "🎥", "🖥️", "⌚"]
+  },
+  {
+    label: "Symboles",
+    emojis: ["✅", "❌", "⚡", "💯", "🔔", "🔒", "🔓", "🔑", "🆕", "🆓", "🔝", "🔥", "💥", "💢", "‼️", "⁉️", "❓", "❗", "💬", "🔗", "📌", "📍", "🏷️", "🗓️"]
+  }
 ];
+
+// Sélecteur d'émojis rendu via un portail (voir usage plus bas) : positionné
+// en `fixed` par rapport au bouton qui l'ouvre, il échappe ainsi au contexte
+// d'empilement de sa carte parente — sans ça, sur cette page où chaque carte
+// (glassmorphism + backdrop-blur) crée son propre contexte d'empilement, le
+// panneau se retrouvait visuellement sous la carte suivante malgré un
+// z-index élevé, purement à cause de l'ordre DOM des cartes.
+function EmojiPicker({
+  anchor,
+  panelRef,
+  onPick
+}: {
+  anchor: { top: number; right: number };
+  panelRef: React.Ref<HTMLDivElement>;
+  onPick: (emoji: string) => void;
+}) {
+  const [category, setCategory] = useState(0);
+  return (
+    <div
+      ref={panelRef}
+      style={{ position: "fixed", top: anchor.top, right: anchor.right }}
+      className="glass-panel-solid z-[999] w-72 rounded-xl p-2 shadow-2xl"
+    >
+      <div className="mb-1.5 flex flex-wrap gap-1 border-b border-white/10 pb-1.5">
+        {EMOJI_CATEGORIES.map((c, i) => (
+          <button
+            key={c.label}
+            onClick={() => setCategory(i)}
+            className={clsx(
+              "rounded-md px-1.5 py-0.5 text-[10px] font-medium transition",
+              category === i ? "bg-aurora-500/30 text-white" : "text-slate-500 hover:text-white"
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid max-h-48 grid-cols-8 gap-1 overflow-y-auto">
+        {EMOJI_CATEGORIES[category].emojis.map((e) => (
+          <button
+            key={e}
+            onClick={() => onPick(e)}
+            className="rounded-md p-1 text-base transition hover:scale-125 hover:bg-white/10"
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface UploadedAsset {
   id: string;
@@ -173,6 +266,13 @@ function ComposerPageInner() {
   const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
   const thumbFileInputRef = useRef<HTMLInputElement>(null);
+  // Cache la frame/image envoyée à Gemini pour la génération de titre/
+  // description (voir getMediaFrameForAi) — invalidé dès que le média
+  // change pour ne jamais analyser un fichier obsolète.
+  const mediaFrameRef = useRef<{ base64: string; mimeType: string } | null>(null);
+  useEffect(() => {
+    mediaFrameRef.current = null;
+  }, [assets]);
 
   // Aperçu : format auto-détecté (court 9:16 vs 16:9) à partir des vraies
   // dimensions du fichier importé, et simulateur d'interface TikTok (voir
@@ -191,11 +291,24 @@ function ComposerPageInner() {
   const [repurposeLoading, setRepurposeLoading] = useState(false);
   const [repurposeResult, setRepurposeResult] = useState<RepurposedContent | null>(null);
 
-  // Bulle émojis + insertion au curseur pour Titre/Description.
+  // Bulle émojis + insertion au curseur pour Titre/Description. Un seul
+  // panneau partagé (rendu via portail, voir EmojiPicker) positionné selon
+  // les coordonnées réelles du bouton cliqué (emojiAnchor).
   const [emojiPickerFor, setEmojiPickerFor] = useState<"title" | "caption" | null>(null);
+  const [emojiAnchor, setEmojiAnchor] = useState<{ top: number; right: number } | null>(null);
   const emojiPopoverRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const captionInputRef = useRef<HTMLTextAreaElement>(null);
+
+  function toggleEmojiPicker(which: "title" | "caption", e: React.MouseEvent<HTMLButtonElement>) {
+    if (emojiPickerFor === which) {
+      setEmojiPickerFor(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setEmojiAnchor({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    setEmojiPickerFor(which);
+  }
 
   useEffect(() => {
     if (!emojiPickerFor) return;
@@ -204,8 +317,19 @@ function ComposerPageInner() {
         setEmojiPickerFor(null);
       }
     }
+    // Ferme aussi au scroll/redimensionnement — le panneau est en position
+    // fixe, un scroll de la page le décalerait sinon de son bouton d'origine.
+    function onScrollOrResize() {
+      setEmojiPickerFor(null);
+    }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
   }, [emojiPickerFor]);
 
   const captionHashtags = useMemo(() => {
@@ -430,8 +554,37 @@ function ComposerPageInner() {
     setOverrides((prev) => ({ ...prev, [n]: { open: true, title: "", caption: "", ...prev[n], [field]: value } }));
   }
 
+  // Récupère une vraie image du média importé (une frame de la vidéo, ou
+  // l'image elle-même) pour que Gemini génère titre/description en
+  // ANALYSANT réellement ce qui est publié, plutôt qu'un texte générique
+  // "de marque" sans rapport avec le contenu. Mise en cache le temps que le
+  // média ne change pas, pour ne pas ré-extraire/ré-encoder à chaque champ
+  // généré (titre, description, puis chaque réseau personnalisé).
+  async function getMediaFrameForAi(): Promise<{ base64: string; mimeType: string } | null> {
+    if (mediaFrameRef.current) return mediaFrameRef.current;
+    try {
+      if (videoAsset) {
+        const [frameBlob] = await captureVideoFrames(videoAsset.previewUrl, 1);
+        if (!frameBlob) return null;
+        const base64 = await blobToBase64(frameBlob);
+        mediaFrameRef.current = { base64, mimeType: "image/jpeg" };
+      } else if (assets[0]) {
+        const res = await fetch(assets[0].previewUrl);
+        const blob = await res.blob();
+        const base64 = await blobToBase64(blob);
+        mediaFrameRef.current = { base64, mimeType: blob.type || "image/jpeg" };
+      }
+    } catch {
+      // L'extraction a échoué (format non lisible par le navigateur, etc.) —
+      // on continue sans image plutôt que de bloquer la génération.
+      return null;
+    }
+    return mediaFrameRef.current;
+  }
+
   async function generateField(field: "title" | "description", network?: Network) {
     if (!activeBrand) return "";
+    const frame = await getMediaFrameForAi();
     const res = await fetch("/api/ai/generate-copy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -441,7 +594,9 @@ function ComposerPageInner() {
         network,
         existingTitle: title,
         existingCaption: caption,
-        mediaHint: videoAsset ? "vidéo" : assets.length ? "image" : undefined
+        mediaHint: videoAsset ? "vidéo" : assets.length ? "image" : undefined,
+        frameBase64: frame?.base64,
+        frameMimeType: frame?.mimeType
       })
     });
     const data = await res.json();
@@ -480,10 +635,43 @@ function ComposerPageInner() {
     if (!videoAsset) return;
     setThumbLoading(true);
     try {
-      const blobs = await captureVideoFrames(videoAsset.previewUrl, 6);
+      // On extrait plus de frames candidates que ce qu'on affiche (12 au lieu
+      // de 6) pour donner à l'IA une vraie marge de choix, puis — si l'IA est
+      // disponible — on lui demande de sélectionner les plus nettes/les mieux
+      // cadrées plutôt que de garder un échantillonnage purement temporel
+      // (qui tombe parfois en plein flou de mouvement ou en transition).
+      const CANDIDATE_COUNT = 12;
+      const TARGET_COUNT = 6;
+      const blobs = await captureVideoFrames(videoAsset.previewUrl, CANDIDATE_COUNT);
       if (!blobs.length) throw new Error("Aucune image n'a pu être extraite de cette vidéo.");
-      lastCapturedFrame.current = blobs[0];
-      const urls = await Promise.all(blobs.map(uploadThumbnailBlob));
+
+      let chosen = blobs;
+      if (aiStatus?.enabled && activeBrand) {
+        try {
+          const encoded = await Promise.all(blobs.map(blobToBase64));
+          const res = await fetch("/api/ai/pick-best-frames", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              brandId: activeBrand.id,
+              count: TARGET_COUNT,
+              frames: encoded.map((base64, index) => ({ index, base64, mimeType: "image/jpeg" }))
+            })
+          });
+          const data = await res.json();
+          if (res.ok && Array.isArray(data.bestIndexes) && data.bestIndexes.length > 0) {
+            const picked = data.bestIndexes.map((i: number) => blobs[i]).filter(Boolean) as Blob[];
+            if (picked.length) chosen = picked;
+          }
+        } catch {
+          // L'IA a échoué ou n'a pas répondu à temps — on retombe simplement
+          // sur l'échantillonnage classique ci-dessous plutôt que d'échouer.
+        }
+      }
+      if (chosen.length > TARGET_COUNT) chosen = chosen.slice(0, TARGET_COUNT);
+
+      lastCapturedFrame.current = chosen[0];
+      const urls = await Promise.all(chosen.map(uploadThumbnailBlob));
       setThumbOptions(urls);
     } catch (err) {
       toast.error((err as Error).message ?? "Échec de l'extraction de miniatures.");
@@ -676,6 +864,9 @@ function ComposerPageInner() {
           <p className="mt-1 text-sm text-slate-400">
             Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
           </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Votre brouillon (titre + description) est sauvegardé automatiquement dans ce navigateur pendant que vous rédigez.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {aiStatus?.enabled && (title.trim() || caption.trim()) && (
@@ -840,8 +1031,9 @@ function ComposerPageInner() {
                   </div>
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
-                  Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de
-                  cliquer, ou laissez l&apos;IA en créer une version plus accrocheuse.
+                  {aiStatus?.enabled
+                    ? "L'IA présélectionne les frames les plus nettes et les mieux cadrées parmi votre vidéo — choisissez celle qui donne le plus envie de cliquer, ou laissez l'IA en créer une version plus accrocheuse."
+                    : "Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
                 </p>
                 {thumbOptions.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -875,7 +1067,7 @@ function ComposerPageInner() {
                   <IconHash className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => setEmojiPickerFor((v) => (v === "title" ? null : "title"))}
+                  onClick={(e) => toggleEmojiPicker("title", e)}
                   title="Insérer un émoji"
                   className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
                 >
@@ -888,22 +1080,6 @@ function ComposerPageInner() {
                   >
                     <IconSparkle className="h-3.5 w-3.5" /> IA
                   </button>
-                )}
-                {emojiPickerFor === "title" && (
-                  <div
-                    ref={emojiPopoverRef}
-                    className="glass-panel-solid absolute right-0 top-[calc(100%+8px)] z-20 grid w-60 grid-cols-8 gap-1 rounded-xl p-2"
-                  >
-                    {EMOJIS.map((e) => (
-                      <button
-                        key={e}
-                        onClick={() => insertIntoField("title", e)}
-                        className="rounded-md p-1 text-base transition hover:scale-125 hover:bg-white/10"
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
                 )}
               </div>
             </div>
@@ -928,7 +1104,7 @@ function ComposerPageInner() {
                   <IconHash className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => setEmojiPickerFor((v) => (v === "caption" ? null : "caption"))}
+                  onClick={(e) => toggleEmojiPicker("caption", e)}
                   title="Insérer un émoji"
                   className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
                 >
@@ -941,22 +1117,6 @@ function ComposerPageInner() {
                   >
                     <IconSparkle className="h-3.5 w-3.5" /> IA
                   </button>
-                )}
-                {emojiPickerFor === "caption" && (
-                  <div
-                    ref={emojiPopoverRef}
-                    className="glass-panel-solid absolute right-0 top-[calc(100%+8px)] z-20 grid w-60 grid-cols-8 gap-1 rounded-xl p-2"
-                  >
-                    {EMOJIS.map((e) => (
-                      <button
-                        key={e}
-                        onClick={() => insertIntoField("caption", e)}
-                        className="rounded-md p-1 text-base transition hover:scale-125 hover:bg-white/10"
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
                 )}
               </div>
             </div>
@@ -1369,11 +1529,21 @@ function ComposerPageInner() {
               <li>• Vous arrivez sur la page de la publication : statut par réseau, discussion, et (sur YouTube) analyse de rétention par IA.</li>
               <li>• En mode programmé, le worker planifié publie automatiquement à l&apos;heure prévue.</li>
               <li>• Un post resté bloqué peut être dupliqué en un clic depuis sa page pour retenter l&apos;envoi.</li>
-              <li>• Votre brouillon (titre + description) est sauvegardé automatiquement dans ce navigateur.</li>
             </ul>
           </GlassCard>
         </div>
       </div>
+
+      {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
+        ? createPortal(
+            <EmojiPicker
+              anchor={emojiAnchor}
+              panelRef={emojiPopoverRef}
+              onPick={(e) => insertIntoField(emojiPickerFor, e)}
+            />,
+            document.body
+          )
+        : null}
     </div>
   );
 }
