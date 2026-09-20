@@ -238,3 +238,66 @@ export async function analyzeVideoRetention(input: {
     return { summary: raw, dropOffPoints: [], recommendations: [] };
   }
 }
+
+/**
+ * Idée de contenu pour une case vide du calendrier (voir bouton discret
+ * "Proposer une idée IA" sur calendar/page.tsx). S'appuie sur la date réelle
+ * (jour de la semaine + jour du mois, pour évoquer d'éventuels marronniers/
+ * journées mondiales connus de Gemini) et le nom de la marque — reste un
+ * texte court et actionnable, jamais une légende complète prête à publier.
+ */
+export async function generateContentIdea(input: { brandName: string; date: string }): Promise<string> {
+  const dateObj = new Date(`${input.date}T12:00:00`);
+  const formatted = dateObj.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const prompt = [
+    `Tu aides la marque "${input.brandName}" à ne pas laisser un jour de calendrier vide sur Nebula.`,
+    `Nous sommes le ${formatted}.`,
+    "Si cette date correspond à une journée mondiale/nationale connue, une tendance saisonnière ou un marronnier marketing pertinent, appuie-toi dessus. Sinon, propose une idée de publication générique mais concrète adaptée à une marque active sur les réseaux sociaux.",
+    "Réponds en 1 à 2 phrases maximum : une idée de contenu concrète et actionnable (pas un titre, pas de hashtags, pas de guillemets), que la personne pourra ensuite rédiger elle-même dans le compositeur."
+  ].join("\n");
+  const text = await callGemini({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
+  return text.trim().replace(/^"|"$/g, "");
+}
+
+export interface RepurposedContent {
+  instagramReel: string;
+  facebookPost: string;
+  tiktokScript: string;
+}
+
+/**
+ * Recyclage de contenu automatisé (Auto-Repurpose) : à partir d'un contenu
+ * source (typiquement une vidéo/script YouTube déjà rédigé dans le
+ * Composer), génère 3 déclinaisons textuelles adaptées à d'autres formats/
+ * réseaux. Ne génère aucun média — uniquement le texte, à associer ensuite
+ * manuellement au bon média dans le Composer.
+ */
+export async function repurposeContent(input: {
+  brandName: string;
+  sourceTitle: string;
+  sourceCaption: string;
+}): Promise<RepurposedContent> {
+  const prompt = [
+    `Tu es un assistant de recyclage de contenu pour la marque "${input.brandName}" sur Nebula.`,
+    `Contenu source (ex : vidéo YouTube) — Titre : ${input.sourceTitle || "(sans titre)"}`,
+    `Description/script source : ${input.sourceCaption || "(vide)"}`,
+    "À partir de ce contenu, génère 3 déclinaisons distinctes, chacune adaptée à son format :",
+    "1. instagramReel : une légende courte et percutante pour un Reel Instagram reprenant le même sujet, avec 2-3 hashtags.",
+    "2. facebookPost : un post Facebook un peu plus détaillé/conversationnel sur le même sujet.",
+    "3. tiktokScript : un script court (accroche + 2-3 lignes clés) pour une vidéo TikTok sur le même sujet.",
+    "Réponds STRICTEMENT en JSON avec ce format :",
+    `{"instagramReel": "...", "facebookPost": "...", "tiktokScript": "..."}`
+  ].join("\n");
+
+  const raw = await callGemini({ contents: [{ role: "user", parts: [{ text: prompt }] }], jsonMode: true });
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      instagramReel: parsed.instagramReel ?? "",
+      facebookPost: parsed.facebookPost ?? "",
+      tiktokScript: parsed.tiktokScript ?? ""
+    };
+  } catch {
+    return { instagramReel: raw, facebookPost: "", tiktokScript: "" };
+  }
+}

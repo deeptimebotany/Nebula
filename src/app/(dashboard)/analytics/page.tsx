@@ -7,8 +7,10 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { NetworkBadge } from "@/components/ui/network-badge";
-import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
+import { NETWORK_META, NETWORKS, type ChartPoint, type Network } from "@/lib/types";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
+import { useToast } from "@/components/dashboard/toast";
+import { clsx } from "@/lib/clsx";
 
 interface AnalyticsConnection {
   id: string;
@@ -18,11 +20,193 @@ interface AnalyticsConnection {
   snapshots: { capturedAt: string; followers: number; reach: number; impressions: number }[];
 }
 
+interface CompetitorSnapshotRow {
+  id: string;
+  followers: number;
+  postsCount: number | null;
+  capturedAt: string;
+}
+
+interface CompetitorTrackRow {
+  id: string;
+  network: Network;
+  handle: string;
+  label: string | null;
+  snapshots: CompetitorSnapshotRow[];
+}
+
+// Sous-onglet "Concurrence" : suivi manuel de jusqu'à 3 concurrents. Aucune
+// API publique ne permet de récupérer légalement et automatiquement les
+// stats d'un compte tiers arbitraire sur ces réseaux — chaque relevé est
+// donc un chiffre que VOUS avez constaté (visible publiquement sur son
+// profil) et saisi vous-même, jamais une valeur inventée par Nebula.
+function CompetitorTab({ brandId }: { brandId: string }) {
+  const toast = useToast();
+  const [tracks, setTracks] = useState<CompetitorTrackRow[] | null>(null);
+  const [network, setNetwork] = useState<Network>("INSTAGRAM");
+  const [handle, setHandle] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [snapshotDrafts, setSnapshotDrafts] = useState<Record<string, string>>({});
+
+  function load() {
+    fetch(`/api/competitors?brandId=${brandId}`)
+      .then((r) => r.json())
+      .then((d) => setTracks(d.tracks ?? []));
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId]);
+
+  async function addCompetitor() {
+    if (!handle.trim()) return;
+    setAdding(true);
+    const res = await fetch("/api/competitors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brandId, network, handle: handle.trim() })
+    });
+    const data = await res.json();
+    setAdding(false);
+    if (!res.ok) {
+      toast.error(data.error ?? "Erreur lors de l'ajout.");
+      return;
+    }
+    setHandle("");
+    load();
+  }
+
+  async function removeCompetitor(id: string) {
+    await fetch(`/api/competitors/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function addSnapshot(trackId: string) {
+    const raw = snapshotDrafts[trackId];
+    const followers = Number(raw);
+    if (!raw || Number.isNaN(followers) || followers < 0) {
+      toast.error("Entrez un nombre d'abonnés valide.");
+      return;
+    }
+    await fetch(`/api/competitors/${trackId}/snapshots`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ followers: Math.round(followers) })
+    });
+    setSnapshotDrafts((prev) => ({ ...prev, [trackId]: "" }));
+    load();
+  }
+
+  return (
+    <div className="space-y-4">
+      <GlassCard>
+        <p className="text-sm text-slate-400">
+          Suivez jusqu&apos;à 3 comptes concurrents en relevant vous-même leur nombre d&apos;abonnés (visible
+          publiquement sur leur profil) : Nebula ne dispose d&apos;aucun accès officiel aux statistiques d&apos;un
+          compte tiers, donc chaque relevé reste une donnée que vous avez constatée, jamais une estimation.
+        </p>
+        {(!tracks || tracks.length < 3) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={network}
+              onChange={(e) => setNetwork(e.target.value as Network)}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
+            >
+              {NETWORKS.map((n) => (
+                <option key={n} value={n} className="bg-void-900">{NETWORK_META[n].label}</option>
+              ))}
+            </select>
+            <input
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="@identifiant du concurrent"
+              className="min-w-[180px] flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
+            />
+            <Button onClick={addCompetitor} disabled={adding}>
+              {adding ? "Ajout..." : "Ajouter"}
+            </Button>
+          </div>
+        )}
+      </GlassCard>
+
+      {!tracks ? (
+        <p className="text-sm text-slate-500">Chargement...</p>
+      ) : tracks.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">Aucun concurrent suivi pour l&apos;instant.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tracks.map((t) => {
+            const latest = t.snapshots.at(-1);
+            const previous = t.snapshots.at(-2);
+            const delta = latest && previous ? latest.followers - previous.followers : null;
+            return (
+              <GlassCard key={t.id}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">{t.label || t.handle}</p>
+                    <p className="text-xs" style={{ color: NETWORK_META[t.network].color }}>
+                      {NETWORK_META[t.network].label} · {t.handle}
+                    </p>
+                  </div>
+                  <button onClick={() => removeCompetitor(t.id)} className="text-xs text-slate-500 hover:text-red-300">
+                    ✕
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <p className="font-display text-2xl text-white">
+                    {latest ? latest.followers.toLocaleString("fr-FR") : "—"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {latest
+                      ? `abonnés constatés le ${new Date(latest.capturedAt).toLocaleDateString("fr-FR")}`
+                      : "aucun relevé encore"}
+                    {delta !== null && (
+                      <span className={delta >= 0 ? "ml-1.5 text-emerald-400" : "ml-1.5 text-red-400"}>
+                        ({delta >= 0 ? "+" : ""}{delta})
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={snapshotDrafts[t.id] ?? ""}
+                    onChange={(e) => setSnapshotDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                    placeholder="Nouveau relevé (abonnés)"
+                    className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white outline-none focus:border-aurora-400/60"
+                  />
+                  <Button variant="outline" onClick={() => addSnapshot(t.id)}>
+                    Ajouter
+                  </Button>
+                </div>
+              </GlassCard>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const { activeBrand } = useBrand();
+  const toast = useToast();
   const [connections, setConnections] = useState<AnalyticsConnection[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"overview" | "competitors">("overview");
+  const [plan, setPlan] = useState<string>("FREE");
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  useEffect(() => {
+    if (!activeBrand) return;
+    fetch(`/api/billing/plan?brandId=${activeBrand.id}`)
+      .then((r) => r.json())
+      .then((d) => d?.plan && setPlan(d.plan))
+      .catch(() => undefined);
+  }, [activeBrand]);
 
   async function load() {
     if (!activeBrand) return;
@@ -92,6 +276,75 @@ export default function AnalyticsPage() {
     URL.revokeObjectURL(url);
   }
 
+  // Rapports PDF personnalisés (palier Agence) : génération 100% côté
+  // navigateur (jsPDF, pas de rendu serveur) à partir des VRAIES données déjà
+  // chargées ci-dessus, pré-rempli avec le logo/nom de marque blanche
+  // configurés dans Paramètres.
+  async function exportPdf() {
+    if (!activeBrand) return;
+    setPdfLoading(true);
+    try {
+      const [{ jsPDF }, wl] = await Promise.all([
+        import("jspdf"),
+        fetch("/api/settings/white-label").then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      ]);
+
+      const doc = new jsPDF();
+      const brandLabel = wl?.brandName || activeBrand.name;
+      let y = 20;
+
+      doc.setFontSize(18);
+      doc.text(`Rapport mensuel — ${brandLabel}`, 14, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.setTextColor(120);
+      doc.text(`Généré le ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`, 14, y);
+      y += 12;
+
+      doc.setTextColor(20);
+      doc.setFontSize(13);
+      doc.text("Résumé par réseau", 14, y);
+      y += 8;
+      doc.setFontSize(10);
+      for (const c of connections) {
+        const latest = c.snapshots.at(-1);
+        doc.text(
+          `${NETWORK_META[c.network].label} (${c.displayName}) — ${latest ? `${latest.followers.toLocaleString("fr-FR")} abonnés, ${latest.reach.toLocaleString("fr-FR")} portée, ${latest.impressions.toLocaleString("fr-FR")} impressions` : "pas encore synchronisé"}`,
+          14,
+          y
+        );
+        y += 7;
+      }
+
+      y += 5;
+      doc.setFontSize(13);
+      doc.text("Évolution des abonnés", 14, y);
+      y += 8;
+      doc.setFontSize(9);
+      for (const point of chartData.slice(-15)) {
+        const row = networksToShow.map((n) => `${NETWORK_META[n].label}: ${point[n] ?? "—"}`).join("   ");
+        doc.text(`${point.date}   ${row}`, 14, y);
+        y += 6;
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+      }
+
+      if (!hasRealData) {
+        y += 6;
+        doc.setTextColor(150);
+        doc.text("Pas encore assez de données synchronisées pour ce rapport — synchronisez vos comptes.", 14, y);
+      }
+
+      doc.save(`rapport-${activeBrand.slug}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      toast.error("Échec de la génération du PDF.");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   const chartData = useMemo(() => {
     const byDate = new Map<string, ChartPoint>();
     for (const c of connections) {
@@ -120,13 +373,40 @@ export default function AnalyticsPage() {
           <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
             Exporter le rapport (CSV)
           </Button>
+          {plan === "AGENCY" && (
+            <Button variant="outline" onClick={exportPdf} disabled={pdfLoading}>
+              {pdfLoading ? "Génération..." : "Rapport PDF"}
+            </Button>
+          )}
           <Button onClick={onSync} disabled={syncing || connections.length === 0}>
             {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
           </Button>
         </div>
       </div>
 
-      {connections.length === 0 && !loading ? (
+      <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.015] p-1">
+        {(
+          [
+            ["overview", "Vue d'ensemble"],
+            ["competitors", "Concurrence"]
+          ] as [typeof tab, string][]
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={clsx(
+              "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition",
+              tab === id ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow" : "text-slate-400 hover:text-white"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "competitors" ? (
+        activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
+      ) : connections.length === 0 && !loading ? (
         <GlassCard className="text-center">
           <p className="text-sm text-slate-400">Aucun compte connecté pour l&apos;instant.</p>
           <Link href="/accounts" className="mt-3 inline-block">

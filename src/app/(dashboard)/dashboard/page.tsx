@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
 import { StatCard } from "@/components/ui/stat-card";
@@ -9,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
-import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconSparkle } from "@/components/dashboard/icons";
+import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconSparkle, IconUpload } from "@/components/dashboard/icons";
+
+const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
 const WEEKDAY_LABEL: Record<string, string> = {
   Dimanche: "le dimanche",
@@ -21,6 +24,13 @@ const WEEKDAY_LABEL: Record<string, string> = {
   Samedi: "le samedi"
 };
 
+interface PerNetworkInsight {
+  network: Network;
+  hasEnoughData: boolean;
+  bestHour: number | null;
+  sampleSize: number;
+}
+
 interface InsightsResponse {
   hasEnoughData: boolean;
   sampleSize: { snapshots: number; posts: number };
@@ -29,6 +39,7 @@ interface InsightsResponse {
   bestHourScore: number | null;
   topWeekday: string | null;
   topWeekdayCount: number;
+  perNetwork: PerNetworkInsight[];
 }
 
 interface ConnectionRow {
@@ -57,11 +68,31 @@ interface ApiPost {
 
 export default function DashboardPage() {
   const { activeBrand } = useBrand();
+  const router = useRouter();
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [analyticsConnections, setAnalyticsConnections] = useState<AnalyticsConnection[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+
+  // Raccourci d'action rapide : rédige un brouillon minimal ici et redirige
+  // vers le Composer/Importation, qui restaure automatiquement ce brouillon
+  // (même clé localStorage que son propre système d'auto-sauvegarde — voir
+  // composer/page.tsx) plutôt que de dupliquer la logique de publication.
+  const [quickText, setQuickText] = useState("");
+
+  function onQuickCreate() {
+    if (!activeBrand) return;
+    try {
+      localStorage.setItem(
+        DRAFT_KEY_PREFIX + activeBrand.id,
+        JSON.stringify({ title: "", caption: quickText.trim(), selectedNetworks: [] })
+      );
+    } catch {
+      // stockage indisponible — on redirige tout de même, juste sans pré-remplissage
+    }
+    router.push("/composer");
+  }
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -116,6 +147,24 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.scheduledAt as string).getTime() - new Date(b.scheduledAt as string).getTime())
     .slice(0, 5);
 
+  // Jauge de progression d'onboarding : 3 étapes réelles (connecter, avoir
+  // de vraies données synchronisées, avoir déjà créé un post) — jamais une
+  // valeur arbitraire.
+  const onboardingSteps = [connections.length > 0, hasAnalytics, posts.length > 0];
+  const onboardingPercent = Math.round((onboardingSteps.filter(Boolean).length / onboardingSteps.length) * 100);
+
+  // Widget "Meilleur créneau du jour" : prochaine heure optimale pour
+  // chaque réseau connecté, basée sur son propre historique réel
+  // (insights.perNetwork, voir /api/analytics/insights). Si l'heure
+  // optimale d'aujourd'hui est déjà passée, on la montre pour demain.
+  function nextOccurrence(hour: number): string {
+    const now = new Date();
+    const target = new Date();
+    target.setHours(hour, 0, 0, 0);
+    const isToday = target.getTime() > now.getTime();
+    return `${isToday ? "aujourd'hui" : "demain"} à ${hour}h`;
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -136,9 +185,40 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* Raccourcis d'action rapide : rédiger ou importer un média sans
+          naviguer jusqu'à l'onglet Importation — voir onQuickCreate. */}
+      {activeBrand && (
+        <GlassCard className="border-white/[0.06] bg-white/[0.015]">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={quickText}
+              onChange={(e) => setQuickText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onQuickCreate()}
+              placeholder="Rédiger un post en un clic..."
+              className="min-w-[220px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+            />
+            <Button variant="outline" onClick={() => router.push("/composer")}>
+              <IconUpload className="h-4 w-4" /> Importer un média
+            </Button>
+            <Button onClick={onQuickCreate} disabled={!quickText.trim()}>
+              <IconPlus className="h-4 w-4" /> Créer
+            </Button>
+          </div>
+        </GlassCard>
+      )}
+
       {!loading && connections.length === 0 && (
         <GlassCard className="border-aurora-400/25 bg-nebula-700/[0.12]">
-          <p className="mb-3 text-sm font-medium text-white">Pour démarrer, trois étapes rapides :</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-white">Pour démarrer, trois étapes rapides :</p>
+            <span className="text-xs font-medium text-aurora-300">Configuration à {onboardingPercent} %</span>
+          </div>
+          <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-nebula-500 to-aurora-400 transition-all duration-500"
+              style={{ width: `${onboardingPercent}%` }}
+            />
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
               href="/accounts"
@@ -217,6 +297,29 @@ export default function DashboardPage() {
           </p>
         )}
       </GlassCard>
+
+      {insights && insights.perNetwork.length > 0 && insights.perNetwork.some((n) => n.hasEnoughData) && (
+        <GlassCard>
+          <h2 className="mb-3 font-display text-base font-medium text-white">Meilleur créneau du jour</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {insights.perNetwork.map((n) => (
+              <div key={n.network} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <NetworkBadge network={n.network} size="sm" />
+                {n.hasEnoughData && n.bestHour !== null ? (
+                  <p className="mt-2 text-sm text-slate-300">
+                    Prochain créneau optimal :<br />
+                    <span className="font-display text-base text-white">{nextOccurrence(n.bestHour)}</span>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Pas encore assez d&apos;historique ({n.sampleSize} relevés).
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <GlassCard className="lg:col-span-2">

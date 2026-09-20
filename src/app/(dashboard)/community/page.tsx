@@ -7,11 +7,73 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { useToast } from "@/components/dashboard/toast";
 import { clsx } from "@/lib/clsx";
-import { IconUsers, IconMessage, IconHeart, IconTrophy } from "@/components/dashboard/icons";
+import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
 
 type Tab = "forum" | "guides" | "videos";
+
+interface LeaderboardRow {
+  id: string;
+  displayName: string;
+  referrals: number;
+  isMe: boolean;
+}
+
+// Boucle de parrainage intégrée : classement RÉEL des meilleurs parraineurs
+// (nombre de comptes créés avec leur code, calculé en base — voir
+// /api/referral/leaderboard). La récompense automatisée existante reste
+// l'assistant IA offert au filleul pendant 14 jours (voir Paramètres) ;
+// attribuer des mois d'abonnement Pro gratuits nécessiterait de manipuler
+// directement Stripe/l'abonnement sans paiement réel, ce que Nebula évite
+// pour ne jamais corrompre l'état de facturation — ces récompenses
+// supplémentaires pour le podium restent donc à attribuer manuellement pour
+// l'instant, d'où la mention explicite ci-dessous.
+function ReferralLeaderboard() {
+  const [rows, setRows] = useState<LeaderboardRow[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/referral/leaderboard")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setRows(d?.leaderboard ?? []))
+      .catch(() => setRows([]));
+  }, []);
+
+  return (
+    <GlassCard>
+      <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+        <IconGift className="h-4 w-4 text-aurora-300" /> Classement des parrainages
+      </h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Basé sur le nombre réel de comptes créés avec votre code (voir Paramètres). Le podium reçoit des mois
+        d&apos;abonnement Pro offerts, attribués manuellement par l&apos;équipe Nebula pour l&apos;instant.
+      </p>
+      {!rows ? (
+        <p className="mt-3 text-sm text-slate-500">Chargement...</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-500">Personne n&apos;a encore parrainé de nouveau compte.</p>
+      ) : (
+        <ol className="mt-3 space-y-1.5">
+          {rows.map((r, i) => (
+            <li
+              key={r.id}
+              className={clsx(
+                "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
+                r.isMe ? "border border-aurora-400/30 bg-aurora-400/[0.06] text-white" : "text-slate-300"
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-5 text-center text-xs text-slate-500">{i + 1}</span>
+                {r.displayName} {r.isMe && <span className="text-xs text-aurora-300">(vous)</span>}
+              </span>
+              <span className="font-medium text-white">{r.referrals} filleul{r.referrals > 1 ? "s" : ""}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </GlassCard>
+  );
+}
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -127,6 +189,8 @@ export default function CommunityPage() {
           Un espace public, ouvert à tous les utilisateurs de Nebula : entraide, guides et partage de vidéos déjà publiées.
         </p>
       </div>
+
+      <ReferralLeaderboard />
 
       {badges && badges.some((b) => b.count > 0 || b.nextThreshold !== null) && (
         <GlassCard>

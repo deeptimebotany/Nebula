@@ -7,6 +7,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { NETWORK_META, NETWORKS } from "@/lib/types";
 import { OnboardingCarousel } from "@/components/marketing/onboarding-carousel";
 import { PreviewWidget } from "@/components/marketing/preview-widget";
+import { SocialProof } from "@/components/marketing/social-proof";
 
 const FEATURES = [
   {
@@ -62,6 +63,24 @@ export default async function LandingPage() {
             </Button>
           </Link>
         </div>
+
+        {/* Badges de réassurance : formulés honnêtement — Nebula utilise bien
+            les API officielles de chaque plateforme (voir OAuth sur
+            /accounts), mais n'est pas un "partenaire vérifié" certifié par
+            Meta ou YouTube, donc on ne prétend jamais le contraire ici. */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-500">
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
+            🔒 Connexion sécurisée via les API officielles Meta
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
+            ▶ Compatible avec l&apos;API YouTube Data
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
+            🔐 Vos identifiants ne sont jamais partagés à des tiers
+          </span>
+        </div>
+
+        <SocialProof />
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           {NETWORKS.map((n) => (

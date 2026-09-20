@@ -21,6 +21,7 @@ import {
   IconEmoji,
   IconHash
 } from "@/components/dashboard/icons";
+import type { RepurposedContent } from "@/lib/ai/gemini";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
 
@@ -176,6 +177,17 @@ function ComposerPageInner() {
   // rendu de la carte "Aperçu" plus bas).
   const [previewAspectClass, setPreviewAspectClass] = useState("aspect-square");
   const [showTiktokUi, setShowTiktokUi] = useState(false);
+
+  // Simulateur de Feed Instagram : les vraies vignettes des derniers posts
+  // déjà ciblés sur Instagram pour cette marque (voir /api/posts/instagram-grid).
+  const [showInstagramGrid, setShowInstagramGrid] = useState(false);
+  const [instagramGridTiles, setInstagramGridTiles] = useState<{ imageUrl: string }[]>([]);
+  const [gridLoading, setGridLoading] = useState(false);
+
+  // Recyclage de contenu automatisé (Auto-Repurpose).
+  const [repurposeOpen, setRepurposeOpen] = useState(false);
+  const [repurposeLoading, setRepurposeLoading] = useState(false);
+  const [repurposeResult, setRepurposeResult] = useState<RepurposedContent | null>(null);
 
   // Bulle émojis + insertion au curseur pour Titre/Description.
   const [emojiPickerFor, setEmojiPickerFor] = useState<"title" | "caption" | null>(null);
@@ -520,6 +532,47 @@ function ComposerPageInner() {
     }
   }
 
+  async function onToggleInstagramGrid() {
+    const next = !showInstagramGrid;
+    setShowInstagramGrid(next);
+    if (next && activeBrand && instagramGridTiles.length === 0) {
+      setGridLoading(true);
+      try {
+        const res = await fetch(`/api/posts/instagram-grid?brandId=${activeBrand.id}`);
+        const data = await res.json();
+        setInstagramGridTiles(data.tiles ?? []);
+      } finally {
+        setGridLoading(false);
+      }
+    }
+  }
+
+  async function onRepurpose() {
+    if (!activeBrand) return;
+    setRepurposeOpen(true);
+    setRepurposeLoading(true);
+    setRepurposeResult(null);
+    const res = await fetch("/api/ai/repurpose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brandId: activeBrand.id, sourceTitle: title, sourceCaption: caption })
+    });
+    const data = await res.json();
+    setRepurposeLoading(false);
+    if (!res.ok) {
+      toast.error(data.error ?? "Erreur lors du recyclage de contenu.");
+      setRepurposeOpen(false);
+      return;
+    }
+    setRepurposeResult(data);
+  }
+
+  function applyRepurposed(network: Network, text: string) {
+    if (!selectedNetworks.includes(network)) toggleNetwork(network);
+    setOverrides((prev) => ({ ...prev, [network]: { open: true, title: prev[network]?.title ?? "", caption: text } }));
+    toast.success(`Texte appliqué pour ${NETWORK_META[network].label}.`);
+  }
+
   async function pickThumbnail(url: string) {
     if (!videoAsset) return;
     await fetch(`/api/media/${videoAsset.id}`, {
@@ -623,6 +676,11 @@ function ComposerPageInner() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {aiStatus?.enabled && (title.trim() || caption.trim()) && (
+            <Button variant="outline" onClick={onRepurpose}>
+              <IconSparkle className="h-4 w-4" /> Recycler ce contenu
+            </Button>
+          )}
           {aiStatus?.enabled && (
             <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
               <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
@@ -630,6 +688,45 @@ function ComposerPageInner() {
           )}
         </div>
       </div>
+
+      {repurposeOpen && (
+        <GlassCard className="border-aurora-400/25 bg-nebula-700/[0.08]">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+              <IconSparkle className="h-4 w-4 text-aurora-300" /> Recyclage de contenu (Auto-Repurpose)
+            </h2>
+            <button onClick={() => setRepurposeOpen(false)} className="text-xs text-slate-500 hover:text-white">
+              Fermer
+            </button>
+          </div>
+          {repurposeLoading ? (
+            <p className="text-sm text-slate-500">Génération des 3 déclinaisons...</p>
+          ) : repurposeResult ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { network: "INSTAGRAM" as Network, label: "Reel Instagram", text: repurposeResult.instagramReel },
+                { network: "FACEBOOK" as Network, label: "Post Facebook", text: repurposeResult.facebookPost },
+                { network: "TIKTOK" as Network, label: "Script TikTok", text: repurposeResult.tiktokScript }
+              ].map((v) => (
+                <div key={v.network} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                  <p className="text-xs font-medium" style={{ color: NETWORK_META[v.network].color }}>{v.label}</p>
+                  <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-300">{v.text || "—"}</p>
+                  {v.text && (
+                    <button
+                      onClick={() => applyRepurposed(v.network, v.text)}
+                      className="mt-2 text-xs text-aurora-300 hover:underline"
+                    >
+                      Utiliser pour {NETWORK_META[v.network].label}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Erreur — réessayez.</p>
+          )}
+        </GlassCard>
+      )}
 
       {activeBrand && aiStatus && !aiStatus.enabled && (
         <GlassCard className="border-white/10 bg-white/[0.02]">
@@ -1044,6 +1141,19 @@ function ComposerPageInner() {
                     Interface TikTok {showTiktokUi ? "ON" : "OFF"}
                   </button>
                 )}
+                {effectivePreviewNetwork === "INSTAGRAM" && previewAsset && (
+                  <button
+                    onClick={onToggleInstagramGrid}
+                    className={clsx(
+                      "rounded-full border px-2 py-0.5 text-[10px] font-medium transition",
+                      showInstagramGrid
+                        ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
+                        : "border-white/10 text-slate-500 hover:text-white"
+                    )}
+                  >
+                    Aperçu de grille {showInstagramGrid ? "ON" : "OFF"}
+                  </button>
+                )}
                 {selectedNetworks.length > 1 && (
                   <div className="flex gap-1">
                     {selectedNetworks.map((n) => (
@@ -1144,6 +1254,34 @@ function ComposerPageInner() {
                   </div>
                 )}
               </div>
+
+              {showInstagramGrid && effectivePreviewNetwork === "INSTAGRAM" && previewAsset && (
+                <div className="border-t border-white/[0.06] p-3">
+                  <p className="mb-2 text-[11px] text-slate-500">
+                    Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières
+                    publications Instagram réelles.
+                  </p>
+                  {gridLoading ? (
+                    <p className="text-xs text-slate-500">Chargement de votre grille...</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1">
+                      <div className="relative aspect-square overflow-hidden rounded ring-2 ring-aurora-400">
+                        {previewAsset.type === "VIDEO" ? (
+                          <video src={previewAsset.previewUrl} className="h-full w-full object-cover" muted />
+                        ) : (
+                          <img src={previewAsset.previewUrl} alt="" className="h-full w-full object-cover" />
+                        )}
+                      </div>
+                      {instagramGridTiles.slice(0, 8).map((tile, i) => (
+                        <div key={i} className="aspect-square overflow-hidden rounded">
+                          <img src={tile.imageUrl} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1 px-3 py-2.5">
                 {previewTitle && <p className="truncate text-xs font-semibold text-white">{previewTitle}</p>}
                 <p className="line-clamp-4 whitespace-pre-wrap text-xs text-slate-300">

@@ -36,6 +36,34 @@ export async function GET(req: NextRequest) {
   const MIN_SNAPSHOTS = 5;
   const MIN_POSTS = 3;
 
+  // Widget "Meilleur créneau du jour" (tableau de bord) : même logique que
+  // le meilleur créneau global ci-dessous, mais calculée séparément POUR
+  // CHAQUE réseau connecté, à partir de son propre historique réel.
+  const perNetwork = connections.map((c: { network: string; analytics: { capturedAt: Date; followersDelta: number; engagementRate: number }[] }) => {
+    if (c.analytics.length < MIN_SNAPSHOTS) {
+      return { network: c.network, hasEnoughData: false, bestHour: null, sampleSize: c.analytics.length };
+    }
+    const byHour = new Map<number, { total: number; count: number }>();
+    for (const s of c.analytics) {
+      const h = new Date(s.capturedAt).getHours();
+      const bucket = byHour.get(h) ?? { total: 0, count: 0 };
+      bucket.total += s.followersDelta + s.engagementRate;
+      bucket.count += 1;
+      byHour.set(h, bucket);
+    }
+    let best: { hour: number; avg: number } | null = null;
+    for (const [hour, { total, count }] of byHour) {
+      const avg = total / count;
+      if (!best || avg > best.avg) best = { hour, avg };
+    }
+    return {
+      network: c.network,
+      hasEnoughData: Boolean(best),
+      bestHour: best?.hour ?? null,
+      sampleSize: c.analytics.length
+    };
+  });
+
   // 1. Meilleur créneau selon la croissance réelle (followersDelta) autour de
   // chaque capture — regroupé par heure de la journée.
   let bestHour: number | null = null;
@@ -90,6 +118,7 @@ export async function GET(req: NextRequest) {
     bestHour,
     bestHourScore,
     topWeekday,
-    topWeekdayCount
+    topWeekdayCount,
+    perNetwork
   });
 }

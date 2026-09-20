@@ -81,16 +81,18 @@ model User {
 }
 
 model Brand {
-  id           String             @id @default(cuid())
-  name         String
-  slug         String             @unique
-  logoUrl      String?
-  timezone     String             @default("Europe/Paris")
-  createdAt    DateTime           @default(now())
-  memberships  Membership[]
-  connections  SocialConnection[]
-  posts        Post[]
-  media        MediaAsset[]
+  id             String             @id @default(cuid())
+  name           String
+  slug           String             @unique
+  logoUrl        String?
+  timezone       String             @default("Europe/Paris")
+  createdAt      DateTime           @default(now())
+  memberships    Membership[]
+  connections    SocialConnection[]
+  posts          Post[]
+  media          MediaAsset[]
+  competitors    CompetitorTrack[]
+  approvalLinks  ApprovalLink[]
 }
 
 // plan     : "FREE" | "PRO" | "AGENCY" (voir src/lib/plans.ts)
@@ -193,6 +195,7 @@ model Post {
   media        PostMedia[]
   targets      PostTarget[]
   messages     PostMessage[]
+  approval     PostApproval?
 }
 
 model PostMedia {
@@ -334,4 +337,68 @@ model SharedVideo {
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Suivi de la concurrence (Analytics → sous-onglet "Concurrence").
+// Aucune API publique fiable ne permet de récupérer automatiquement et
+// légalement les stats d'un compte tiers arbitraire sur ces réseaux sans
+// accès spécial audité par chaque plateforme : on suit donc chaque
+// concurrent à partir de relevés que VOUS observez et saisissez vous-même
+// (nombre d'abonnés public, visible sur son profil) — une vraie donnée que
+// vous avez constatée, jamais une valeur inventée par Nebula. L'historique
+// de vos relevés permet de tracer une vraie courbe de progression à
+// comparer avec la vôtre (déjà réelle, via AnalyticsSnapshot).
+model CompetitorTrack {
+  id        String               @id @default(cuid())
+  brandId   String
+  network   String
+  handle    String // ex: "@nomduconcurrent"
+  label     String? // nom affiché, optionnel
+  createdAt DateTime             @default(now())
+  brand     Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  snapshots CompetitorSnapshot[]
+
+  @@index([brandId])
+}
+
+model CompetitorSnapshot {
+  id          String          @id @default(cuid())
+  trackId     String
+  followers   Int
+  postsCount  Int?
+  capturedAt  DateTime        @default(now())
+  track       CompetitorTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId, capturedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Workflow d'approbation client (palier Agence) — un lien externe, sans
+// compte Nebula requis, pour que le client d'une agence valide ou commente
+// les publications à venir de sa marque. Le token fait office de secret
+// d'accès (comme un lien de partage classique) : quiconque le possède peut
+// voir et répondre, mais ne peut rien faire d'autre sur le compte.
+model ApprovalLink {
+  id        String    @id @default(cuid())
+  brandId   String
+  token     String    @unique
+  label     String    @default("Lien client")
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+  brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+// status : "PENDING" | "APPROVED" | "CHANGES_REQUESTED"
+model PostApproval {
+  id            String    @id @default(cuid())
+  postId        String    @unique
+  status        String    @default("PENDING")
+  comment       String?
+  respondedName String?
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
