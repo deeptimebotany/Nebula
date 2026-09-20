@@ -7,6 +7,8 @@ import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
 import { GlassCard } from "@/components/ui/glass-card";
+import { MotionGlassCard } from "@/components/ui/motion-glass-card";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge, NetworkDot, NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
@@ -689,8 +691,10 @@ function ComposerPageInner() {
         </div>
       </div>
 
+      <AnimatePresence>
       {repurposeOpen && (
-        <GlassCard className="border-aurora-400/25 bg-nebula-700/[0.08]">
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} style={{ overflow: "hidden" }}>
+        <MotionGlassCard glow className="border-aurora-400/25 bg-nebula-700/[0.08]">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
               <IconSparkle className="h-4 w-4 text-aurora-300" /> Recyclage de contenu (Auto-Repurpose)
@@ -725,8 +729,10 @@ function ComposerPageInner() {
           ) : (
             <p className="text-sm text-slate-500">Erreur — réessayez.</p>
           )}
-        </GlassCard>
+        </MotionGlassCard>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {activeBrand && aiStatus && !aiStatus.enabled && (
         <GlassCard className="border-white/10 bg-white/[0.02]">
@@ -1124,7 +1130,7 @@ function ComposerPageInner() {
         </div>
 
         <div className="space-y-5">
-          <GlassCard>
+          <MotionGlassCard glow>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-base font-medium text-white">Aperçu</h2>
               <div className="flex items-center gap-2">
@@ -1255,8 +1261,16 @@ function ComposerPageInner() {
                 )}
               </div>
 
+              <AnimatePresence>
               {showInstagramGrid && effectivePreviewNetwork === "INSTAGRAM" && previewAsset && (
-                <div className="border-t border-white/[0.06] p-3">
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25 }}
+                  style={{ overflow: "hidden" }}
+                  className="border-t border-white/[0.06] p-3"
+                >
                   <p className="mb-2 text-[11px] text-slate-500">
                     Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières
                     publications Instagram réelles.
@@ -1273,14 +1287,21 @@ function ComposerPageInner() {
                         )}
                       </div>
                       {instagramGridTiles.slice(0, 8).map((tile, i) => (
-                        <div key={i} className="aspect-square overflow-hidden rounded">
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.03 }}
+                          className="aspect-square overflow-hidden rounded"
+                        >
                           <img src={tile.imageUrl} alt="" className="h-full w-full object-cover" />
-                        </div>
+                        </motion.div>
                       ))}
                     </div>
                   )}
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
 
               <div className="space-y-1 px-3 py-2.5">
                 {previewTitle && <p className="truncate text-xs font-semibold text-white">{previewTitle}</p>}
@@ -1292,7 +1313,7 @@ function ComposerPageInner() {
             <p className="mt-2 text-center text-[11px] text-slate-500">
               Rendu indicatif — la mise en page réelle varie selon la plateforme.
             </p>
-          </GlassCard>
+          </MotionGlassCard>
 
           <GlassCard className="border-white/10 bg-white/[0.015]">
             <div className="flex items-center gap-2 text-xs text-slate-400">

@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
+import { MotionGlassCard } from "@/components/ui/motion-glass-card";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { NetworkBadge } from "@/components/ui/network-badge";
@@ -135,13 +138,14 @@ function CompetitorTab({ brandId }: { brandId: string }) {
       ) : tracks.length === 0 ? (
         <p className="py-6 text-center text-sm text-slate-500">Aucun concurrent suivi pour l&apos;instant.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tracks.map((t) => {
             const latest = t.snapshots.at(-1);
             const previous = t.snapshots.at(-2);
             const delta = latest && previous ? latest.followers - previous.followers : null;
             return (
-              <GlassCard key={t.id}>
+              <RevealItem key={t.id}>
+              <MotionGlassCard>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-white">{t.label || t.handle}</p>
@@ -181,10 +185,11 @@ function CompetitorTab({ brandId }: { brandId: string }) {
                     Ajouter
                   </Button>
                 </div>
-              </GlassCard>
+              </MotionGlassCard>
+              </RevealItem>
             );
           })}
-        </div>
+        </RevealGroup>
       )}
     </div>
   );
@@ -404,35 +409,47 @@ export default function AnalyticsPage() {
         ))}
       </div>
 
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2 }}
+        >
       {tab === "competitors" ? (
         activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
       ) : connections.length === 0 && !loading ? (
-        <GlassCard className="text-center">
+        <Reveal>
+        <MotionGlassCard className="text-center">
           <p className="text-sm text-slate-400">Aucun compte connecté pour l&apos;instant.</p>
           <Link href="/accounts" className="mt-3 inline-block">
             <Button variant="outline">Connecter un réseau</Button>
           </Link>
-        </GlassCard>
+        </MotionGlassCard>
+        </Reveal>
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-6">
+          <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {networksToShow.map((n) => {
               const real = connections.find((c) => c.network === n);
               const latest = real?.snapshots.at(-1);
               const previous = real?.snapshots.at(-2);
               return (
-                <StatCard
-                  key={n}
-                  label={NETWORK_META[n].label}
-                  value={latest ? latest.followers.toLocaleString("fr-FR") : "—"}
-                  suffix={latest ? "abonnés" : "pas encore synchronisé"}
-                  delta={latest && previous ? latest.followers - previous.followers : 0}
-                />
+                <RevealItem key={n}>
+                  <StatCard
+                    label={NETWORK_META[n].label}
+                    value={latest ? latest.followers.toLocaleString("fr-FR") : "—"}
+                    suffix={latest ? "abonnés" : "pas encore synchronisé"}
+                    delta={latest && previous ? latest.followers - previous.followers : 0}
+                  />
+                </RevealItem>
               );
             })}
-          </div>
+          </RevealGroup>
 
-          <GlassCard>
+          <Reveal delay={0.1}>
+          <MotionGlassCard glow>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-base font-medium text-white">Évolution des abonnés</h2>
               <div className="flex gap-2">
@@ -449,9 +466,12 @@ export default function AnalyticsPage() {
                 remplir ce graphique avec vos vraies données.
               </p>
             )}
-          </GlassCard>
-        </>
+          </MotionGlassCard>
+          </Reveal>
+        </div>
       )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

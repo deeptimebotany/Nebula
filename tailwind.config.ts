@@ -64,7 +64,14 @@ const config: Config = {
         shimmer: "shimmer 2.5s linear infinite",
         "fade-in": "fadeIn 0.2s ease-out",
         "fade-in-up": "fadeInUp 0.35s ease-out",
-        "ring-pulse": "ringPulse 2.6s ease-in-out infinite"
+        "ring-pulse": "ringPulse 2.6s ease-in-out infinite",
+        // --- V2 : direction artistique "cockpit spatial" ---
+        "aurora-drift": "auroraDrift 14s ease-in-out infinite",
+        "border-spin": "borderSpin 6s linear infinite",
+        orbit: "orbit 24s linear infinite",
+        "orbit-reverse": "orbit 32s linear infinite reverse",
+        "comet-trail": "cometTrail 2.4s ease-out infinite",
+        "tick-pulse": "tickPulse 3s ease-in-out infinite"
       },
       keyframes: {
         float: {
@@ -86,6 +93,27 @@ const config: Config = {
         ringPulse: {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(127,178,255,0.45)" },
           "50%": { boxShadow: "0 0 0 5px rgba(127,178,255,0)" }
+        },
+        auroraDrift: {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" }
+        },
+        borderSpin: {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" }
+        },
+        orbit: {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" }
+        },
+        cometTrail: {
+          "0%": { transform: "translateX(-6px)", opacity: "0" },
+          "15%": { opacity: "1" },
+          "100%": { transform: "translateX(6px)", opacity: "0" }
+        },
+        tickPulse: {
+          "0%, 100%": { opacity: "0.5", transform: "scale(1)" },
+          "50%": { opacity: "1", transform: "scale(1.15)" }
         }
       }
     }

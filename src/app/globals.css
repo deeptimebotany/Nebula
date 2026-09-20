@@ -189,4 +189,78 @@ body {
     );
     background-size: 200% 100%;
   }
+
+  /* --- V2 : direction artistique "cockpit spatial" --------------------- */
+
+  /* Titre à dégradé mouvant (Hero V2) — variante animée de .text-gradient,
+     réservée aux titres XL pour ne pas surcharger l'interface de mouvement. */
+  .text-gradient-live {
+    background: linear-gradient(90deg, #b4c8fa, #7ea1f5 30%, #63e6ff 55%, #7c6cf0 80%, #b4c8fa);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: auroraDrift 10s ease-in-out infinite;
+  }
+
+  /* Bordure luminescente tournante — un halo conique qui tourne lentement
+     derrière la carte, révélé uniquement au survol (voir Hero + cartes clés
+     du dashboard). Le ::before porte le dégradé, le ::after masque tout sauf
+     un fin trait en périphérie pour un effet de "trait de néon". */
+  .glow-border-spin {
+    position: relative;
+    isolation: isolate;
+  }
+  .glow-border-spin::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 0deg,
+      rgb(var(--c-aurora-400) / 0.9),
+      rgb(var(--c-accent-cyan) / 0.7),
+      rgb(var(--c-accent-violet) / 0.7),
+      rgb(var(--c-aurora-400) / 0.9)
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    animation: borderSpin 5s linear infinite;
+  }
+  .glow-border-spin:hover::before {
+    opacity: 0.9;
+  }
+
+  /* Vignette cockpit : assombrit les bords de l'écran façon verrière de
+     vaisseau, pour recentrer l'attention sur le Hero. Discret : n'affecte
+     jamais le contenu, seulement le décor derrière (::after, z-index -1). */
+  .cockpit-vignette {
+    position: relative;
+  }
+  .cockpit-vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 140% 90% at 50% 15%, transparent 45%, rgba(2, 4, 10, 0.75) 100%);
+  }
+
+  /* Grain subtil superposé au fond — casse l'aspect trop lisse d'un
+     dégradé numérique, façon photo de nébuleuse. Une seule tuile SVG bruitée
+     répétée, opacité très faible : décoratif, jamais au-dessus du contenu. */
+  .grain-overlay {
+    position: relative;
+  }
+  .grain-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
 }

@@ -11,6 +11,10 @@ import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
 import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconSparkle, IconUpload } from "@/components/dashboard/icons";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
+import { MotionGlassCard } from "@/components/ui/motion-glass-card";
+import { LivingClock } from "@/components/dashboard/living-clock";
+import { MomentumComet, computeStreak } from "@/components/dashboard/momentum-comet";
 
 const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
@@ -153,6 +157,10 @@ export default function DashboardPage() {
   const onboardingSteps = [connections.length > 0, hasAnalytics, posts.length > 0];
   const onboardingPercent = Math.round((onboardingSteps.filter(Boolean).length / onboardingSteps.length) * 100);
 
+  // Widget "Momentum" — traînée de comète basée sur les vraies publications
+  // envoyées (voir computeStreak, calculé sur `posts` déjà chargé ci-dessus).
+  const streak = useMemo(() => computeStreak(posts), [posts]);
+
   // Widget "Meilleur créneau du jour" : prochaine heure optimale pour
   // chaque réseau connecté, basée sur son propre historique réel
   // (insights.perNetwork, voir /api/analytics/insights). Si l'heure
@@ -244,85 +252,110 @@ export default function DashboardPage() {
         </GlassCard>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Abonnés (total)"
-          value={hasAnalytics ? totalFollowers.toLocaleString("fr-FR") : "—"}
-          icon={<IconUsers className="h-4 w-4" />}
-        />
-        <StatCard
-          label="Portée (dernière sync.)"
-          value={hasAnalytics ? totalReach.toLocaleString("fr-FR") : "—"}
-          suffix={hasAnalytics ? "vues" : undefined}
-          icon={<IconChart className="h-4 w-4" />}
-        />
-        <StatCard
-          label="Taux d'engagement"
-          value={hasAnalytics ? avgEngagement.toFixed(1) : "—"}
-          suffix={hasAnalytics ? "%" : undefined}
-          icon={<IconHeart className="h-4 w-4" />}
-        />
-        <StatCard label="Posts ce mois-ci" value={String(postsThisMonth)} icon={<IconCalendar className="h-4 w-4" />} />
-      </div>
+      <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <RevealItem>
+          <StatCard
+            label="Abonnés (total)"
+            value={hasAnalytics ? totalFollowers.toLocaleString("fr-FR") : "—"}
+            icon={<IconUsers className="h-4 w-4" />}
+          />
+        </RevealItem>
+        <RevealItem>
+          <StatCard
+            label="Portée (dernière sync.)"
+            value={hasAnalytics ? totalReach.toLocaleString("fr-FR") : "—"}
+            suffix={hasAnalytics ? "vues" : undefined}
+            icon={<IconChart className="h-4 w-4" />}
+          />
+        </RevealItem>
+        <RevealItem>
+          <StatCard
+            label="Taux d'engagement"
+            value={hasAnalytics ? avgEngagement.toFixed(1) : "—"}
+            suffix={hasAnalytics ? "%" : undefined}
+            icon={<IconHeart className="h-4 w-4" />}
+          />
+        </RevealItem>
+        <RevealItem>
+          <StatCard label="Posts ce mois-ci" value={String(postsThisMonth)} icon={<IconCalendar className="h-4 w-4" />} />
+        </RevealItem>
+      </RevealGroup>
 
-      <GlassCard className="border-aurora-400/20 bg-nebula-700/[0.08]">
-        <div className="mb-2 flex items-center gap-2">
-          <IconSparkle className="h-4 w-4 text-aurora-300" />
-          <h2 className="font-display text-base font-medium text-white">Insights IA</h2>
-        </div>
-        {!insights ? (
-          <p className="text-sm text-slate-500">Chargement...</p>
-        ) : insights.hasEnoughData ? (
-          <div className="flex flex-col gap-1.5 text-sm text-slate-300 sm:flex-row sm:items-center sm:gap-6">
-            {insights.bestHour !== null && (
-              <p>
-                Vos comptes progressent le mieux autour de{" "}
-                <span className="font-medium text-white">{insights.bestHour}h</span> — basé sur{" "}
-                {insights.sampleSize.snapshots} relevés analytics réels.
-              </p>
-            )}
-            {insights.topWeekday && (
-              <p>
-                Vous publiez surtout <span className="font-medium text-white">{WEEKDAY_LABEL[insights.topWeekday]}</span>{" "}
-                ({insights.topWeekdayCount} publication{insights.topWeekdayCount > 1 ? "s" : ""} envoyée{insights.topWeekdayCount > 1 ? "s" : ""}).
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            Pas encore assez d&apos;historique pour une recommandation fiable ({insights.sampleSize.snapshots}/
-            {insights.minRequired.snapshots} relevés analytics, {insights.sampleSize.posts}/{insights.minRequired.posts} publications
-            envoyées). Continuez à publier et à synchroniser vos comptes (page Analytics) — ce widget se basera
-            toujours sur vos vraies données, jamais sur des chiffres inventés.
-          </p>
-        )}
-      </GlassCard>
-
-      {insights && insights.perNetwork.length > 0 && insights.perNetwork.some((n) => n.hasEnoughData) && (
-        <GlassCard>
-          <h2 className="mb-3 font-display text-base font-medium text-white">Meilleur créneau du jour</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {insights.perNetwork.map((n) => (
-              <div key={n.network} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                <NetworkBadge network={n.network} size="sm" />
-                {n.hasEnoughData && n.bestHour !== null ? (
-                  <p className="mt-2 text-sm text-slate-300">
-                    Prochain créneau optimal :<br />
-                    <span className="font-display text-base text-white">{nextOccurrence(n.bestHour)}</span>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Reveal>
+          <MotionGlassCard className="border-aurora-400/20 bg-nebula-700/[0.08]">
+            <div className="mb-2 flex items-center gap-2">
+              <IconSparkle className="h-4 w-4 text-aurora-300" />
+              <h2 className="font-display text-base font-medium text-white">Insights IA</h2>
+            </div>
+            {!insights ? (
+              <p className="text-sm text-slate-500">Chargement...</p>
+            ) : insights.hasEnoughData ? (
+              <div className="flex flex-col gap-1.5 text-sm text-slate-300">
+                {insights.bestHour !== null && (
+                  <p>
+                    Vos comptes progressent le mieux autour de{" "}
+                    <span className="font-medium text-white">{insights.bestHour}h</span> — basé sur{" "}
+                    {insights.sampleSize.snapshots} relevés analytics réels.
                   </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Pas encore assez d&apos;historique ({n.sampleSize} relevés).
+                )}
+                {insights.topWeekday && (
+                  <p>
+                    Vous publiez surtout <span className="font-medium text-white">{WEEKDAY_LABEL[insights.topWeekday]}</span>{" "}
+                    ({insights.topWeekdayCount} publication{insights.topWeekdayCount > 1 ? "s" : ""} envoyée{insights.topWeekdayCount > 1 ? "s" : ""}).
                   </p>
                 )}
               </div>
-            ))}
-          </div>
-        </GlassCard>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Pas encore assez d&apos;historique pour une recommandation fiable ({insights.sampleSize.snapshots}/
+                {insights.minRequired.snapshots} relevés analytics, {insights.sampleSize.posts}/{insights.minRequired.posts}{" "}
+                publications envoyées). Continuez à publier et à synchroniser vos comptes (page Analytics) — ce
+                widget se basera toujours sur vos vraies données, jamais sur des chiffres inventés.
+              </p>
+            )}
+          </MotionGlassCard>
+        </Reveal>
+
+        <Reveal delay={0.05}>
+          <MotionGlassCard>
+            <h2 className="mb-2 font-display text-base font-medium text-white">Momentum</h2>
+            <MomentumComet streak={streak} />
+          </MotionGlassCard>
+        </Reveal>
+      </div>
+
+      {insights && insights.perNetwork.length > 0 && insights.perNetwork.some((n) => n.hasEnoughData) && (
+        <Reveal>
+          <MotionGlassCard glow>
+            <h2 className="mb-3 font-display text-base font-medium text-white">Meilleur créneau du jour</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {insights.perNetwork.map((n) => (
+                <div key={n.network} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                  <LivingClock bestHour={n.bestHour} color={NETWORK_META[n.network].color} hasEnoughData={n.hasEnoughData} />
+                  <div>
+                    <NetworkBadge network={n.network} size="sm" />
+                    {n.hasEnoughData && n.bestHour !== null ? (
+                      <p className="mt-2 text-sm text-slate-300">
+                        Prochain créneau :<br />
+                        <span className="font-display text-base text-white">{nextOccurrence(n.bestHour)}</span>
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Pas encore assez d&apos;historique ({n.sampleSize} relevés).
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MotionGlassCard>
+        </Reveal>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <GlassCard className="lg:col-span-2">
+      <RevealGroup className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <RevealItem className="lg:col-span-2">
+        <MotionGlassCard>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-base font-medium text-white">Croissance des abonnés</h2>
             <div className="flex gap-2">
@@ -345,9 +378,11 @@ export default function DashboardPage() {
               </Link>
             </div>
           )}
-        </GlassCard>
+        </MotionGlassCard>
+        </RevealItem>
 
-        <GlassCard>
+        <RevealItem>
+        <MotionGlassCard>
           <h2 className="mb-4 font-display text-base font-medium text-white">Comptes connectés</h2>
           {loading ? (
             <p className="text-sm text-slate-500">Chargement...</p>
@@ -376,10 +411,12 @@ export default function DashboardPage() {
               ))}
             </ul>
           )}
-        </GlassCard>
-      </div>
+        </MotionGlassCard>
+        </RevealItem>
+      </RevealGroup>
 
-      <GlassCard>
+      <Reveal>
+      <MotionGlassCard>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-base font-medium text-white">Prochaines publications</h2>
           <Link href="/calendar" className="text-sm text-aurora-300 hover:underline">
@@ -412,7 +449,8 @@ export default function DashboardPage() {
             })}
           </div>
         )}
-      </GlassCard>
+      </MotionGlassCard>
+      </Reveal>
     </div>
   );
 }

@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
-import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
+import { motion } from "framer-motion";
 import { QuotaBar } from "@/components/dashboard/quota-bar";
 import { PostEditModal } from "@/components/dashboard/post-edit-modal";
 import { ApprovalLinkModal } from "@/components/dashboard/approval-link-modal";
+import { WeekScrubber } from "@/components/dashboard/week-scrubber";
+import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
 import { IconChevron, IconPlus, IconSparkle } from "@/components/dashboard/icons";
@@ -183,6 +185,19 @@ export default function CalendarPage() {
   const todayKey = dateKey(today);
   const agendaEntries = entriesByDay.get(dateKey(agendaDay)) ?? [];
 
+  // Scrubber temporel : nombre de publications par jour, tous jours
+  // chargés confondus (indépendant du mois affiché à l'écran).
+  const entryCountByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [key, list] of entriesByDay) map.set(key, list.length);
+    return map;
+  }, [entriesByDay]);
+
+  function onSelectWeek(monday: Date) {
+    setCursor(new Date(monday.getFullYear(), monday.getMonth(), 1));
+    if (view === "hours") setAgendaDay(monday);
+  }
+
   function toggleBrand(id: string) {
     setSelectedBrandIds((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
   }
@@ -237,6 +252,12 @@ export default function CalendarPage() {
       </div>
 
       <QuotaBar brandId={activeBrand?.id} />
+
+      <WeekScrubber
+        entryCountByDay={entryCountByDay}
+        activeDate={view === "hours" ? agendaDay : cursor}
+        onSelectWeek={onSelectWeek}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
@@ -328,7 +349,7 @@ export default function CalendarPage() {
       )}
 
       {view === "month" ? (
-        <GlassCard>
+        <MotionGlassCard>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-lg text-white">
               {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
@@ -410,48 +431,58 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   {entries.length === 0 && ideaByKey[key] && (
-                    <Link
-                      href={`/composer?date=${key}`}
-                      className="mb-1 block rounded-md border border-aurora-400/20 bg-aurora-400/[0.06] p-1.5 text-[10px] leading-tight text-aurora-100 transition hover:border-aurora-400/40"
-                      title="Cliquez pour rédiger ce post"
-                    >
-                      <IconSparkle className="mb-0.5 inline h-2.5 w-2.5 text-aurora-300" /> {ideaByKey[key]}
-                    </Link>
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+                      <Link
+                        href={`/composer?date=${key}`}
+                        className="mb-1 block rounded-md border border-aurora-400/20 bg-aurora-400/[0.06] p-1.5 text-[10px] leading-tight text-aurora-100 transition hover:border-aurora-400/40"
+                        title="Cliquez pour rédiger ce post"
+                      >
+                        <IconSparkle className="mb-0.5 inline h-2.5 w-2.5 text-aurora-300" /> {ideaByKey[key]}
+                      </Link>
+                    </motion.div>
                   )}
                   <div className="space-y-1">
                     {entries.slice(0, 3).map((e) => (
-                      <button
-                        key={e.id}
-                        draggable
-                        onDragStart={(ev) => {
-                          ev.dataTransfer.setData("text/plain", JSON.stringify({ id: e.id, time: e.time }));
-                          ev.dataTransfer.effectAllowed = "move";
-                          setDraggingId(e.id);
-                        }}
-                        onDragEnd={() => setDraggingId(null)}
-                        onClick={() => setEditingPostId(e.id)}
-                        title={`${e.title} — glissez vers un autre jour pour reprogrammer`}
-                        style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
-                        className={clsx(
-                          "flex w-full cursor-grab items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:z-10 hover:scale-[1.04] hover:bg-nebula-700/70 hover:shadow-glow active:cursor-grabbing",
-                          draggingId === e.id && "opacity-40"
-                        )}
-                      >
-                        {e.thumbnailUrl ? (
-                          <img src={e.thumbnailUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
-                        ) : (
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/5 text-[9px] text-slate-500">
-                            {e.networks[0] ? "" : "—"}
+                      // Le layoutId sur le conteneur (et non le <button> natif
+                      // lui-même) anime la position lors d'un déplacement par
+                      // glisser-déposer, sans entrer en conflit avec les
+                      // événements HTML5 natifs draggable/onDragStart/onDragEnd
+                      // du bouton (framer-motion redéfinit ces props pour son
+                      // propre système de geste quand elles sont posées
+                      // directement sur un composant motion).
+                      <motion.div key={e.id} layout layoutId={`entry-${e.id}`} transition={{ type: "spring", stiffness: 350, damping: 28 }}>
+                        <button
+                          draggable
+                          onDragStart={(ev) => {
+                            ev.dataTransfer.setData("text/plain", JSON.stringify({ id: e.id, time: e.time }));
+                            ev.dataTransfer.effectAllowed = "move";
+                            setDraggingId(e.id);
+                          }}
+                          onDragEnd={() => setDraggingId(null)}
+                          onClick={() => setEditingPostId(e.id)}
+                          title={`${e.title} — glissez vers un autre jour pour reprogrammer`}
+                          style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
+                          className={clsx(
+                            "flex w-full cursor-grab items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:z-10 hover:scale-[1.04] hover:bg-nebula-700/70 hover:shadow-glow active:cursor-grabbing",
+                            draggingId === e.id && "opacity-40"
+                          )}
+                        >
+                          {e.thumbnailUrl ? (
+                            <img src={e.thumbnailUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                          ) : (
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/5 text-[9px] text-slate-500">
+                              {e.networks[0] ? "" : "—"}
+                            </span>
+                          )}
+                          <span className="flex shrink-0 gap-0.5">
+                            {e.networks.slice(0, 3).map((n, i) => (
+                              <NetworkDot key={i} network={n} />
+                            ))}
                           </span>
-                        )}
-                        <span className="flex shrink-0 gap-0.5">
-                          {e.networks.slice(0, 3).map((n, i) => (
-                            <NetworkDot key={i} network={n} />
-                          ))}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{e.title}</span>
-                        <span className="shrink-0 text-slate-400">{e.time}</span>
-                      </button>
+                          <span className="min-w-0 flex-1 truncate">{e.title}</span>
+                          <span className="shrink-0 text-slate-400">{e.time}</span>
+                        </button>
+                      </motion.div>
                     ))}
                     {entries.length > 3 && <p className="text-[11px] text-slate-500">+{entries.length - 3} autre(s)</p>}
                   </div>
@@ -459,9 +490,9 @@ export default function CalendarPage() {
               );
             })}
           </div>
-        </GlassCard>
+        </MotionGlassCard>
       ) : (
-        <GlassCard>
+        <MotionGlassCard>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-lg text-white">
               {agendaDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
@@ -515,7 +546,7 @@ export default function CalendarPage() {
               );
             })}
           </div>
-        </GlassCard>
+        </MotionGlassCard>
       )}
 
       {Object.values(postsByBrand).every((list) => list.length === 0) && (
