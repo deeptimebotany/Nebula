@@ -7,6 +7,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { PremiumName } from "@/components/ui/premium-name";
 import { PremiumBadge } from "@/components/ui/premium-badge";
+import { ReactionBar } from "@/components/community/reaction-bar";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { useSession } from "next-auth/react";
@@ -31,6 +32,7 @@ interface Reply {
   body: string;
   createdAt: string;
   author: AuthorInfo;
+  reactions: { emoji: string; userId: string }[];
 }
 
 interface Thread {
@@ -41,6 +43,7 @@ interface Thread {
   createdAt: string;
   author: AuthorInfo;
   replies: Reply[];
+  reactions: { emoji: string; userId: string }[];
 }
 
 export default function ThreadDetailPage() {
@@ -129,6 +132,7 @@ export default function ThreadDetailPage() {
           )}
         </div>
         <p className="mt-4 whitespace-pre-wrap text-sm text-slate-200">{thread.body}</p>
+        {userId && <ReactionBar threadId={thread.id} reactions={thread.reactions} myUserId={userId} />}
       </GlassCard>
 
       <div className="space-y-3">
@@ -145,6 +149,7 @@ export default function ThreadDetailPage() {
               )}
               · {new Date(r.createdAt).toLocaleString("fr-FR")}
             </p>
+            {userId && <ReactionBar replyId={r.id} reactions={r.reactions} myUserId={userId} />}
           </GlassCard>
           );
         })}

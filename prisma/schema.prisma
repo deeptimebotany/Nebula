@@ -31,6 +31,8 @@ model User {
   forumThreads ForumThread[]
   forumReplies ForumReply[]
   sharedVideos SharedVideo[]
+  reactions    CommunityReaction[]
+  pollVotes    PollVote[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
@@ -279,7 +281,11 @@ model AnalyticsSnapshot {
 // réhébergement du fichier source).
 // ---------------------------------------------------------------------------
 
-// category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE"
+// category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE" | "VIP" | "ACTUALITES"
+// "VIP"        : espace interne réservé aux membres Premium (PRO/AGENCE) — lecture ET
+//                écriture bloquées côté API pour les comptes Gratuit (voir /api/community/threads).
+// "ACTUALITES" : contenu éditorial publié par l'admin (voir src/lib/admin.ts), avec accès
+//                anticipé pour les membres Premium via publicAt (voir /api/community/threads).
 model ForumThread {
   id        String       @id @default(cuid())
   authorId  String
@@ -287,10 +293,15 @@ model ForumThread {
   body      String
   category  String       @default("GENERAL")
   pinned    Boolean      @default(false)
+  // Accès anticipé (catégorie "ACTUALITES" uniquement) : avant cette date, seuls les
+  // membres Premium voient le thread — les autres le voient à partir de publicAt.
+  // NULL = pas de restriction d'accès anticipé (comportement normal des autres catégories).
+  publicAt  DateTime?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   replies   ForumReply[]
+  reactions CommunityReaction[]
 
   @@index([createdAt])
 }
@@ -303,8 +314,80 @@ model ForumReply {
   createdAt DateTime    @default(now())
   thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reactions CommunityReaction[]
 
   @@index([threadId, createdAt])
+}
+
+// Réaction emoji sur un thread OU une réponse (exactement un des deux liens est
+// renseigné, imposé côté application — voir /api/community/reactions). L'emoji
+// est soit un caractère Unicode standard (accessible à tous), soit la clé d'un
+// PremiumReaction du pack exclusif (réservé aux membres Premium, vérifié côté
+// serveur avant toute écriture).
+model CommunityReaction {
+  id        String       @id @default(cuid())
+  emoji     String
+  userId    String
+  threadId  String?
+  replyId   String?
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread    ForumThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  reply     ForumReply?  @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, replyId, userId, emoji])
+  @@index([threadId])
+  @@index([replyId])
+}
+
+// Pack d'emojis/réactions exclusifs Premium, généré par IA (voir
+// /api/premium/reactions/generate, réservé à l'admin) et stocké via le même
+// mécanisme que les autres médias uploadés (Vercel Blob ou disque local,
+// voir src/lib/storage.ts::saveGeneratedImage). "key" est la valeur stockée
+// dans CommunityReaction.emoji pour identifier une réaction exclusive.
+model PremiumReaction {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  imageUrl  String
+  createdAt DateTime @default(now())
+}
+
+// Sondage réservé à la Communauté — création par l'admin (voir src/lib/admin.ts),
+// vote réservé aux membres Premium actifs (un vote par utilisateur, vérifié via
+// la contrainte unique ci-dessous et côté serveur).
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  createdAt DateTime     @default(now())
+  closesAt  DateTime?
+  options   PollOption[]
+  votes     PollVote[]
+
+  @@index([createdAt])
+}
+
+model PollOption {
+  id        String     @id @default(cuid())
+  pollId    String
+  label     String
+  order     Int        @default(0)
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+}
+
+model PollVote {
+  id        String     @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([optionId])
 }
 
 // Contenu éditorial fixe (pas d'auteur "utilisateur") — géré via le script de

@@ -228,6 +228,42 @@ export async function generateThumbnail(input: {
   return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
 }
 
+/**
+ * Génère un unique visuel de réaction/sticker (texte → image, sans média source)
+ * pour le pack d'emojis exclusifs Premium — voir /api/premium/reactions/generate
+ * (réservé à l'admin, voir src/lib/admin.ts). Chaque appel produit UNE image ;
+ * la route appelante boucle sur la liste de prompts du pack.
+ */
+export async function generateStickerPack(input: { prompt: string }): Promise<GeneratedThumbnail> {
+  const key = requireKey();
+  const fullPrompt = [
+    "Crée un sticker/icône de réaction au style cohérent : fond entièrement transparent,",
+    "rendu vectoriel/flat premium, dominante dorée et lumineuse (voir description ci-dessous),",
+    "cadré serré sur le sujet, sans texte, sans filigrane, format carré.",
+    `Sujet : ${input.prompt}`
+  ].join(" ");
+
+  const res = await fetch(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Erreur Gemini (${res.status})`);
+  }
+
+  const parts: GenerateContentPart[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p) => p.inline_data?.data);
+  if (!imagePart?.inline_data) {
+    throw new Error("Gemini n'a renvoyé aucune image pour ce sticker (le modèle de génération d'image est peut-être indisponible).");
+  }
+  return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
+}
+
 export interface FrameInput {
   timeRatio: number; // 0..1, position dans la vidéo
   base64: string;

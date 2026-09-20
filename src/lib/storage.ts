@@ -68,3 +68,43 @@ export async function saveUploadedFile(file: File): Promise<{
     sizeBytes: buffer.byteLength
   };
 }
+
+/**
+ * Même mécanisme de stockage que saveUploadedFile() ci-dessus, mais pour une
+ * image générée côté serveur (base64 en mémoire, pas de File issu d'un
+ * formulaire) — utilisé pour le pack d'emojis Premium généré par IA (voir
+ * src/lib/ai/gemini.ts::generateStickerPack et
+ * /api/premium/reactions/generate).
+ */
+export async function saveGeneratedImage(input: {
+  base64: string;
+  mimeType: string;
+  baseName: string;
+}): Promise<{ url: string }> {
+  const ext = input.mimeType.includes("png") ? "png" : input.mimeType.includes("webp") ? "webp" : "jpg";
+  const safeName = `${input.baseName}-${randomUUID()}.${ext}`;
+  const buffer = Buffer.from(input.base64, "base64");
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const { put } = await import("@vercel/blob");
+    const blob = await put(safeName, buffer, {
+      access: "public",
+      contentType: input.mimeType,
+      token: process.env.BLOB_READ_WRITE_TOKEN
+    });
+    return { url: blob.url };
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error(
+      "Le stockage des fichiers n'est pas configuré : ajoutez la variable d'environnement BLOB_READ_WRITE_TOKEN dans les paramètres du projet Vercel (Settings → Environment Variables), puis redéployez."
+    );
+  }
+
+  const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
+  const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+  await mkdir(absoluteDir, { recursive: true });
+  await writeFile(path.join(absoluteDir, safeName), buffer);
+
+  return { url: `/uploads/${safeName}` };
+}

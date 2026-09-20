@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { playVipChime } from "@/lib/premium/vip-sound";
 
 interface Spark {
   id: number;
@@ -41,6 +42,7 @@ export function PremiumSparkBurst({ onDone }: { onDone?: () => void }) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    playVipChime();
     const timeout = setTimeout(() => {
       setVisible(false);
       onDone?.();

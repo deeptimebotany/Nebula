@@ -13,8 +13,9 @@ import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift } from "@/compo
 import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
 import { computePremiumInfo } from "@/lib/premium";
+import { usePremiumReactions, invalidatePremiumReactionsCache } from "@/lib/premium/use-premium-reactions";
 
-type Tab = "forum" | "guides" | "videos";
+type Tab = "forum" | "guides" | "videos" | "polls";
 
 interface LeaderboardRow {
   id: string;
@@ -82,7 +83,9 @@ const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
   AIDE: "Aide",
   SUGGESTIONS: "Suggestions",
-  SHOWCASE: "Vitrine"
+  SHOWCASE: "Vitrine",
+  VIP: "VIP ✨",
+  ACTUALITES: "Actualités"
 };
 
 interface Thread {
@@ -93,7 +96,23 @@ interface Thread {
   pinned: boolean;
   createdAt: string;
   author: { id: string; name: string; subscription: { plan: string; status: string; createdAt: string } | null };
+  reactions: { emoji: string; userId: string }[];
   _count: { replies: number };
+}
+
+interface PollOption {
+  id: string;
+  label: string;
+  votes: number;
+}
+
+interface Poll {
+  id: string;
+  question: string;
+  createdAt: string;
+  closesAt: string | null;
+  myVoteOptionId: string | null;
+  options: PollOption[];
 }
 
 interface Guide {
@@ -114,9 +133,162 @@ interface SharedVideo {
   author: { id: string; name: string };
 }
 
+function PollsPanel({ isAdmin }: { isAdmin: boolean }) {
+  const toast = useToast();
+  const [polls, setPolls] = useState<Poll[] | null>(null);
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [creating, setCreating] = useState(false);
+  const [voting, setVoting] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    fetch("/api/community/polls")
+      .then((r) => (r.ok ? r.json() : { polls: [] }))
+      .then((d) => setPolls(d.polls ?? []))
+      .catch(() => setPolls([]));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function createPoll() {
+    const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
+    if (!question.trim() || cleanOptions.length < 2) {
+      toast.error("Une question et au moins 2 options sont nécessaires.");
+      return;
+    }
+    setCreating(true);
+    const res = await fetch("/api/community/polls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: question.trim(), options: cleanOptions })
+    });
+    const data = await res.json();
+    setCreating(false);
+    if (!res.ok) {
+      toast.error(data.error ?? "Erreur lors de la création du sondage.");
+      return;
+    }
+    setQuestion("");
+    setOptions(["", ""]);
+    setCreatorOpen(false);
+    toast.success("Sondage publié.");
+    load();
+  }
+
+  async function vote(pollId: string, optionId: string) {
+    setVoting(optionId);
+    const res = await fetch(`/api/community/polls/${pollId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ optionId })
+    });
+    const data = await res.json();
+    setVoting(null);
+    if (!res.ok) {
+      toast.error(data.error ?? "Impossible d'enregistrer votre vote.");
+      return;
+    }
+    load();
+  }
+
+  return (
+    <div className="space-y-4">
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button onClick={() => setCreatorOpen((v) => !v)} variant={creatorOpen ? "outline" : "glow"}>
+            {creatorOpen ? "Annuler" : "Nouveau sondage"}
+          </Button>
+        </div>
+      )}
+
+      {isAdmin && creatorOpen && (
+        <GlassCard>
+          <div className="space-y-3">
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Question du sondage"
+              maxLength={200}
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
+            />
+            {options.map((opt, i) => (
+              <input
+                key={i}
+                value={opt}
+                onChange={(e) => setOptions((prev) => prev.map((o, idx) => (idx === i ? e.target.value : o)))}
+                placeholder={`Option ${i + 1}`}
+                maxLength={80}
+                className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
+              />
+            ))}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setOptions((prev) => [...prev, ""])}
+                disabled={options.length >= 8}
+                className="text-xs text-aurora-300 hover:underline disabled:opacity-40"
+              >
+                + ajouter une option
+              </button>
+              <Button onClick={createPoll} disabled={creating}>{creating ? "Publication..." : "Publier"}</Button>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {polls === null && <p className="text-sm text-slate-500">Chargement...</p>}
+      {polls?.length === 0 && (
+        <p className="py-8 text-center text-sm text-slate-500">Aucun sondage pour l&apos;instant.</p>
+      )}
+      {polls?.map((p) => {
+        const total = p.options.reduce((sum, o) => sum + o.votes, 0);
+        return (
+          <GlassCard key={p.id}>
+            <p className="font-display text-sm font-medium text-white">{p.question}</p>
+            <div className="mt-3 space-y-1.5">
+              {p.options.map((o) => {
+                const pct = total > 0 ? Math.round((o.votes / total) * 100) : 0;
+                const mine = p.myVoteOptionId === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => vote(p.id, o.id)}
+                    disabled={voting === o.id}
+                    className={clsx(
+                      "relative w-full overflow-hidden rounded-lg border px-3 py-2 text-left text-xs transition",
+                      mine ? "border-aurora-400/50 text-white" : "border-white/10 text-slate-300 hover:border-white/20"
+                    )}
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-nebula-600/40 to-aurora-500/20"
+                      style={{ width: `${pct}%` }}
+                    />
+                    <span className="relative flex items-center justify-between">
+                      <span>{o.label} {mine && "✓"}</span>
+                      <span className="text-slate-400">{pct}% ({o.votes})</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              {total} vote{total > 1 ? "s" : ""} · réservé aux membres Premium
+            </p>
+          </GlassCard>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function CommunityPage() {
   const toast = useToast();
+  const { isPremium, isAdmin } = usePremiumReactions();
   const [tab, setTab] = useState<Tab>("forum");
+  const [generatingPack, setGeneratingPack] = useState(false);
+  const [publicInHours, setPublicInHours] = useState(48);
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -155,6 +327,25 @@ export default function CommunityPage() {
       .catch(() => undefined);
   }, []);
 
+  async function generatePremiumPack() {
+    setGeneratingPack(true);
+    const res = await fetch("/api/premium/reactions/generate", { method: "POST" });
+    const data = await res.json();
+    setGeneratingPack(false);
+    if (!res.ok) {
+      toast.error(data.error ?? "Erreur lors de la génération du pack.");
+      return;
+    }
+    const failed = (data.results ?? []).filter((r: { ok: boolean }) => !r.ok);
+    invalidatePremiumReactionsCache();
+    if (failed.length > 0) {
+      toast.error(`Pack généré avec ${failed.length} échec(s) — voir la console pour le détail.`);
+      console.warn("Échecs génération pack Premium :", failed);
+    } else {
+      toast.success("Pack d'emojis Premium généré avec succès.");
+    }
+  }
+
   async function createThread() {
     if (!newTitle.trim() || !newBody.trim()) {
       toast.error("Ajoutez un titre et un message.");
@@ -164,7 +355,12 @@ export default function CommunityPage() {
     const res = await fetch("/api/community/threads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle, body: newBody, category: newCategory })
+      body: JSON.stringify({
+        title: newTitle,
+        body: newBody,
+        category: newCategory,
+        publicInHours: newCategory === "ACTUALITES" ? publicInHours : undefined
+      })
     });
     const data = await res.json();
     setPosting(false);
@@ -191,6 +387,14 @@ export default function CommunityPage() {
         <p className="mt-1 text-sm text-slate-400">
           Un espace public, ouvert à tous les utilisateurs de Nebula : entraide, guides et partage de vidéos déjà publiées.
         </p>
+        {isAdmin && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] px-3 py-2">
+            <span className="text-xs text-amber-200/80">Panneau admin :</span>
+            <Button variant="outline" onClick={generatePremiumPack} disabled={generatingPack}>
+              {generatingPack ? "Génération..." : "Générer le pack d'emojis Premium ✨"}
+            </Button>
+          </div>
+        )}
       </div>
 
       <ReferralLeaderboard />
@@ -237,7 +441,8 @@ export default function CommunityPage() {
           [
             ["forum", "Forum"],
             ["guides", "Guides"],
-            ["videos", "Vidéos du jour"]
+            ["videos", "Vidéos du jour"],
+            ["polls", "Sondages"]
           ] as [Tab, string][]
         ).map(([id, label]) => (
           <button
@@ -280,18 +485,40 @@ export default function CommunityPage() {
                   maxLength={5000}
                   className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
                 />
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none focus:border-aurora-400/60"
                   >
-                    {Object.entries(CATEGORY_LABEL).map(([id, label]) => (
-                      <option key={id} value={id} className="bg-void-900">{label}</option>
-                    ))}
+                    {Object.entries(CATEGORY_LABEL).map(([id, label]) => {
+                      const locked = (id === "VIP" && !isPremium) || (id === "ACTUALITES" && !isAdmin);
+                      return (
+                        <option key={id} value={id} disabled={locked} className="bg-void-900">
+                          {label}{locked ? " (verrouillé)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {newCategory === "ACTUALITES" && isAdmin && (
+                    <label className="flex items-center gap-1.5 text-xs text-slate-400">
+                      Accès anticipé Premium :
+                      <input
+                        type="number"
+                        min={0}
+                        max={168}
+                        value={publicInHours}
+                        onChange={(e) => setPublicInHours(Number(e.target.value) || 0)}
+                        className="w-14 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white outline-none focus:border-aurora-400/60"
+                      />
+                      h
+                    </label>
+                  )}
                   <Button onClick={createThread} disabled={posting}>{posting ? "Publication..." : "Publier"}</Button>
                 </div>
+                {newCategory === "VIP" && !isPremium && (
+                  <p className="text-xs text-amber-300/80">Le salon VIP est réservé aux membres Premium (Pro/Agence).</p>
+                )}
               </div>
             </GlassCard>
           )}
@@ -331,6 +558,8 @@ export default function CommunityPage() {
           </div>
         </div>
       )}
+
+      {!loading && tab === "polls" && <PollsPanel isAdmin={isAdmin} />}
 
       {!loading && tab === "guides" && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
