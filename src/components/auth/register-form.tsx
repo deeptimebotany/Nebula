@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { IconGoogle, IconApple } from "@/components/dashboard/icons";
+import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 
 interface RegisterFormProps {
   oauth?: { google: boolean; apple: boolean };
@@ -72,6 +73,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
+        <NebulaBrandMark className="mb-5" />
         <h1 className="font-display text-2xl font-semibold text-white">
           Créez votre <span className="text-gradient">cockpit</span>
         </h1>

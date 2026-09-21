@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 
 // useSearchParams() (pour lire ?token=...) impose un <Suspense> autour du
 // composant qui l'appelle, sinon Next.js refuse de pré-générer la page au
@@ -54,6 +55,7 @@ function ResetPasswordFormInner() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
+        <NebulaBrandMark className="mb-5" />
         <h1 className="font-display text-2xl font-semibold text-white">Nouveau mot de passe</h1>
 
         {!token ? (

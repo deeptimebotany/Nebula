@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconGoogle, IconApple } from "@/components/dashboard/icons";
+import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 
 interface LoginFormProps {
   oauth?: { google: boolean; apple: boolean };
@@ -37,9 +38,8 @@ export function LoginForm({ oauth }: LoginFormProps) {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
-        <h1 className="font-display text-2xl font-semibold text-white">
-          Bon retour sur <span className="text-gradient">Nebula</span>
-        </h1>
+        <NebulaBrandMark className="mb-5" />
+        <h1 className="font-display text-2xl font-semibold text-white">Bon retour</h1>
         <p className="mt-1 text-sm text-slate-400">Connectez-vous à votre cockpit social.</p>
 
         {(oauth?.google || oauth?.apple) && (

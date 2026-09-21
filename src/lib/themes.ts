@@ -113,28 +113,6 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
   {
-    key: "or",
-    label: "Or",
-    vars: {
-      "--c-nebula-900": v([56, 42, 10]),
-      "--c-nebula-800": v([87, 65, 15]),
-      "--c-nebula-700": v([121, 91, 21]),
-      "--c-nebula-600": v([160, 121, 28]),
-      "--c-nebula-500": v([204, 153, 36]),
-      "--c-nebula-400": v([223, 178, 73]),
-      "--c-nebula-300": v([231, 196, 116]),
-      "--c-nebula-200": v([238, 215, 160]),
-      "--c-nebula-100": v([246, 233, 203]),
-      "--c-aurora-500": v([239, 184, 57]),
-      "--c-aurora-400": v([243, 201, 104]),
-      "--c-aurora-300": v([247, 218, 151]),
-      "--c-aurora-glow": v([248, 225, 170]),
-      "--c-accent-violet": v([235, 153, 71]),
-      "--c-accent-cyan": v([81, 236, 184]),
-      "--c-accent-magenta": v([235, 71, 99]),
-    }
-  },
-  {
     key: "ocean",
     label: "Océan profond",
     vars: {
@@ -336,39 +314,6 @@ export const THEMES: ThemeDefinition[] = [
       "--c-accent-violet": v([215, 150, 245]),
       "--c-accent-cyan": v([110, 224, 205]),
       "--c-accent-magenta": v([240, 120, 80]),
-    }
-  },
-  {
-    // Thème "Blanc" : contrairement aux autres (qui ne changent que les
-    // couleurs d'accent sur un fond toujours sombre), celui-ci vise le
-    // rendu clair/épuré des captures de référence (type Meta Business
-    // Suite). L'appli n'a pas de vraie palette claire indépendante par
-    // composant (des centaines de classes Tailwind "text-white"/"bg-white/5"
-    // codées en dur supposent un fond sombre) — le mode Clair/Sombre
-    // existant (voir mode-provider.tsx) est le seul mécanisme qui inverse
-    // réellement les surfaces. Choisir ce thème active donc aussi ce mode
-    // automatiquement (voir settings/page.tsx, onPickTheme) : un thème
-    // séparé et sélectionnable, mais qui s'appuie sur ce mécanisme déjà
-    // éprouvé plutôt que de dupliquer un second système de couleurs clair.
-    key: "blanc",
-    label: "Blanc",
-    vars: {
-      "--c-nebula-900": v([11, 21, 56]),
-      "--c-nebula-800": v([16, 33, 86]),
-      "--c-nebula-700": v([23, 46, 120]),
-      "--c-nebula-600": v([30, 60, 159]),
-      "--c-nebula-500": v([38, 76, 201]),
-      "--c-nebula-400": v([75, 109, 221]),
-      "--c-nebula-300": v([118, 144, 229]),
-      "--c-nebula-200": v([161, 179, 237]),
-      "--c-nebula-100": v([204, 213, 245]),
-      "--c-aurora-500": v([59, 100, 237]),
-      "--c-aurora-400": v([106, 137, 241]),
-      "--c-aurora-300": v([152, 174, 245]),
-      "--c-aurora-glow": v([171, 189, 247]),
-      "--c-accent-violet": v([113, 73, 233]),
-      "--c-accent-cyan": v([83, 234, 219]),
-      "--c-accent-magenta": v([233, 73, 174]),
     }
   },
 ];

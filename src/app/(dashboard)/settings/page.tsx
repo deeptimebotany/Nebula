@@ -7,7 +7,6 @@ import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { useTheme } from "@/components/theme-provider";
-import { useMode } from "@/components/mode-provider";
 import { useBackground } from "@/components/background-provider";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
@@ -32,7 +31,6 @@ function swatchPreview(vars: Record<string, string>) {
 
 export default function SettingsPage() {
   const { themeKey, setThemeKey } = useTheme();
-  const { setMode } = useMode();
   const { backgroundKey, setBackgroundKey } = useBackground();
   const { activeBrand, renameBrand } = useBrand();
   const toast = useToast();
@@ -122,15 +120,6 @@ export default function SettingsPage() {
       return;
     }
     setThemeKey(themeKeyToPick);
-    // "Blanc" est le seul thème pensé pour un rendu clair : l'appli n'a pas
-    // de vraie palette de surfaces claire indépendante par composant (voir
-    // le commentaire dans themes.ts), donc le sélectionner active aussi le
-    // mode Clair existant pour obtenir immédiatement le rendu blanc attendu
-    // — sans ça, choisir "Blanc" ici n'aurait aucun effet visible tant que
-    // le bouton Clair/Sombre séparé n'est pas activé à la main.
-    if (themeKeyToPick === "blanc") {
-      setMode("light");
-    }
   }
 
   const referralUrl = referral ? `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral.code}` : "";
