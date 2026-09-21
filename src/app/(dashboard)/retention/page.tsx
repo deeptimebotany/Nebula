@@ -207,7 +207,7 @@ export default function RetentionToolPage() {
                 className="mt-1.5 w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} className="bg-void-900">
                     {c.displayName}
                   </option>
                 ))}

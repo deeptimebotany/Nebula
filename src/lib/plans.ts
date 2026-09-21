@@ -66,8 +66,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     tiers: [{ maxBrands: 1, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
     features: [
       "1 marque",
-      "4 comptes connectés (Instagram + Facebook comptent pour un seul)",
-      "20 publications programmées / mois",
+      "4 comptes connectés",
+      "20 publications programmées",
       "Publier une même vidéo sur vos réseaux en même temps",
       "Calendrier + analytics de base",
       "Page « link in bio » publique (3 liens)",

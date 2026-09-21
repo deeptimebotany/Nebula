@@ -239,9 +239,9 @@ export default function ReportsPage() {
                   onChange={(e) => patch({ frequency: e.target.value })}
                   className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
                 >
-                  <option value="OFF">Désactivé</option>
-                  <option value="WEEKLY">Chaque semaine</option>
-                  <option value="MONTHLY">Chaque mois</option>
+                  <option value="OFF" className="bg-void-900">Désactivé</option>
+                  <option value="WEEKLY" className="bg-void-900">Chaque semaine</option>
+                  <option value="MONTHLY" className="bg-void-900">Chaque mois</option>
                 </select>
               </div>
               <div>
@@ -251,9 +251,9 @@ export default function ReportsPage() {
                   onChange={(e) => patch({ periodDays: Number(e.target.value) })}
                   className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
                 >
-                  <option value={7}>7 derniers jours</option>
-                  <option value={30}>30 derniers jours</option>
-                  <option value={90}>90 derniers jours</option>
+                  <option value={7} className="bg-void-900">7 derniers jours</option>
+                  <option value={30} className="bg-void-900">30 derniers jours</option>
+                  <option value={90} className="bg-void-900">90 derniers jours</option>
                 </select>
               </div>
               <div className="flex items-end">

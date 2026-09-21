@@ -161,9 +161,9 @@ export default function FreeThumbnailToolPage() {
                 onChange={(e) => setNetwork(e.target.value as Network | "")}
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
               >
-                <option value="">Générique</option>
+                <option value="" className="bg-void-900">Générique</option>
                 {NETWORKS.map((n) => (
-                  <option key={n} value={n}>
+                  <option key={n} value={n} className="bg-void-900">
                     {NETWORK_META[n].label}
                   </option>
                 ))}

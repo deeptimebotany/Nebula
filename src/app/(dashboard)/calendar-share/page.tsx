@@ -179,9 +179,16 @@ export default function CalendarSharePage() {
                 onChange={(e) => patch({ windowDays: Number(e.target.value) })}
                 className="mt-1.5 w-full max-w-xs rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
               >
-                <option value={14}>14 prochains jours</option>
-                <option value={30}>30 prochains jours</option>
-                <option value={60}>60 prochains jours</option>
+                {/* bg-void-900 sur chaque <option> : la liste déroulante d'un
+                    <select> natif est dessinée par le système d'exploitation,
+                    pas par le CSS du champ — sans ce fond explicite sur les
+                    options elles-mêmes, le menu ouvert restait blanc/gris
+                    clair par défaut du navigateur, détonnant avec le thème
+                    sombre de Nebula (même fix déjà appliqué ailleurs, voir
+                    composer/page.tsx et community/page.tsx). */}
+                <option value={14} className="bg-void-900">14 prochains jours</option>
+                <option value={30} className="bg-void-900">30 prochains jours</option>
+                <option value={60} className="bg-void-900">60 prochains jours</option>
               </select>
             </div>
           </GlassCard>
