@@ -19,7 +19,6 @@ import {
   IconLink,
   IconLogout,
   IconChevron,
-  IconSparkle,
   IconCard,
   IconUsers,
   IconHeart,
@@ -148,15 +147,17 @@ export function TopNav() {
       <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
         <Link href="/dashboard" className="mr-2 flex shrink-0 items-center gap-2">
           {whiteLabel.logoUrl ? (
-            <img src={whiteLabel.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            <>
+              <img src={whiteLabel.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="hidden font-display text-lg font-semibold text-white sm:inline">
+                {whiteLabel.brandName || "Nebula"}
+              </span>
+            </>
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-500 to-accent-cyan text-white shadow-glow">
-              <IconSparkle className="h-4 w-4" />
-            </div>
+            // Logo officiel Nebula (icône + wordmark), fourni par l'utilisateur —
+            // remplace l'ancien carré dégradé + texte généré.
+            <img src="/brand/nebula-logo.png" alt="Nebula" className="h-9 w-auto" />
           )}
-          <span className="hidden font-display text-lg font-semibold text-white sm:inline">
-            {whiteLabel.brandName || "Nebula"}
-          </span>
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">

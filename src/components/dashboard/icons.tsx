@@ -94,6 +94,25 @@ export const IconClose = ({ className = base }: IconProps) => (
   </svg>
 );
 
+export const IconMenu = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M4 6.5h16M4 12h16M4 17.5h16" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconEdit = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5.5 16Z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconStopSquare = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="6" y="6" width="12" height="12" rx="2.5" />
+  </svg>
+);
+
 export const IconHash = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <path d="M9 3 7 21M17 3l-2 18M4 9h16M3.5 15h16" strokeLinecap="round" strokeLinejoin="round" />

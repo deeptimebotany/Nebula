@@ -96,6 +96,15 @@ export async function chatComplete(messages: ChatMessage[], systemInstruction: s
  * aucune idée du contenu réel et tend à halluciner un texte générique de
  * marque plutôt que de décrire la publication elle-même.
  */
+export interface GeneratedCopy {
+  text: string;
+  /** Courte explication (1-2 phrases) de ce sur quoi Gemini s'est basé pour
+   *  rédiger ce texte — affichée à l'utilisateur dans la bulle Assistant
+   *  Nebula (voir composer/page.tsx et ai-assistant-context.tsx) pour que le
+   *  "pourquoi" de la génération ne reste jamais une boîte noire. */
+  reasoning: string;
+}
+
 export async function generateCopy(input: {
   field: "title" | "description";
   network?: string;
@@ -106,7 +115,7 @@ export async function generateCopy(input: {
   mediaHint?: string; // ex: "vidéo" — utilisé seulement en repli si aucune image n'a pu être extraite
   frameBase64?: string;
   frameMimeType?: string;
-}): Promise<string> {
+}): Promise<GeneratedCopy> {
   const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = input;
 
   const promptLines = [
@@ -122,7 +131,8 @@ export async function generateCopy(input: {
     maxLength ? `Reste sous ${maxLength} caractères.` : "",
     existingTitle ? `Titre actuel (à améliorer, pas juste reformuler) : ${existingTitle}` : "",
     existingCaption ? `Description actuelle / contexte : ${existingCaption}` : "",
-    "Réponds uniquement avec le texte final, sans préambule ni explication."
+    "Réponds STRICTEMENT en JSON avec ce format : " +
+      '{"text": "le texte final, sans guillemets internes ni préambule", "reasoning": "1-2 phrases expliquant, concrètement à partir de ce que tu vois ou sais, pourquoi tu as rédigé ce texte précis"}.'
   ].filter(Boolean);
 
   const parts: GenerateContentPart[] = [{ text: promptLines.join("\n") }];
@@ -130,8 +140,19 @@ export async function generateCopy(input: {
     parts.push({ inline_data: { mime_type: frameMimeType, data: frameBase64 } });
   }
 
-  const text = await callGemini({ contents: [{ role: "user", parts }] });
-  return text.trim().replace(/^"|"$/g, "");
+  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
+  try {
+    const parsed = JSON.parse(raw);
+    const text = String(parsed.text ?? "").trim().replace(/^"|"$/g, "");
+    const reasoning = String(parsed.reasoning ?? "").trim();
+    if (!text) throw new Error("Réponse JSON sans champ text.");
+    return { text, reasoning };
+  } catch {
+    // Filet de sécurité si Gemini ne respecte pas le JSON demandé : on
+    // utilise la réponse brute comme texte plutôt que de faire échouer toute
+    // la génération pour un simple problème de formatage.
+    return { text: raw.trim().replace(/^"|"$/g, ""), reasoning: "" };
+  }
 }
 
 export interface FrameCandidate {
@@ -147,14 +168,34 @@ export interface FrameCandidate {
  * frames de transition, floues ou sans intérêt visuel qui sortiraient d'un
  * simple échantillonnage à intervalles fixes.
  */
-export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<number[]> {
+export interface FrameChoice {
+  index: number;
+  /** Courte raison (façon directeur artistique) de ce choix — affichée sous
+   *  chaque miniature proposée dans le composer. */
+  reason: string;
+}
+
+export interface FramePick {
+  /** Index (parmi les frames envoyées) du meilleur choix selon Gemini — pas
+   *  une simple convention de tri : demandé explicitement dans le prompt. */
+  bestIndex: number;
+  /** Explication comparative de pourquoi CE choix est le meilleur des
+   *  candidats proposés (pas juste "elle est nette", mais pourquoi elle
+   *  l'emporte sur les autres). */
+  whyBest: string;
+  /** Les autres choix retenus, chacun avec sa propre raison plus brève. */
+  alternatives: FrameChoice[];
+}
+
+export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<FramePick | null> {
   const { frames, count } = input;
   const promptText = [
     "Tu es un directeur artistique qui choisit la meilleure image de couverture (miniature) parmi plusieurs frames extraites de la même vidéo, numérotées dans l'ordre chronologique (index 0 à " +
       (frames.length - 1) +
       ").",
     "Choisis celles qui feraient les meilleures miniatures : nettes (pas de flou de mouvement), bien cadrées, sujet principal clairement visible et reconnaissable, moment ou expression engageant. Évite les frames de transition, noires, floues, ou sans intérêt visuel.",
-    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndexes": [index1, index2, ...]}, en donnant jusqu'à ${count} indices, du meilleur au moins bon.`
+    "Tu dois désigner UNE SEULE meilleure image (pas une liste à plat) et expliquer CONCRÈTEMENT pourquoi elle l'emporte sur les autres, en comparant (ex: \"plus nette que la 3, sujet mieux centré que la 5\").",
+    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndex": n, "whyBest": "explication comparative de pourquoi cette image est la meilleure", "alternatives": [{"index": n, "reason": "courte raison"}, ...]}, avec jusqu'à ${Math.max(0, count - 1)} alternatives (n'inclus pas bestIndex dans alternatives).`
   ].join("\n");
 
   const parts: GenerateContentPart[] = [{ text: promptText }];
@@ -166,12 +207,21 @@ export async function pickBestFrames(input: { frames: FrameCandidate[]; count: n
   const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
   try {
     const parsed = JSON.parse(raw);
-    const indexes: number[] = Array.isArray(parsed.bestIndexes)
-      ? parsed.bestIndexes.filter((n: unknown): n is number => typeof n === "number")
+    const bestIndex = Number(parsed.bestIndex);
+    if (!Number.isInteger(bestIndex)) return null;
+    const whyBest = String(parsed.whyBest ?? "").trim();
+    const alternatives: FrameChoice[] = Array.isArray(parsed.alternatives)
+      ? parsed.alternatives
+          .filter((c: unknown): c is { index: unknown; reason: unknown } => typeof c === "object" && c !== null)
+          .map((c: { index: unknown; reason: unknown }) => ({
+            index: Number(c.index),
+            reason: String(c.reason ?? "").trim()
+          }))
+          .filter((c: FrameChoice) => Number.isInteger(c.index) && c.index !== bestIndex)
       : [];
-    return indexes.slice(0, count);
+    return { bestIndex, whyBest, alternatives: alternatives.slice(0, Math.max(0, count - 1)) };
   } catch {
-    return [];
+    return null;
   }
 }
 

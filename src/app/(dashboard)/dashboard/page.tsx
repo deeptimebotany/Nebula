@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
+import { useQuickComposer } from "@/components/dashboard/quick-composer-context";
 import { StatCard } from "@/components/ui/stat-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ interface ApiPost {
 export default function DashboardPage() {
   const { activeBrand } = useBrand();
   const router = useRouter();
+  const { open: openQuickComposer } = useQuickComposer();
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [analyticsConnections, setAnalyticsConnections] = useState<AnalyticsConnection[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
@@ -186,11 +188,9 @@ export default function DashboardPage() {
               : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."}
           </p>
         </div>
-        <Link href="/composer">
-          <Button>
-            <IconPlus className="h-4 w-4" /> Nouveau post
-          </Button>
-        </Link>
+        <Button onClick={() => openQuickComposer()}>
+          <IconPlus className="h-4 w-4" /> Nouveau post
+        </Button>
       </div>
 
       {/* Raccourcis d'action rapide : rédiger ou importer un média sans
@@ -205,7 +205,7 @@ export default function DashboardPage() {
               placeholder="Rédiger un post en un clic..."
               className="min-w-[220px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
             />
-            <Button variant="outline" onClick={() => router.push("/composer")}>
+            <Button variant="outline" onClick={() => openQuickComposer()}>
               <IconUpload className="h-4 w-4" /> Importer un média
             </Button>
             <Button onClick={onQuickCreate} disabled={!quickText.trim()}>

@@ -232,6 +232,24 @@ body {
     opacity: 0.9;
   }
 
+  /* Halo permanent violet/magenta autour de la bulle Assistant Nebula (pas
+     seulement au survol, contrairement à .glow-border-spin ci-dessus) —
+     posé sur un wrapper SANS overflow-hidden (le panneau lui-même garde le
+     sien pour rogner messages/scroll) pour que le flou ne soit pas coupé. */
+  .chat-panel-glow {
+    position: relative;
+  }
+  .chat-panel-glow::before {
+    content: "";
+    position: absolute;
+    inset: -36px;
+    z-index: -1;
+    background: radial-gradient(circle at 12% 0%, rgb(var(--c-accent-violet) / 0.4), transparent 55%),
+      radial-gradient(circle at 100% 100%, rgb(var(--c-accent-magenta) / 0.32), transparent 60%);
+    filter: blur(28px);
+    pointer-events: none;
+  }
+
   /* Vignette cockpit : assombrit les bords de l'écran façon verrière de
      vaisseau, pour recentrer l'attention sur le Hero. Discret : n'affecte
      jamais le contenu, seulement le décor derrière (::after, z-index -1). */
