@@ -87,7 +87,18 @@ export const authOptions: NextAuthOptions = {
     // OAuth correspondants sont renseignés dans .env (voir .env.example et
     // src/lib/oauth-providers.ts, qui pilote l'affichage des boutons).
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? [GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            // "select_account" : Google propose TOUJOURS le choix du compte
+            // au lieu de silencieusement réutiliser celui déjà en session
+            // dans le navigateur — indispensable pour "Ajouter un compte"
+            // (voir account-switcher.tsx et /api/accounts/link), sinon
+            // cliquer "+" reconnecterait juste le même compte Google.
+            authorization: { params: { prompt: "select_account" } }
+          })
+        ]
       : []),
     ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
       ? [AppleProvider({ clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET })]

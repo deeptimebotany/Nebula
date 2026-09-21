@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
-import { useMode } from "@/components/mode-provider";
 import { PROVIDERS } from "@/lib/providers";
 import type { Network } from "@/lib/types";
 import type { Plan } from "@/lib/plans";
@@ -17,17 +15,10 @@ import {
   IconCalendar,
   IconUpload,
   IconChart,
-  IconLink,
-  IconLogout,
   IconChevron,
-  IconCard,
   IconUsers,
-  IconHeart,
   IconPlus,
-  IconSettings,
   IconAvatar,
-  IconSun,
-  IconMoon,
   IconMenu,
   IconBioLink,
   IconRetention,
@@ -36,20 +27,22 @@ import {
 } from "./icons";
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
 import { Sidebar } from "./sidebar";
+import { AccountSwitcher } from "./account-switcher";
 
+// Onglets de travail au quotidien uniquement — Comptes, Facturation et
+// Paramètres ne sont plus ici : ils vivent désormais uniquement dans le
+// menu latéral (voir sidebar.tsx), avec l'apparence, le soutien et la
+// déconnexion, pour laisser le plus de place possible à cette barre.
 const NAV = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: IconHome },
   { href: "/calendar", label: "Calendrier", icon: IconCalendar },
   { href: "/composer", label: "Importation", icon: IconUpload },
   { href: "/analytics", label: "Analytics", icon: IconChart },
-  { href: "/accounts", label: "Comptes", icon: IconLink },
   { href: "/link-in-bio", label: "Page bio", icon: IconBioLink },
   { href: "/retention", label: "Rétention IA", icon: IconRetention },
   { href: "/reports", label: "Rapports", icon: IconReport },
   { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare },
-  { href: "/community", label: "Communauté", icon: IconUsers },
-  { href: "/billing", label: "Facturation", icon: IconCard },
-  { href: "/settings", label: "Paramètres", icon: IconSettings }
+  { href: "/community", label: "Communauté", icon: IconUsers }
 ];
 
 const PLAN_BADGE_STYLE: Record<Plan, string> = {
@@ -65,13 +58,14 @@ interface ConnectionRow {
   status: string;
 }
 
-export function TopNav() {
+interface TopNavProps {
+  oauth?: { google: boolean; apple: boolean; facebook: boolean };
+}
+
+export function TopNav({ oauth }: TopNavProps) {
   const pathname = usePathname();
   const { brands, activeBrand, setActiveBrandId, createBrand } = useBrand();
   const toast = useToast();
-  const { mode, setMode } = useMode();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
 
   // Menu latéral déroulant (voir sidebar.tsx), ouvert via l'icône
   // "hamburger" à gauche du logo — indépendant de la barre d'onglets du
@@ -131,9 +125,6 @@ export function TopNav() {
       }
       if (addAccountRef.current && !addAccountRef.current.contains(e.target as Node)) {
         setAddAccountOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -205,7 +196,6 @@ export function TopNav() {
           {NAV.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
-            const needsAttention = item.href === "/accounts" && connections.length === 0 && Boolean(activeBrand);
             return (
               <Link
                 key={item.href}
@@ -217,99 +207,18 @@ export function TopNav() {
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 )}
               >
-                <span className="relative">
-                  <Icon className={clsx("h-4 w-4", active ? "text-aurora-300" : "text-slate-500")} />
-                  {needsAttention && (
-                    <span
-                      className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-magenta ring-2 ring-void-950"
-                      title="Connectez un réseau pour commencer"
-                    />
-                  )}
-                </span>
+                <Icon className={clsx("h-4 w-4", active ? "text-aurora-300" : "text-slate-500")} />
                 <span className="hidden md:inline">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Bulle de profil — regroupe tout ce qui n'est pas une destination
-            de navigation à proprement parler (apparence, soutien, paramètres,
-            déconnexion), pour laisser le plus de place possible à la barre
-            d'onglets qui grandit avec chaque nouveau produit. */}
-        <div className="relative shrink-0" ref={profileRef}>
-          <button
-            onClick={() => setProfileOpen((v) => !v)}
-            title="Profil"
-            className={clsx(
-              "flex h-9 w-9 items-center justify-center rounded-full border transition",
-              profileOpen
-                ? "border-aurora-400/60 bg-aurora-400/10 text-white"
-                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-aurora-400/40 hover:text-white"
-            )}
-          >
-            <IconAvatar className="h-4 w-4" />
-          </button>
-          {profileOpen && (
-            <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-64 rounded-xl p-3">
-              <p className="px-1 pb-2 text-[11px] uppercase tracking-wide text-slate-500">Apparence</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setMode("dark")}
-                  className={clsx(
-                    "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
-                    mode === "dark" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"
-                  )}
-                >
-                  <IconMoon className="h-4 w-4" />
-                  Sombre
-                </button>
-                <button
-                  onClick={() => setMode("light")}
-                  className={clsx(
-                    "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
-                    mode === "light" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"
-                  )}
-                >
-                  <IconSun className="h-4 w-4" />
-                  Clair
-                </button>
-              </div>
-              <p className="mt-2 px-1 text-[11px] text-slate-500">
-                S&apos;applique par-dessus votre thème de couleurs actuel.
-              </p>
-
-              {/* Soutien, paramètres et déconnexion — regroupés ici plutôt
-                  que dispersés en icônes séparées dans la barre du haut, qui
-                  grandit avec chaque nouveau produit (voir NAV ci-dessus). */}
-              <div className="mt-2 space-y-0.5 border-t border-white/[0.06] pt-2">
-                <Link
-                  href="/support"
-                  onClick={() => setProfileOpen(false)}
-                  className={clsx(
-                    "flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs transition",
-                    pathname === "/support" ? "text-accent-magenta" : "text-slate-300 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  <IconHeart className="h-3.5 w-3.5" /> Soutenir Nebula
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/5 hover:text-white"
-                >
-                  <IconSettings className="h-3.5 w-3.5" /> Paramètres du compte
-                </Link>
-                <button
-                  onClick={() => signOut({ callbackUrl: "/login" })}
-                  className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs text-slate-300 transition hover:bg-white/5 hover:text-white"
-                >
-                  <IconLogout className="h-3.5 w-3.5" /> Déconnexion
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
+        {/* Vrai compte connecté (Google/Apple/Meta/email) — distinct de la
+            marque active, voir ligne 2 ci-dessous. Permet de basculer entre
+            plusieurs comptes déjà connectés sur cet appareil, ou d'en
+            ajouter un (voir account-switcher.tsx). */}
+        <AccountSwitcher oauth={oauth} />
       </div>
 
       {/* Ligne 2 — marque active, comptes connectés, mise à niveau */}

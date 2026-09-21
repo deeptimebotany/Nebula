@@ -14,8 +14,7 @@ import { ApprovalLinkModal } from "@/components/dashboard/approval-link-modal";
 import { WeekScrubber } from "@/components/dashboard/week-scrubber";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
-import { useToast } from "@/components/dashboard/toast";
-import { IconChevron, IconPlus, IconSparkle } from "@/components/dashboard/icons";
+import { IconChevron, IconPlus } from "@/components/dashboard/icons";
 
 interface ApiPost {
   id: string;
@@ -54,12 +53,8 @@ function dateKey(d: Date) {
 
 export default function CalendarPage() {
   const { activeBrand, brands } = useBrand();
-  const toast = useToast();
   const aiStatus = useAiStatus(activeBrand?.id);
   const [view, setView] = useState<"month" | "hours">("month");
-  // "Proposer une idée IA" sur une case vide — voir handler plus bas.
-  const [ideaLoadingKey, setIdeaLoadingKey] = useState<string | null>(null);
-  const [ideaByKey, setIdeaByKey] = useState<Record<string, string>>({});
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [postsByBrand, setPostsByBrand] = useState<Record<string, ApiPost[]>>({});
   const [connectionsByBrand, setConnectionsByBrand] = useState<Record<string, ConnectionRow[]>>({});
@@ -209,25 +204,6 @@ export default function CalendarPage() {
       else next.add(id);
       return next;
     });
-  }
-
-  // Détection des jours creux & idées IA : disponible uniquement sur une
-  // case sans aucune publication programmée (voir bouton discret plus bas).
-  async function onSuggestIdea(key: string) {
-    if (!activeBrand) return;
-    setIdeaLoadingKey(key);
-    const res = await fetch("/api/ai/content-idea", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId: activeBrand.id, date: key })
-    });
-    const data = await res.json();
-    setIdeaLoadingKey(null);
-    if (!res.ok) {
-      toast.error(data.error ?? "Erreur lors de la génération de l'idée.");
-      return;
-    }
-    setIdeaByKey((prev) => ({ ...prev, [key]: data.idea }));
   }
 
   return (
@@ -409,16 +385,6 @@ export default function CalendarPage() {
                       {day.getDate()}
                     </span>
                     <div className="flex items-center gap-1">
-                      {activeBrand && aiStatus?.enabled && entries.length === 0 && inMonth && (
-                        <button
-                          onClick={() => onSuggestIdea(key)}
-                          disabled={ideaLoadingKey === key}
-                          title="Proposer une idée IA pour ce jour"
-                          className="flex h-5 w-5 items-center justify-center rounded-full text-slate-600 opacity-0 transition hover:bg-aurora-400/15 hover:text-aurora-300 group-hover/cell:opacity-100"
-                        >
-                          <IconSparkle className={clsx("h-3 w-3", ideaLoadingKey === key && "animate-pulse")} />
-                        </button>
-                      )}
                       {activeBrand && (
                         <Link
                           href={`/composer?date=${key}`}
@@ -430,17 +396,6 @@ export default function CalendarPage() {
                       )}
                     </div>
                   </div>
-                  {entries.length === 0 && ideaByKey[key] && (
-                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-                      <Link
-                        href={`/composer?date=${key}`}
-                        className="mb-1 block rounded-md border border-aurora-400/20 bg-aurora-400/[0.06] p-1.5 text-[10px] leading-tight text-aurora-100 transition hover:border-aurora-400/40"
-                        title="Cliquez pour rédiger ce post"
-                      >
-                        <IconSparkle className="mb-0.5 inline h-2.5 w-2.5 text-aurora-300" /> {ideaByKey[key]}
-                      </Link>
-                    </motion.div>
-                  )}
                   <div className="space-y-1">
                     {entries.slice(0, 3).map((e) => (
                       // Le layoutId sur le conteneur (et non le <button> natif
