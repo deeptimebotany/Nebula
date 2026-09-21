@@ -16,6 +16,9 @@ export const config = {
     "/support/:path*",
     "/community/:path*",
     "/link-in-bio/:path*",
-    "/retention/:path*"
+    "/retention/:path*",
+    "/reports/:path*",
+    "/calendar-share/:path*",
+    "/settings/:path*"
   ]
 };

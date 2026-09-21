@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
-import { IconSparkle, IconClose, IconSend } from "./icons";
+import { IconClose, IconSend } from "./icons";
+import { NebulaIcon } from "./nebula-brandmark";
 import { clsx } from "@/lib/clsx";
 
 interface Message {
@@ -59,9 +60,7 @@ export function AiAssistant() {
         <div className="glass-panel fixed bottom-24 right-6 z-40 flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-nebula-500 to-accent-cyan text-white">
-                <IconSparkle className="h-3.5 w-3.5" />
-              </div>
+              <NebulaIcon size={22} />
               <span className="text-sm font-medium text-white">Assistant Nebula</span>
             </div>
             <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white">
@@ -114,7 +113,7 @@ export function AiAssistant() {
         className="btn-glow fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white"
         aria-label="Ouvrir l'assistant IA"
       >
-        {open ? <IconClose className="h-5 w-5" /> : <IconSparkle className="h-5 w-5" />}
+        {open ? <IconClose className="h-5 w-5" /> : <NebulaIcon size={30} />}
       </button>
     </>
   );

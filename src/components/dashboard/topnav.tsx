@@ -232,19 +232,10 @@ export function TopNav() {
           })}
         </nav>
 
-        <Link
-          href="/support"
-          title="Soutenir Nebula"
-          className={clsx(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition",
-            pathname === "/support" ? "bg-white/5 text-accent-magenta" : "text-slate-400 hover:bg-white/5 hover:text-white"
-          )}
-        >
-          <IconHeart className="h-[18px] w-[18px]" />
-        </Link>
-
-        {/* Bulle de profil — bascule Sombre/Clair (voir mode-provider.tsx),
-            appliquée par-dessus n'importe lequel des 14 thèmes de couleurs. */}
+        {/* Bulle de profil — regroupe tout ce qui n'est pas une destination
+            de navigation à proprement parler (apparence, soutien, paramètres,
+            déconnexion), pour laisser le plus de place possible à la barre
+            d'onglets qui grandit avec chaque nouveau produit. */}
         <div className="relative shrink-0" ref={profileRef}>
           <button
             onClick={() => setProfileOpen((v) => !v)}
@@ -259,7 +250,7 @@ export function TopNav() {
             <IconAvatar className="h-4 w-4" />
           </button>
           {profileOpen && (
-            <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-60 rounded-xl p-3">
+            <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-64 rounded-xl p-3">
               <p className="px-1 pb-2 text-[11px] uppercase tracking-wide text-slate-500">Apparence</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -286,24 +277,39 @@ export function TopNav() {
               <p className="mt-2 px-1 text-[11px] text-slate-500">
                 S&apos;applique par-dessus votre thème de couleurs actuel.
               </p>
-              <Link
-                href="/settings"
-                onClick={() => setProfileOpen(false)}
-                className="mt-2 flex items-center gap-1.5 rounded-lg border-t border-white/[0.06] px-1 pt-2.5 text-xs text-aurora-300 hover:underline"
-              >
-                <IconSettings className="h-3.5 w-3.5" /> Paramètres du compte
-              </Link>
+
+              {/* Soutien, paramètres et déconnexion — regroupés ici plutôt
+                  que dispersés en icônes séparées dans la barre du haut, qui
+                  grandit avec chaque nouveau produit (voir NAV ci-dessus). */}
+              <div className="mt-2 space-y-0.5 border-t border-white/[0.06] pt-2">
+                <Link
+                  href="/support"
+                  onClick={() => setProfileOpen(false)}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs transition",
+                    pathname === "/support" ? "text-accent-magenta" : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  )}
+                >
+                  <IconHeart className="h-3.5 w-3.5" /> Soutenir Nebula
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/5 hover:text-white"
+                >
+                  <IconSettings className="h-3.5 w-3.5" /> Paramètres du compte
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs text-slate-300 transition hover:bg-white/5 hover:text-white"
+                >
+                  <IconLogout className="h-3.5 w-3.5" /> Déconnexion
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          title="Déconnexion"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
-        >
-          <IconLogout className="h-[18px] w-[18px]" />
-        </button>
       </div>
 
       {/* Ligne 2 — marque active, comptes connectés, mise à niveau */}

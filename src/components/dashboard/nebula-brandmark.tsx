@@ -29,6 +29,64 @@ const WORD_STARS = [
   { cx: 600, cy: 165, r: 0.9, dur: 3.2, delay: -0.8 }
 ] as const;
 
+interface NebulaIconProps {
+  className?: string;
+  /** Hauteur/largeur de l'icône (anneaux + étincelle), en px. */
+  size?: number;
+}
+
+// Icône seule (anneaux + étincelle), sans le wordmark "Nebula" à côté —
+// utilisée partout où l'espace est trop restreint pour le logo complet :
+// bulle du menu latéral (voir sidebar.tsx), bouton flottant + en-tête de
+// l'assistant IA (voir ai-assistant.tsx). Même SVG vivant que dans
+// <NebulaBrandMark />, juste extrait pour être réutilisable seul.
+export function NebulaIcon({ className = "", size = 32 }: NebulaIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" className={`shrink-0 ${className}`} aria-hidden>
+      <defs>
+        <radialGradient id="nbi-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor={V} stopOpacity="0.35" />
+          <stop offset="1" stopColor={V} stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="nbi-ring1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={V} />
+          <stop offset="1" stopColor={C} />
+        </linearGradient>
+        <linearGradient id="nbi-ring2" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={M} />
+          <stop offset="1" stopColor={V} />
+        </linearGradient>
+        <linearGradient id="nbi-ring3" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor={C} />
+          <stop offset="1" stopColor={M} />
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="60" r="50" fill="url(#nbi-halo)" />
+      <g strokeWidth="6" fill="none" strokeLinecap="round">
+        <g>
+          <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbi-ring1)" opacity="0.9" transform="rotate(0 60 60)" />
+          <animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="10s" repeatCount="indefinite" />
+        </g>
+        <g>
+          <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbi-ring2)" opacity="0.85" transform="rotate(60 60 60)" />
+          <animateTransform attributeName="transform" type="rotate" from="60 60 60" to="420 60 60" dur="13s" repeatCount="indefinite" />
+        </g>
+        <g>
+          <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbi-ring3)" opacity="0.85" transform="rotate(120 60 60)" />
+          <animateTransform attributeName="transform" type="rotate" from="120 60 60" to="-240 60 60" dur="16s" repeatCount="indefinite" />
+        </g>
+      </g>
+      <path
+        d="M60,42 L64,56 L78,60 L64,64 L60,78 L56,64 L42,60 L56,56 Z"
+        fill="#ffffff"
+        style={{ filter: `drop-shadow(0 0 8px ${V})` }}
+      >
+        <animate attributeName="opacity" values="0.85;1;0.85" dur="2.6s" repeatCount="indefinite" />
+      </path>
+    </svg>
+  );
+}
+
 interface NebulaBrandMarkProps {
   className?: string;
   /** Hauteur de l'icône (anneaux + étincelle), en px. */
@@ -40,48 +98,7 @@ interface NebulaBrandMarkProps {
 export function NebulaBrandMark({ className = "", iconSize = 32, wordHeight = 30 }: NebulaBrandMarkProps) {
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
-      <svg width={iconSize} height={iconSize} viewBox="0 0 120 120" className="shrink-0" aria-hidden>
-        <defs>
-          <radialGradient id="nbm-halo" cx="50%" cy="50%" r="50%">
-            <stop offset="0" stopColor={V} stopOpacity="0.35" />
-            <stop offset="1" stopColor={V} stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id="nbm-ring1" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={V} />
-            <stop offset="1" stopColor={C} />
-          </linearGradient>
-          <linearGradient id="nbm-ring2" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={M} />
-            <stop offset="1" stopColor={V} />
-          </linearGradient>
-          <linearGradient id="nbm-ring3" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0" stopColor={C} />
-            <stop offset="1" stopColor={M} />
-          </linearGradient>
-        </defs>
-        <circle cx="60" cy="60" r="50" fill="url(#nbm-halo)" />
-        <g strokeWidth="6" fill="none" strokeLinecap="round">
-          <g>
-            <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbm-ring1)" opacity="0.9" transform="rotate(0 60 60)" />
-            <animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="10s" repeatCount="indefinite" />
-          </g>
-          <g>
-            <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbm-ring2)" opacity="0.85" transform="rotate(60 60 60)" />
-            <animateTransform attributeName="transform" type="rotate" from="60 60 60" to="420 60 60" dur="13s" repeatCount="indefinite" />
-          </g>
-          <g>
-            <ellipse cx="60" cy="60" rx="34" ry="20" stroke="url(#nbm-ring3)" opacity="0.85" transform="rotate(120 60 60)" />
-            <animateTransform attributeName="transform" type="rotate" from="120 60 60" to="-240 60 60" dur="16s" repeatCount="indefinite" />
-          </g>
-        </g>
-        <path
-          d="M60,42 L64,56 L78,60 L64,64 L60,78 L56,64 L42,60 L56,56 Z"
-          fill="#ffffff"
-          style={{ filter: `drop-shadow(0 0 8px ${V})` }}
-        >
-          <animate attributeName="opacity" values="0.85;1;0.85" dur="2.6s" repeatCount="indefinite" />
-        </path>
-      </svg>
+      <NebulaIcon size={iconSize} />
 
       <svg
         height={wordHeight}

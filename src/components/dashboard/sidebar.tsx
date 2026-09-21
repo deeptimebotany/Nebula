@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { clsx } from "@/lib/clsx";
-import { IconClose, IconSparkle } from "./icons";
+import { IconClose } from "./icons";
+import { NebulaIcon } from "./nebula-brandmark";
 
 export interface SidebarNavItem {
   href: string;
@@ -65,9 +66,10 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
             {logoUrl ? (
               <img src={logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-500 to-accent-cyan text-white shadow-glow">
-                <IconSparkle className="h-4 w-4" />
-              </div>
+              // Logo officiel Nebula (voir topnav.tsx) — même icône animée
+              // que dans la barre du haut, pour que la bulle du menu latéral
+              // ne montre plus l'ancien logo statique (étincelle seule).
+              <NebulaIcon size={32} />
             )}
             <span className="font-display text-base font-semibold text-white">{brandName}</span>
           </div>
