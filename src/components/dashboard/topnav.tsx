@@ -29,6 +29,7 @@ import {
   IconMoon
 } from "./icons";
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
+import { NebulaBrandMark } from "./nebula-brandmark";
 
 const NAV = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: IconHome },
@@ -154,9 +155,10 @@ export function TopNav() {
               </span>
             </>
           ) : (
-            // Logo officiel Nebula (icône + wordmark), fourni par l'utilisateur —
-            // remplace l'ancien carré dégradé + texte généré.
-            <img src="/brand/nebula-logo.png" alt="Nebula" className="h-9 w-auto" />
+            // Logo officiel Nebula : SVG vivant (pas une image statique), animé
+            // en boucle perpétuelle, dont les couleurs suivent automatiquement
+            // le thème actif — voir nebula-brandmark.tsx.
+            <NebulaBrandMark />
           )}
         </Link>
 
