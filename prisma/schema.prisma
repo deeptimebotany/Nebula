@@ -234,10 +234,15 @@ model SocialConnection {
   lastError         String?
   connectedAt       DateTime            @default(now())
   lastSyncedAt      DateTime?
+  // Distinct de lastSyncedAt ci-dessus (qui suit la synchro Analytics) : la
+  // boîte de réception /interactions se rafraîchit indépendamment, sur sa
+  // propre action "Actualiser" — voir /api/engagement/sync.
+  lastEngagementSyncedAt DateTime?
   brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   targets           PostTarget[]
   analytics         AnalyticsSnapshot[]
   videoInsights     VideoInsight[]
+  engagementItems   EngagementItem[]
 
   @@unique([brandId, network, externalAccountId])
 }
@@ -370,6 +375,38 @@ model AnalyticsSnapshot {
   connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@index([connectionId, capturedAt])
+}
+
+// Boîte de réception d'engagement PAR COMPTE connecté (façon "Community" de
+// Buffer) : commentaires reçus sur les publications de CE compte, remontés
+// depuis l'API officielle de chaque réseau (voir src/lib/social/*.ts →
+// fetchEngagement, méthode optionnelle — tous les réseaux ne l'exposent pas,
+// voir tiktok.ts) et rafraîchis à la demande depuis /interactions, ouverte
+// via le menu déroulant d'un compte sur la page Comptes. externalId sert de
+// clé de déduplication (@@unique) pour qu'une resynchronisation répétée
+// n'insère jamais deux fois le même commentaire.
+// type : pour l'instant toujours "COMMENT" (le champ existe déjà pour
+// accueillir un futur type "MESSAGE" — DM — si Nebula ajoute cet accès un
+// jour, sans nouvelle migration).
+model EngagementItem {
+  id              String           @id @default(cuid())
+  connectionId    String
+  network         String
+  type            String           @default("COMMENT")
+  externalId      String
+  postExternalId  String?
+  postPermalink   String?
+  authorName      String?
+  authorAvatarUrl String?
+  text            String?
+  permalink       String?
+  publishedAt     DateTime?
+  read            Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalId])
+  @@index([connectionId, publishedAt])
 }
 
 // ---------------------------------------------------------------------------

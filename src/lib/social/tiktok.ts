@@ -146,4 +146,12 @@ export const tiktokClient: SocialClient = {
       postsCount: profile.data.user.video_count
     };
   }
+
+  // Pas de fetchEngagement ici : contrairement à Instagram/Facebook/YouTube,
+  // TikTok n'expose pas la lecture des commentaires d'une vidéo via son API
+  // publique (Content Posting API) sans un scope "comment" additionnel
+  // soumis à audit séparé. La boîte de réception /interactions affiche donc
+  // un message clair plutôt qu'une liste vide silencieuse pour ce réseau —
+  // voir /api/engagement/sync qui vérifie la présence de cette méthode
+  // avant d'appeler.
 };

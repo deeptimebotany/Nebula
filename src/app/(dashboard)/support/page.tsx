@@ -20,7 +20,8 @@ export default function SupportPage() {
         <h1 className="font-display text-2xl font-semibold text-white">Soutenir Nebula</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           Nebula est développé et hébergé par une seule personne. Si le site vous est utile, un petit coup de pouce
-          aide à financer l&apos;hébergement, les API et le temps passé à l&apos;améliorer — jamais obligatoire.
+          aide à financer l&apos;hébergement, les API et le temps passé à l&apos;améliorer. Un immense merci à celles
+          et ceux qui soutiennent déjà le projet — chaque contribution compte.
         </p>
       </div>
 
@@ -68,11 +69,12 @@ export default function SupportPage() {
             </p>
           </li>
           <li className="rounded-lg bg-white/[0.02] p-3">
-            <p className="font-medium text-slate-200">Assistant IA propulsé par Claude (Anthropic)</p>
+            <p className="font-medium text-slate-200">Palier IA avancé (Claude + Gemini)</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              Nebula utilise aujourd&apos;hui Google Gemini, qui propose un vrai palier gratuit. L&apos;API Claude
-              n&apos;a pas d&apos;offre gratuite équivalente ; elle pourra être proposée en option (qualité de
-              rédaction supérieure) une fois son coût couvert par les abonnements.
+              Nebula utilise aujourd&apos;hui Google Gemini, qui propose un vrai palier gratuit. Un palier payant plus
+              rapide et plus puissant combinera Claude (Anthropic) et Gemini, avec des agents IA dédiés pour peaufiner
+              automatiquement titres, légendes et miniatures — une qualité de rendu au-dessus de l&apos;assistant
+              gratuit actuel, dès que les abonnements permettent d&apos;en financer le coût.
             </p>
           </li>
           <li className="rounded-lg bg-white/[0.02] p-3">

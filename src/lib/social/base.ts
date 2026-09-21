@@ -27,6 +27,23 @@ export interface PublishInput {
 }
 
 /**
+ * Un commentaire (ou, plus tard, un message privé) reçu sur une publication
+ * déjà en ligne — voir SocialClient.fetchEngagement ci-dessous et la page
+ * /interactions qui les affiche.
+ */
+export interface EngagementItemInput {
+  type: "COMMENT" | "MESSAGE";
+  externalId: string;
+  postExternalId?: string;
+  postPermalink?: string;
+  authorName?: string;
+  authorAvatarUrl?: string;
+  text?: string;
+  permalink?: string;
+  publishedAt?: Date;
+}
+
+/**
  * Contrat commun implémenté par chaque intégration réseau.
  *
  * Toutes les méthodes appellent réellement l'API officielle du réseau —
@@ -49,6 +66,15 @@ export interface SocialClient {
    * échec comme non-bloquant (la publication elle-même reste un succès).
    */
   postComment?(connection: ConnectionLike, externalPostId: string, comment: string): Promise<void>;
+  /**
+   * Récupère les commentaires reçus sur les publications récentes de ce
+   * compte — alimente la boîte de réception /interactions (voir la page
+   * Comptes → menu déroulant d'un compte → "Interactions"). Optionnel :
+   * certains réseaux ne l'exposent pas via leur API publique (voir
+   * tiktok.ts, qui ne l'implémente pas) — l'appelant (/api/engagement/sync)
+   * vérifie sa présence avant d'appeler et affiche un message clair sinon.
+   */
+  fetchEngagement?(connection: ConnectionLike): Promise<EngagementItemInput[]>;
 }
 
 export class SocialApiError extends Error {

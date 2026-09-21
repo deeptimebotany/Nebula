@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -195,9 +196,24 @@ function CompetitorTab({ brandId }: { brandId: string }) {
   );
 }
 
+// useSearchParams() impose un <Suspense> autour du composant qui l'appelle
+// (voir accounts/page.tsx pour le même besoin, déjà en place ailleurs).
 export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyticsPageInner />
+    </Suspense>
+  );
+}
+
+function AnalyticsPageInner() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const searchParams = useSearchParams();
+  // Depuis le menu déroulant d'un compte sur la page Comptes (voir
+  // accounts/page.tsx) : n'affiche que ce compte-là plutôt que tous les
+  // comptes de la marque active.
+  const filterConnectionId = searchParams.get("connectionId");
   const [connections, setConnections] = useState<AnalyticsConnection[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -239,8 +255,17 @@ export default function AnalyticsPage() {
     setSyncing(false);
   }
 
-  const hasRealData = connections.some((c) => c.snapshots.length > 0);
-  const networksToShow: Network[] = connections.map((c) => c.network);
+  // Filtrée sur un seul compte quand ?connectionId= est présent (voir plus
+  // haut) — tout ce qui suit (stats, graphique, exports) travaille sur cette
+  // liste plutôt que sur `connections` directement.
+  const visibleConnections = useMemo(
+    () => (filterConnectionId ? connections.filter((c) => c.id === filterConnectionId) : connections),
+    [connections, filterConnectionId]
+  );
+  const filteredConnection = filterConnectionId ? connections.find((c) => c.id === filterConnectionId) ?? null : null;
+
+  const hasRealData = visibleConnections.some((c) => c.snapshots.length > 0);
+  const networksToShow: Network[] = visibleConnections.map((c) => c.network);
 
   // Export CSV côté navigateur (aucune dépendance ajoutée) : d'abord un
   // résumé par réseau (dernière synchro), puis le détail jour par jour tel
@@ -250,7 +275,7 @@ export default function AnalyticsPage() {
     const lines: string[] = [];
     lines.push("Résumé par réseau");
     lines.push(["Réseau", "Compte", "Abonnés", "Portée", "Impressions"].map(escape).join(","));
-    for (const c of connections) {
+    for (const c of visibleConnections) {
       const latest = c.snapshots.at(-1);
       lines.push(
         [
@@ -311,7 +336,7 @@ export default function AnalyticsPage() {
       doc.text("Résumé par réseau", 14, y);
       y += 8;
       doc.setFontSize(10);
-      for (const c of connections) {
+      for (const c of visibleConnections) {
         const latest = c.snapshots.at(-1);
         doc.text(
           `${NETWORK_META[c.network].label} (${c.displayName}) — ${latest ? `${latest.followers.toLocaleString("fr-FR")} abonnés, ${latest.reach.toLocaleString("fr-FR")} portée, ${latest.impressions.toLocaleString("fr-FR")} impressions` : "pas encore synchronisé"}`,
@@ -352,7 +377,7 @@ export default function AnalyticsPage() {
 
   const chartData = useMemo(() => {
     const byDate = new Map<string, ChartPoint>();
-    for (const c of connections) {
+    for (const c of visibleConnections) {
       for (const s of c.snapshots) {
         const key = s.capturedAt.slice(5, 10);
         const point: ChartPoint = byDate.get(key) ?? { date: key };
@@ -361,7 +386,7 @@ export default function AnalyticsPage() {
       }
     }
     return Array.from(byDate.values());
-  }, [connections]);
+  }, [visibleConnections]);
 
   return (
     <div className="space-y-6">
@@ -388,6 +413,18 @@ export default function AnalyticsPage() {
           </Button>
         </div>
       </div>
+
+      {filterConnectionId && (
+        <div className="flex items-center gap-2 rounded-lg border border-aurora-400/30 bg-aurora-400/[0.06] px-3 py-2 text-sm text-aurora-200">
+          <span>
+            Filtré sur {filteredConnection ? filteredConnection.displayName : "un compte"} — les autres comptes ne
+            sont pas affichés.
+          </span>
+          <Link href="/analytics" className="ml-auto shrink-0 text-xs underline hover:text-white">
+            Voir tous les comptes
+          </Link>
+        </div>
+      )}
 
       <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.015] p-1">
         {(
@@ -432,7 +469,7 @@ export default function AnalyticsPage() {
         <div className="space-y-6">
           <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {networksToShow.map((n) => {
-              const real = connections.find((c) => c.network === n);
+              const real = visibleConnections.find((c) => c.network === n);
               const latest = real?.snapshots.at(-1);
               const previous = real?.snapshots.at(-2);
               return (

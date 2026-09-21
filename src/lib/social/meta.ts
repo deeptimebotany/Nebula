@@ -1,5 +1,20 @@
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
-import { fetchJson, type ConnectionLike, type OAuthTokenResult, type PublishInput, type SocialClient } from "./base";
+import {
+  fetchJson,
+  type ConnectionLike,
+  type EngagementItemInput,
+  type OAuthTokenResult,
+  type PublishInput,
+  type SocialClient
+} from "./base";
+
+// Nombre de publications récentes interrogées pour remonter leurs
+// commentaires (voir fetchInstagramEngagement / fetchFacebookEngagement
+// ci-dessous) — au-delà, on rallongerait surtout le temps de synchronisation
+// sans ajouter grand-chose : la boîte de réception /interactions cible les
+// échanges récents, pas un historique complet.
+const ENGAGEMENT_RECENT_POSTS = 10;
+const ENGAGEMENT_COMMENTS_PER_POST = 25;
 
 // Instagram (Business/Creator) publie via le Graph API de Meta, sous le même
 // compte développeur que Facebook. Doc officielle :
@@ -130,6 +145,83 @@ async function postGraphComment(network: "INSTAGRAM" | "FACEBOOK", targetId: str
   });
 }
 
+/**
+ * Commentaires reçus sur les médias Instagram les plus récents du compte
+ * (scope instagram_manage_comments, déjà demandé — voir getMetaAuthUrl).
+ * Deux appels en cascade car le Graph API n'expose pas d'endpoint global
+ * "tous les commentaires de ce compte" : on liste d'abord les publications,
+ * puis leurs commentaires un par un.
+ */
+async function fetchInstagramEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
+  const media = await fetchJson<{
+    data: { id: string; permalink?: string }[];
+  }>(
+    "INSTAGRAM",
+    `${GRAPH_BASE}/${connection.externalAccountId}/media?fields=id,permalink&limit=${ENGAGEMENT_RECENT_POSTS}&access_token=${connection.accessToken}`
+  );
+
+  const items: EngagementItemInput[] = [];
+  for (const m of media.data ?? []) {
+    const comments = await fetchJson<{
+      data: { id: string; text: string; username?: string; timestamp: string }[];
+    }>(
+      "INSTAGRAM",
+      `${GRAPH_BASE}/${m.id}/comments?fields=id,text,username,timestamp&limit=${ENGAGEMENT_COMMENTS_PER_POST}&access_token=${connection.accessToken}`
+    ).catch(() => ({ data: [] }));
+
+    for (const c of comments.data ?? []) {
+      items.push({
+        type: "COMMENT",
+        externalId: c.id,
+        postExternalId: m.id,
+        postPermalink: m.permalink,
+        authorName: c.username,
+        text: c.text,
+        permalink: m.permalink,
+        publishedAt: c.timestamp ? new Date(c.timestamp) : undefined
+      });
+    }
+  }
+  return items;
+}
+
+/**
+ * Commentaires reçus sur les publications Facebook les plus récentes de la
+ * Page (scope pages_read_engagement, déjà demandé — voir getMetaAuthUrl).
+ */
+async function fetchFacebookEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
+  const posts = await fetchJson<{
+    data: { id: string; permalink_url?: string }[];
+  }>(
+    "FACEBOOK",
+    `${GRAPH_BASE}/${connection.externalAccountId}/posts?fields=id,permalink_url&limit=${ENGAGEMENT_RECENT_POSTS}&access_token=${connection.accessToken}`
+  );
+
+  const items: EngagementItemInput[] = [];
+  for (const p of posts.data ?? []) {
+    const comments = await fetchJson<{
+      data: { id: string; message?: string; from?: { name?: string }; created_time: string; permalink_url?: string }[];
+    }>(
+      "FACEBOOK",
+      `${GRAPH_BASE}/${p.id}/comments?fields=id,message,from,created_time,permalink_url&limit=${ENGAGEMENT_COMMENTS_PER_POST}&access_token=${connection.accessToken}`
+    ).catch(() => ({ data: [] }));
+
+    for (const c of comments.data ?? []) {
+      items.push({
+        type: "COMMENT",
+        externalId: c.id,
+        postExternalId: p.id,
+        postPermalink: p.permalink_url,
+        authorName: c.from?.name,
+        text: c.message,
+        permalink: c.permalink_url ?? p.permalink_url,
+        publishedAt: c.created_time ? new Date(c.created_time) : undefined
+      });
+    }
+  }
+  return items;
+}
+
 export const instagramClient: SocialClient = {
   network: "INSTAGRAM",
   getAuthUrl: getMetaAuthUrl,
@@ -241,7 +333,9 @@ export const instagramClient: SocialClient = {
 
   async postComment(connection, externalPostId, comment) {
     await postGraphComment("INSTAGRAM", externalPostId, connection.accessToken, comment);
-  }
+  },
+
+  fetchEngagement: fetchInstagramEngagement
 };
 
 // Facebook Page (partage la même app Meta que instagramClient)
@@ -290,5 +384,7 @@ export const facebookClient: SocialClient = {
 
   async postComment(connection, externalPostId, comment) {
     await postGraphComment("FACEBOOK", externalPostId, connection.accessToken, comment);
-  }
+  },
+
+  fetchEngagement: fetchFacebookEngagement
 };

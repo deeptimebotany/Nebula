@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -12,6 +13,7 @@ import { clsx } from "@/lib/clsx";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
+import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus } from "@/components/dashboard/icons";
 
 interface ConnectionRow {
   id: string;
@@ -72,6 +74,10 @@ function AccountsPageInner() {
   const confirmDialog = useConfirm();
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+  // Compte dont le menu déroulant (Analytics / Publié / Interactions,
+  // filtrés sur lui) est actuellement ouvert — un seul à la fois, façon
+  // Buffer (voir capture partagée par l'utilisateur).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const params = useSearchParams();
   const error = params.get("error");
   const connected = params.get("connected");
@@ -174,39 +180,85 @@ function AccountsPageInner() {
                 {linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
                 {linked.map((c) => {
                   const expiry = tokenStatus(c.tokenExpiresAt);
+                  const expanded = expandedId === c.id;
                   return (
-                    <li key={c.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <TokenHealthDot level={expiry?.level ?? "unknown"} />
-                          <NetworkBadge network={c.network} size="sm" />
-                          <p className="truncate text-sm text-white">{c.displayName}</p>
+                    <li key={c.id} className="rounded-lg bg-white/[0.02]">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <button
+                          onClick={() => setExpandedId(expanded ? null : c.id)}
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          title="Analytics, Publié et Interactions pour ce compte"
+                        >
+                          <IconChevron
+                            className={clsx("h-3.5 w-3.5 shrink-0 text-slate-500 transition", expanded && "rotate-90")}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <TokenHealthDot level={expiry?.level ?? "unknown"} />
+                              <NetworkBadge network={c.network} size="sm" />
+                              <p className="truncate text-sm text-white">{c.displayName}</p>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
+                            {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}
+                            {expiry && expiry.level !== "ok" && (
+                              <p className={clsx("mt-0.5 text-xs", expiry.level === "expired" ? "text-red-400" : "text-amber-400")}>
+                                {expiry.level === "expired"
+                                  ? "Connexion expirée — reconnectez ce compte pour continuer à publier."
+                                  : `Expire dans ${expiry.daysLeft} jour${expiry.daysLeft > 1 ? "s" : ""}.`}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {/* Raccourci "+" : ouvre directement le Composer avec CE compte
+                              déjà sélectionné (et lui seul) — voir composer/page.tsx,
+                              qui lit ?connectionId= au chargement. */}
+                          <Link href={`/composer?connectionId=${c.id}`} title="Ajouter une publication pour ce compte">
+                            <button className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-aurora-400/40 hover:text-white">
+                              <IconPlus className="h-3.5 w-3.5" />
+                            </button>
+                          </Link>
+                          {expiry && expiry.level !== "ok" && activeBrand && (
+                            <a href={`/api/connections/${provider.id}/start?brandId=${activeBrand.id}`}>
+                              <Button
+                                variant="outline"
+                                className={expiry.level === "expired" ? "border-red-500/40 text-red-300 hover:bg-red-500/10" : undefined}
+                              >
+                                Reconnecter
+                              </Button>
+                            </a>
+                          )}
+                          <Button variant="ghost" onClick={() => disconnect(provider.id, c.id, c.displayName)}>
+                            Déconnecter
+                          </Button>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
-                        {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}
-                        {expiry && expiry.level !== "ok" && (
-                          <p className={clsx("mt-0.5 text-xs", expiry.level === "expired" ? "text-red-400" : "text-amber-400")}>
-                            {expiry.level === "expired"
-                              ? "Connexion expirée — reconnectez ce compte pour continuer à publier."
-                              : `Expire dans ${expiry.daysLeft} jour${expiry.daysLeft > 1 ? "s" : ""}.`}
-                          </p>
-                        )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        {expiry && expiry.level !== "ok" && activeBrand && (
-                          <a href={`/api/connections/${provider.id}/start?brandId=${activeBrand.id}`}>
-                            <Button
-                              variant="outline"
-                              className={expiry.level === "expired" ? "border-red-500/40 text-red-300 hover:bg-red-500/10" : undefined}
-                            >
-                              Reconnecter
-                            </Button>
-                          </a>
-                        )}
-                        <Button variant="ghost" onClick={() => disconnect(provider.id, c.id, c.displayName)}>
-                          Déconnecter
-                        </Button>
-                      </div>
+
+                      {/* Menu déroulant façon Buffer : mêmes onglets que la navigation
+                          principale (Analytics, Calendrier = "Publié", Interactions),
+                          chacun filtré sur ce seul compte via ?connectionId=. */}
+                      {expanded && (
+                        <div className="space-y-0.5 border-t border-white/[0.06] px-3 py-2">
+                          <Link
+                            href={`/analytics?connectionId=${c.id}`}
+                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                          >
+                            <IconChart className="h-4 w-4 text-slate-500" /> Analytics
+                          </Link>
+                          <Link
+                            href={`/calendar?connectionId=${c.id}`}
+                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                          >
+                            <IconCalendar className="h-4 w-4 text-slate-500" /> Publié
+                          </Link>
+                          <Link
+                            href={`/interactions?connectionId=${c.id}`}
+                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                          >
+                            <IconMessage className="h-4 w-4 text-slate-500" /> Interactions
+                          </Link>
+                        </div>
+                      )}
                     </li>
                   );
                 })}

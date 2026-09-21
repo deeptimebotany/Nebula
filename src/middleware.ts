@@ -19,6 +19,7 @@ export const config = {
     "/retention/:path*",
     "/reports/:path*",
     "/calendar-share/:path*",
-    "/settings/:path*"
+    "/settings/:path*",
+    "/interactions/:path*"
   ]
 };

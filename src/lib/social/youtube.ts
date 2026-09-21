@@ -1,5 +1,12 @@
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
-import { fetchJson, type ConnectionLike, type OAuthTokenResult, type PublishInput, type SocialClient } from "./base";
+import {
+  fetchJson,
+  type ConnectionLike,
+  type EngagementItemInput,
+  type OAuthTokenResult,
+  type PublishInput,
+  type SocialClient
+} from "./base";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -120,6 +127,53 @@ export const youtubeClient: SocialClient = {
     if (!uploadRes.ok) throw new Error("Échec de l'upload vidéo vers YouTube.");
 
     return { externalPostId: video.id, externalUrl: `https://youtube.com/watch?v=${video.id}` };
+  },
+
+  /**
+   * Commentaires reçus sur les vidéos de la chaîne — un seul appel grâce à
+   * allThreadsRelatedToChannelId, qui couvre toutes les vidéos de la chaîne
+   * d'un coup (pas besoin de les lister une par une comme pour Meta ci-
+   * dessus). Scope youtube.readonly, déjà demandé (voir getAuthUrl).
+   */
+  async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
+    const channelId = connection.externalAccountId;
+    const threads = await fetchJson<{
+      items: {
+        id: string;
+        snippet: {
+          videoId: string;
+          topLevelComment: {
+            id: string;
+            snippet: {
+              textDisplay: string;
+              authorDisplayName: string;
+              authorProfileImageUrl: string;
+              publishedAt: string;
+            };
+          };
+        };
+      }[];
+    }>(
+      "YOUTUBE",
+      `${API_BASE}/commentThreads?part=snippet&allThreadsRelatedToChannelId=${channelId}&maxResults=25&order=time`,
+      { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+    );
+
+    return (threads.items ?? []).map((item) => {
+      const c = item.snippet.topLevelComment.snippet;
+      const videoId = item.snippet.videoId;
+      return {
+        type: "COMMENT" as const,
+        externalId: item.snippet.topLevelComment.id,
+        postExternalId: videoId,
+        postPermalink: videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined,
+        authorName: c.authorDisplayName,
+        authorAvatarUrl: c.authorProfileImageUrl,
+        text: c.textDisplay,
+        permalink: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${item.snippet.topLevelComment.id}` : undefined,
+        publishedAt: c.publishedAt ? new Date(c.publishedAt) : undefined
+      };
+    });
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {

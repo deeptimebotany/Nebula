@@ -235,6 +235,10 @@ function ComposerPageInner() {
   const duplicateId = searchParams.get("duplicate");
   const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
   const prefilledTime = searchParams.get("time"); // optionnel, depuis la vue heures du calendrier (HH:mm)
+  // Depuis le "+" d'un compte précis sur la page Comptes (voir accounts/page.tsx)
+  // — pré-sélectionne CE compte (et lui seul) au chargement, voir l'effet
+  // juste après le chargement des connexions ci-dessous.
+  const targetConnectionId = searchParams.get("connectionId");
   const aiStatus = useAiStatus(activeBrand?.id);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
@@ -411,6 +415,19 @@ function ComposerPageInner() {
       .then((r) => r.json())
       .then((d) => setConnections(d.connections ?? []));
   }, [activeBrand]);
+
+  // Pré-remplissage depuis le "+" d'un compte sur la page Comptes : une fois
+  // les connexions chargées, ne garde que ce réseau sélectionné et ce compte
+  // précis choisi pour lui (au cas où plusieurs comptes du même réseau sont
+  // connectés) — sans écraser un brouillon déjà en cours de restauration.
+  useEffect(() => {
+    if (!targetConnectionId || connections.length === 0 || duplicateId) return;
+    const target = connections.find((c) => c.id === targetConnectionId);
+    if (!target) return;
+    setSelectedNetworks([target.network]);
+    setSelectedConnectionByNetwork({ [target.network]: target.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetConnectionId, connections, duplicateId]);
 
   // Pré-remplissage depuis un post existant (bouton "Dupliquer")
   useEffect(() => {

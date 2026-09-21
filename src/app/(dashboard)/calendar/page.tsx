@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { Button } from "@/components/ui/button";
 import { NetworkDot } from "@/components/ui/network-badge";
@@ -51,9 +52,24 @@ function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// useSearchParams() impose un <Suspense> autour du composant qui l'appelle
+// (voir accounts/page.tsx pour le même besoin, déjà en place ailleurs).
 export default function CalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarPageInner />
+    </Suspense>
+  );
+}
+
+function CalendarPageInner() {
   const { activeBrand, brands } = useBrand();
   const aiStatus = useAiStatus(activeBrand?.id);
+  const searchParams = useSearchParams();
+  // Depuis le menu déroulant d'un compte sur la page Comptes : n'affiche que
+  // les publications ciblant CE compte (voir l'effet plus bas, une fois les
+  // connexions chargées).
+  const filterConnectionId = searchParams.get("connectionId");
   const [view, setView] = useState<"month" | "hours">("month");
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [postsByBrand, setPostsByBrand] = useState<Record<string, ApiPost[]>>({});
@@ -122,6 +138,17 @@ export default function CalendarPage() {
     () => selectedBrandIds.flatMap((id) => (connectionsByBrand[id] ?? []).map((c) => ({ ...c, brandId: id }))),
     [selectedBrandIds, connectionsByBrand]
   );
+
+  // Applique le filtre "un seul compte" dès que ses connexions sont
+  // chargées : masque tous les autres comptes plutôt que de n'afficher que
+  // celui-là dans un mécanisme séparé, pour rester compatible avec le
+  // panneau Filtres existant (qui peut ensuite le réélargir normalement).
+  useEffect(() => {
+    if (!filterConnectionId || allConnections.length === 0) return;
+    if (!allConnections.some((c) => c.id === filterConnectionId)) return;
+    setHiddenConnectionIds(new Set(allConnections.filter((c) => c.id !== filterConnectionId).map((c) => c.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterConnectionId, allConnections]);
 
   const availableNetworks = useMemo(() => {
     const set = new Set<Network>();
@@ -226,6 +253,18 @@ export default function CalendarPage() {
           </Link>
         </div>
       </div>
+
+      {filterConnectionId && (
+        <div className="flex items-center gap-2 rounded-lg border border-aurora-400/30 bg-aurora-400/[0.06] px-3 py-2 text-sm text-aurora-200">
+          <span>
+            Filtré sur {allConnections.find((c) => c.id === filterConnectionId)?.displayName ?? "un compte"} — les
+            publications des autres comptes sont masquées.
+          </span>
+          <Link href="/calendar" className="ml-auto shrink-0 text-xs underline hover:text-white">
+            Voir tous les comptes
+          </Link>
+        </div>
+      )}
 
       <QuotaBar brandId={activeBrand?.id} />
 
