@@ -20,7 +20,6 @@ import {
   IconPlus,
   IconAvatar,
   IconMenu,
-  IconBioLink,
   IconRetention,
   IconReport,
   IconCalendarShare
@@ -38,7 +37,6 @@ const NAV = [
   { href: "/calendar", label: "Calendrier", icon: IconCalendar },
   { href: "/composer", label: "Importation", icon: IconUpload },
   { href: "/analytics", label: "Analytics", icon: IconChart },
-  { href: "/link-in-bio", label: "Page bio", icon: IconBioLink },
   { href: "/retention", label: "Rétention IA", icon: IconRetention },
   { href: "/reports", label: "Rapports", icon: IconReport },
   { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare },

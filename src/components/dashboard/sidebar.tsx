@@ -110,9 +110,10 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
             );
           })}
 
-          {/* Compte : Comptes connectés, Facturation, Paramètres — regroupés
-              à part des onglets de travail ci-dessus. */}
-          <p className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-wide text-slate-500">Compte</p>
+          {/* Comptes connectés, Facturation, Paramètres — regroupés à part
+              des onglets de travail ci-dessus (juste une séparation visuelle,
+              sans étiquette). */}
+          <div className="mt-3 border-t border-white/[0.06] pt-3" />
           {[
             { href: "/accounts", label: "Comptes", icon: IconLink },
             { href: "/billing", label: "Facturation", icon: IconCard },

@@ -46,7 +46,7 @@ function ReferralLeaderboard() {
       </h2>
       <p className="mt-1 text-sm text-slate-400">
         Basé sur le nombre réel de comptes créés avec votre code (voir Paramètres). Le podium reçoit des mois
-        d&apos;abonnement Pro offerts, attribués manuellement par l&apos;équipe Nebula pour l&apos;instant.
+        d&apos;abonnement Pro offerts, attribués manuellement par l&apos;équipe Nebula.
       </p>
       {!rows ? (
         <p className="mt-3 text-sm text-slate-500">Chargement...</p>

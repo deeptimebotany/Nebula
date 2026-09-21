@@ -260,6 +260,17 @@ function ComposerPageInner() {
   );
   const [submitting, setSubmitting] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
+  // Champs en cours de génération IA (titre/description, global ou par
+  // réseau) — voir onGenerateOne. Clé = "title"/"description" ou
+  // "title:INSTAGRAM" etc. pour les champs spécifiques à un réseau. Permet
+  // de désactiver précisément le bon bouton "IA" pendant l'appel, pour
+  // éviter qu'on le reclique en boucle en pensant qu'il ne s'est rien passé
+  // (l'appel prend quelques secondes, sans indicateur visuel jusqu'ici).
+  const [generatingFields, setGeneratingFields] = useState<Set<string>>(new Set());
+
+  function fieldKey(field: "title" | "description", network?: Network) {
+    return network ? `${field}:${network}` : field;
+  }
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumbOptions, setThumbOptions] = useState<string[]>([]);
   const [aiThumbLoading, setAiThumbLoading] = useState(false);
@@ -608,13 +619,23 @@ function ComposerPageInner() {
   }
 
   async function onGenerateOne(field: "title" | "description", network?: Network) {
-    const text = await generateField(field, network);
-    if (!text) return;
-    if (!network) {
-      if (field === "title") setTitle(text);
-      else setCaption(text);
-    } else {
-      setOverrideField(network, field === "title" ? "title" : "caption", text);
+    const key = fieldKey(field, network);
+    setGeneratingFields((prev) => new Set(prev).add(key));
+    try {
+      const text = await generateField(field, network);
+      if (!text) return;
+      if (!network) {
+        if (field === "title") setTitle(text);
+        else setCaption(text);
+      } else {
+        setOverrideField(network, field === "title" ? "title" : "caption", text);
+      }
+    } finally {
+      setGeneratingFields((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
@@ -1115,9 +1136,12 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("title")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                    disabled={generatingFields.has("title")}
+                    title={generatingFields.has("title") ? "Génération en cours..." : "Générer avec l'IA"}
+                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
                   >
-                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                    <IconSparkle className={clsx("h-3.5 w-3.5", generatingFields.has("title") && "animate-pulse")} />
+                    {generatingFields.has("title") ? "Génération..." : "IA"}
                   </button>
                 )}
               </div>
@@ -1152,9 +1176,12 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("description")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
+                    disabled={generatingFields.has("description")}
+                    title={generatingFields.has("description") ? "Génération en cours..." : "Générer avec l'IA"}
+                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
                   >
-                    <IconSparkle className="h-3.5 w-3.5" /> IA
+                    <IconSparkle className={clsx("h-3.5 w-3.5", generatingFields.has("description") && "animate-pulse")} />
+                    {generatingFields.has("description") ? "Génération..." : "IA"}
                   </button>
                 )}
               </div>
@@ -1269,8 +1296,13 @@ function ComposerPageInner() {
                               className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button onClick={() => onGenerateOne("title", n)} className="text-aurora-300">
-                                <IconSparkle className="h-4 w-4" />
+                              <button
+                                onClick={() => onGenerateOne("title", n)}
+                                disabled={generatingFields.has(fieldKey("title", n))}
+                                title={generatingFields.has(fieldKey("title", n)) ? "Génération en cours..." : "Générer avec l'IA"}
+                                className="text-aurora-300 transition disabled:cursor-wait disabled:opacity-50"
+                              >
+                                <IconSparkle className={clsx("h-4 w-4", generatingFields.has(fieldKey("title", n)) && "animate-pulse")} />
                               </button>
                             )}
                           </div>
@@ -1283,8 +1315,13 @@ function ComposerPageInner() {
                               className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button onClick={() => onGenerateOne("description", n)} className="text-aurora-300">
-                                <IconSparkle className="h-4 w-4" />
+                              <button
+                                onClick={() => onGenerateOne("description", n)}
+                                disabled={generatingFields.has(fieldKey("description", n))}
+                                title={generatingFields.has(fieldKey("description", n)) ? "Génération en cours..." : "Générer avec l'IA"}
+                                className="text-aurora-300 transition disabled:cursor-wait disabled:opacity-50"
+                              >
+                                <IconSparkle className={clsx("h-4 w-4", generatingFields.has(fieldKey("description", n)) && "animate-pulse")} />
                               </button>
                             )}
                           </div>
