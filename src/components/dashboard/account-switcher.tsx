@@ -38,7 +38,13 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
   }
 
   useEffect(() => {
-    refresh();
+    // Mémorise le compte actif dans le sélecteur (voir /api/accounts/link,
+    // POST) avant de charger la liste — couvre aussi bien une connexion
+    // normale depuis /login que le flux "+" ci-dessous, sans jamais écrire
+    // de cookie depuis un Server Component (voir (dashboard)/layout.tsx).
+    fetch("/api/accounts/link", { method: "POST" })
+      .catch(() => undefined)
+      .finally(refresh);
   }, []);
 
   useEffect(() => {

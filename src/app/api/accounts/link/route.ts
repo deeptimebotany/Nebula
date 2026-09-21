@@ -18,3 +18,15 @@ export async function GET(req: NextRequest) {
   const next = req.nextUrl.searchParams.get("next") || "/dashboard";
   return NextResponse.redirect(new URL(next, req.url));
 }
+
+// POST — même mémorisation, mais déclenchée côté client (voir
+// account-switcher.tsx, au chargement) pour couvrir aussi une connexion
+// NORMALE depuis /login (credentials ou Google), qui ne passe jamais par le
+// flux "+" ci-dessus. Une Route Handler peut écrire des cookies ; une mise
+// en page (Server Component) ne le peut pas — voir (dashboard)/layout.tsx.
+export async function POST() {
+  const session = await getServerSession(authOptions);
+  const uid = (session?.user as { id?: string } | undefined)?.id;
+  if (uid) rememberCurrentSession(uid);
+  return NextResponse.json({ ok: Boolean(uid) });
+}

@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getEnabledOAuthProviders } from "@/lib/oauth-providers";
-import { rememberCurrentSession } from "@/lib/multi-account";
 import { TopNav } from "@/components/dashboard/topnav";
 import { AiAssistant } from "@/components/dashboard/ai-assistant";
 import { BrandProvider } from "@/components/brand-context";
@@ -15,12 +14,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  // Mémorise ce compte dans le sélecteur multi-compte (voir
-  // multi-account.ts) à CHAQUE chargement authentifié, pas seulement après
-  // le flux "+" de account-switcher.tsx — couvre aussi la connexion normale
-  // depuis /login (credentials ou Google), qui ne passe pas par ce flux.
-  const uid = (session.user as { id?: string }).id;
-  if (uid) rememberCurrentSession(uid);
+  // Le compte actif est mémorisé dans le sélecteur multi-compte (voir
+  // multi-account.ts) côté client, au chargement de AccountSwitcher — PAS
+  // ici : Next.js interdit d'écrire un cookie depuis un Server Component
+  // "normal" comme cette mise en page (seulement depuis une Route Handler
+  // ou une Server Action), et c'est justement ce qui cassait tout le site.
   const oauth = getEnabledOAuthProviders();
 
   return (
