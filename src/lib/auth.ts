@@ -2,6 +2,7 @@ import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
+import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
@@ -90,13 +91,23 @@ export const authOptions: NextAuthOptions = {
       : []),
     ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
       ? [AppleProvider({ clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET })]
+      : []),
+    // "Continuer avec Meta" (Facebook Login) — même logique OAuth que
+    // Google/Apple ci-dessus, mais ATTENTION : distinct des connexions
+    // Facebook/Instagram de src/lib/social (qui servent à publier, pas à se
+    // connecter au compte Nebula). Utilise la même app Meta que ces
+    // connexions ; tant que l'app n'est pas passée en App Review chez Meta,
+    // seuls les comptes ajoutés comme "testeurs" dans Meta for Developers
+    // peuvent l'utiliser (voir le commentaire dans .env.example).
+    ...(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET
+      ? [FacebookProvider({ clientId: process.env.FACEBOOK_CLIENT_ID, clientSecret: process.env.FACEBOOK_CLIENT_SECRET })]
       : [])
   ],
   callbacks: {
     // Premier login Google/Apple : crée le compte Nebula + sa marque par
     // défaut avant que jwt() ne cherche à résoudre l'id (voir ci-dessous).
     async signIn({ user, account }) {
-      if (account?.provider === "google" || account?.provider === "apple") {
+      if (account?.provider === "google" || account?.provider === "apple" || account?.provider === "facebook") {
         if (!user.email) return false;
         await findOrCreateOAuthUser(user.email, user.name ?? "", user.image);
       }
@@ -104,7 +115,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (user) {
-        if (account?.provider === "google" || account?.provider === "apple") {
+        if (account?.provider === "google" || account?.provider === "apple" || account?.provider === "facebook") {
           const dbUser = user.email
             ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } })
             : null;

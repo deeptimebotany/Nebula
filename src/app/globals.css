@@ -67,22 +67,130 @@ body {
 }
 
 /* Mode Clair (bulle de profil, voir mode-provider.tsx) — bascule TOUTE
-   l'appli (fond, texte, panneaux verre, bordures...) sans avoir à réécrire
-   chaque composant : on inverse les luminosités de <body> avec un filtre
-   CSS (invert + hue-rotate ramène les teintes à peu près à leur place),
-   et on ré-inverse en sens inverse tout ce qui est un VRAI média (photo,
-   vidéo, miniature) pour que ces images-là restent en couleurs normales au
-   lieu de ressortir en "négatif". Ça marche par-dessus n'importe lequel des
-   14 thèmes de couleurs choisis dans Paramètres (voir themes.ts) : le mode
-   Clair/Sombre est un axe indépendant du thème. Le thème "Nébuleuse" bleu
-   foncé reste le réglage par défaut (mode Sombre, aucun filtre appliqué). */
-[data-mode="light"] body {
-  filter: invert(1) hue-rotate(180deg);
+   l'appli (fond, texte, panneaux, bordures...) sans avoir à réécrire chaque
+   composant.
+   Version précédente : un filtre CSS invert()/hue-rotate() sur <body>, qui
+   "fonctionnait" mais produisait des teintes approximatives (jamais un vrai
+   blanc, jamais les vraies couleurs demandées). Remplacé ici par une vraie
+   palette claire — blanc plein, gris neutres, texte quasi noir — calquée sur
+   l'interface de référence fournie (fenêtres modales Meta Business : fond
+   blanc, cartes blanches à bordure grise fine, texte #050505/#65676b, liens
+   bleus). Chaque règle cible directement une classe Tailwind déjà utilisée
+   partout dans l'appli (voir tailwind.config.ts) et la redéfinit pour ce
+   mode — aucun composant n'a besoin d'être modifié. Ça marche par-dessus
+   n'importe lequel des 14 thèmes de couleurs choisis dans Paramètres (voir
+   themes.ts) : les couleurs d'accent (boutons dégradés, onglet actif...)
+   restent celles du thème, seules les surfaces neutres changent. */
+[data-mode="light"] {
+  color-scheme: light;
 }
-[data-mode="light"] img,
-[data-mode="light"] video,
-[data-mode="light"] canvas {
-  filter: invert(1) hue-rotate(180deg);
+
+[data-mode="light"] body {
+  background-color: #f0f2f5;
+  background-image: none;
+  color: #050505;
+}
+
+[data-mode="light"] ::selection {
+  background: rgba(24, 119, 242, 0.25);
+  color: #050505;
+}
+
+/* Le halo décoratif (fonds d'écran de Paramètres, voir backgrounds.ts) est
+   pensé pour un fond sombre : sur blanc plein façon Meta, on le retire
+   plutôt que de le rendre à peine visible. */
+[data-mode="light"] .noise-grid::before {
+  display: none;
+}
+
+/* --- Cartes / panneaux / modales — le cœur de la référence fournie --- */
+[data-mode="light"] .glass-panel,
+[data-mode="light"] .glass-panel-solid {
+  background: #ffffff;
+  border-color: #dadde1;
+  backdrop-filter: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.12);
+}
+[data-mode="light"] .glass-panel-hover:hover {
+  border-color: #ccd0d5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 28px -12px rgba(0, 0, 0, 0.16);
+}
+
+/* --- Texte : même hiérarchie qu'en sombre, valeurs réelles en clair --- */
+[data-mode="light"] .text-white { color: #050505; }
+[data-mode="light"] .text-slate-100 { color: #1c1e21; }
+[data-mode="light"] .text-slate-200 { color: #333333; }
+[data-mode="light"] .text-slate-300,
+[data-mode="light"] .hover\:text-slate-300:hover { color: #444950; }
+[data-mode="light"] .text-slate-400 { color: #65676b; }
+[data-mode="light"] .text-slate-500 { color: #8a8d91; }
+[data-mode="light"] .text-slate-600 { color: #a8abaf; }
+[data-mode="light"] .text-slate-700 { color: #bcc0c4; }
+[data-mode="light"] .hover\:text-white:hover { color: #050505; }
+
+/* --- Bordures : gris Meta (#dadde1) pour toutes les variantes "border-white/x" --- */
+[data-mode="light"] .border-white,
+[data-mode="light"] .border-white\/5,
+[data-mode="light"] .border-white\/10,
+[data-mode="light"] .border-white\/15,
+[data-mode="light"] .border-white\/20,
+[data-mode="light"] .border-white\/25,
+[data-mode="light"] .border-white\/30,
+[data-mode="light"] .border-white\/\[0\.02\],
+[data-mode="light"] .border-white\/\[0\.03\],
+[data-mode="light"] .border-white\/\[0\.04\],
+[data-mode="light"] .border-white\/\[0\.06\] { border-color: #dadde1; }
+[data-mode="light"] .hover\:border-white\/20:hover,
+[data-mode="light"] .hover\:border-white\/25:hover,
+[data-mode="light"] .hover\:border-white\/30:hover { border-color: #ccd0d5; }
+[data-mode="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) { border-color: #dadde1; }
+
+/* --- Fonds "verre" (bg-white/x) → gris très clair Meta --- */
+[data-mode="light"] .bg-white\/\[0\.015\] { background-color: #f7f8fa; }
+[data-mode="light"] .bg-white\/\[0\.02\] { background-color: #f5f6f7; }
+[data-mode="light"] .bg-white\/\[0\.03\] { background-color: #f2f3f5; }
+[data-mode="light"] .bg-white\/\[0\.04\] { background-color: #eef0f2; }
+[data-mode="light"] .bg-white\/\[0\.05\] { background-color: #eaecef; }
+[data-mode="light"] .bg-white\/\[0\.06\] { background-color: #e6e8eb; }
+[data-mode="light"] .bg-white\/5 { background-color: #f2f3f5; }
+[data-mode="light"] .bg-white\/10 { background-color: #eef0f2; }
+[data-mode="light"] .bg-white\/15 { background-color: #e9ebee; }
+[data-mode="light"] .bg-white\/20 { background-color: #e4e6eb; }
+[data-mode="light"] .bg-white\/25 { background-color: #dfe1e5; }
+[data-mode="light"] .bg-white\/30 { background-color: #dadde1; }
+[data-mode="light"] .bg-white\/40 { background-color: #ccd0d5; }
+[data-mode="light"] .bg-white { background-color: #ffffff; }
+[data-mode="light"] .bg-slate-300\/15 { background-color: #e4e6eb; }
+[data-mode="light"] .hover\:bg-white\/5:hover,
+[data-mode="light"] .hover\:bg-white\/10:hover,
+[data-mode="light"] .hover\:bg-white\/30:hover,
+[data-mode="light"] .hover\:bg-white\/\[0\.06\]:hover { background-color: #eef0f2; }
+[data-mode="light"] .group:hover .group-hover\:bg-white\/40 { background-color: #ccd0d5; }
+
+/* --- Barre de nav / menus déroulants (fond "void" quasi noir → blanc) --- */
+[data-mode="light"] .bg-void-950\/90 { background-color: rgba(255, 255, 255, 0.92); }
+[data-mode="light"] .bg-void-950\/60 { background-color: rgba(255, 255, 255, 0.75); }
+[data-mode="light"] .bg-void-900 { background-color: #ffffff; }
+[data-mode="light"] .bg-void-900\/60 { background-color: rgba(255, 255, 255, 0.75); }
+[data-mode="light"] .ring-void-950 { --tw-ring-color: #ffffff; }
+
+/* --- Champs de saisie : fond blanc, texte sombre, placeholder gris --- */
+[data-mode="light"] input,
+[data-mode="light"] textarea,
+[data-mode="light"] select {
+  color: #050505;
+}
+[data-mode="light"] input::placeholder,
+[data-mode="light"] textarea::placeholder {
+  color: #8a8d91;
+}
+
+/* --- Barre de défilement claire --- */
+[data-mode="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(5, 5, 5, 0.14);
+}
+[data-mode="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(5, 5, 5, 0.24);
 }
 
 /* Halo discret qui respire autour de la case "aujourd'hui" du calendrier —
@@ -232,24 +340,6 @@ body {
     opacity: 0.9;
   }
 
-  /* Halo permanent violet/magenta autour de la bulle Assistant Nebula (pas
-     seulement au survol, contrairement à .glow-border-spin ci-dessus) —
-     posé sur un wrapper SANS overflow-hidden (le panneau lui-même garde le
-     sien pour rogner messages/scroll) pour que le flou ne soit pas coupé. */
-  .chat-panel-glow {
-    position: relative;
-  }
-  .chat-panel-glow::before {
-    content: "";
-    position: absolute;
-    inset: -36px;
-    z-index: -1;
-    background: radial-gradient(circle at 12% 0%, rgb(var(--c-accent-violet) / 0.4), transparent 55%),
-      radial-gradient(circle at 100% 100%, rgb(var(--c-accent-magenta) / 0.32), transparent 60%);
-    filter: blur(28px);
-    pointer-events: none;
-  }
-
   /* Vignette cockpit : assombrit les bords de l'écran façon verrière de
      vaisseau, pour recentrer l'attention sur le Hero. Discret : n'affecte
      jamais le contenu, seulement le décor derrière (::after, z-index -1). */
@@ -280,42 +370,5 @@ body {
     opacity: 0.035;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
-
-  /* --- Statut Premium (abonnés PRO/AGENCE) — identité dorée --------------- */
-
-  /* Pseudo doré animé pour les membres Premium (communauté, profil...) —
-     variante dorée de .text-gradient-live, jamais utilisée pour un compte
-     Gratuit (voir PremiumName). */
-  .text-gold-shimmer {
-    background: linear-gradient(90deg, #f7dfa0, #f3c968 25%, #eab534 50%, #f3c968 75%, #f7dfa0);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: auroraDrift 6s ease-in-out infinite;
-  }
-
-  /* Halo doré rétroéclairé, TOUJOURS visible (contrairement à
-     .glow-border-spin qui ne se révèle qu'au survol) — pour signaler en
-     permanence une bulle/carte appartenant à un membre Premium, pas
-     seulement au survol. Même mécanique (::before conique + borderSpin). */
-  .glow-border-gold {
-    position: relative;
-    isolation: isolate;
-  }
-  .glow-border-gold::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    z-index: -1;
-    border-radius: inherit;
-    background: conic-gradient(from 0deg, rgba(234, 181, 52, 0.95), rgba(247, 223, 160, 0.55), rgba(234, 181, 52, 0.95));
-    opacity: 0.55;
-    transition: opacity 0.4s ease;
-    animation: borderSpin 7s linear infinite;
-  }
-  .glow-border-gold:hover::before {
-    opacity: 0.95;
   }
 }

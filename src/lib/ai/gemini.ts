@@ -96,15 +96,6 @@ export async function chatComplete(messages: ChatMessage[], systemInstruction: s
  * aucune idée du contenu réel et tend à halluciner un texte générique de
  * marque plutôt que de décrire la publication elle-même.
  */
-export interface GeneratedCopy {
-  text: string;
-  /** Courte explication (1-2 phrases) de ce sur quoi Gemini s'est basé pour
-   *  rédiger ce texte — affichée à l'utilisateur dans la bulle Assistant
-   *  Nebula (voir composer/page.tsx et ai-assistant-context.tsx) pour que le
-   *  "pourquoi" de la génération ne reste jamais une boîte noire. */
-  reasoning: string;
-}
-
 export async function generateCopy(input: {
   field: "title" | "description";
   network?: string;
@@ -115,7 +106,7 @@ export async function generateCopy(input: {
   mediaHint?: string; // ex: "vidéo" — utilisé seulement en repli si aucune image n'a pu être extraite
   frameBase64?: string;
   frameMimeType?: string;
-}): Promise<GeneratedCopy> {
+}): Promise<string> {
   const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = input;
 
   const promptLines = [
@@ -131,8 +122,7 @@ export async function generateCopy(input: {
     maxLength ? `Reste sous ${maxLength} caractères.` : "",
     existingTitle ? `Titre actuel (à améliorer, pas juste reformuler) : ${existingTitle}` : "",
     existingCaption ? `Description actuelle / contexte : ${existingCaption}` : "",
-    "Réponds STRICTEMENT en JSON avec ce format : " +
-      '{"text": "le texte final, sans guillemets internes ni préambule", "reasoning": "1-2 phrases expliquant, concrètement à partir de ce que tu vois ou sais, pourquoi tu as rédigé ce texte précis"}.'
+    "Réponds uniquement avec le texte final, sans préambule ni explication."
   ].filter(Boolean);
 
   const parts: GenerateContentPart[] = [{ text: promptLines.join("\n") }];
@@ -140,19 +130,40 @@ export async function generateCopy(input: {
     parts.push({ inline_data: { mime_type: frameMimeType, data: frameBase64 } });
   }
 
-  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
-  try {
-    const parsed = JSON.parse(raw);
-    const text = String(parsed.text ?? "").trim().replace(/^"|"$/g, "");
-    const reasoning = String(parsed.reasoning ?? "").trim();
-    if (!text) throw new Error("Réponse JSON sans champ text.");
-    return { text, reasoning };
-  } catch {
-    // Filet de sécurité si Gemini ne respecte pas le JSON demandé : on
-    // utilise la réponse brute comme texte plutôt que de faire échouer toute
-    // la génération pour un simple problème de formatage.
-    return { text: raw.trim().replace(/^"|"$/g, ""), reasoning: "" };
-  }
+  const text = await callGemini({ contents: [{ role: "user", parts }] });
+  return text.trim().replace(/^"|"$/g, "");
+}
+
+/**
+ * Version "grand public" de generateCopy(), utilisée par le générateur
+ * gratuit sans compte (/outils/legendes, voir /api/public/tools/captions).
+ * Différence clé : ici on ne décrit jamais un média réel (le visiteur n'a
+ * rien uploadé) mais un simple SUJET tapé au clavier — le prompt doit donc
+ * traiter ce texte comme le sujet de la publication, pas comme la légende
+ * d'un fichier joint, sans quoi Gemini comprend de travers (voir le
+ * "Média joint : ..." de generateCopy, qui suppose toujours un fichier).
+ */
+export async function generateFreeCaption(input: {
+  field: "title" | "description";
+  network?: string;
+  maxLength?: number;
+  brandName: string;
+  topic: string;
+}): Promise<string> {
+  const { field, network, maxLength, brandName, topic } = input;
+
+  const promptLines = [
+    `Tu es un assistant de community management qui aide "${brandName}" à rédiger une publication.`,
+    `Sujet de la publication, décrit par la personne : ${topic}`,
+    field === "title"
+      ? `Rédige UN SEUL titre accrocheur (sans guillemets, sans hashtag) pour cette publication${network ? ` sur ${network}` : ""}.`
+      : `Rédige UNE SEULE description/légende engageante${network ? ` adaptée à ${network}` : ""}, avec 2-3 hashtags pertinents à la fin.`,
+    maxLength ? `Reste sous ${maxLength} caractères.` : "",
+    "Réponds uniquement avec le texte final, sans préambule ni explication."
+  ].filter(Boolean);
+
+  const text = await callGemini({ contents: [{ role: "user", parts: [{ text: promptLines.join("\n") }] }] });
+  return text.trim().replace(/^"|"$/g, "");
 }
 
 export interface FrameCandidate {
@@ -168,34 +179,14 @@ export interface FrameCandidate {
  * frames de transition, floues ou sans intérêt visuel qui sortiraient d'un
  * simple échantillonnage à intervalles fixes.
  */
-export interface FrameChoice {
-  index: number;
-  /** Courte raison (façon directeur artistique) de ce choix — affichée sous
-   *  chaque miniature proposée dans le composer. */
-  reason: string;
-}
-
-export interface FramePick {
-  /** Index (parmi les frames envoyées) du meilleur choix selon Gemini — pas
-   *  une simple convention de tri : demandé explicitement dans le prompt. */
-  bestIndex: number;
-  /** Explication comparative de pourquoi CE choix est le meilleur des
-   *  candidats proposés (pas juste "elle est nette", mais pourquoi elle
-   *  l'emporte sur les autres). */
-  whyBest: string;
-  /** Les autres choix retenus, chacun avec sa propre raison plus brève. */
-  alternatives: FrameChoice[];
-}
-
-export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<FramePick | null> {
+export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<number[]> {
   const { frames, count } = input;
   const promptText = [
     "Tu es un directeur artistique qui choisit la meilleure image de couverture (miniature) parmi plusieurs frames extraites de la même vidéo, numérotées dans l'ordre chronologique (index 0 à " +
       (frames.length - 1) +
       ").",
     "Choisis celles qui feraient les meilleures miniatures : nettes (pas de flou de mouvement), bien cadrées, sujet principal clairement visible et reconnaissable, moment ou expression engageant. Évite les frames de transition, noires, floues, ou sans intérêt visuel.",
-    "Tu dois désigner UNE SEULE meilleure image (pas une liste à plat) et expliquer CONCRÈTEMENT pourquoi elle l'emporte sur les autres, en comparant (ex: \"plus nette que la 3, sujet mieux centré que la 5\").",
-    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndex": n, "whyBest": "explication comparative de pourquoi cette image est la meilleure", "alternatives": [{"index": n, "reason": "courte raison"}, ...]}, avec jusqu'à ${Math.max(0, count - 1)} alternatives (n'inclus pas bestIndex dans alternatives).`
+    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndexes": [index1, index2, ...]}, en donnant jusqu'à ${count} indices, du meilleur au moins bon.`
   ].join("\n");
 
   const parts: GenerateContentPart[] = [{ text: promptText }];
@@ -207,21 +198,12 @@ export async function pickBestFrames(input: { frames: FrameCandidate[]; count: n
   const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
   try {
     const parsed = JSON.parse(raw);
-    const bestIndex = Number(parsed.bestIndex);
-    if (!Number.isInteger(bestIndex)) return null;
-    const whyBest = String(parsed.whyBest ?? "").trim();
-    const alternatives: FrameChoice[] = Array.isArray(parsed.alternatives)
-      ? parsed.alternatives
-          .filter((c: unknown): c is { index: unknown; reason: unknown } => typeof c === "object" && c !== null)
-          .map((c: { index: unknown; reason: unknown }) => ({
-            index: Number(c.index),
-            reason: String(c.reason ?? "").trim()
-          }))
-          .filter((c: FrameChoice) => Number.isInteger(c.index) && c.index !== bestIndex)
+    const indexes: number[] = Array.isArray(parsed.bestIndexes)
+      ? parsed.bestIndexes.filter((n: unknown): n is number => typeof n === "number")
       : [];
-    return { bestIndex, whyBest, alternatives: alternatives.slice(0, Math.max(0, count - 1)) };
+    return indexes.slice(0, count);
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -279,25 +261,28 @@ export async function generateThumbnail(input: {
 }
 
 /**
- * Génère un unique visuel de réaction/sticker (texte → image, sans média source)
- * pour le pack d'emojis exclusifs Premium — voir /api/premium/reactions/generate
- * (réservé à l'admin, voir src/lib/admin.ts). Chaque appel produit UNE image ;
- * la route appelante boucle sur la liste de prompts du pack.
+ * Génère un sticker/emoji exclusif Premium à partir d'un simple prompt texte
+ * (pas d'image en entrée, contrairement à generateThumbnail) — utilisé par
+ * /api/premium/reactions/generate pour fabriquer le pack "Or Impérial".
+ * Demande un rendu carré, fond transparent, cohérent avec les autres
+ * réactions du pack (voir le prompt de style ci-dessous).
  */
 export async function generateStickerPack(input: { prompt: string }): Promise<GeneratedThumbnail> {
   const key = requireKey();
-  const fullPrompt = [
-    "Crée un sticker/icône de réaction au style cohérent : fond entièrement transparent,",
-    "rendu vectoriel/flat premium, dominante dorée et lumineuse (voir description ci-dessous),",
-    "cadré serré sur le sujet, sans texte, sans filigrane, format carré.",
-    `Sujet : ${input.prompt}`
+  const prompt = [
+    "Crée un sticker/emoji numérique unique représentant :",
+    input.prompt + ".",
+    "Style : icône moderne en dégradé d'or scintillant, finition glossy/néon liquide, cohérente avec un thème",
+    "'Premium doré' haut de gamme. Cadrage carré, sujet centré et bien visible, fond transparent ou uni sombre",
+    "(pas de texte, pas de fond photographique). Le résultat doit ressembler à un emoji/sticker autonome,",
+    "utilisable en petite taille (comme une réaction sur un réseau social)."
   ].join(" ");
 
   const res = await fetch(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
     })
   });
 
@@ -309,7 +294,7 @@ export async function generateStickerPack(input: { prompt: string }): Promise<Ge
   const parts: GenerateContentPart[] = data?.candidates?.[0]?.content?.parts ?? [];
   const imagePart = parts.find((p) => p.inline_data?.data);
   if (!imagePart?.inline_data) {
-    throw new Error("Gemini n'a renvoyé aucune image pour ce sticker (le modèle de génération d'image est peut-être indisponible).");
+    throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");
   }
   return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
 }
@@ -368,6 +353,60 @@ export async function analyzeVideoRetention(input: {
   for (const frame of frames) {
     parts.push({ inline_data: { mime_type: frame.mimeType, data: frame.base64 } });
   }
+
+  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      summary: parsed.summary ?? "",
+      dropOffPoints: Array.isArray(parsed.dropOffPoints) ? parsed.dropOffPoints : [],
+      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : []
+    };
+  } catch {
+    return { summary: raw, dropOffPoints: [], recommendations: [] };
+  }
+}
+
+/**
+ * Version "chaîne entière" de analyzeVideoRetention(), utilisée par l'outil
+ * autonome /retention (voir produit n°3 de la feuille de route) : contraint
+ * à la miniature publique de la vidéo (via l'API YouTube Data) plutôt qu'à
+ * des frames extraites au ffmpeg aux instants de décrochage, car on n'a pas
+ * forcément le fichier vidéo source stocké dans Nebula (vidéo publiée
+ * ailleurs, ou importée avant l'existence de l'outil). Volontairement plus
+ * prudent dans le prompt : Gemini n'a qu'UNE SEULE image (la miniature, pas
+ * le contenu réel à chaque seconde), donc ses observations "visuelles" sont
+ * cadrées comme des hypothèses à vérifier, pas des faits établis — pour ne
+ * jamais donner l'impression d'avoir "vu" un instant qu'il n'a pas vu.
+ */
+export async function analyzeVideoRetentionByThumbnail(input: {
+  title: string;
+  description: string;
+  retentionCurve: RetentionPoint[];
+  thumbnailBase64: string;
+  thumbnailMimeType: string;
+}): Promise<VideoAnalysis> {
+  const { title, description, retentionCurve, thumbnailBase64, thumbnailMimeType } = input;
+
+  const curveDescription = retentionCurve
+    .map((p) => `t=${Math.round(p.timeRatio * 100)}% → ${Math.round(p.watchRatio * 100)}% de spectateurs restants`)
+    .join("\n");
+
+  const promptText = [
+    "Tu es un analyste de performance vidéo YouTube, comme l'assistant IA de YouTube Studio.",
+    `Titre de la vidéo : ${title}`,
+    `Description : ${description || "(aucune)"}`,
+    "Voici la courbe RÉELLE de rétention d'audience (donnée par YouTube Analytics) :",
+    curveDescription,
+    "Tu ne disposes que de la miniature publique de la vidéo (image jointe) — PAS des images du contenu à chaque instant. Base tes hypothèses sur le titre, la description, la forme de la courbe (chute brutale au début = accroche faible, décrochage progressif = rythme qui s'essouffle, plateau = contenu qui retient bien...) et ce que suggère la miniature, sans jamais prétendre avoir vu ce qui se passe réellement à l'écran à un instant précis.",
+    "Réponds STRICTEMENT en JSON avec ce format :",
+    `{"summary": "résumé en 2-3 phrases", "dropOffPoints": [{"timeRatio": 0.0-1.0, "watchRatio": 0.0-1.0, "note": "hypothèse sur la cause probable de ce décrochage, formulée comme une hypothèse"}], "recommendations": ["conseil actionnable 1", "conseil actionnable 2", "..."]}`
+  ].join("\n\n");
+
+  const parts: GenerateContentPart[] = [
+    { text: promptText },
+    { inline_data: { mime_type: thumbnailMimeType, data: thumbnailBase64 } }
+  ];
 
   const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
   try {

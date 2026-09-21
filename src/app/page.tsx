@@ -85,6 +85,10 @@ export default async function LandingPage() {
           réseau (voir le README).
         </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Link href="/outils" className="hover:text-slate-300 hover:underline">
+            Outils IA gratuits (sans compte)
+          </Link>
+          <span>·</span>
           <Link href="/legal#conditions" className="hover:text-slate-300 hover:underline">
             Conditions d&apos;utilisation
           </Link>

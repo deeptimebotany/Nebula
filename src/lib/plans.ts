@@ -35,10 +35,23 @@ export interface PlanLimits {
   // Publier la même vidéo/post sur un ensemble de comptes choisis librement,
   // à travers TOUS les réseaux en même temps — réservé au palier Agence.
   massPublishEnabled: boolean;
+  // Nombre de liens affichables sur la page "link in bio" publique de la
+  // marque (voir /link-in-bio et /l/[slug]) — un chiffre très élevé sert de
+  // "illimité" côté UI (voir isUnlimitedBioLinks ci-dessous).
+  maxBioLinks: number;
   // Paliers "nombre de marques" disponibles pour ce plan, du moins cher au
   // plus cher. Le palier Gratuit n'en a qu'un seul (1 marque, 0€).
   tiers: BrandTier[];
   features: string[];
+  // Rapports clients automatiques (voir /reports et BrandReport dans
+  // prisma/schema.prisma) — page publique de reporting par marque, avec
+  // envoi email périodique optionnel. Réservé aux paliers payants, comme
+  // aiEnabled.
+  reportsEnabled: boolean;
+  // Calendrier client public en lecture seule (voir /calendar-share et
+  // CalendarShare dans prisma/schema.prisma) — vue "vers l'avant" qui
+  // complète les rapports (reportsEnabled). Réservé aux mêmes paliers.
+  calendarShareEnabled: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
@@ -49,6 +62,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxPostsPerMonth: 20,
     aiEnabled: false,
     massPublishEnabled: false,
+    maxBioLinks: 3,
     tiers: [{ maxBrands: 1, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
     features: [
       "1 marque",
@@ -56,8 +70,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "20 publications programmées / mois",
       "Publier une même vidéo sur vos réseaux en même temps",
       "Calendrier + analytics de base",
+      "Page « link in bio » publique (3 liens)",
       "Sans assistant IA"
-    ]
+    ],
+    reportsEnabled: false,
+    calendarShareEnabled: false
   },
   PRO: {
     id: "PRO",
@@ -66,6 +83,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxPostsPerMonth: 100,
     aiEnabled: true,
     massPublishEnabled: false,
+    maxBioLinks: 15,
     tiers: [
       { maxBrands: 3, priceMonthly: 9, priceYearly: 90, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_3_MONTHLY", year: "STRIPE_PRICE_PRO_3_YEARLY" } },
       { maxBrands: 5, priceMonthly: 15, priceYearly: 150, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_5_MONTHLY", year: "STRIPE_PRICE_PRO_5_YEARLY" } },
@@ -79,8 +97,13 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Assistant IA (titres, légendes, chat)",
       "Analyse de rétention vidéo par IA",
       "Génération de miniatures",
-      "Thème de couleurs exclusif « Saphir »"
-    ]
+      "Page « link in bio » publique (15 liens)",
+      "Thème de couleurs exclusif « Saphir »",
+      "Rapports clients automatiques",
+      "Calendrier client public"
+    ],
+    reportsEnabled: true,
+    calendarShareEnabled: true
   },
   AGENCY: {
     id: "AGENCY",
@@ -89,6 +112,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxPostsPerMonth: 999999,
     aiEnabled: true,
     massPublishEnabled: true,
+    maxBioLinks: 9999,
     tiers: [
       { maxBrands: 15, priceMonthly: 29, priceYearly: 290, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_15_MONTHLY", year: "STRIPE_PRICE_AGENCY_15_YEARLY" } },
       { maxBrands: 25, priceMonthly: 45, priceYearly: 450, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_25_MONTHLY", year: "STRIPE_PRICE_AGENCY_25_YEARLY" } },
@@ -98,17 +122,29 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Jusqu'à 15, 25 ou 50 marques au choix",
       "Comptes réseaux illimités par marque",
       "Publications illimitées",
+      "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
       "Assistant IA + analyse de rétention",
       "Publications prioritaires",
       "Support prioritaire",
-      "Thème de couleurs exclusif « Or Impérial »"
-    ]
+      "Page « link in bio » publique (liens illimités)",
+      "Thème de couleurs exclusif « Or Impérial »",
+      "Rapports clients automatiques",
+      "Calendrier client public"
+    ],
+    reportsEnabled: true,
+    calendarShareEnabled: true
   }
 };
 
 /** true dès que le palier n'impose pas de vrai plafond (utilisé pour masquer
  * les barres de progression de quota, qui n'ont pas de sens en illimité). */
 export function isUnlimitedPlan(plan: Plan): boolean {
+  return plan === "AGENCY";
+}
+
+/** true dès que le palier n'impose pas de vrai plafond de liens sur la page
+ * "link in bio" (voir maxBioLinks) — utilisé pour masquer le compteur. */
+export function isUnlimitedBioLinks(plan: Plan): boolean {
   return plan === "AGENCY";
 }
 

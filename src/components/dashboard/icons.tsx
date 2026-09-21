@@ -94,25 +94,6 @@ export const IconClose = ({ className = base }: IconProps) => (
   </svg>
 );
 
-export const IconMenu = ({ className = base }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
-    <path d="M4 6.5h16M4 12h16M4 17.5h16" strokeLinecap="round" />
-  </svg>
-);
-
-export const IconEdit = ({ className = base }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
-    <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5.5 16Z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M14 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-export const IconStopSquare = ({ className = base }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="6" y="6" width="12" height="12" rx="2.5" />
-  </svg>
-);
-
 export const IconHash = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <path d="M9 3 7 21M17 3l-2 18M4 9h16M3.5 15h16" strokeLinecap="round" strokeLinejoin="round" />
@@ -281,5 +262,50 @@ export const IconLock = ({ className = base }: IconProps) => (
     <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
     <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" strokeLinecap="round" />
     <circle cx="12" cy="15.3" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// Icône "hamburger" — ouvre le menu latéral (voir sidebar.tsx), placée à
+// gauche du logo dans la barre de navigation.
+export const IconMenu = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" strokeLinecap="round" />
+  </svg>
+);
+
+// Téléphone avec des boutons de liens empilés — page "link in bio" publique
+// (voir /link-in-bio et /l/[slug]).
+export const IconBioLink = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+    <path d="M9 6.5h6M8.5 11h7M8.5 14.3h7M8.5 17.6h4.5" strokeLinecap="round" />
+  </svg>
+);
+
+// Courbe qui chute puis remonte — outil autonome d'analyse de rétention
+// vidéo (voir /retention).
+export const IconRetention = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M3 5v14a1 1 0 0 0 1 1h17" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 8 11 14 14 11 20 17" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Feuille avec une mini-courbe de croissance — rapports clients automatiques
+// (voir /reports).
+export const IconReport = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+    <path d="M8.5 16.5 11 12.5l2 2.5 3-4.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Calendrier avec une flèche de partage — calendrier client public en
+// lecture seule (voir /calendar-share).
+export const IconCalendarShare = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="3" y="5.5" width="14" height="15" rx="2.2" />
+    <path d="M3 9.5h14M6.5 3v3M13.5 3v3" strokeLinecap="round" />
+    <path d="M16 4.5h5v5M21 4.5 15 10.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );

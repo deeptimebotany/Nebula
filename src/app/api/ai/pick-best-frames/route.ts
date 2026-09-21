@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pick = await pickBestFrames({ frames, count });
-    return NextResponse.json({ pick });
+    const bestIndexes = await pickBestFrames({ frames, count });
+    return NextResponse.json({ bestIndexes });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

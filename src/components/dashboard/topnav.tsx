@@ -11,6 +11,7 @@ import { useMode } from "@/components/mode-provider";
 import { PROVIDERS } from "@/lib/providers";
 import type { Network } from "@/lib/types";
 import type { Plan } from "@/lib/plans";
+import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 import {
   IconHome,
   IconCalendar,
@@ -26,10 +27,15 @@ import {
   IconSettings,
   IconAvatar,
   IconSun,
-  IconMoon
+  IconMoon,
+  IconMenu,
+  IconBioLink,
+  IconRetention,
+  IconReport,
+  IconCalendarShare
 } from "./icons";
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
-import { NebulaBrandMark } from "./nebula-brandmark";
+import { Sidebar } from "./sidebar";
 
 const NAV = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: IconHome },
@@ -37,6 +43,10 @@ const NAV = [
   { href: "/composer", label: "Importation", icon: IconUpload },
   { href: "/analytics", label: "Analytics", icon: IconChart },
   { href: "/accounts", label: "Comptes", icon: IconLink },
+  { href: "/link-in-bio", label: "Page bio", icon: IconBioLink },
+  { href: "/retention", label: "Rétention IA", icon: IconRetention },
+  { href: "/reports", label: "Rapports", icon: IconReport },
+  { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare },
   { href: "/community", label: "Communauté", icon: IconUsers },
   { href: "/billing", label: "Facturation", icon: IconCard },
   { href: "/settings", label: "Paramètres", icon: IconSettings }
@@ -62,6 +72,11 @@ export function TopNav() {
   const { mode, setMode } = useMode();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Menu latéral déroulant (voir sidebar.tsx), ouvert via l'icône
+  // "hamburger" à gauche du logo — indépendant de la barre d'onglets du
+  // haut, qui reste inchangée.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [plan, setPlan] = useState<Plan>("FREE");
   const [maxBrands, setMaxBrands] = useState(1);
@@ -143,9 +158,33 @@ export function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-void-950/90 backdrop-blur">
-      {/* Ligne 1 — logo, onglets, actions de compte */}
+    // Sidebar en dehors du <header> : le header a "backdrop-blur"
+    // (backdrop-filter), qui crée un nouveau "containing block" pour ses
+    // descendants en position "fixed" — la sidebar se retrouverait alors
+    // bornée à la hauteur du header (56px) au lieu de couvrir tout l'écran.
+    // La sortir dans un fragment frère du header évite complètement le
+    // problème.
+    <>
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        items={NAV}
+        brandName={whiteLabel.brandName || "Nebula"}
+        logoUrl={whiteLabel.logoUrl}
+      />
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-void-950/90 backdrop-blur">
+      {/* Ligne 1 — hamburger, logo, onglets, actions de compte */}
       <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Ouvrir le menu"
+          aria-expanded={sidebarOpen}
+          className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+        >
+          <IconMenu className="h-[18px] w-[18px]" />
+        </button>
+
         <Link href="/dashboard" className="mr-2 flex shrink-0 items-center gap-2">
           {whiteLabel.logoUrl ? (
             <>
@@ -269,7 +308,7 @@ export function TopNav() {
 
       {/* Ligne 2 — marque active, comptes connectés, mise à niveau */}
       <div className="flex h-14 items-center gap-3 border-t border-white/[0.04] px-4 sm:px-6">
-        <div className={clsx("relative shrink-0", plan !== "FREE" && "glow-border-gold rounded-xl")} ref={brandSwitcherRef}>
+        <div className="relative shrink-0" ref={brandSwitcherRef}>
           <button
             onClick={() => setBrandSwitcherOpen((v) => !v)}
             title="Changer de marque ou gérer votre compte"
@@ -281,13 +320,7 @@ export function TopNav() {
                 <p className="max-w-[140px] truncate text-sm font-medium text-white">
                   {activeBrand?.name ?? "Sélectionner une marque"}
                 </p>
-                <span
-                  className={clsx(
-                    "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                    PLAN_BADGE_STYLE[plan],
-                    plan !== "FREE" && "shadow-[0_0_8px_rgba(234,179,8,0.3)]"
-                  )}
-                >
+                <span className={clsx("shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", PLAN_BADGE_STYLE[plan])}>
                   {plan === "FREE" ? "Gratuit" : plan === "PRO" ? "Pro" : "Agence"}
                 </span>
               </div>
@@ -423,6 +456,7 @@ export function TopNav() {
 
         {plan !== "AGENCY" && <UpgradeButton size="sm" className="shrink-0" />}
       </div>
-    </header>
+      </header>
+    </>
   );
 }

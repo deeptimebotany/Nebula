@@ -29,10 +29,18 @@ const WORD_STARS = [
   { cx: 600, cy: 165, r: 0.9, dur: 3.2, delay: -0.8 }
 ] as const;
 
-export function NebulaBrandMark({ className = "" }: { className?: string }) {
+interface NebulaBrandMarkProps {
+  className?: string;
+  /** Hauteur de l'icône (anneaux + étincelle), en px. */
+  iconSize?: number;
+  /** Hauteur du wordmark "Nebula", en px — sa largeur suit proportionnellement. */
+  wordHeight?: number;
+}
+
+export function NebulaBrandMark({ className = "", iconSize = 32, wordHeight = 30 }: NebulaBrandMarkProps) {
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
-      <svg width="32" height="32" viewBox="0 0 120 120" className="shrink-0" aria-hidden>
+      <svg width={iconSize} height={iconSize} viewBox="0 0 120 120" className="shrink-0" aria-hidden>
         <defs>
           <radialGradient id="nbm-halo" cx="50%" cy="50%" r="50%">
             <stop offset="0" stopColor={V} stopOpacity="0.35" />
@@ -76,7 +84,7 @@ export function NebulaBrandMark({ className = "" }: { className?: string }) {
       </svg>
 
       <svg
-        height="30"
+        height={wordHeight}
         viewBox="0 0 650 230"
         preserveAspectRatio="xMinYMid meet"
         aria-label="Nebula"
@@ -106,26 +114,30 @@ export function NebulaBrandMark({ className = "" }: { className?: string }) {
           </path>
         </g>
 
-        {/* e */}
+        {/* e : cercle ouvert (arc propre) + barre horizontale */}
         <g transform="translate(150,0)">
           <path
             fill="none" stroke="url(#nbm-wgrad)" strokeWidth="13" strokeLinecap="round"
-            d="M58,110 C28,108 10,128 10,160 C10,192 32,213 60,207 C75,204 84,195 88,184"
+            d="M100.2,173 A48,48 0 1,1 100.2,147"
           />
-          <path fill="none" stroke="url(#nbm-wgrad)" strokeWidth="11" strokeLinecap="round" d="M14,158 L84,158" />
+          {/* Légère pente (159.5→160.5) volontaire : une ligne parfaitement
+              horizontale a une bounding box de hauteur nulle, ce qui fait que
+              Chrome n'applique pas le dégradé (objectBoundingBox) dessus et
+              la barre devient invisible. */}
+          <path fill="none" stroke="url(#nbm-wgrad)" strokeWidth="11" strokeLinecap="round" d="M10,159.5 L102.2,160.5" />
         </g>
 
-        {/* b : lame pointue + bulbe */}
+        {/* b : pointe fine en haut, tige droite en bas, bulbe attaché proprement */}
         <g transform="translate(258,0)">
-          <path fill="url(#nbm-wgrad)" d="M4,210 C1,158 -3,92 8,42 C11,30 14,21 16,15 C20,23 24,36 22,61 C18,121 20,170 24,210 Z" />
-          <ellipse cx="46" cy="176" rx="30" ry="34" fill="none" stroke="url(#nbm-wgrad)" strokeWidth="13" />
+          <path fill="url(#nbm-wgrad)" d="M9,210 L9,100 C9,60 12,30 16,15 C20,30 23,60 23,100 L23,210 Z" />
+          <ellipse cx="53" cy="172" rx="31" ry="38" fill="none" stroke="url(#nbm-wgrad)" strokeWidth="13" />
         </g>
 
-        {/* u */}
-        <g transform="translate(360,0)">
+        {/* u : descente droite, courbe basse franche, remontée droite */}
+        <g transform="translate(365,0)">
           <path
             fill="none" stroke="url(#nbm-wgrad)" strokeWidth="13" strokeLinecap="round"
-            d="M14,110 L14,178 C14,204 36,212 52,203 M88,110 L88,206 C88,210 92,212 96,209"
+            d="M14,108 L14,172 A34,34 0 0 0 82,172 L82,108"
           />
         </g>
 

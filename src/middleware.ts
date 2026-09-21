@@ -14,6 +14,8 @@ export const config = {
     "/billing/:path*",
     "/posts/:path*",
     "/support/:path*",
-    "/community/:path*"
+    "/community/:path*",
+    "/link-in-bio/:path*",
+    "/retention/:path*"
   ]
 };

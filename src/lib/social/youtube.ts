@@ -180,3 +180,60 @@ export async function fetchRetention(
 
   return data.rows.map(([timeRatio, watchRatio]) => ({ timeRatio, watchRatio }));
 }
+
+export interface YoutubeVideoSummary {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  publishedAt: string;
+}
+
+/**
+ * Liste les vidéos les plus récentes de la chaîne connectée (scope
+ * youtube.readonly, déjà demandé — voir getAuthUrl ci-dessus), pour le
+ * sélecteur de l'outil autonome de rétention (/retention) : n'importe quelle
+ * vidéo de la chaîne, publiée ou non via Nebula, pas seulement celles créées
+ * depuis le Composer.
+ */
+export async function fetchRecentVideos(connection: ConnectionLike, maxResults = 12): Promise<YoutubeVideoSummary[]> {
+  const data = await fetchJson<{
+    items: { id: { videoId: string }; snippet: { title: string; publishedAt: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
+  }>(
+    "YOUTUBE",
+    `${API_BASE}/search?part=snippet&forMine=true&type=video&order=date&maxResults=${maxResults}`,
+    { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+  );
+
+  return (data.items ?? [])
+    .filter((item) => item.id?.videoId)
+    .map((item) => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default.url,
+      publishedAt: item.snippet.publishedAt
+    }));
+}
+
+export interface YoutubeVideoMetadata {
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+}
+
+/** Métadonnées publiques d'une vidéo précise (titre, description, miniature). */
+export async function fetchVideoMetadata(connection: ConnectionLike, videoId: string): Promise<YoutubeVideoMetadata> {
+  const data = await fetchJson<{
+    items: { snippet: { title: string; description: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
+  }>("YOUTUBE", `${API_BASE}/videos?part=snippet&id=${videoId}`, {
+    headers: { Authorization: `Bearer ${connection.accessToken}` }
+  });
+
+  const item = data.items?.[0];
+  if (!item) throw new Error("Vidéo introuvable sur cette chaîne YouTube.");
+
+  return {
+    title: item.snippet.title,
+    description: item.snippet.description,
+    thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default.url
+  };
+}

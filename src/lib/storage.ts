@@ -69,20 +69,33 @@ export async function saveUploadedFile(file: File): Promise<{
   };
 }
 
+function extensionForMimeType(mimeType: string): string {
+  const known: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/svg+xml": "svg"
+  };
+  return known[mimeType] || "png";
+}
+
 /**
- * Même mécanisme de stockage que saveUploadedFile() ci-dessus, mais pour une
- * image générée côté serveur (base64 en mémoire, pas de File issu d'un
- * formulaire) — utilisé pour le pack d'emojis Premium généré par IA (voir
- * src/lib/ai/gemini.ts::generateStickerPack et
- * /api/premium/reactions/generate).
+ * Variante de saveUploadedFile pour une image déjà générée en mémoire (ex :
+ * miniature ou sticker IA, voir lib/ai/gemini.ts::generateThumbnail /
+ * generateStickerPack), reçue en base64 plutôt que comme un File uploadé par
+ * un navigateur. Même logique de stockage (Vercel Blob si configuré, sinon
+ * disque local) pour que l'app entière ne dépende que de l'URL retournée.
  */
 export async function saveGeneratedImage(input: {
   base64: string;
   mimeType: string;
-  baseName: string;
+  baseName?: string;
 }): Promise<{ url: string }> {
-  const ext = input.mimeType.includes("png") ? "png" : input.mimeType.includes("webp") ? "webp" : "jpg";
-  const safeName = `${input.baseName}-${randomUUID()}.${ext}`;
+  const ext = extensionForMimeType(input.mimeType);
+  const prefix = input.baseName ? `${input.baseName}-` : "";
+  const safeName = `${prefix}${randomUUID()}.${ext}`;
   const buffer = Buffer.from(input.base64, "base64");
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {

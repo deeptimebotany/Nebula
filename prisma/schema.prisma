@@ -31,7 +31,7 @@ model User {
   forumThreads ForumThread[]
   forumReplies ForumReply[]
   sharedVideos SharedVideo[]
-  reactions    CommunityReaction[]
+  communityReactions CommunityReaction[]
   pollVotes    PollVote[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
@@ -95,6 +95,91 @@ model Brand {
   media          MediaAsset[]
   competitors    CompetitorTrack[]
   approvalLinks  ApprovalLink[]
+  linkPage       LinkPage?
+  report         BrandReport?
+  calendarShare  CalendarShare?
+}
+
+// Calendrier client en lecture seule (produit n°7 de la feuille de route) :
+// une page publique par marque montrant les prochaines publications déjà
+// programmées, sans aucun droit d'édition — complète les rapports du
+// produit n°6 (qui regardent en arrière) avec une vue vers l'avant. Une
+// seule ligne par marque (relation 1-1), créée à la volée comme LinkPage et
+// BrandReport. Réservé aux paliers Pro/Agence (calendarShareEnabled dans
+// src/lib/plans.ts).
+model CalendarShare {
+  id         String   @id @default(cuid())
+  brandId    String   @unique
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  token      String   @unique @default(cuid())
+  enabled    Boolean  @default(false)
+  windowDays Int      @default(30)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Rapport client automatique (produit n°6 de la feuille de route) : une page
+// publique de reporting par marque (croissance des abonnés, publications de
+// la période), recalculée à la volée à chaque visite à partir des données
+// déjà collectées (AnalyticsSnapshot, Post/PostTarget) — jamais un instantané
+// figé, donc toujours à jour même entre deux envois email. L'envoi email
+// périodique (voir runDueReports() dans src/lib/reports.ts, appelé par
+// /api/cron) n'est qu'un rappel vers ce même lien public, jamais une pièce
+// jointe ni un contenu généré une fois pour toutes. Réservé aux paliers
+// Pro/Agence (reportsEnabled dans src/lib/plans.ts). Une seule ligne par
+// marque (relation 1-1), créée à la volée comme LinkPage.
+model BrandReport {
+  id             String    @id @default(cuid())
+  brandId        String    @unique
+  brand          Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  token          String    @unique @default(cuid())
+  enabled        Boolean   @default(false)
+  periodDays     Int       @default(30)
+  recipientEmail String?
+  frequency      String    @default("OFF") // "OFF" | "WEEKLY" | "MONTHLY"
+  lastSentAt     DateTime?
+  nextSendAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Page "link in bio" publique de la marque (façon Linktree), accessible sans
+// connexion à /l/[slug] via le slug (déjà unique) de la marque. Une seule
+// page par marque : relation 1-1 avec Brand. "published" contrôle la
+// visibilité publique indépendamment de l'existence de la ligne (permet de
+// préparer la page puis de la publier plus tard). "theme" réutilise les clés
+// de src/lib/themes.ts (mêmes 14 palettes que le reste de l'appli, avec la
+// même vérification de palier via requiresPlan) pour que la page publique
+// s'accorde avec l'identité visuelle choisie par la marque.
+model LinkPage {
+  id        String     @id @default(cuid())
+  brandId   String     @unique
+  brand     Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  title     String     @default("")
+  bio       String     @default("")
+  avatarUrl String?
+  theme     String     @default("nebula")
+  published Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  links     LinkItem[]
+}
+
+// Un bouton/lien affiché sur la page publique. "clicks" est incrémenté par
+// /api/public/link-in-bio/[slug]/click à chaque clic visiteur, pour donner à
+// la marque un minimum de statistiques sans avoir besoin d'analytics tiers.
+model LinkItem {
+  id         String   @id @default(cuid())
+  linkPageId String
+  linkPage   LinkPage @relation(fields: [linkPageId], references: [id], onDelete: Cascade)
+  label      String
+  url        String
+  order      Int      @default(0)
+  enabled    Boolean  @default(true)
+  clicks     Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([linkPageId])
 }
 
 // plan     : "FREE" | "PRO" | "AGENCY" (voir src/lib/plans.ts)
@@ -152,6 +237,7 @@ model SocialConnection {
   brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   targets           PostTarget[]
   analytics         AnalyticsSnapshot[]
+  videoInsights     VideoInsight[]
 
   @@unique([brandId, network, externalAccountId])
 }
@@ -231,17 +317,29 @@ model PostTarget {
 
 // Analyse IA de la performance d'une publication vidéo (rétention YouTube +
 // lecture des frames aux points de décrochage). Voir src/lib/ai/*.
+// postTargetId reste rempli pour une analyse lancée depuis une publication
+// Nebula (voir /posts/[id], flux historique). connectionId + videoId sont
+// remplis à la place pour une analyse lancée depuis l'outil autonome
+// /retention (voir produit n°3 de la feuille de route "roadmap-produits-
+// nebula") : n'importe quelle vidéo de la chaîne YouTube connectée, publiée
+// ou non via Nebula. Les deux couples sont optionnels et mutuellement
+// indépendants — jamais les deux vides en pratique, mais rien ne l'impose
+// au niveau du schéma (validé côté application).
 model VideoInsight {
-  id             String     @id @default(cuid())
-  postTargetId   String
-  summary        String
-  dropOffPoints  String // JSON : [{ timeRatio, watchRatio, note }]
+  id              String          @id @default(cuid())
+  postTargetId    String?
+  postTarget      PostTarget?     @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  connectionId    String?
+  connection      SocialConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  videoId         String?
+  summary         String
+  dropOffPoints   String // JSON : [{ timeRatio, watchRatio, note }]
   recommendations String // JSON : string[]
-  retentionCurve String // JSON : [{ timeRatio, watchRatio }]
-  createdAt      DateTime   @default(now())
-  postTarget     PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  retentionCurve  String // JSON : [{ timeRatio, watchRatio }]
+  createdAt       DateTime        @default(now())
 
   @@index([postTargetId, createdAt])
+  @@index([connectionId, videoId, createdAt])
 }
 
 // role : "USER" | "ASSISTANT"
@@ -281,11 +379,7 @@ model AnalyticsSnapshot {
 // réhébergement du fichier source).
 // ---------------------------------------------------------------------------
 
-// category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE" | "VIP" | "ACTUALITES"
-// "VIP"        : espace interne réservé aux membres Premium (PRO/AGENCE) — lecture ET
-//                écriture bloquées côté API pour les comptes Gratuit (voir /api/community/threads).
-// "ACTUALITES" : contenu éditorial publié par l'admin (voir src/lib/admin.ts), avec accès
-//                anticipé pour les membres Premium via publicAt (voir /api/community/threads).
+// category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE"
 model ForumThread {
   id        String       @id @default(cuid())
   authorId  String
@@ -293,10 +387,6 @@ model ForumThread {
   body      String
   category  String       @default("GENERAL")
   pinned    Boolean      @default(false)
-  // Accès anticipé (catégorie "ACTUALITES" uniquement) : avant cette date, seuls les
-  // membres Premium voient le thread — les autres le voient à partir de publicAt.
-  // NULL = pas de restriction d'accès anticipé (comportement normal des autres catégories).
-  publicAt  DateTime?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -317,77 +407,6 @@ model ForumReply {
   reactions CommunityReaction[]
 
   @@index([threadId, createdAt])
-}
-
-// Réaction emoji sur un thread OU une réponse (exactement un des deux liens est
-// renseigné, imposé côté application — voir /api/community/reactions). L'emoji
-// est soit un caractère Unicode standard (accessible à tous), soit la clé d'un
-// PremiumReaction du pack exclusif (réservé aux membres Premium, vérifié côté
-// serveur avant toute écriture).
-model CommunityReaction {
-  id        String       @id @default(cuid())
-  emoji     String
-  userId    String
-  threadId  String?
-  replyId   String?
-  createdAt DateTime     @default(now())
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  thread    ForumThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  reply     ForumReply?  @relation(fields: [replyId], references: [id], onDelete: Cascade)
-
-  @@unique([threadId, replyId, userId, emoji])
-  @@index([threadId])
-  @@index([replyId])
-}
-
-// Pack d'emojis/réactions exclusifs Premium, généré par IA (voir
-// /api/premium/reactions/generate, réservé à l'admin) et stocké via le même
-// mécanisme que les autres médias uploadés (Vercel Blob ou disque local,
-// voir src/lib/storage.ts::saveGeneratedImage). "key" est la valeur stockée
-// dans CommunityReaction.emoji pour identifier une réaction exclusive.
-model PremiumReaction {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  label     String
-  imageUrl  String
-  createdAt DateTime @default(now())
-}
-
-// Sondage réservé à la Communauté — création par l'admin (voir src/lib/admin.ts),
-// vote réservé aux membres Premium actifs (un vote par utilisateur, vérifié via
-// la contrainte unique ci-dessous et côté serveur).
-model Poll {
-  id        String       @id @default(cuid())
-  question  String
-  createdAt DateTime     @default(now())
-  closesAt  DateTime?
-  options   PollOption[]
-  votes     PollVote[]
-
-  @@index([createdAt])
-}
-
-model PollOption {
-  id        String     @id @default(cuid())
-  pollId    String
-  label     String
-  order     Int        @default(0)
-  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  votes     PollVote[]
-}
-
-model PollVote {
-  id        String     @id @default(cuid())
-  pollId    String
-  optionId  String
-  userId    String
-  createdAt DateTime   @default(now())
-  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([pollId, userId])
-  @@index([optionId])
 }
 
 // Contenu éditorial fixe (pas d'auteur "utilisateur") — géré via le script de
@@ -484,4 +503,102 @@ model PostApproval {
   respondedAt   DateTime?
   createdAt     DateTime  @default(now())
   post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+// Quota anti-abus pour les outils IA gratuits et sans compte (voir /outils,
+// produit n°2 de la feuille de route "aimant à visiteurs"). ipHash est un
+// hash SHA-256 de l'IP du visiteur (jamais l'IP en clair, voir
+// src/lib/public-tools-limit.ts) ; "tool" distingue chaque outil
+// (ex: "captions", "thumbnail") car ils n'ont pas le même coût ni la même
+// limite quotidienne ; "day" est la date au format AAAA-MM-JJ (UTC), ce qui
+// fait naturellement repartir le compteur à zéro chaque jour sans job de
+// nettoyage dédié (les vieilles lignes peuvent être purgées périodiquement,
+// mais leur accumulation reste négligeable en volume).
+model PublicToolUsage {
+  id      String   @id @default(cuid())
+  ipHash  String
+  tool    String
+  day     String
+  count   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([ipHash, tool, day])
+}
+
+// Pack d'emojis/réactions exclusifs Premium ("Or Impérial"), généré via IA
+// (voir /api/premium/reactions/generate et lib/ai/gemini.ts::
+// generateStickerPack). "key" est l'identifiant stable utilisé côté front
+// (ex: "gold-fire", préfixé "premium:" dans CommunityReaction.emoji) : la
+// génération relance un upsert sur cette clé plutôt que de dupliquer les
+// lignes à chaque régénération du pack.
+model PremiumReaction {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  imageUrl  String
+  createdAt DateTime @default(now())
+}
+
+// Réaction (emoji standard OU clé du pack Premium préfixée "premium:") posée
+// par un utilisateur sur un thread ou une réponse de la Communauté (jamais
+// les deux à la fois, voir /api/community/reactions). Basculer la même
+// réaction une seconde fois la retire (toggle), d'où l'absence de contrainte
+// d'unicité ici : la logique de toggle vit dans la route, pas dans le schéma.
+model CommunityReaction {
+  id        String      @id @default(cuid())
+  userId    String
+  threadId  String?
+  replyId   String?
+  emoji     String
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread    ForumThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  reply     ForumReply?  @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([replyId])
+  @@index([userId])
+}
+
+// Sondage éditorial (création réservée à l'admin, voir
+// /api/community/polls). Les résultats agrégés sont visibles par tout
+// compte connecté ; seul le VOTE est réservé Premium (voir PollVote et
+// /api/community/polls/[id]/vote).
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  createdAt DateTime     @default(now())
+  closesAt  DateTime?
+  options   PollOption[]
+  votes     PollVote[]
+
+  @@index([createdAt])
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  pollId String
+  label  String
+  order  Int        @default(0)
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
+
+  @@index([pollId])
+}
+
+// Un seul vote par utilisateur et par sondage (contrainte pollId_userId,
+// voir /api/community/polls/[id]/vote) : revoter avec une autre option
+// remplace le vote précédent via upsert plutôt que d'en créer un second.
+model PollVote {
+  id        String     @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([optionId])
 }

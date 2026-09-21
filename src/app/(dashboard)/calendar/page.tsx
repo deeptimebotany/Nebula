@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
-import { useQuickComposer } from "@/components/dashboard/quick-composer-context";
 import { Button } from "@/components/ui/button";
 import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
@@ -55,7 +54,6 @@ function dateKey(d: Date) {
 
 export default function CalendarPage() {
   const { activeBrand, brands } = useBrand();
-  const { open: openQuickComposer } = useQuickComposer();
   const toast = useToast();
   const aiStatus = useAiStatus(activeBrand?.id);
   const [view, setView] = useState<"month" | "hours">("month");
@@ -247,7 +245,9 @@ export default function CalendarPage() {
               Lien d&apos;approbation client
             </Button>
           )}
-          <Button onClick={() => openQuickComposer()}>Planifier un post</Button>
+          <Link href="/composer">
+            <Button>Planifier un post</Button>
+          </Link>
         </div>
       </div>
 
@@ -420,27 +420,25 @@ export default function CalendarPage() {
                         </button>
                       )}
                       {activeBrand && (
-                        <button
-                          type="button"
-                          onClick={() => openQuickComposer({ date: key })}
+                        <Link
+                          href={`/composer?date=${key}`}
                           title="Créer un post à cette date"
                           className="flex h-5 w-5 items-center justify-center rounded-full text-slate-600 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/cell:opacity-100"
                         >
                           <IconPlus className="h-3 w-3" />
-                        </button>
+                        </Link>
                       )}
                     </div>
                   </div>
                   {entries.length === 0 && ideaByKey[key] && (
                     <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-                      <button
-                        type="button"
-                        onClick={() => openQuickComposer({ date: key })}
-                        className="mb-1 block w-full rounded-md border border-aurora-400/20 bg-aurora-400/[0.06] p-1.5 text-left text-[10px] leading-tight text-aurora-100 transition hover:border-aurora-400/40"
+                      <Link
+                        href={`/composer?date=${key}`}
+                        className="mb-1 block rounded-md border border-aurora-400/20 bg-aurora-400/[0.06] p-1.5 text-[10px] leading-tight text-aurora-100 transition hover:border-aurora-400/40"
                         title="Cliquez pour rédiger ce post"
                       >
                         <IconSparkle className="mb-0.5 inline h-2.5 w-2.5 text-aurora-300" /> {ideaByKey[key]}
-                      </button>
+                      </Link>
                     </motion.div>
                   )}
                   <div className="space-y-1">
@@ -535,16 +533,13 @@ export default function CalendarPage() {
                       </button>
                     ))}
                     {activeBrand && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openQuickComposer({ date: dateKey(agendaDay), time: `${String(h).padStart(2, "0")}:00` })
-                        }
+                      <Link
+                        href={`/composer?date=${dateKey(agendaDay)}&time=${String(h).padStart(2, "0")}:00`}
                         className="flex h-6 w-6 items-center justify-center rounded-full text-slate-700 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/slot:opacity-100"
                         title={`Programmer à ${String(h).padStart(2, "0")}:00`}
                       >
                         <IconPlus className="h-3.5 w-3.5" />
-                      </button>
+                      </Link>
                     )}
                   </div>
                 </div>

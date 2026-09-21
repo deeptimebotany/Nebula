@@ -55,7 +55,7 @@ function ResetPasswordFormInner() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
-        <NebulaBrandMark className="mb-5" />
+        <NebulaBrandMark className="mb-5" iconSize={52} wordHeight={48} />
         <h1 className="font-display text-2xl font-semibold text-white">Nouveau mot de passe</h1>
 
         {!token ? (

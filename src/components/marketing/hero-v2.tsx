@@ -88,6 +88,9 @@ export function HeroV2({ children }: { children: ReactNode }) {
             </Button>
           </Link>
         </div>
+        <Link href="/outils" className="mt-3 inline-block text-xs text-slate-500 hover:text-aurora-300 hover:underline">
+          Ou essayez nos outils IA gratuits, sans compte →
+        </Link>
       </Reveal>
 
       {/* Badges de réassurance : formulés honnêtement — Nebula utilise bien

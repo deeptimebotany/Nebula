@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
-import { useAiAssistantBubble } from "@/components/dashboard/ai-assistant-context";
 import { useToast } from "@/components/dashboard/toast";
 import { GlassCard } from "@/components/ui/glass-card";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
@@ -232,19 +231,10 @@ function ComposerPageInner() {
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
-  const { explain } = useAiAssistantBubble();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
   const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
   const prefilledTime = searchParams.get("time"); // optionnel, depuis la vue heures du calendrier (HH:mm)
-  // Média déjà envoyé depuis la popup "Nouvelle publication" (voir
-  // quick-composer-modal.tsx, bouton "Options avancées") : le fichier est
-  // déjà sur le serveur, seule sa référence transite par l'URL — le
-  // brouillon localStorage, lui, ne porte que le texte.
-  const quickAssetId = searchParams.get("quickAssetId");
-  const quickAssetUrl = searchParams.get("quickAssetUrl");
-  const quickAssetType = searchParams.get("quickAssetType");
-  const quickAssetFilename = searchParams.get("quickAssetFilename");
   const aiStatus = useAiStatus(activeBrand?.id);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
@@ -272,12 +262,6 @@ function ComposerPageInner() {
   const [generatingAll, setGeneratingAll] = useState(false);
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumbOptions, setThumbOptions] = useState<string[]>([]);
-  // Raison (façon directeur artistique) donnée par l'IA pour chaque miniature
-  // proposée — affichée en infobulle sous chaque vignette (voir onGenerateThumbnails).
-  const [thumbReasons, setThumbReasons] = useState<Record<string, string>>({});
-  // URL de la miniature désignée par l'IA comme LA meilleure (pas juste une
-  // parmi d'autres) — affichée avec un badge distinct dans la grille.
-  const [thumbBestUrl, setThumbBestUrl] = useState<string | null>(null);
   const [aiThumbLoading, setAiThumbLoading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
@@ -445,28 +429,6 @@ function ComposerPageInner() {
       });
   }, [duplicateId]);
 
-  // Pré-remplissage depuis la popup "Nouvelle publication" (voir plus haut,
-  // quickAssetId/Url/Type/Filename) : ignoré si on duplique un post existant
-  // (les deux ne peuvent pas arriver en même temps).
-  useEffect(() => {
-    if (duplicateId || !quickAssetId || !quickAssetUrl) return;
-    setAssets((prev) =>
-      prev.some((a) => a.id === quickAssetId)
-        ? prev
-        : [
-            ...prev,
-            {
-              id: quickAssetId,
-              url: quickAssetUrl,
-              filename: quickAssetFilename ?? "media",
-              type: quickAssetType === "VIDEO" ? "VIDEO" : "IMAGE",
-              previewUrl: quickAssetUrl
-            }
-          ]
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [duplicateId, quickAssetId, quickAssetUrl, quickAssetType, quickAssetFilename]);
-
   // Brouillon automatique : on restaure le dernier brouillon non envoyé de
   // cette marque au chargement (sauf si on duplique un post existant), et on
   // sauvegarde en continu pour ne jamais perdre un titre/texte en cas de
@@ -620,8 +582,8 @@ function ComposerPageInner() {
     return mediaFrameRef.current;
   }
 
-  async function generateField(field: "title" | "description", network?: Network): Promise<{ text: string; reasoning: string }> {
-    if (!activeBrand) return { text: "", reasoning: "" };
+  async function generateField(field: "title" | "description", network?: Network) {
+    if (!activeBrand) return "";
     const frame = await getMediaFrameForAi();
     const res = await fetch("/api/ai/generate-copy", {
       method: "POST",
@@ -640,67 +602,32 @@ function ComposerPageInner() {
     const data = await res.json();
     if (!res.ok) {
       toast.error(data.error ?? "Erreur IA.");
-      return { text: "", reasoning: "" };
+      return "";
     }
-    return { text: data.text as string, reasoning: (data.reasoning as string) ?? "" };
-  }
-
-  // Empêche le spam-click sur les petits boutons "IA" (titre/description,
-  // globaux ou par réseau) : sans ça, chaque clic pendant qu'une génération
-  // est déjà en cours partait comme une requête Gemini séparée, gaspillant
-  // du quota et faisant parfois "sauter" le résultat entre deux réponses.
-  const [generatingKeys, setGeneratingKeys] = useState<Set<string>>(new Set());
-  function generationKey(field: "title" | "description", network?: Network) {
-    return network ? `${field}:${network}` : field;
+    return data.text as string;
   }
 
   async function onGenerateOne(field: "title" | "description", network?: Network) {
-    const key = generationKey(field, network);
-    if (generatingKeys.has(key)) return;
-    setGeneratingKeys((prev) => new Set(prev).add(key));
-    try {
-      const { text, reasoning } = await generateField(field, network);
-      if (!text) return;
-      if (!network) {
-        if (field === "title") setTitle(text);
-        else setCaption(text);
-      } else {
-        setOverrideField(network, field === "title" ? "title" : "caption", text);
-      }
-      if (reasoning) {
-        const fieldLabel = field === "title" ? "Titre" : "Description";
-        const scopeLabel = network ? ` (${network})` : "";
-        explain(`✨ ${fieldLabel}${scopeLabel} : "${text}"\n\nPourquoi : ${reasoning}`);
-      }
-    } finally {
-      setGeneratingKeys((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
+    const text = await generateField(field, network);
+    if (!text) return;
+    if (!network) {
+      if (field === "title") setTitle(text);
+      else setCaption(text);
+    } else {
+      setOverrideField(network, field === "title" ? "title" : "caption", text);
     }
   }
 
   async function onGenerateAll() {
     setGeneratingAll(true);
-    // Important : on enchaîne les générations les UNES APRÈS LES AUTRES
-    // plutôt qu'en parallèle (Promise.all). Avec plusieurs réseaux ouverts,
-    // "Générer tout" pouvait déclencher 8-10+ requêtes Gemini simultanées —
-    // largement au-dessus de la limite de requêtes/minute du palier gratuit
-    // de Google, ce qui se traduisait par des erreurs de quota même avec un
-    // abonnement Nebula Premium (le quota IA dépend de VOTRE clé Gemini, pas
-    // de votre palier Nebula — voir GEMINI_API_KEY dans .env). Séquentiel,
-    // c'est un peu plus lent mais ça reste sous cette limite.
-    const jobs: [field: "title" | "description", network?: Network][] = [["title"], ["description"]];
+    const tasks: Promise<void>[] = [onGenerateOne("title"), onGenerateOne("description")];
     for (const n of selectedNetworks) {
       if (overrides[n]?.open) {
-        jobs.push(["title", n]);
-        jobs.push(["description", n]);
+        tasks.push(onGenerateOne("title", n));
+        tasks.push(onGenerateOne("description", n));
       }
     }
-    for (const [field, network] of jobs) {
-      await onGenerateOne(field, network);
-    }
+    await Promise.all(tasks);
     setGeneratingAll(false);
   }
 
@@ -708,22 +635,17 @@ function ComposerPageInner() {
     if (!videoAsset) return;
     setThumbLoading(true);
     try {
-      // On extrait un peu plus de frames candidates que ce qu'on affiche (8
-      // au lieu de 3) pour donner à l'IA une vraie marge de choix, tout en
-      // restant volontairement modeste : un appel Gemini avec trop d'images
-      // jointes en une fois consomme inutilement le quota gratuit de votre
-      // clé — voir la limite ci-dessous, TARGET_COUNT correspond aux 3
-      // miniatures finales demandées, avec la raison du choix pour chacune.
-      const CANDIDATE_COUNT = 8;
-      const TARGET_COUNT = 3;
+      // On extrait plus de frames candidates que ce qu'on affiche (12 au lieu
+      // de 6) pour donner à l'IA une vraie marge de choix, puis — si l'IA est
+      // disponible — on lui demande de sélectionner les plus nettes/les mieux
+      // cadrées plutôt que de garder un échantillonnage purement temporel
+      // (qui tombe parfois en plein flou de mouvement ou en transition).
+      const CANDIDATE_COUNT = 12;
+      const TARGET_COUNT = 6;
       const blobs = await captureVideoFrames(videoAsset.previewUrl, CANDIDATE_COUNT);
       if (!blobs.length) throw new Error("Aucune image n'a pu être extraite de cette vidéo.");
 
       let chosen = blobs;
-      let reasons: string[] = [];
-      let bestBlobIndexInChosen = 0; // par défaut, sans IA : la 1ère frame extraite
-      let whyBest = "";
-
       if (aiStatus?.enabled && activeBrand) {
         try {
           const encoded = await Promise.all(blobs.map(blobToBase64));
@@ -737,18 +659,9 @@ function ComposerPageInner() {
             })
           });
           const data = await res.json();
-          const pick = data.pick as { bestIndex: number; whyBest: string; alternatives: { index: number; reason: string }[] } | null;
-          if (res.ok && pick && blobs[pick.bestIndex]) {
-            // Le meilleur choix de l'IA passe toujours en premier dans la
-            // grille — les alternatives suivent, dans l'ordre donné.
-            const ordered = [{ index: pick.bestIndex, reason: pick.whyBest }, ...pick.alternatives];
-            const picked = ordered.map((c) => ({ blob: blobs[c.index], reason: c.reason })).filter((c) => Boolean(c.blob));
-            if (picked.length) {
-              chosen = picked.map((p) => p.blob!);
-              reasons = picked.map((p) => p.reason);
-              bestBlobIndexInChosen = 0;
-              whyBest = pick.whyBest;
-            }
+          if (res.ok && Array.isArray(data.bestIndexes) && data.bestIndexes.length > 0) {
+            const picked = data.bestIndexes.map((i: number) => blobs[i]).filter(Boolean) as Blob[];
+            if (picked.length) chosen = picked;
           }
         } catch {
           // L'IA a échoué ou n'a pas répondu à temps — on retombe simplement
@@ -757,33 +670,9 @@ function ComposerPageInner() {
       }
       if (chosen.length > TARGET_COUNT) chosen = chosen.slice(0, TARGET_COUNT);
 
-      lastCapturedFrame.current = chosen[bestBlobIndexInChosen] ?? chosen[0];
+      lastCapturedFrame.current = chosen[0];
       const urls = await Promise.all(chosen.map(uploadThumbnailBlob));
       setThumbOptions(urls);
-      const reasonMap: Record<string, string> = {};
-      urls.forEach((url, i) => {
-        if (reasons[i]) reasonMap[url] = reasons[i];
-      });
-      setThumbReasons(reasonMap);
-      setThumbBestUrl(whyBest ? (urls[bestBlobIndexInChosen] ?? null) : null);
-
-      if (whyBest) {
-        const alternativesText = urls
-          .slice(1)
-          .map((_, i) => reasons[i + 1])
-          .filter(Boolean)
-          .map((r, i) => `Alternative ${i + 1} : ${r}`)
-          .join("\n");
-        explain(
-          [
-            "🖼️ Meilleure miniature selon l'IA (marquée ⭐ dans la grille) :",
-            whyBest,
-            alternativesText ? `\n${alternativesText}` : ""
-          ]
-            .filter(Boolean)
-            .join("\n")
-        );
-      }
     } catch (err) {
       toast.error((err as Error).message ?? "Échec de l'extraction de miniatures.");
     } finally {
@@ -967,12 +856,51 @@ function ComposerPageInner() {
       ? Math.min(...selectedNetworks.map((n) => NETWORK_META[n].maxCaption))
       : null;
 
+  // Revient à la page précédente (calendrier, vue d'ensemble...) — c'est ce
+  // que fait la croix de fermeture et la touche Échap de la popup ci-dessous.
+  // router.back() plutôt qu'un chemin fixe : on veut retomber là d'où
+  // l'utilisateur est venu, pas toujours au même endroit.
+  const closeComposer = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      // Ignore Échap tant qu'un panneau flottant secondaire (sélecteur
+      // d'émojis...) est ouvert : c'est à lui de se fermer en premier.
+      if (e.key === "Escape" && !emojiPickerFor) closeComposer();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeComposer, emojiPickerFor]);
+
   return (
-    <div className="space-y-6">
+    // Toute la création de publication se fait dans une popup qui s'ouvre
+    // automatiquement dès qu'on arrive sur cette page (import vidéo par
+    // glisser-déposer ou sélection de fichier, légende, réseaux ciblés,
+    // programmation...) plutôt que dans une page pleine, pour rester
+    // concentré sur cette seule tâche — voir la capture de référence fournie.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm sm:items-center">
+      <div className="glass-panel w-full max-w-5xl rounded-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <h1 className="font-display text-lg font-semibold text-white">Créer une publication</h1>
+          <button
+            type="button"
+            onClick={closeComposer}
+            aria-label="Fermer"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.04] text-slate-400 transition hover:bg-white/10 hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-5">
+        <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Importation</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="text-sm text-slate-400">
             Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
           </p>
           <p className="mt-0.5 text-xs text-slate-500">
@@ -986,7 +914,7 @@ function ComposerPageInner() {
             </Button>
           )}
           {aiStatus?.enabled && (
-            <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll || generatingKeys.size > 0}>
+            <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
               <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
             </Button>
           )}
@@ -1117,14 +1045,9 @@ function ComposerPageInner() {
 
             {videoAsset && (
               <div className="mt-4 border-t border-white/[0.06] pt-4">
-                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-medium text-white">Miniature</h3>
-                  {/* flex-wrap : sur mobile, 3 boutons ("Générer des miniatures",
-                      "Générer avec l'IA", "Depuis mon ordinateur") ne tiennent
-                      jamais sur une seule ligne — sans wrap, les derniers
-                      débordaient hors du bloc (coupés par le conteneur) et
-                      restaient invisibles/inaccessibles, notamment le bouton IA. */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2">
                     <Button variant="outline" onClick={onGenerateThumbnails} disabled={thumbLoading}>
                       {thumbLoading ? "Extraction..." : "Générer des miniatures"}
                     </Button>
@@ -1148,40 +1071,23 @@ function ComposerPageInner() {
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
                   {aiStatus?.enabled
-                    ? "L'IA propose 3 miniatures parmi les frames les plus nettes et les mieux cadrées de votre vidéo, avec la raison de chaque choix ci-dessous — choisissez celle qui donne le plus envie de cliquer, ou laissez l'IA en créer une version plus accrocheuse."
-                    : "3 images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
+                    ? "L'IA présélectionne les frames les plus nettes et les mieux cadrées parmi votre vidéo — choisissez celle qui donne le plus envie de cliquer, ou laissez l'IA en créer une version plus accrocheuse."
+                    : "Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
                 </p>
                 {thumbOptions.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {thumbOptions.map((url) => {
-                      const isBest = thumbBestUrl === url;
-                      return (
-                        <div key={url} className="space-y-1">
-                          <button
-                            onClick={() => pickThumbnail(url)}
-                            title={thumbReasons[url]}
-                            className={clsx(
-                              "relative w-full overflow-hidden rounded-lg border-2 transition",
-                              videoAsset.thumbnailUrl === url
-                                ? "border-aurora-400"
-                                : isBest
-                                  ? "border-amber-400/70"
-                                  : "border-white/10 hover:border-white/30"
-                            )}
-                          >
-                            {isBest && (
-                              <span className="absolute left-1 top-1 z-10 rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-void-900 shadow">
-                                ⭐ Meilleur choix IA
-                              </span>
-                            )}
-                            <img src={url} alt="Miniature" className="h-20 w-full object-cover" />
-                          </button>
-                          {thumbReasons[url] && (
-                            <p className="line-clamp-2 text-[11px] leading-tight text-slate-500">{thumbReasons[url]}</p>
-                          )}
-                        </div>
-                      );
-                    })}
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    {thumbOptions.map((url) => (
+                      <button
+                        key={url}
+                        onClick={() => pickThumbnail(url)}
+                        className={clsx(
+                          "overflow-hidden rounded-lg border-2 transition",
+                          videoAsset.thumbnailUrl === url ? "border-aurora-400" : "border-white/10 hover:border-white/30"
+                        )}
+                      >
+                        <img src={url} alt="Miniature" className="h-16 w-full object-cover" />
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1209,15 +1115,9 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("title")}
-                    disabled={generatingKeys.has("title")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-50 disabled:hover:no-underline"
+                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
                   >
-                    {generatingKeys.has("title") ? (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
-                    ) : (
-                      <IconSparkle className="h-3.5 w-3.5" />
-                    )}
-                    IA
+                    <IconSparkle className="h-3.5 w-3.5" /> IA
                   </button>
                 )}
               </div>
@@ -1252,15 +1152,9 @@ function ComposerPageInner() {
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("description")}
-                    disabled={generatingKeys.has("description")}
-                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-50 disabled:hover:no-underline"
+                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline"
                   >
-                    {generatingKeys.has("description") ? (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
-                    ) : (
-                      <IconSparkle className="h-3.5 w-3.5" />
-                    )}
-                    IA
+                    <IconSparkle className="h-3.5 w-3.5" /> IA
                   </button>
                 )}
               </div>
@@ -1375,16 +1269,8 @@ function ComposerPageInner() {
                               className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button
-                                onClick={() => onGenerateOne("title", n)}
-                                disabled={generatingKeys.has(generationKey("title", n))}
-                                className="text-aurora-300 disabled:cursor-wait disabled:opacity-50"
-                              >
-                                {generatingKeys.has(generationKey("title", n)) ? (
-                                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
-                                ) : (
-                                  <IconSparkle className="h-4 w-4" />
-                                )}
+                              <button onClick={() => onGenerateOne("title", n)} className="text-aurora-300">
+                                <IconSparkle className="h-4 w-4" />
                               </button>
                             )}
                           </div>
@@ -1397,16 +1283,8 @@ function ComposerPageInner() {
                               className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
                             {aiStatus?.enabled && (
-                              <button
-                                onClick={() => onGenerateOne("description", n)}
-                                disabled={generatingKeys.has(generationKey("description", n))}
-                                className="text-aurora-300 disabled:cursor-wait disabled:opacity-50"
-                              >
-                                {generatingKeys.has(generationKey("description", n)) ? (
-                                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-aurora-300/30 border-t-aurora-300" />
-                                ) : (
-                                  <IconSparkle className="h-4 w-4" />
-                                )}
+                              <button onClick={() => onGenerateOne("description", n)} className="text-aurora-300">
+                                <IconSparkle className="h-4 w-4" />
                               </button>
                             )}
                           </div>
@@ -1705,6 +1583,12 @@ function ComposerPageInner() {
             document.body
           )
         : null}
+    </div>
+    {/* fin de .space-y-6 */}
+        </div>
+        {/* fin de la zone défilante */}
+      </div>
+      {/* fin de la carte de la popup */}
     </div>
   );
 }

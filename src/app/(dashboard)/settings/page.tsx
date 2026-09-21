@@ -232,8 +232,10 @@ export default function SettingsPage() {
           )}
         </div>
         <p className="mt-1 text-sm text-slate-400">
-          Remplacez &laquo; Nebula &raquo; par votre propre nom et logo dans la barre de navigation — utile pour
-          une agence qui présente l&apos;outil à ses clients.
+          Remplacez &laquo; Nebula &raquo; par votre propre nom et logo dans la barre de navigation, ainsi que sur
+          toutes les pages publiques que vos clients consultent sans se connecter (liens de validation, pages
+          &laquo; link in bio &raquo;) — le crédit &laquo; Propulsé par Nebula &raquo; y disparaît automatiquement dès
+          que c&apos;est configuré ici.
         </p>
         {plan !== "AGENCY" ? (
           <p className="mt-3 text-sm text-slate-500">

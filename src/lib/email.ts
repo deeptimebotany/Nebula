@@ -41,6 +41,14 @@ export async function sendEmail(params: { to: string; subject: string; html: str
   }
 }
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<{ ok: boolean; error?: string }> {
   return sendEmail({
     to,
@@ -56,6 +64,41 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
         </p>
         <p style="color: #666; font-size: 13px;">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email — votre mot de passe ne changera pas.</p>
         <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${resetUrl}</p>
+      </div>
+    `
+  });
+}
+
+/**
+ * Notification périodique (voir BrandReport/runDueReports dans
+ * src/lib/reports.ts — produit n°6 de la feuille de route : rapports clients
+ * automatiques) envoyée au destinataire configuré par l'agence pour une
+ * marque. Contient un résumé chiffré + un lien vers le rapport public
+ * complet (toujours à jour, recalculé à la volée) — jamais les chiffres
+ * eux-mêmes présentés comme figés dans le temps.
+ */
+export async function sendReportEmail(params: {
+  to: string;
+  brandName: string;
+  reportUrl: string;
+  periodLabel: string;
+  followers: number;
+  followersDelta: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  const sign = params.followersDelta >= 0 ? "+" : "";
+  return sendEmail({
+    to: params.to,
+    subject: `Rapport ${params.periodLabel} — ${params.brandName}`,
+    html: `
+      <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h2 style="margin-bottom: 4px;">Rapport ${escapeHtml(params.periodLabel)} — ${escapeHtml(params.brandName)}</h2>
+        <p>Abonnés actuels : <strong>${params.followers.toLocaleString("fr-FR")}</strong> (${sign}${params.followersDelta.toLocaleString("fr-FR")} sur la période)</p>
+        <p style="margin: 24px 0;">
+          <a href="${params.reportUrl}" style="background: #2955c4; color: #fff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">
+            Voir le rapport complet
+          </a>
+        </p>
+        <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${params.reportUrl}</p>
       </div>
     `
   });

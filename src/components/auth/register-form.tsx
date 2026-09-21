@@ -7,11 +7,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TurnstileWidget } from "@/components/turnstile-widget";
-import { IconGoogle, IconApple } from "@/components/dashboard/icons";
+import { IconGoogle, IconApple, IconFacebook } from "@/components/dashboard/icons";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 
 interface RegisterFormProps {
-  oauth?: { google: boolean; apple: boolean };
+  oauth?: { google: boolean; apple: boolean; facebook: boolean };
 }
 
 // useSearchParams() (utilisé ci-dessous pour lire ?ref=CODE) impose que le
@@ -73,13 +73,13 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
-        <NebulaBrandMark className="mb-5" />
+        <NebulaBrandMark className="mb-5" iconSize={52} wordHeight={48} />
         <h1 className="font-display text-2xl font-semibold text-white">
           Créez votre <span className="text-gradient">cockpit</span>
         </h1>
         <p className="mt-1 text-sm text-slate-400">Un espace, plusieurs réseaux, zéro friction.</p>
 
-        {(oauth?.google || oauth?.apple) && (
+        {(oauth?.google || oauth?.apple || oauth?.facebook) && (
           <div className="mt-6 space-y-2">
             {oauth.google && (
               <button
@@ -88,6 +88,15 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
               >
                 <IconGoogle className="h-4 w-4" /> Continuer avec Google
+              </button>
+            )}
+            {oauth.facebook && (
+              <button
+                type="button"
+                onClick={() => signIn("facebook", { callbackUrl: "/dashboard" })}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
+              >
+                <IconFacebook className="h-4 w-4" /> Continuer avec Meta
               </button>
             )}
             {oauth.apple && (

@@ -13,14 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     return NextResponse.json({ error: "Lien invalide ou révoqué." }, { status: 404 });
   }
 
-  const [brand, owner] = await Promise.all([
-    prisma.brand.findUnique({ where: { id: link.brandId }, select: { id: true, name: true, logoUrl: true } }),
-    prisma.membership.findFirst({
-      where: { brandId: link.brandId, role: "OWNER" },
-      orderBy: { id: "asc" },
-      select: { user: { select: { whiteLabelBrandName: true, whiteLabelLogoUrl: true } } }
-    })
-  ]);
+  const brand = await prisma.brand.findUnique({ where: { id: link.brandId }, select: { name: true, logoUrl: true } });
   if (!brand) return NextResponse.json({ error: "Marque introuvable." }, { status: 404 });
 
   const posts = await prisma.post.findMany({
@@ -61,8 +54,8 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   }
 
   return NextResponse.json({
-    brandName: owner?.user.whiteLabelBrandName || brand.name,
-    logoUrl: owner?.user.whiteLabelLogoUrl || brand.logoUrl,
+    brandName: brand.name,
+    logoUrl: brand.logoUrl,
     posts: typedPosts.map((p) => ({
       id: p.id,
       title: p.title,

@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconGoogle, IconApple } from "@/components/dashboard/icons";
+import { IconGoogle, IconApple, IconFacebook } from "@/components/dashboard/icons";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 
 interface LoginFormProps {
-  oauth?: { google: boolean; apple: boolean };
+  oauth?: { google: boolean; apple: boolean; facebook: boolean };
 }
 
 export function LoginForm({ oauth }: LoginFormProps) {
@@ -38,11 +38,11 @@ export function LoginForm({ oauth }: LoginFormProps) {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
-        <NebulaBrandMark className="mb-5" />
+        <NebulaBrandMark className="mb-5" iconSize={52} wordHeight={48} />
         <h1 className="font-display text-2xl font-semibold text-white">Bon retour</h1>
         <p className="mt-1 text-sm text-slate-400">Connectez-vous à votre cockpit social.</p>
 
-        {(oauth?.google || oauth?.apple) && (
+        {(oauth?.google || oauth?.apple || oauth?.facebook) && (
           <div className="mt-6 space-y-2">
             {oauth.google && (
               <button
@@ -51,6 +51,15 @@ export function LoginForm({ oauth }: LoginFormProps) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
               >
                 <IconGoogle className="h-4 w-4" /> Continuer avec Google
+              </button>
+            )}
+            {oauth.facebook && (
+              <button
+                type="button"
+                onClick={() => signIn("facebook", { callbackUrl: "/dashboard" })}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
+              >
+                <IconFacebook className="h-4 w-4" /> Continuer avec Meta
               </button>
             )}
             {oauth.apple && (

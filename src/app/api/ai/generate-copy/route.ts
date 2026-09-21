@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (!brand) return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
 
   try {
-    const { text, reasoning } = await generateCopy({
+    const text = await generateCopy({
       field,
       network,
       maxLength: network ? NETWORK_META[network as Network]?.maxCaption : undefined,
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       frameBase64,
       frameMimeType
     });
-    return NextResponse.json({ text, reasoning });
+    return NextResponse.json({ text });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

@@ -18,7 +18,6 @@ import {
   IconMoon
 } from "./icons";
 import { useMode } from "@/components/mode-provider";
-import { useQuickComposer } from "@/components/dashboard/quick-composer-context";
 
 interface Command {
   id: string;
@@ -37,7 +36,6 @@ interface Command {
 export function CommandPalette() {
   const router = useRouter();
   const { mode, setMode } = useMode();
-  const { open: openQuickComposer } = useQuickComposer();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -46,7 +44,7 @@ export function CommandPalette() {
   const commands: Command[] = useMemo(
     () => [
       { id: "home", label: "Vue d'ensemble", icon: IconHome, run: () => router.push("/dashboard") },
-      { id: "new-post", label: "Nouveau post", hint: "Importation", icon: IconPlus, run: () => openQuickComposer() },
+      { id: "new-post", label: "Nouveau post", hint: "Importation", icon: IconPlus, run: () => router.push("/composer") },
       { id: "calendar", label: "Calendrier", icon: IconCalendar, run: () => router.push("/calendar") },
       { id: "composer", label: "Importation", icon: IconUpload, run: () => router.push("/composer") },
       { id: "analytics", label: "Analytics", icon: IconChart, run: () => router.push("/analytics") },
@@ -61,7 +59,7 @@ export function CommandPalette() {
         run: () => setMode(mode === "dark" ? "light" : "dark")
       }
     ],
-    [router, mode, setMode, openQuickComposer]
+    [router, mode, setMode]
   );
 
   const filtered = useMemo(() => {

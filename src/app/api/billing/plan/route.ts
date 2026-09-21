@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { getBrandPlan, getUserPlan, countOwnedBrands } from "@/lib/billing/plan";
 import { isBillingEnabled } from "@/lib/billing/stripe";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { isAdminEmail } from "@/lib/admin";
 
 // GET /api/billing/plan[?brandId=...] — avec brandId, résout le plan via le
 // propriétaire de cette marque (comportement historique, utilisé par le
@@ -20,16 +19,6 @@ export async function GET(req: NextRequest) {
 
   const { plan, limits, interval, maxBrands } = brandId ? await getBrandPlan(brandId) : await getUserPlan(userId);
   const brandsOwned = await countOwnedBrands(userId);
-  const isAdmin = isAdminEmail((session.user as { email?: string } | undefined)?.email);
 
-  return NextResponse.json({
-    plan,
-    limits,
-    interval,
-    maxBrands,
-    brandsOwned,
-    billingEnabled: isBillingEnabled(),
-    allPlans: PLAN_LIMITS,
-    isAdmin
-  });
+  return NextResponse.json({ plan, limits, interval, maxBrands, brandsOwned, billingEnabled: isBillingEnabled(), allPlans: PLAN_LIMITS });
 }
