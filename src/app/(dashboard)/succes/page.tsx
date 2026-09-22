@@ -53,14 +53,17 @@ export default function SuccesPage() {
   const rewardEggs = eggs?.filter((e) => e.reward) ?? [];
 
   return (
-    <div className="relative space-y-6">
+    // "isolate" : même correctif que le Calendrier (voir ce fichier) —
+    // c'est ce qui manquait ici et rendait "Voûte céleste" totalement
+    // invisible, pas seulement discret.
+    <div className="relative isolate space-y-6">
       <CosmeticDecorOverlay cosmeticKey="papier-peint-succes" variant="starfield" />
       <div>
         <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
           <IconTrophy className="h-6 w-6 text-amber-300" /> Succès
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Nebula cache {total} easter eggs un peu partout sur le site. Chacun se révèle ici dès que vous le trouvez —
+          J&apos;ai caché {total} easter eggs un peu partout sur le site. Chacun se révèle ici dès que vous le trouvez —
           pas d&apos;indice, juste le plaisir de tomber dessus.
         </p>
       </div>
@@ -127,9 +130,7 @@ export default function SuccesPage() {
               clair sans dévoiler comment l'obtenir. */}
           {rewardEggs.length > 0 && (
             <div className="space-y-3">
-              <h2 className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                <span className="text-lg">🎁</span> Easter eggs à récompense
-              </h2>
+              <h2 className="flex items-center gap-2 text-sm font-medium text-slate-300">Autres easter eggs</h2>
               <Reveal>
                 <RevealGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {rewardEggs.map((egg) => (
@@ -154,10 +155,7 @@ export default function SuccesPage() {
                       ) : (
                         <div className="flex h-full flex-col items-center justify-center rounded-xl border border-emerald-400/[0.15] bg-emerald-400/[0.02] p-3.5 text-center">
                           <span className="text-2xl text-slate-600">?</span>
-                          <span className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                            🎁 Récompense à la clé
-                          </span>
-                          <span className="mt-1 text-[11px] text-emerald-300/80">{egg.reward}</span>
+                          <span className="mt-2 text-[11px] text-emerald-300/80">{egg.reward}</span>
                         </div>
                       )}
                     </RevealItem>

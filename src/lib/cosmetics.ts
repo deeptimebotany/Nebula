@@ -1,10 +1,20 @@
-// Catalogue des "cosmétiques" : du contenu visuel/sonore RÉEL (curseurs,
-// halos, transitions, sons...) débloqué SOIT par palier (requiresPlan) SOIT
-// en trouvant un easter egg (requiresEgg, voir easter-eggs-registry.ts) —
-// jamais les deux à la fois sur une même entrée. Chaque cosmétique est
-// listé directement dans Paramètres → Cosmétiques, visible même verrouillé
-// (avec le palier requis affiché — ou une simple mention "Easter egg" sans
-// dévoiler le déclencheur, pour les entrées requiresEgg).
+// Catalogue des "cosmétiques" : du contenu visuel/sonore RÉEL (halos, décors,
+// sons...) débloqué SOIT par palier (requiresPlan) SOIT en trouvant un
+// easter egg (requiresEgg, voir easter-eggs-registry.ts) — jamais les deux à
+// la fois sur une même entrée. Chaque cosmétique est listé directement dans
+// Paramètres → Cosmétiques, visible même verrouillé (avec le palier requis
+// affiché — ou une simple mention "Easter egg" sans dévoiler le déclencheur,
+// pour les entrées requiresEgg).
+//
+// Les catégories "Curseur" (traînée au curseur) et "Clic" (étincelles/étoile
+// au clic, survol comète), ainsi que "Traversée d'étoiles (transitions)",
+// ont existé un temps puis ont été retirées entièrement à la demande
+// explicite (retour utilisateur direct) : leurs effets étaient jugés trop
+// envahissants/peu utiles, et le système de particules qu'ils partageaient
+// (voir l'ancien ParticleBurst de cosmetics-effects.tsx) était à l'origine
+// d'un bug de double-déclenchement occasionnel sur les clics et les
+// transitions de page. Toute cette mécanique de particules a été supprimée
+// avec eux plutôt que corrigée.
 //
 // Deux cosmétiques du même lot (le fond de connexion "Voie lactée" et le
 // bandeau "Supernova" des jalons de publication) n'apparaissent PAS ici :
@@ -12,7 +22,7 @@
 // activer — voir login-form.tsx et milestone-celebration.tsx directement.
 import type { Plan } from "./plans";
 
-export type CosmeticCategory = "curseur" | "clic" | "decor" | "son" | "profil";
+export type CosmeticCategory = "decor" | "son" | "profil";
 
 export interface CosmeticDefinition {
   key: string;
@@ -30,44 +40,9 @@ export interface CosmeticDefinition {
 
 export const COSMETICS: CosmeticDefinition[] = [
   {
-    key: "curseur-comete",
-    label: "Curseur Comète",
-    description: "Une traînée colorée façon comète suit votre curseur.",
-    category: "curseur",
-    requiresPlan: "AGENCY"
-  },
-  {
-    key: "curseur-etoile-filante",
-    label: "Curseur Étoile filante",
-    description: "Une fine traînée d'étoile suit votre curseur (plus discrète que la comète).",
-    category: "curseur",
-    requiresPlan: "PRO"
-  },
-  {
-    key: "clic-etincelles",
-    label: "Étincelles au clic",
-    description: "Une petite explosion de particules à chaque clic sur un bouton principal.",
-    category: "clic",
-    requiresPlan: "PRO"
-  },
-  {
-    key: "clic-etoile-explosive",
-    label: "Étoile explosive au clic",
-    description: "Variante plus spectaculaire : une étoile explose à chaque clic gauche, partout sur le site.",
-    category: "clic",
-    requiresPlan: "AGENCY"
-  },
-  {
-    key: "survol-comete-bouton",
-    label: "Survol Comète (boutons)",
-    description: "Les boutons principaux laissent une traînée lumineuse au survol.",
-    category: "clic",
-    requiresPlan: "PRO"
-  },
-  {
     key: "constellation-calendrier",
     label: "Constellations (Calendrier)",
-    description: "Un fond discret de constellations derrière la grille du Calendrier.",
+    description: "Un fond de constellations derrière la grille du Calendrier.",
     category: "decor",
     requiresPlan: "PRO"
   },
@@ -81,14 +56,14 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "anneau-saturne-avatar",
     label: "Anneau de Saturne (avatar)",
-    description: "Un anneau animé léger autour de la pastille de marque active, en haut de l'écran.",
+    description: "Un anneau animé léger autour de la pastille de marque active, en haut de l'écran. Cumulable avec le Halo doré.",
     category: "profil",
     requiresPlan: "AGENCY"
   },
   {
     key: "halo-dore-avatar",
     label: "Halo doré (avatar)",
-    description: "Un halo doré autour de la pastille de marque active.",
+    description: "Un halo doré autour de la pastille de marque active. Cumulable avec l'Anneau de Saturne.",
     category: "profil",
     requiresPlan: "PRO"
   },
@@ -102,20 +77,13 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "police-cosmique",
     label: "Police Cosmique",
-    description: "Une variante plus espacée, futuriste, pour les titres de l'application.",
+    description: "Une variante nettement plus espacée et lumineuse (lettres écartées, léger halo cyan) pour les titres de l'application.",
     category: "decor"
   },
   {
     key: "papier-peint-succes",
     label: "Voûte céleste (page Succès)",
     description: "Un fond animé dédié à votre page Succès.",
-    category: "decor",
-    requiresPlan: "AGENCY"
-  },
-  {
-    key: "transition-etoiles",
-    label: "Traversée d'étoiles (transitions)",
-    description: "Une traînée de particules accompagne chaque changement de page.",
     category: "decor",
     requiresPlan: "AGENCY"
   },
@@ -136,7 +104,7 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "sidebar-poussiere-etoiles",
     label: "Poussière d'étoiles (menu latéral)",
-    description: "Un léger scintillement de fond dans le menu latéral.",
+    description: "Une pluie d'étoiles filantes en fond du menu latéral.",
     category: "decor"
   },
   {

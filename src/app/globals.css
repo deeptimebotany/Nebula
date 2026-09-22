@@ -314,65 +314,36 @@ body {
   }
 
   /* --- Cosmétiques (voir src/lib/cosmetics.ts + cosmetics-effects.tsx) --- */
+  /* Les cosmétiques "Curseur", "Clic" et "Traversée d'étoiles" (et le
+     système de particules qu'ils partageaient : .nebula-cosmetic-particle,
+     .nebula-cursor-comet-dot, .nebula-cursor-star-dot) ont été supprimés
+     entièrement — voir cosmetics-effects.tsx. */
 
-  /* Particules de clic / traversée de page / survol comète : un seul span
-     positionné en `left/top` (coordonnées écran, voir CosmeticsEffects) qui
-     s'envole vers --dx/--dy en s'estompant, puis se retire du DOM via un
-     setTimeout côté composant. */
-  .nebula-cosmetic-particle {
-    position: fixed;
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    animation: nebulaParticleFly 0.7s ease-out forwards;
-  }
-  @keyframes nebulaParticleFly {
-    0% {
-      transform: translate(-50%, -50%) scale(1);
-      opacity: 1;
-    }
-    100% {
-      transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2);
-      opacity: 0;
-    }
-  }
-
-  .nebula-cursor-comet-dot,
-  .nebula-cursor-star-dot {
-    position: fixed;
-    left: -100px;
-    top: -100px;
-    border-radius: 50%;
-    pointer-events: none;
-    will-change: left, top;
-  }
-  .nebula-cursor-comet-dot {
-    width: 10px;
-    height: 10px;
-    background: radial-gradient(circle, #b4c8fa 0%, #63e6ff 45%, transparent 80%);
-    box-shadow: 0 0 8px 2px rgba(99, 230, 255, 0.5);
-  }
-  .nebula-cursor-star-dot {
-    width: 5px;
-    height: 5px;
-    background: #e8d9ff;
-    box-shadow: 0 0 5px 1px rgba(232, 217, 255, 0.5);
-  }
-
-  /* "Police Cosmique" — variante plus espacée pour les titres, sans charger
-     de nouvelle police (voir la note dans cosmetics.ts / cosmetics-effects.tsx). */
+  /* "Police Cosmique" — variante nettement plus lisible/visible que la
+     version d'origine (qui ne se distinguait presque pas de la police
+     normale) : lettres bien plus écartées, légèrement en majuscules, avec
+     un fin halo cyan façon néon. Toujours sans charger de nouvelle police
+     (voir la note dans cosmetics.ts / cosmetics-effects.tsx). */
   [data-cosmic-font] .font-display {
-    letter-spacing: 0.06em;
-    font-stretch: 110%;
+    letter-spacing: 0.14em;
+    font-stretch: 115%;
+    text-shadow: 0 0 14px rgba(99, 230, 255, 0.45);
   }
 
-  /* Décors de page (voir decor-overlay.tsx) : Calendrier, Importation, Succès. */
+  /* Décors de page (voir decor-overlay.tsx) : Calendrier, Importation, Succès.
+     Posés en `-z-10` derrière un parent qui DOIT être `isolate` (voir les
+     pages qui les utilisent) : sans isolation propre, ce z-index négatif
+     remonte jusqu'à la prochaine "isolation: isolate" rencontrée dans
+     l'arbre — ici celle de <main class="noise-grid"> (voir plus haut) — et
+     se retrouve donc affiché DERRIÈRE le fond d'écran choisi dans
+     Paramètres (`.noise-grid::before`, à z-index: -1), donc invisible. */
   .nebula-decor-constellation {
-    background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 250, 0.28) 1px, transparent 0);
-    background-size: 64px 64px;
-    opacity: 0.35;
-    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 90%);
-    mask-image: radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 90%);
+    background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 250, 0.55) 1.6px, transparent 0),
+      radial-gradient(circle at 22px 34px, rgba(99, 230, 255, 0.4) 1.2px, transparent 0);
+    background-size: 46px 46px, 46px 46px;
+    opacity: 0.75;
+    -webkit-mask-image: radial-gradient(ellipse 95% 80% at 50% 25%, black 55%, transparent 95%);
+    mask-image: radial-gradient(ellipse 95% 80% at 50% 25%, black 55%, transparent 95%);
   }
   .nebula-decor-starfield {
     background-image: radial-gradient(circle at 1px 1px, rgba(99, 230, 255, 0.3) 1px, transparent 0),
@@ -385,6 +356,38 @@ body {
   @keyframes nebulaDecorDrift {
     0% { background-position: 0 0, 20px 30px; }
     100% { background-position: -200px 200px, -140px 260px; }
+  }
+
+  /* "Poussière d'étoiles" (menu latéral, voir sidebar-shooting-stars.tsx) :
+     de vraies étoiles filantes individuelles (positions/durées aléatoires,
+     une diagonale + une traînée qui s'estompe), plutôt qu'un motif de points
+     répété à intervalle fixe qui donnait un résultat symétrique. */
+  .nebula-sidebar-shooting-star {
+    position: absolute;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(200, 215, 255, 0.95), rgba(99, 230, 255, 0.6) 60%, transparent);
+    transform: rotate(-32deg);
+    opacity: 0;
+    animation-name: nebulaSidebarShootingStar;
+    animation-timing-function: ease-in;
+    animation-iteration-count: infinite;
+  }
+  @keyframes nebulaSidebarShootingStar {
+    0% {
+      opacity: 0;
+      transform: rotate(-32deg) translateX(0);
+    }
+    8% {
+      opacity: 1;
+    }
+    75% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(-32deg) translateX(90px);
+    }
   }
 
   /* Décorations de l'avatar/pastille de marque (voir topnav.tsx). */

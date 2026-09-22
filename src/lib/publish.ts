@@ -29,7 +29,7 @@ async function checkPersonalPublishMilestone(userId: string): Promise<boolean> {
   return total === PERSONAL_PUBLISH_MILESTONE;
 }
 
-// Easter egg "Son Décollage" (#45, dernier easter egg réel de ce lot — voir
+// Easter egg "Son Décollage" (#44, dernier easter egg réel de ce lot — voir
 // easter-eggs-registry.ts) : débloque l'option de son de publication dans
 // Paramètres au 10ᵉ post personnel PUBLIÉ, immédiat OU programmé confondus
 // (donc vérifié ici, dans publishPost(), qui est le point de passage commun
@@ -41,7 +41,7 @@ async function checkPublishSoundUnlock(userId: string): Promise<boolean> {
   return total === PUBLISH_SOUND_UNLOCK_THRESHOLD;
 }
 
-// Easter egg "Pluie d'étincelles" (#46, quatrième vague — voir
+// Easter egg "Pluie d'étincelles" (#45, quatrième vague — voir
 // easter-eggs-registry.ts) : débloque le fond animé "Pluie de météores" au
 // 3ᵉ post personnel PUBLIÉ le même jour. Approximation documentée comme les
 // autres triggers datés de ce fichier : "le même jour" = la date du SERVEUR

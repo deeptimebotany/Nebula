@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic, findCosmetic } from "@/lib/cosmetics";
+import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
 
 // Toujours réévalué à la demande — même raison que /api/settings/starfield :
 // `allowedKeys` doit refléter le palier réel au moment de l'appel.
@@ -36,6 +37,32 @@ export async function GET() {
     });
   }
   const userId = (session.user as { id: string }).id;
+
+  // Compte propriétaire (voir dev-preview.ts) : deux modes.
+  // - Aucun aperçu de palier choisi (mode par défaut) : tout est
+  //   déverrouillé, pour prévisualiser/tester chaque cosmétique sans avoir à
+  //   réellement atteindre le palier ou trouver l'easter egg correspondant.
+  // - Un palier précis choisi (aperçu Gratuit/Pro/Agence, voir /dev-preview) :
+  //   les cosmétiques de palier suivent CE palier simulé, comme pour un
+  //   vrai compte — seuls ceux à easter egg restent basés sur les eggs
+  //   RÉELLEMENT trouvés par ce compte (un aperçu de palier ne simule pas
+  //   d'avoir trouvé un easter egg).
+  if (isOwnerEmail(session.user.email)) {
+    const previewPlan = resolvePreviewPlan(session.user.email);
+    const [user, eggKeys] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { enabledCosmetics: true } }),
+      eggAllowedKeys(userId)
+    ]);
+    const allowedKeys = previewPlan
+      ? [...COSMETICS.filter((c) => canUseCosmetic(c, previewPlan)).map((c) => c.key), ...eggKeys]
+      : COSMETICS.map((c) => c.key);
+    return NextResponse.json({
+      enabled: (user?.enabledCosmetics as string[] | undefined) ?? [],
+      allowedKeys,
+      previewPlan
+    });
+  }
+
   const [user, { plan }, eggKeys] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { enabledCosmetics: true } }),
     getUserPlan(userId),
@@ -60,8 +87,14 @@ export async function PATCH(req: NextRequest) {
   if (!cosmetic) return NextResponse.json({ error: "Cosmétique inconnu." }, { status: 400 });
 
   const userId = (session.user as { id: string }).id;
+  const isOwner = isOwnerEmail(session.user.email);
+  // Bypass complet seulement en mode "tout déverrouillé" (voir GET
+  // ci-dessus) — dès qu'un aperçu de palier est choisi, ce compte est
+  // revérifié comme n'importe quel autre pour les cosmétiques de palier.
+  const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
+  const skipChecks = isOwner && !previewPlan;
 
-  if (enabled) {
+  if (enabled && !skipChecks) {
     // Ne jamais faire confiance au client : le palier requis (ou l'easter
     // egg requis) est revérifié ici, comme pour le thème étoilé animé et les
     // thèmes de couleurs réservés.
@@ -77,7 +110,7 @@ export async function PATCH(req: NextRequest) {
         );
       }
     } else {
-      const { plan } = await getUserPlan(userId);
+      const plan = previewPlan ?? (await getUserPlan(userId)).plan;
       if (!canUseCosmetic(cosmetic, plan)) {
         return NextResponse.json(
           { error: `"${cosmetic.label}" nécessite le palier ${cosmetic.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },

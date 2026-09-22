@@ -313,7 +313,7 @@ function AnalyticsPageInner() {
         markFiredFollowerMilestone(c.id, MILESTONE_FOLLOWERS_10K);
         toast.success(`🥇 ${c.displayName} vient de franchir les ${MILESTONE_FOLLOWERS_10K.toLocaleString("fr-FR")} abonnés !`);
         reportEasterEggFound("followers-10k");
-        // Easter egg "Éclat mérité" (#49) : même seuil, débloque en plus le
+        // Easter egg "Éclat mérité" (#48) : même seuil, débloque en plus le
         // cosmétique "Éclat doré" (voir src/lib/cosmetics.ts) — deux clés
         // distinctes pour deux récompenses distinctes au même franchissement.
         reportEasterEggFound("golden-glow-unlock");

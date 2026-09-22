@@ -9,7 +9,8 @@ import { useMode } from "@/components/mode-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { useCosmetics } from "@/components/cosmetics-provider";
-import { IconClose, IconLink, IconCard, IconSettings, IconMoon, IconSun, IconHeart, IconLogout, IconTrophy } from "./icons";
+import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
+import { IconClose, IconLink, IconCard, IconSettings, IconMoon, IconSun, IconHeart, IconLogout, IconTrophy, IconFlask } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
 // Import JSON direct (resolveJsonModule dans tsconfig.json) : juste pour
 // afficher le numéro de version en pied de menu, jamais recopié à la main.
@@ -33,6 +34,10 @@ interface SidebarProps {
   items: SidebarNavItem[];
   brandName: string;
   logoUrl?: string | null;
+  // true uniquement pour le compte propriétaire du site (voir layout.tsx) —
+  // affiche un lien supplémentaire, privé, vers /dev-preview (voir ce
+  // fichier). Absent/false pour tout le monde d'autre.
+  isOwner?: boolean;
 }
 
 // Menu latéral déroulant, ouvert via l'icône "hamburger" à gauche du logo
@@ -42,7 +47,7 @@ interface SidebarProps {
 // Importation, Analytics...), tout le reste vit ici pour lui laisser de la
 // place. La liste défile (overflow-y-auto) si jamais elle dépasse la
 // hauteur de l'écran (ex. petite fenêtre + beaucoup d'options futures).
-export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarProps) {
+export function Sidebar({ open, onClose, items, brandName, logoUrl, isOwner }: SidebarProps) {
   const pathname = usePathname();
   const { mode, setMode } = useMode();
   const toast = useToast();
@@ -176,9 +181,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {cosmetics.has("sidebar-poussiere-etoiles") && (
-          <div aria-hidden="true" className="nebula-decor-starfield pointer-events-none absolute inset-0 -z-10" />
-        )}
+        {cosmetics.has("sidebar-poussiere-etoiles") && <SidebarShootingStars />}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
           <div className="flex items-center gap-2">
             {logoUrl ? (
@@ -247,7 +250,11 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
             { href: "/settings", label: "Paramètres", icon: IconSettings },
             // Volontairement discret ici plutôt que dans une barre de
             // navigation principale — voir succes/page.tsx.
-            { href: "/succes", label: "Succès", icon: IconTrophy }
+            { href: "/succes", label: "Succès", icon: IconTrophy },
+            // Onglet privé, réservé au compte propriétaire (voir isOwner
+            // ci-dessus et dev-preview/page.tsx) : n'apparaît dans ce tableau
+            // que pour ce compte-là, jamais pour les autres utilisateurs.
+            ...(isOwner ? [{ href: "/dev-preview", label: "Test / QA", icon: IconFlask }] : [])
           ].map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;

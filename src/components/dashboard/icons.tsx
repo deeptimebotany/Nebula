@@ -309,3 +309,12 @@ export const IconCalendarShare = ({ className = base }: IconProps) => (
     <path d="M16 4.5h5v5M21 4.5 15 10.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// Fiole de laboratoire — onglet privé "Test / QA" (voir /dev-preview),
+// réservé au compte propriétaire du site.
+export const IconFlask = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M9.5 3h5M10 3v6.2L4.8 18.6a1.6 1.6 0 0 0 1.4 2.4h11.6a1.6 1.6 0 0 0 1.4-2.4L14 9.2V3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M7.5 15h9" strokeLinecap="round" />
+  </svg>
+);

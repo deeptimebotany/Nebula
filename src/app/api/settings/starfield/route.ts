@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
+import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
 
 // Toujours réévalué à la demande, jamais mis en cache (statiquement au build
 // ou par un intermédiaire) — `allowed` doit refléter le palier réel au
@@ -20,10 +21,17 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ enabled: false, allowed: false }, { status: 200 });
   const userId = (session.user as { id: string }).id;
-  const [user, { plan }] = await Promise.all([
+  const isOwner = isOwnerEmail(session.user.email);
+  const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
+
+  const [user, { plan: realPlan }] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { starfieldEnabled: true } }),
     getUserPlan(userId)
   ]);
+  // Compte propriétaire, aucun aperçu de palier choisi : toujours autorisé
+  // (mode "tout déverrouillé", voir dev-preview.ts) ; un aperçu actif suit ce
+  // palier simulé exactement comme un vrai compte.
+  const plan = isOwner && !previewPlan ? "AGENCY" : (previewPlan ?? realPlan);
   const allowed = plan === "PRO" || plan === "AGENCY";
   return NextResponse.json({ enabled: Boolean(user?.starfieldEnabled), allowed });
 }
@@ -38,12 +46,15 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const userId = (session.user as { id: string }).id;
+  const isOwner = isOwnerEmail(session.user.email);
+  const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
+  const skipChecks = isOwner && !previewPlan;
 
-  if (parsed.data.enabled) {
+  if (parsed.data.enabled && !skipChecks) {
     // Ne jamais faire confiance au client : le thème étoilé reste réservé
     // aux paliers Pro et Agence, revérifié ici comme pour les thèmes de
     // couleurs réservés (voir /api/settings/theme).
-    const { plan } = await getUserPlan(userId);
+    const plan = previewPlan ?? (await getUserPlan(userId)).plan;
     if (plan !== "PRO" && plan !== "AGENCY") {
       return NextResponse.json(
         {

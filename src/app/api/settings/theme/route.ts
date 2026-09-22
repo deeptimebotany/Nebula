@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { getUserPlan } from "@/lib/billing/plan";
+import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
 
 // GET/PATCH /api/settings/theme — préférence de thème de couleurs, propre au
 // compte (pas à la marque), pour la retrouver en se connectant depuis un
@@ -33,11 +34,17 @@ export async function PATCH(req: NextRequest) {
   }
 
   const userId = (session.user as { id: string }).id;
+  const isOwner = isOwnerEmail(session.user.email);
+  // Compte propriétaire (voir dev-preview.ts) : mêmes deux modes que pour
+  // les cosmétiques/fonds d'écran — tout déverrouillé par défaut, ou
+  // revérifié contre le palier choisi si un aperçu est actif.
+  const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
+  const skipChecks = isOwner && !previewPlan;
 
   // Ne jamais faire confiance au client pour les thèmes réservés à un palier
   // (voir requiresPlan dans src/lib/themes.ts) : on revérifie ici.
-  if (theme.requiresPlan) {
-    const { plan } = await getUserPlan(userId);
+  if (theme.requiresPlan && !skipChecks) {
+    const plan = previewPlan ?? (await getUserPlan(userId)).plan;
     if (!canUseTheme(theme, plan)) {
       return NextResponse.json(
         { error: `Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },

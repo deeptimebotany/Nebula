@@ -18,11 +18,10 @@ import { useStarfield } from "@/components/starfield-provider";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { COSMETICS, type CosmeticCategory } from "@/lib/cosmetics";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { EASTER_EGG_KEYS } from "@/lib/easter-eggs-registry";
 import type { Plan } from "@/lib/plans";
 
 const COSMETIC_CATEGORIES: { key: CosmeticCategory; label: string }[] = [
-  { key: "curseur", label: "Curseur" },
-  { key: "clic", label: "Clic" },
   { key: "decor", label: "Décor" },
   { key: "son", label: "Son" },
   { key: "profil", label: "Profil" }
@@ -79,6 +78,16 @@ export default function SettingsPage() {
   // n'apparaît dans /api/easter-eggs QUE si trouvée (jamais dévoilée sinon),
   // donc ce Set fait exactement ce qu'il faut sans rien exposer de plus.
   const [foundEggKeys, setFoundEggKeys] = useState<Set<string>>(new Set());
+  // Compte propriétaire (voir dev-preview.ts) : /api/easter-eggs renvoie
+  // isOwner=true pour lui seul — sert ici à ne plus bloquer côté client la
+  // sélection d'un fond d'écran réservé (le serveur, lui, l'autorise déjà
+  // sans condition pour ce compte, voir /api/settings/background).
+  const [isOwner, setIsOwner] = useState(false);
+  // "Aperçu de palier" (voir dev-preview.ts et le bouton plus bas) : null =
+  // aucun aperçu choisi (mode "tout déverrouillé" pour ce compte, comportement
+  // par défaut), sinon simule exactement ce que verrait un compte sur ce
+  // palier — y compris les cosmétiques/fonds/thèmes VERROUILLÉS.
+  const [planPreview, setPlanPreview] = useState<Plan | null>(null);
   const { activeBrand, renameBrand } = useBrand();
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
@@ -86,6 +95,13 @@ export default function SettingsPage() {
   const [plan, setPlan] = useState<Plan>("FREE");
   const [pseudo, setPseudo] = useState("");
   const [savingPseudo, setSavingPseudo] = useState(false);
+  // Voir isOwner/planPreview ci-dessus : ce compte voit tout comme débloqué
+  // par défaut (fonds d'écran réservés par palier OU par easter egg), sauf
+  // si un aperçu de palier précis est actif, auquel cas les items de PALIER
+  // suivent ce palier simulé — les items à easter egg, eux, restent basés
+  // sur les eggs RÉELLEMENT trouvés par ce compte, aperçu ou non.
+  const effectivePlan: Plan = planPreview ?? (isOwner ? "AGENCY" : plan);
+  const effectiveFoundEggKeys = isOwner && !planPreview ? new Set(EASTER_EGG_KEYS) : foundEggKeys;
 
   // Revérifie systématiquement le droit d'accès au thème étoilé à chaque
   // affichage de cette page (voir refresh() dans starfield-provider.tsx) :
@@ -199,7 +215,15 @@ export default function SettingsPage() {
         if (!d?.eggs) return;
         const keys = (d.eggs as { found: boolean; key?: string }[]).filter((e) => e.found && e.key).map((e) => e.key as string);
         setFoundEggKeys(new Set(keys));
+        setIsOwner(Boolean(d.isOwner));
       })
+      .catch(() => undefined);
+    // Aperçu de palier (voir dev-preview.ts) : toujours { plan: null } pour
+    // qui n'est pas le compte propriétaire, donc sans effet pour tout le
+    // monde d'autre.
+    fetch("/api/dev-preview/plan", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPlanPreview((d?.plan as Plan | null) ?? null))
       .catch(() => undefined);
   }, []);
 
@@ -252,9 +276,13 @@ export default function SettingsPage() {
     saveWhiteLabel({ logoUrl: data.url });
   }
 
+  // Les deux fonctions ci-dessous passent par `effectivePlan`/
+  // `effectiveFoundEggKeys` plutôt que par un simple `if (isOwner) return`
+  // : ça reste correct qu'un aperçu de palier (voir planPreview plus haut)
+  // soit actif ou non, sans dupliquer cette logique ici.
   function onPickTheme(themeKeyToPick: string) {
     const theme = THEMES.find((t) => t.key === themeKeyToPick);
-    if (theme && !canUseTheme(theme, plan)) {
+    if (theme && !canUseTheme(theme, effectivePlan)) {
       toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Facturation.`);
       return;
     }
@@ -263,11 +291,11 @@ export default function SettingsPage() {
 
   function onPickBackground(backgroundKeyToPick: string) {
     const bg = BACKGROUNDS.find((b) => b.key === backgroundKeyToPick);
-    if (bg?.requiresPlan && !canUseBackground(bg, plan)) {
+    if (bg?.requiresPlan && !canUseBackground(bg, effectivePlan)) {
       toast.error(`Le fond "${bg.label}" nécessite le palier ${bg.requiresPlan}. Débloquez-le dans Facturation.`);
       return;
     }
-    if (bg?.requiresEgg && !foundEggKeys.has(bg.requiresEgg)) {
+    if (bg?.requiresEgg && !effectiveFoundEggKeys.has(bg.requiresEgg)) {
       toast.error(`Le fond "${bg.label}" doit d'abord être débloqué (easter egg) — voir la page Succès.`);
       return;
     }
@@ -341,7 +369,7 @@ export default function SettingsPage() {
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {THEMES.filter((t) => !t.hidden || novaUnlocked).map((t) => {
-            const locked = !canUseTheme(t, plan);
+            const locked = !canUseTheme(t, effectivePlan);
             return (
               <button
                 key={t.key}
@@ -387,7 +415,12 @@ export default function SettingsPage() {
           Faites défiler avec les flèches ou en glissant à la souris.
         </p>
         <div className="mt-4">
-          <BackgroundCarousel selected={backgroundKey} onSelect={onPickBackground} plan={plan} unlockedEggKeys={foundEggKeys} />
+          <BackgroundCarousel
+            selected={backgroundKey}
+            onSelect={onPickBackground}
+            plan={effectivePlan}
+            unlockedEggKeys={effectiveFoundEggKeys}
+          />
         </div>
       </GlassCard>
 

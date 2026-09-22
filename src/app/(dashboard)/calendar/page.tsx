@@ -235,7 +235,12 @@ function CalendarPageInner() {
   }
 
   return (
-    <div className="relative space-y-6">
+    // "isolate" est indispensable ici : sans son propre contexte
+    // d'empilement, le "-z-10" du décor ci-dessous remontait jusqu'à celui
+    // de <main class="noise-grid"> (voir globals.css) et se retrouvait
+    // affiché DERRIÈRE le fond d'écran de toute l'application, donc
+    // invisible — c'est ce qui rendait ce cosmétique impossible à voir.
+    <div className="relative isolate space-y-6">
       <CosmeticDecorOverlay cosmeticKey="constellation-calendrier" variant="constellation" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

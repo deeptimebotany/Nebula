@@ -60,9 +60,13 @@ interface ConnectionRow {
 
 interface TopNavProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
+  // true uniquement pour le compte propriétaire du site (voir layout.tsx) —
+  // transmis tel quel à Sidebar pour afficher (ou non) le lien privé vers
+  // /dev-preview.
+  isOwner?: boolean;
 }
 
-export function TopNav({ oauth }: TopNavProps) {
+export function TopNav({ oauth, isOwner }: TopNavProps) {
   const pathname = usePathname();
   const { brands, activeBrand, setActiveBrandId, createBrand } = useBrand();
   const toast = useToast();
@@ -166,6 +170,7 @@ export function TopNav({ oauth }: TopNavProps) {
         items={NAV}
         brandName={whiteLabel.brandName || "Nebula"}
         logoUrl={whiteLabel.logoUrl}
+        isOwner={isOwner}
       />
       <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-void-950/90 backdrop-blur">
       {/* Ligne 1 — hamburger, logo, onglets, actions de compte */}
@@ -246,11 +251,16 @@ export function TopNav({ oauth }: TopNavProps) {
                 ❤️
               </span>
             )}
+            {/* Anneau de Saturne et Halo doré sont deux cosmétiques
+                indépendants : les deux classes s'appliquent chacune sur leur
+                propre pseudo-élément (::after pour l'anneau, ::before pour
+                le halo, voir globals.css) et peuvent donc être actives en
+                même temps, sans que l'une masque l'autre. */}
             <span
               className={clsx(
                 "relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
                 cosmetics.has("anneau-saturne-avatar") && "nebula-cosmetic-saturn-ring",
-                !cosmetics.has("anneau-saturne-avatar") && cosmetics.has("halo-dore-avatar") && "nebula-cosmetic-gold-halo"
+                cosmetics.has("halo-dore-avatar") && "nebula-cosmetic-gold-halo"
               )}
             >
               <IconAvatar className="h-4 w-4 shrink-0 text-slate-400" />

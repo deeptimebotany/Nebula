@@ -5,7 +5,11 @@
 // (voir src/lib/cosmetics.ts). Contrairement aux effets globaux
 // (cosmetics-effects.tsx), ceux-ci n'ont de sens que derrière le contenu
 // d'une page précise, donc chaque page les pose elle-même, juste avant son
-// contenu, dans un parent `position: relative`.
+// contenu, dans un parent `relative isolate` — le `isolate` n'est PAS
+// optionnel : sans lui, le `-z-10` posé ci-dessous remonte jusqu'au
+// contexte d'empilement de <main class="noise-grid"> et se retrouve
+// affiché derrière le fond d'écran de toute l'application (donc
+// invisible) — voir le commentaire dans globals.css.
 import { useCosmetics } from "@/components/cosmetics-provider";
 
 export function CosmeticDecorOverlay({

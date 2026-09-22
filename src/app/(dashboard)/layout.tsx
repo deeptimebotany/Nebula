@@ -13,10 +13,15 @@ import { Starfield } from "@/components/starfield";
 import { MilestoneCelebrationProvider } from "@/components/milestone-celebration";
 import { AchievementToastListener } from "@/components/achievement-toast-listener";
 import { CosmeticsEffects } from "@/components/cosmetics-effects";
+import { isOwnerEmail } from "@/lib/dev-preview";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+
+  // Onglet privé "Test / QA" (voir /dev-preview et sidebar.tsx) : réservé au
+  // seul compte propriétaire du site, jamais visible pour les autres.
+  const isOwner = isOwnerEmail(session.user?.email);
 
   // Le compte actif est mémorisé dans le sélecteur multi-compte (voir
   // multi-account.ts) côté client, au chargement de AccountSwitcher — PAS
@@ -32,7 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <ConfirmProvider>
             <div className="flex min-h-screen flex-col">
               <Starfield />
-              <TopNav oauth={oauth} />
+              <TopNav oauth={oauth} isOwner={isOwner} />
               <main className="noise-grid flex-1 overflow-y-auto px-4 py-8 sm:px-8">
                 <div className="mx-auto max-w-7xl">{children}</div>
               </main>

@@ -59,42 +59,41 @@ export const EASTER_EGGS: EasterEggDef[] = [
   { key: "ai-answer-42", number: 22, emoji: "🧮", title: "Le sens de la vie", hint: "Demandez à l'assistant IA un calcul contenant deux fois « 42 » (ex : « combien font 42 fois 42 »)." },
   { key: "support-thanks", number: 23, emoji: "🙏", title: "Merci beaucoup", hint: "Écrivez « merci » au moins 5 fois dans un même message à l'assistant IA." },
   { key: "command-palette-loop", number: 24, emoji: "🎛️", title: "Palette compulsive", hint: "Ouvrez la palette de commandes (Cmd/Ctrl+K) 3 fois de suite en moins de 10 secondes." },
-  { key: "account-anniversary", number: 25, emoji: "🎂", title: "Premier anniversaire personnel", hint: "Connectez-vous le jour anniversaire de la création de votre compte.", reward: "Badge « Fidèle depuis 1 an »" },
-  { key: "early-bird-post", number: 26, emoji: "🌙", title: "Lève-tôt malgré lui", hint: "Publiez un post entre 3h et 5h du matin (heure du serveur)." },
-  { key: "marathon-session", number: 27, emoji: "⏳", title: "Marathon", hint: "Restez connecté·e en continu plus de 4 heures sur une même session." },
-  { key: "avatar-double-tap", number: 28, emoji: "❤️", title: "Double-tap", hint: "Double-cliquez rapidement sur la pastille de marque active, dans la barre du haut." },
-  { key: "cursor-statue", number: 29, emoji: "🖱️", title: "Statue", hint: "Laissez le curseur totalement immobile pendant 60 secondes sur le dashboard." },
-  { key: "extreme-zoom", number: 30, emoji: "🔍", title: "Zoom extrême", hint: "Zoomez le navigateur à 400% ou plus." },
-  { key: "composer-disabled-clicks", number: 31, emoji: "🚫", title: "Le bouton qui résiste", hint: "Cliquez 20 fois sur « Publier » dans l'Importation alors qu'il est grisé (rien sélectionné)." },
-  { key: "followers-10k", number: 32, emoji: "🥇", title: "Cap des 10K", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Badge doré « Cap des 10K »" },
-  { key: "posts-100", number: 33, emoji: "💯", title: "Centenaire", hint: "Publiez votre 100ᵉ post personnel." },
-  { key: "all-networks-connected", number: 34, emoji: "🌐", title: "Tout connecté", hint: "Connectez les 6 réseaux disponibles en même temps sur une marque." },
-  { key: "supernova-impressions", number: 35, emoji: "💫", title: "Supernova analytique", hint: "Dépassez 1 million d'impressions cumulées (dernier relevé de chaque compte) sur une marque.", reward: "Fond de carte « Supernova » (Analytics)" },
-  { key: "hashtag-nebula", number: 36, emoji: "#️⃣", title: "Auto-référence", hint: "Publiez un post dont la légende contient « #nebula »." },
-  { key: "referral-crown-30d", number: 37, emoji: "👑", title: "Couronne permanente", hint: "Restez en 1ʳᵉ place du classement de parrainage 30 jours consécutifs.", reward: "Cadre doré « Couronne permanente »" },
-  { key: "original-20-found", number: 38, emoji: "🏅", title: "Chasseur d'étoiles", hint: "Débloquez les 20 easter eggs d'origine du site.", reward: "Titre « Chasseur d'étoiles ⭐ »" },
-  { key: "all-eggs-100pct", number: 39, emoji: "🏆", title: "Complétion totale", hint: "Débloquez 100% des easter eggs existants.", reward: "Thème caché « Golden Nebula »" },
-  { key: "version-click", number: 40, emoji: "🔢", title: "Auto-clic", hint: "Cliquez 5 fois sur le numéro de version en pied de page." },
-  { key: "keyboard-nav", number: 41, emoji: "⌨️", title: "Navigation au clavier", hint: "Parcourez tout le menu latéral uniquement avec la touche Tab, sans souris, jusqu'au dernier lien." },
-  { key: "multi-tab", number: 42, emoji: "🪟", title: "Multi-fenêtres", hint: "Ouvrez Nebula dans 5 onglets du navigateur en même temps." },
-  { key: "tab-switch-loop", number: 43, emoji: "🔄", title: "Va-et-vient", hint: "Basculez entre deux onglets/fenêtres Nebula au moins 10 fois en 30 secondes." },
-  { key: "zen-absolute", number: 44, emoji: "🧘", title: "Zen absolu", hint: "Laissez le mini-jeu de chargement apparaître sans jamais sauter, jusqu'au premier game over.", reward: "Titre « Zen absolu 🧘 »" },
+  { key: "early-bird-post", number: 25, emoji: "🌙", title: "Lève-tôt malgré lui", hint: "Publiez un post entre 3h et 5h du matin (heure du serveur)." },
+  { key: "marathon-session", number: 26, emoji: "⏳", title: "Marathon", hint: "Restez connecté·e en continu plus de 4 heures sur une même session." },
+  { key: "avatar-double-tap", number: 27, emoji: "❤️", title: "Double-tap", hint: "Double-cliquez rapidement sur la pastille de marque active, dans la barre du haut." },
+  { key: "cursor-statue", number: 28, emoji: "🖱️", title: "Statue", hint: "Laissez le curseur totalement immobile pendant 60 secondes sur le dashboard." },
+  { key: "extreme-zoom", number: 29, emoji: "🔍", title: "Zoom extrême", hint: "Zoomez le navigateur à 400% ou plus." },
+  { key: "composer-disabled-clicks", number: 30, emoji: "🚫", title: "Le bouton qui résiste", hint: "Cliquez 20 fois sur « Publier » dans l'Importation alors qu'il est grisé (rien sélectionné)." },
+  { key: "followers-10k", number: 31, emoji: "🥇", title: "Cap des 10K", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Badge doré « Cap des 10K »" },
+  { key: "posts-100", number: 32, emoji: "💯", title: "Centenaire", hint: "Publiez votre 100ᵉ post personnel." },
+  { key: "all-networks-connected", number: 33, emoji: "🌐", title: "Tout connecté", hint: "Connectez les 6 réseaux disponibles en même temps sur une marque." },
+  { key: "supernova-impressions", number: 34, emoji: "💫", title: "Supernova analytique", hint: "Dépassez 1 million d'impressions cumulées (dernier relevé de chaque compte) sur une marque.", reward: "Fond de carte « Supernova » (Analytics)" },
+  { key: "hashtag-nebula", number: 35, emoji: "#️⃣", title: "Auto-référence", hint: "Publiez un post dont la légende contient « #nebula »." },
+  { key: "referral-crown-30d", number: 36, emoji: "👑", title: "Couronne permanente", hint: "Restez en 1ʳᵉ place du classement de parrainage 30 jours consécutifs.", reward: "Cadre doré « Couronne permanente »" },
+  { key: "original-20-found", number: 37, emoji: "🏅", title: "Chasseur d'étoiles", hint: "Débloquez les 20 easter eggs d'origine du site.", reward: "Titre « Chasseur d'étoiles ⭐ »" },
+  { key: "all-eggs-100pct", number: 38, emoji: "🏆", title: "Complétion totale", hint: "Débloquez 100% des easter eggs existants.", reward: "Thème caché « Golden Nebula »" },
+  { key: "version-click", number: 39, emoji: "🔢", title: "Auto-clic", hint: "Cliquez 5 fois sur le numéro de version en pied de page." },
+  { key: "keyboard-nav", number: 40, emoji: "⌨️", title: "Navigation au clavier", hint: "Parcourez tout le menu latéral uniquement avec la touche Tab, sans souris, jusqu'au dernier lien." },
+  { key: "multi-tab", number: 41, emoji: "🪟", title: "Multi-fenêtres", hint: "Ouvrez Nebula dans 5 onglets du navigateur en même temps." },
+  { key: "tab-switch-loop", number: 42, emoji: "🔄", title: "Va-et-vient", hint: "Basculez entre deux onglets/fenêtres Nebula au moins 10 fois en 30 secondes." },
+  { key: "zen-absolute", number: 43, emoji: "🧘", title: "Zen absolu", hint: "Laissez le mini-jeu de chargement apparaître sans jamais sauter, jusqu'au premier game over.", reward: "Titre « Zen absolu 🧘 »" },
 
   // --- Troisième vague (22/09/2026) — sur les 25 idées sélectionnées cette
   // fois, un seul reste un vrai easter egg : les 24 autres sont devenues des
   // cosmétiques de palier ou des améliorations offertes à tout le monde (voir
   // src/lib/cosmetics.ts, login-form.tsx, milestone-celebration.tsx) plutôt
   // que des succès à débloquer, sur demande explicite.
-  { key: "publish-sound-unlock", number: 45, emoji: "🚀", title: "Son Décollage", hint: "Publiez votre 10ᵉ post personnel, immédiat ou programmé.", reward: "Son de décollage (option dans Paramètres)" },
+  { key: "publish-sound-unlock", number: 44, emoji: "🚀", title: "Son Décollage", hint: "Publiez votre 10ᵉ post personnel, immédiat ou programmé.", reward: "Décollage" },
 
   // --- Quatrième vague (22/09/2026) — 4 cosmétiques de la troisième vague
   // repassent en easter eggs (déclencheur caché + récompense), à la demande
   // explicite : ils ne sont plus réservés par palier, voir src/lib/cosmetics.ts
   // et src/lib/backgrounds.ts (requiresEgg plutôt que requiresPlan).
-  { key: "meteor-shower-unlock", number: 46, emoji: "☄️", title: "Pluie d'étincelles", hint: "Publiez 3 posts personnels le même jour.", reward: "Fond animé « Pluie de météores »" },
-  { key: "retro-icon-unlock", number: 47, emoji: "👾", title: "Fidélité rétro", hint: "Visitez Nebula 30 jours consécutifs, sans en manquer un seul.", reward: "Cosmétique « Icône rétro »" },
-  { key: "greeting-unlock", number: 48, emoji: "👋", title: "Toujours à l'heure", hint: "Connectez-vous à peu près à la même heure, 3 jours consécutifs.", reward: "Cosmétique « Message d'accueil personnalisé »" },
-  { key: "golden-glow-unlock", number: 49, emoji: "🥇", title: "Éclat mérité", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Cosmétique « Éclat doré » (statistiques)" }
+  { key: "meteor-shower-unlock", number: 45, emoji: "☄️", title: "Pluie d'étincelles", hint: "Publiez 3 posts personnels le même jour.", reward: "Fond animé « Pluie de météores »" },
+  { key: "retro-icon-unlock", number: 46, emoji: "👾", title: "Fidélité rétro", hint: "Visitez Nebula 30 jours consécutifs, sans en manquer un seul.", reward: "Cosmétique « Icône rétro »" },
+  { key: "greeting-unlock", number: 47, emoji: "👋", title: "Toujours à l'heure", hint: "Connectez-vous à peu près à la même heure, 3 jours consécutifs.", reward: "Cosmétique « Message d'accueil personnalisé »" },
+  { key: "golden-glow-unlock", number: 48, emoji: "🥇", title: "Éclat mérité", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Cosmétique « Éclat doré » (statistiques)" }
 ];
 
 export const EASTER_EGG_KEYS = EASTER_EGGS.map((e) => e.key);

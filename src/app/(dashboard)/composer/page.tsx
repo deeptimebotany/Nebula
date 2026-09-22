@@ -960,52 +960,17 @@ function ComposerPageInner() {
       ? Math.min(...selectedNetworks.map((n) => NETWORK_META[n].maxCaption))
       : null;
 
-  // Revient à la page précédente (calendrier, vue d'ensemble...) — c'est ce
-  // que fait la croix de fermeture et la touche Échap de la popup ci-dessous.
-  // router.back() plutôt qu'un chemin fixe : on veut retomber là d'où
-  // l'utilisateur est venu, pas toujours au même endroit.
-  const closeComposer = useCallback(() => {
-    router.back();
-  }, [router]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      // Ignore Échap tant qu'un panneau flottant secondaire (sélecteur
-      // d'émojis...) est ouvert : c'est à lui de se fermer en premier.
-      if (e.key === "Escape" && !emojiPickerFor) closeComposer();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeComposer, emojiPickerFor]);
-
   return (
-    // Toute la création de publication se fait dans une popup qui s'ouvre
-    // automatiquement dès qu'on arrive sur cette page (import vidéo par
-    // glisser-déposer ou sélection de fichier, légende, réseaux ciblés,
-    // programmation...) plutôt que dans une page pleine, pour rester
-    // concentré sur cette seule tâche — voir la capture de référence fournie.
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm sm:items-center">
-      <div className="glass-panel relative w-full max-w-5xl overflow-hidden rounded-2xl">
-        <CosmeticDecorOverlay cosmeticKey="ciel-nocturne-composer" variant="starfield" />
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h1 className="font-display text-lg font-semibold text-white">Créer une publication</h1>
-          <button
-            type="button"
-            onClick={closeComposer}
-            aria-label="Fermer"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.04] text-slate-400 transition hover:bg-white/10 hover:text-white"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-5">
-        <div className="space-y-6">
+    // Page normale, comme les autres pages du tableau de bord — plus de
+    // popup fixe en plein écran avec fond assombri/flouté : la création de
+    // publication se fait directement ici, à la demande explicite (retour
+    // "je veux que ça devienne comme toutes les pages du site").
+    <div className="relative isolate space-y-6">
+      <CosmeticDecorOverlay cosmeticKey="ciel-nocturne-composer" variant="starfield" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-400">
+          <h1 className="font-display text-2xl font-semibold text-white">Créer une publication</h1>
+          <p className="mt-1 text-sm text-slate-400">
             Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
           </p>
           <p className="mt-0.5 text-xs text-slate-500">
@@ -1715,12 +1680,6 @@ function ComposerPageInner() {
             document.body
           )
         : null}
-    </div>
-    {/* fin de .space-y-6 */}
-        </div>
-        {/* fin de la zone défilante */}
-      </div>
-      {/* fin de la carte de la popup */}
     </div>
   );
 }

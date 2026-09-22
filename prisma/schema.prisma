@@ -86,9 +86,8 @@ model User {
   publishSoundEnabled Boolean @default(false)
 
   // --- Suivi de connexion (voir /api/easter-eggs, calculé à chaque visite
-  // de /succes ou de la Communauté — même compromis documenté que pour
-  // "account-anniversary" : un compte qui ne visite ni l'une ni l'autre un
-  // jour donné ne fait pas progresser ces compteurs ce jour-là) ---
+  // de /succes ou de la Communauté : un compte qui ne visite ni l'une ni
+  // l'autre un jour donné ne fait pas progresser ces compteurs ce jour-là) ---
 
   // Easter egg "Icône rétro" (clé "retro-icon-unlock") : jours CONSÉCUTIFS
   // avec au moins une visite, remis à 1 dès qu'un jour est manqué.

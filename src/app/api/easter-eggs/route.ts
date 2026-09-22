@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EASTER_EGGS } from "@/lib/easter-eggs-registry";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
+import { isOwnerEmail } from "@/lib/dev-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -21,30 +22,26 @@ export async function GET() {
     return NextResponse.json({
       total: EASTER_EGGS.length,
       foundCount: 0,
+      isOwner: false,
       eggs: EASTER_EGGS.map((e) => ({ number: e.number, found: false, reward: e.reward }))
     });
   }
 
   const userId = (session.user as { id: string }).id;
 
-  // Easter eggs "Premier anniversaire personnel", "Fidélité rétro" et
-  // "Toujours à l'heure" : tous les trois vérifiés ICI plutôt que sur une
-  // tâche planifiée — cette route est déjà appelée à chaque visite de
-  // /succes ou de la Communauté (voir eggCount côté client), ce qui couvre
-  // la grande majorité des sessions actives sans plomberie supplémentaire.
-  // Compromis documenté : un compte qui ne visite ni l'une ni l'autre un
-  // jour donné ne fait pas progresser ces compteurs ce jour-là.
+  // Easter eggs "Fidélité rétro" et "Toujours à l'heure" : tous les deux
+  // vérifiés ICI plutôt que sur une tâche planifiée — cette route est déjà
+  // appelée à chaque visite de /succes ou de la Communauté (voir eggCount
+  // côté client), ce qui couvre la grande majorité des sessions actives sans
+  // plomberie supplémentaire. Compromis documenté : un compte qui ne visite
+  // ni l'une ni l'autre un jour donné ne fait pas progresser ces compteurs
+  // ce jour-là.
   const me = await prisma.user.findUnique({
     where: { id: userId },
-    select: { createdAt: true, lastLoginDate: true, loginStreakDays: true, lastLoginHour: true, sameHourLoginStreak: true }
+    select: { lastLoginDate: true, loginStreakDays: true, lastLoginHour: true, sameHourLoginStreak: true }
   });
   if (me) {
     const now = new Date();
-    const created = me.createdAt as Date;
-    if (now.getMonth() === created.getMonth() && now.getDate() === created.getDate() && now.getFullYear() > created.getFullYear()) {
-      await markEasterEggFound(userId, "account-anniversary");
-    }
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const lastLoginDate = me.lastLoginDate as Date | null;
@@ -57,10 +54,10 @@ export async function GET() {
     if (!lastDay || lastDay.getTime() !== today.getTime()) {
       const isNextConsecutiveDay = lastDay !== null && today.getTime() - lastDay.getTime() === 24 * 60 * 60 * 1000;
 
-      // "Fidélité rétro" (#47) : jours consécutifs avec au moins une visite.
+      // "Fidélité rétro" (#46) : jours consécutifs avec au moins une visite.
       const nextStreakDays = isNextConsecutiveDay ? (me.loginStreakDays ?? 0) + 1 : 1;
 
-      // "Toujours à l'heure" (#48) : connexions à peu près à la même heure
+      // "Toujours à l'heure" (#47) : connexions à peu près à la même heure
       // (± 1h, heure entière) sur des jours consécutifs.
       const nowHour = now.getHours();
       const sameHourAsLast =
@@ -110,5 +107,13 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ total: EASTER_EGGS.length, foundCount: found.length, eggs });
+  return NextResponse.json({
+    total: EASTER_EGGS.length,
+    foundCount: found.length,
+    // Voir dev-preview.ts : permet à Paramètres de laisser le compte
+    // propriétaire choisir n'importe quel fond d'écran réservé, sans avoir à
+    // revérifier ce même easter egg côté client pour chaque fond.
+    isOwner: isOwnerEmail(session.user.email),
+    eggs
+  });
 }
