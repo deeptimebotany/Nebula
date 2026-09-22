@@ -7,13 +7,20 @@ interface StarfieldContextValue {
   allowed: boolean;
   loaded: boolean;
   setEnabled: (value: boolean) => Promise<boolean>;
+  // Relit /api/settings/starfield à la demande (voir settings/page.tsx, qui
+  // l'appelle à chaque fois qu'on affiche la page) — la vérification
+  // initiale ne se fait qu'une fois au montage de <Providers>, tout en haut
+  // de l'appli, donc sans ça un compte qui vient de passer Pro/Agence
+  // resterait affiché comme verrouillé tant que l'onglet n'est pas rechargé.
+  refresh: () => void;
 }
 
 const StarfieldContext = createContext<StarfieldContextValue>({
   enabled: false,
   allowed: false,
   loaded: false,
-  setEnabled: async () => false
+  setEnabled: async () => false,
+  refresh: () => undefined
 });
 
 export function useStarfield() {
@@ -31,8 +38,11 @@ export function StarfieldProvider({ children }: { children: React.ReactNode }) {
   const [allowed, setAllowed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/settings/starfield")
+  const refresh = useCallback(() => {
+    // `cache: "no-store"` : évite qu'une réponse mise en cache par le
+    // navigateur (ou un intermédiaire) ne serve une ancienne valeur de
+    // `allowed` après un changement de palier.
+    fetch("/api/settings/starfield", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d) {
@@ -42,6 +52,11 @@ export function StarfieldProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => undefined)
       .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setEnabled = useCallback(async (value: boolean) => {
@@ -56,7 +71,7 @@ export function StarfieldProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <StarfieldContext.Provider value={{ enabled, allowed, loaded, setEnabled }}>
+    <StarfieldContext.Provider value={{ enabled, allowed, loaded, setEnabled, refresh }}>
       {children}
     </StarfieldContext.Provider>
   );

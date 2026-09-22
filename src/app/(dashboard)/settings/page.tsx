@@ -46,7 +46,13 @@ function isTypingTarget(el: EventTarget | null) {
 export default function SettingsPage() {
   const { themeKey, setThemeKey } = useTheme();
   const { backgroundKey, setBackgroundKey } = useBackground();
-  const { enabled: starfieldEnabled, allowed: starfieldAllowed, loaded: starfieldLoaded, setEnabled: setStarfieldEnabled } = useStarfield();
+  const {
+    enabled: starfieldEnabled,
+    allowed: starfieldAllowed,
+    loaded: starfieldLoaded,
+    setEnabled: setStarfieldEnabled,
+    refresh: refreshStarfield
+  } = useStarfield();
   const [savingStarfield, setSavingStarfield] = useState(false);
   const { activeBrand, renameBrand } = useBrand();
   const toast = useToast();
@@ -55,6 +61,16 @@ export default function SettingsPage() {
   const [plan, setPlan] = useState<Plan>("FREE");
   const [pseudo, setPseudo] = useState("");
   const [savingPseudo, setSavingPseudo] = useState(false);
+
+  // Revérifie systématiquement le droit d'accès au thème étoilé à chaque
+  // affichage de cette page (voir refresh() dans starfield-provider.tsx) :
+  // le montage initial de <Providers>, tout en haut de l'appli, ne se refait
+  // pas à chaque navigation interne, donc sans ça un palier qui vient de
+  // changer resterait affiché comme verrouillé jusqu'au rechargement complet
+  // de l'onglet.
+  useEffect(() => {
+    refreshStarfield();
+  }, [refreshStarfield]);
 
   // Easter egg thème "Nova" — voir NOVA_UNLOCK_WORD ci-dessus.
   const [novaUnlocked, setNovaUnlocked] = useState(false);

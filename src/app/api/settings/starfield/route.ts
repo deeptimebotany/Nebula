@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 
+// Toujours réévalué à la demande, jamais mis en cache (statiquement au build
+// ou par un intermédiaire) — `allowed` doit refléter le palier réel au
+// moment de l'appel, pas une réponse figée.
+export const dynamic = "force-dynamic";
+
 // GET/PATCH /api/settings/starfield — thème étoilé animé (easter egg),
 // réservé aux paliers Pro et Agence. Même schéma que /api/settings/theme et
 // /api/settings/background, avec une nuance : `allowed` reflète le PALIER
