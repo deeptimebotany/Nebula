@@ -102,6 +102,28 @@ export function TopNav({ oauth, isOwner }: TopNavProps) {
   const brandSwitcherRef = useRef<HTMLDivElement>(null);
   const addAccountRef = useRef<HTMLDivElement>(null);
 
+  // Easter egg "sidebar-menu-mash-unlock" (voir easter-eggs-registry.ts) :
+  // ouvrir le menu latéral (bouton ☰) 7 fois de suite en moins de 10
+  // secondes. Même schéma que onVersionClick dans sidebar.tsx (compteur en
+  // ref + minuterie de remise à zéro), transposé ici puisque c'est ce
+  // bouton-ci qui ouvre le menu.
+  const menuOpenClicks = useRef(0);
+  const menuOpenClicksResetTimer = useRef<number | null>(null);
+
+  function onMenuOpenClick() {
+    setSidebarOpen(true);
+    menuOpenClicks.current += 1;
+    if (menuOpenClicksResetTimer.current) window.clearTimeout(menuOpenClicksResetTimer.current);
+    if (menuOpenClicks.current >= 7) {
+      menuOpenClicks.current = 0;
+      reportEasterEggFound("sidebar-menu-mash-unlock");
+    } else {
+      menuOpenClicksResetTimer.current = window.setTimeout(() => {
+        menuOpenClicks.current = 0;
+      }, 10000);
+    }
+  }
+
   useEffect(() => {
     fetch("/api/billing/plan")
       .then((r) => r.json())
@@ -177,7 +199,7 @@ export function TopNav({ oauth, isOwner }: TopNavProps) {
       <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
         <button
           type="button"
-          onClick={() => setSidebarOpen(true)}
+          onClick={onMenuOpenClick}
           aria-label="Ouvrir le menu"
           aria-expanded={sidebarOpen}
           className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
@@ -217,7 +239,7 @@ export function TopNav({ oauth, isOwner }: TopNavProps) {
                 )}
               >
                 <Icon className={clsx("h-4 w-4", active ? "text-aurora-300" : "text-slate-500")} />
-                <span className="hidden md:inline">{item.label}</span>
+                <span className="font-display hidden md:inline">{item.label}</span>
               </Link>
             );
           })}

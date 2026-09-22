@@ -91,9 +91,22 @@ export const EASTER_EGGS: EasterEggDef[] = [
   // explicite : ils ne sont plus réservés par palier, voir src/lib/cosmetics.ts
   // et src/lib/backgrounds.ts (requiresEgg plutôt que requiresPlan).
   { key: "meteor-shower-unlock", number: 45, emoji: "☄️", title: "Pluie d'étincelles", hint: "Publiez 3 posts personnels le même jour.", reward: "Fond animé « Pluie de météores »" },
-  { key: "retro-icon-unlock", number: 46, emoji: "👾", title: "Fidélité rétro", hint: "Visitez Nebula 30 jours consécutifs, sans en manquer un seul.", reward: "Cosmétique « Icône rétro »" },
-  { key: "greeting-unlock", number: 47, emoji: "👋", title: "Toujours à l'heure", hint: "Connectez-vous à peu près à la même heure, 3 jours consécutifs.", reward: "Cosmétique « Message d'accueil personnalisé »" },
-  { key: "golden-glow-unlock", number: 48, emoji: "🥇", title: "Éclat mérité", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Cosmétique « Éclat doré » (statistiques)" }
+  { key: "greeting-unlock", number: 46, emoji: "👋", title: "Toujours à l'heure", hint: "Connectez-vous à peu près à la même heure, 3 jours consécutifs.", reward: "Cosmétique « Message d'accueil personnalisé »" },
+  { key: "golden-glow-unlock", number: 47, emoji: "🥇", title: "Éclat mérité", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Cosmétique « Éclat doré » (statistiques)" },
+
+  // --- Cinquième vague (22/09/2026) — "Icône rétro" (ex #46, "Fidélité
+  // rétro") a été retirée entièrement à la demande explicite : le
+  // cosmétique ET son easter egg. "Poussière d'étoiles (menu latéral)",
+  // jusque-là offert à tout le monde, redevient à l'inverse un easter egg à
+  // débloquer.
+  {
+    key: "sidebar-menu-mash-unlock",
+    number: 48,
+    emoji: "🌌",
+    title: "Poussière retrouvée",
+    hint: "Ouvrez le menu latéral (☰) 7 fois de suite, en moins de 10 secondes.",
+    reward: "Cosmétique « Poussière d'étoiles » (menu latéral)"
+  }
 ];
 
 export const EASTER_EGG_KEYS = EASTER_EGGS.map((e) => e.key);

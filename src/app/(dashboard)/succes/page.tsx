@@ -53,11 +53,12 @@ export default function SuccesPage() {
   const rewardEggs = eggs?.filter((e) => e.reward) ?? [];
 
   return (
-    // "isolate" : même correctif que le Calendrier (voir ce fichier) —
-    // c'est ce qui manquait ici et rendait "Voûte céleste" totalement
-    // invisible, pas seulement discret.
+    // "isolate" : nécessaire pour que le -z-10 de CosmeticDecorOverlay ne
+    // remonte pas jusqu'au contexte d'empilement de <main class="noise-grid">
+    // (voir decor-overlay.tsx et globals.css) — sans lui, "Voûte céleste"
+    // était totalement invisible, pas seulement discret.
     <div className="relative isolate space-y-6">
-      <CosmeticDecorOverlay cosmeticKey="papier-peint-succes" variant="starfield" />
+      <CosmeticDecorOverlay cosmeticKey="papier-peint-succes" />
       <div>
         <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
           <IconTrophy className="h-6 w-6 text-amber-300" /> Succès

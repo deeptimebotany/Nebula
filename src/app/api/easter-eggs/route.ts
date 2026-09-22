@@ -29,13 +29,19 @@ export async function GET() {
 
   const userId = (session.user as { id: string }).id;
 
-  // Easter eggs "Fidélité rétro" et "Toujours à l'heure" : tous les deux
-  // vérifiés ICI plutôt que sur une tâche planifiée — cette route est déjà
-  // appelée à chaque visite de /succes ou de la Communauté (voir eggCount
-  // côté client), ce qui couvre la grande majorité des sessions actives sans
-  // plomberie supplémentaire. Compromis documenté : un compte qui ne visite
-  // ni l'une ni l'autre un jour donné ne fait pas progresser ces compteurs
-  // ce jour-là.
+  // Easter egg "Toujours à l'heure" : vérifié ICI plutôt que sur une tâche
+  // planifiée — cette route est déjà appelée à chaque visite de /succes ou
+  // de la Communauté (voir eggCount côté client), ce qui couvre la grande
+  // majorité des sessions actives sans plomberie supplémentaire. Compromis
+  // documenté : un compte qui ne visite ni l'une ni l'autre un jour donné ne
+  // fait pas progresser ce compteur ce jour-là.
+  //
+  // Note : `loginStreakDays`/`lastLoginDate` restent calculés et enregistrés
+  // ci-dessous même si plus aucun easter egg n'en dépend depuis la
+  // suppression de "Fidélité rétro" (ex #46, qui déverrouillait l'« Icône
+  // rétro », elle-même supprimée) — pas de migration de schéma pour un
+  // simple retrait de déclencheur, et ces champs restent disponibles si un
+  // futur easter egg veut s'appuyer sur une série de connexions.
   const me = await prisma.user.findUnique({
     where: { id: userId },
     select: { lastLoginDate: true, loginStreakDays: true, lastLoginHour: true, sameHourLoginStreak: true }
@@ -54,10 +60,11 @@ export async function GET() {
     if (!lastDay || lastDay.getTime() !== today.getTime()) {
       const isNextConsecutiveDay = lastDay !== null && today.getTime() - lastDay.getTime() === 24 * 60 * 60 * 1000;
 
-      // "Fidélité rétro" (#46) : jours consécutifs avec au moins une visite.
+      // Jours consécutifs avec au moins une visite (n'alimente plus aucun
+      // easter egg directement, voir la note ci-dessus, mais reste calculé).
       const nextStreakDays = isNextConsecutiveDay ? (me.loginStreakDays ?? 0) + 1 : 1;
 
-      // "Toujours à l'heure" (#47) : connexions à peu près à la même heure
+      // "Toujours à l'heure" (#46) : connexions à peu près à la même heure
       // (± 1h, heure entière) sur des jours consécutifs.
       const nowHour = now.getHours();
       const sameHourAsLast =
@@ -74,9 +81,6 @@ export async function GET() {
         }
       });
 
-      if (nextStreakDays === 30) {
-        await markEasterEggFound(userId, "retro-icon-unlock");
-      }
       if (nextSameHourStreak === 3) {
         await markEasterEggFound(userId, "greeting-unlock");
       }

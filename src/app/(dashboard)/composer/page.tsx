@@ -30,7 +30,6 @@ import type { RepurposedContent } from "@/lib/ai/gemini";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import { CosmeticDecorOverlay } from "@/components/cosmetics/decor-overlay";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 
 // Large sélection d'émojis organisée par catégorie pour l'insertion rapide
@@ -965,8 +964,7 @@ function ComposerPageInner() {
     // popup fixe en plein écran avec fond assombri/flouté : la création de
     // publication se fait directement ici, à la demande explicite (retour
     // "je veux que ça devienne comme toutes les pages du site").
-    <div className="relative isolate space-y-6">
-      <CosmeticDecorOverlay cosmeticKey="ciel-nocturne-composer" variant="starfield" />
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-white">Créer une publication</h1>

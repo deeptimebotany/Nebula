@@ -40,20 +40,6 @@ export interface CosmeticDefinition {
 
 export const COSMETICS: CosmeticDefinition[] = [
   {
-    key: "constellation-calendrier",
-    label: "Constellations (Calendrier)",
-    description: "Un fond de constellations derrière la grille du Calendrier.",
-    category: "decor",
-    requiresPlan: "PRO"
-  },
-  {
-    key: "ciel-nocturne-composer",
-    label: "Ciel nocturne (Importation)",
-    description: "Un fond étoilé discret derrière la page d'Importation.",
-    category: "decor",
-    requiresPlan: "PRO"
-  },
-  {
     key: "anneau-saturne-avatar",
     label: "Anneau de Saturne (avatar)",
     description: "Un anneau animé léger autour de la pastille de marque active, en haut de l'écran. Cumulable avec le Halo doré.",
@@ -83,7 +69,7 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "papier-peint-succes",
     label: "Voûte céleste (page Succès)",
-    description: "Un fond animé dédié à votre page Succès.",
+    description: "Une vraie voûte stellaire colorée et animée en fond de votre page Succès.",
     category: "decor",
     requiresPlan: "AGENCY"
   },
@@ -104,15 +90,9 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "sidebar-poussiere-etoiles",
     label: "Poussière d'étoiles (menu latéral)",
-    description: "Une pluie d'étoiles filantes en fond du menu latéral.",
-    category: "decor"
-  },
-  {
-    key: "icone-app-retro",
-    label: "Icône rétro",
-    description: "Une variante pixel-art de l'icône de l'onglet du navigateur.",
-    category: "profil",
-    requiresEgg: "retro-icon-unlock"
+    description: "Un semis d'étoiles qui dérivent doucement en fond du menu latéral, comme le thème étoilé animé.",
+    category: "decor",
+    requiresEgg: "sidebar-menu-mash-unlock"
   }
 ];
 

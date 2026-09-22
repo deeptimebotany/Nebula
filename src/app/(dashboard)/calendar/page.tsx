@@ -16,7 +16,6 @@ import { WeekScrubber } from "@/components/dashboard/week-scrubber";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconChevron, IconPlus } from "@/components/dashboard/icons";
-import { CosmeticDecorOverlay } from "@/components/cosmetics/decor-overlay";
 
 interface ApiPost {
   id: string;
@@ -235,13 +234,7 @@ function CalendarPageInner() {
   }
 
   return (
-    // "isolate" est indispensable ici : sans son propre contexte
-    // d'empilement, le "-z-10" du décor ci-dessous remontait jusqu'à celui
-    // de <main class="noise-grid"> (voir globals.css) et se retrouvait
-    // affiché DERRIÈRE le fond d'écran de toute l'application, donc
-    // invisible — c'est ce qui rendait ce cosmétique impossible à voir.
-    <div className="relative isolate space-y-6">
-      <CosmeticDecorOverlay cosmeticKey="constellation-calendrier" variant="constellation" />
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-white">Calendrier de publication</h1>

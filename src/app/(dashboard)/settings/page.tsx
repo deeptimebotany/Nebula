@@ -549,9 +549,7 @@ export default function SettingsPage() {
           Un petit son de décollage accompagne chaque publication immédiate réussie. Se débloque en publiant votre
           10ᵉ post personnel (immédiat ou programmé).
         </p>
-        {!publishSound.unlocked ? (
-          <p className="mt-3 text-sm text-slate-500">Continuez à publier — cette option apparaîtra automatiquement.</p>
-        ) : (
+        {publishSound.unlocked && (
           <div className="mt-4">
             <button
               type="button"
@@ -569,6 +567,7 @@ export default function SettingsPage() {
           </div>
         )}
       </GlassCard>
+
 
       <GlassCard>
         <div className="flex items-center justify-between">

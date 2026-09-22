@@ -330,64 +330,55 @@ body {
     text-shadow: 0 0 14px rgba(99, 230, 255, 0.45);
   }
 
-  /* Décors de page (voir decor-overlay.tsx) : Calendrier, Importation, Succès.
-     Posés en `-z-10` derrière un parent qui DOIT être `isolate` (voir les
-     pages qui les utilisent) : sans isolation propre, ce z-index négatif
-     remonte jusqu'à la prochaine "isolation: isolate" rencontrée dans
-     l'arbre — ici celle de <main class="noise-grid"> (voir plus haut) — et
-     se retrouve donc affiché DERRIÈRE le fond d'écran choisi dans
-     Paramètres (`.noise-grid::before`, à z-index: -1), donc invisible. */
-  .nebula-decor-constellation {
-    background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 250, 0.55) 1.6px, transparent 0),
-      radial-gradient(circle at 22px 34px, rgba(99, 230, 255, 0.4) 1.2px, transparent 0);
-    background-size: 46px 46px, 46px 46px;
-    opacity: 0.75;
-    -webkit-mask-image: radial-gradient(ellipse 95% 80% at 50% 25%, black 55%, transparent 95%);
-    mask-image: radial-gradient(ellipse 95% 80% at 50% 25%, black 55%, transparent 95%);
-  }
+  /* Décor de page (voir decor-overlay.tsx) : uniquement "Voûte céleste",
+     posé en fond de la page Succès. "Constellations (Calendrier)" et "Ciel
+     nocturne (Importation)" ont été retirés entièrement. Posé en `-z-10`
+     derrière un parent qui DOIT être `isolate` (voir succes/page.tsx) :
+     sans isolation propre, ce z-index négatif remonte jusqu'à la prochaine
+     "isolation: isolate" rencontrée dans l'arbre — ici celle de
+     <main class="noise-grid"> (voir plus haut) — et se retrouve donc
+     affiché DERRIÈRE le fond d'écran choisi dans Paramètres
+     (`.noise-grid::before`, à z-index: -1), donc invisible.
+     Nettement plus riche que la version d'origine (à peine visible) : une
+     vraie voûte colorée (nébulosités violette/cyan/magenta en arc, comme un
+     ciel vu de dessous) sur un semis d'étoiles dense, qui scintille et
+     dérive doucement. */
   .nebula-decor-starfield {
-    background-image: radial-gradient(circle at 1px 1px, rgba(99, 230, 255, 0.3) 1px, transparent 0),
-      radial-gradient(circle at 1px 1px, rgba(124, 108, 240, 0.22) 1px, transparent 0);
-    background-size: 40px 40px, 90px 90px;
-    background-position: 0 0, 20px 30px;
-    opacity: 0.4;
-    animation: nebulaDecorDrift 60s linear infinite;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.55) 1px, transparent 0),
+      radial-gradient(circle at 1px 1px, rgba(180, 205, 255, 0.4) 1.3px, transparent 0),
+      radial-gradient(ellipse 70% 55% at 18% 8%, rgba(124, 108, 240, 0.5), transparent 62%),
+      radial-gradient(ellipse 65% 50% at 82% 4%, rgba(99, 230, 255, 0.45), transparent 62%),
+      radial-gradient(ellipse 85% 60% at 50% 0%, rgba(233, 73, 174, 0.32), transparent 68%);
+    background-size: 26px 26px, 58px 58px, 100% 100%, 100% 100%, 100% 100%;
+    background-position: 0 0, 13px 21px, 0 0, 0 0, 0 0;
+    opacity: 0.9;
+    animation: nebulaDecorDrift 70s linear infinite, nebulaVaultGlow 9s ease-in-out infinite;
+    -webkit-mask-image: radial-gradient(ellipse 100% 85% at 50% 0%, black 45%, transparent 92%);
+    mask-image: radial-gradient(ellipse 100% 85% at 50% 0%, black 45%, transparent 92%);
   }
   @keyframes nebulaDecorDrift {
-    0% { background-position: 0 0, 20px 30px; }
-    100% { background-position: -200px 200px, -140px 260px; }
+    0% { background-position: 0 0, 13px 21px, 0 0, 0 0, 0 0; }
+    100% { background-position: -200px 200px, -140px 260px, 0 0, 0 0, 0 0; }
+  }
+  @keyframes nebulaVaultGlow {
+    0%, 100% { filter: brightness(1) saturate(1); }
+    50% { filter: brightness(1.25) saturate(1.2); }
   }
 
   /* "Poussière d'étoiles" (menu latéral, voir sidebar-shooting-stars.tsx) :
-     de vraies étoiles filantes individuelles (positions/durées aléatoires,
-     une diagonale + une traînée qui s'estompe), plutôt qu'un motif de points
-     répété à intervalle fixe qui donnait un résultat symétrique. */
-  .nebula-sidebar-shooting-star {
+     de vrais points individuels qui dérivent et scintillent, façon thème
+     étoilé animé (starfield.tsx) — remplace une première version en traits
+     façon étoiles filantes, jugée peu réussie ("tout moche"). Le
+     positionnement (left/top/opacity) est mis à jour image par image en JS
+     (voir ce composant), donc ce style ne fixe que l'apparence du point. */
+  .nebula-sidebar-star-dot {
     position: absolute;
-    height: 2px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, rgba(200, 215, 255, 0.95), rgba(99, 230, 255, 0.6) 60%, transparent);
-    transform: rotate(-32deg);
-    opacity: 0;
-    animation-name: nebulaSidebarShootingStar;
-    animation-timing-function: ease-in;
-    animation-iteration-count: infinite;
-  }
-  @keyframes nebulaSidebarShootingStar {
-    0% {
-      opacity: 0;
-      transform: rotate(-32deg) translateX(0);
-    }
-    8% {
-      opacity: 1;
-    }
-    75% {
-      opacity: 0.7;
-    }
-    100% {
-      opacity: 0;
-      transform: rotate(-32deg) translateX(90px);
-    }
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(180, 205, 255, 0.55) 55%, transparent 100%);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    will-change: left, top, opacity;
   }
 
   /* Décorations de l'avatar/pastille de marque (voir topnav.tsx). */
@@ -458,6 +449,67 @@ body {
   }
   .btn-glow:active {
     transform: translateY(0);
+  }
+
+  /* Bouton flottant de l'assistant IA (voir ai-assistant.tsx) : remplace
+     l'ancien rond bleu plat uni + fin contour, qui datait de l'ancienne
+     direction artistique. Base "void" assombrie façon fond de l'appli, avec
+     un anneau conique tournant reprenant exactement les couleurs du logo
+     (violet/cyan/magenta, voir nebula-brandmark.tsx et
+     .nebula-cosmetic-saturn-ring) plutôt qu'un simple contour bleu, et un
+     halo respirant en arrière-plan pour rester repérable sans être criard.
+     Le ::before porte l'anneau tournant (même keyframe "border-spin" que
+     .glow-border-spin, déjà utilisée ailleurs dans le site), le ::after le
+     halo qui pulse doucement en continu — les deux en -z-1 derrière le
+     contenu du bouton (l'icône), sur un bouton déjà "isolate" via
+     "relative isolate" pour les contenir. */
+  .nebula-chat-launcher {
+    position: relative;
+    isolation: isolate;
+    background: radial-gradient(circle at 35% 30%, rgb(var(--c-nebula-700) / 0.9), #05070f 75%);
+    box-shadow: 0 12px 30px -8px rgb(var(--c-nebula-900) / 0.85);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .nebula-chat-launcher::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    z-index: -2;
+    border-radius: 9999px;
+    background: conic-gradient(
+      from 0deg,
+      rgb(var(--c-accent-violet) / 0.95),
+      rgb(var(--c-accent-cyan) / 0.95),
+      rgb(var(--c-accent-magenta) / 0.95),
+      rgb(var(--c-accent-violet) / 0.95)
+    );
+    animation: borderSpin 5s linear infinite;
+  }
+  .nebula-chat-launcher::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    z-index: -3;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgb(var(--c-aurora-400) / 0.55), transparent 70%);
+    animation: nebulaLauncherPulse 2.6s ease-in-out infinite;
+  }
+  .nebula-chat-launcher:hover {
+    transform: translateY(-1px);
+  }
+  .nebula-chat-launcher:active {
+    transform: translateY(0);
+  }
+  @keyframes nebulaLauncherPulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(0.94);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.06);
+    }
   }
 
   .shimmer-bg {

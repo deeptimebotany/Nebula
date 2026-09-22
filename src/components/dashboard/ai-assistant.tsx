@@ -110,7 +110,7 @@ export function AiAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="btn-glow fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white"
+        className="nebula-chat-launcher fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white"
         aria-label="Ouvrir l'assistant IA"
       >
         {open ? <IconClose className="h-5 w-5" /> : <NebulaIcon size={30} />}

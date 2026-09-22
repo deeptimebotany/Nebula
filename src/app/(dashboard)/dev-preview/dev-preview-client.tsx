@@ -31,17 +31,14 @@ import type { Plan } from "@/lib/plans";
 // (src/lib/cosmetics.ts) qui n'a pas besoin de cette info pour fonctionner,
 // donc renseigné ici, uniquement pour cette page de référence.
 const COSMETIC_LOCATION: Record<string, string> = {
-  "constellation-calendrier": "Fond derrière la grille du Calendrier.",
-  "ciel-nocturne-composer": "Fond derrière la page Importation.",
   "anneau-saturne-avatar": "Pastille de marque active, en haut à gauche (barre du haut).",
   "halo-dore-avatar": "Pastille de marque active, en haut à gauche (barre du haut) — cumulable avec l'anneau de Saturne.",
   "eclat-dore-statcard": "Contour des cartes de statistiques, sur Analytics, une fois le palier d'abonnés dépassé.",
-  "police-cosmique": "Tous les titres de page (h1) du site.",
+  "police-cosmique": "Tous les titres de page (h1) et les onglets de la barre du haut, sur tout le site.",
   "papier-peint-succes": "Fond de la page Succès.",
   "son-pulsar": "Son joué à l'apparition d'une notification de succès.",
   "message-accueil-perso": "Texte d'accueil en haut de la Vue d'ensemble.",
-  "sidebar-poussiere-etoiles": "Fond du menu latéral (icône ☰ en haut à gauche).",
-  "icone-app-retro": "Icône de l'onglet du navigateur (favicon)."
+  "sidebar-poussiere-etoiles": "Fond du menu latéral (icône ☰ en haut à gauche)."
 };
 
 const PLAN_OPTIONS: { value: Plan | null; label: string }[] = [
