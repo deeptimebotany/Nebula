@@ -85,10 +85,18 @@ export function Starfield() {
 
   useEffect(() => {
     if (!active) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const canvasEl = canvasRef.current;
+    if (!canvasEl) return;
+    const maybeCtx = canvasEl.getContext("2d");
+    if (!maybeCtx) return;
+    // Types explicites (plutôt que de compter sur le rétrécissement de type
+    // de TypeScript) : `canvas`/`ctx` sont utilisés dans des fonctions
+    // imbriquées (resize/tick/onClick), et TypeScript ne conserve pas le
+    // rétrécissement d'un `if (!x) return` à travers une frontière de
+    // fermeture — sans ça, le build Next.js échoue avec "possibly null"
+    // malgré ces contrôles.
+    const canvas: HTMLCanvasElement = canvasEl;
+    const ctx: CanvasRenderingContext2D = maybeCtx;
 
     if (starsRef.current.length === 0) {
       starsRef.current = makeStars(STAR_COUNT);

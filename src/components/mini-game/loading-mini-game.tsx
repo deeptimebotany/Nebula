@@ -87,8 +87,15 @@ export function LoadingMiniGame({
     if (!visible) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const maybeCtx = canvas.getContext("2d");
+    if (!maybeCtx) return;
+    // Type explicite (plutôt que de compter sur le rétrécissement de type de
+    // TypeScript) : `ctx` est utilisé dans des fonctions imbriquées
+    // (tick/resize/handlers), et TypeScript ne conserve pas le
+    // rétrécissement d'un `if (!x) return` à travers une frontière de
+    // fermeture — sans ça, le build Next.js échoue avec "ctx is possibly
+    // null" malgré ce contrôle.
+    const ctx: CanvasRenderingContext2D = maybeCtx;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = canvas.clientWidth || 480;
