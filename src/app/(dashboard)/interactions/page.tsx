@@ -167,6 +167,14 @@ function InteractionsPageInner() {
         </GlassCard>
       )}
 
+      {/* Easter egg discret : plus rien à lire, on le dit plutôt que de
+          laisser une liste silencieuse de commentaires déjà traités. */}
+      {items && items.length > 0 && unreadCount === 0 && (
+        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.05] text-center">
+          <p className="text-sm text-emerald-300">📭 Inbox zero — tout est traité, pour l&apos;instant.</p>
+        </GlassCard>
+      )}
+
       {items === null ? (
         <p className="text-sm text-slate-500">Chargement...</p>
       ) : items.length === 0 ? (

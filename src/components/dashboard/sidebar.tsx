@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
 import { useMode } from "@/components/mode-provider";
+import { useToast } from "@/components/dashboard/toast";
 import { IconClose, IconLink, IconCard, IconSettings, IconMoon, IconSun, IconHeart, IconLogout } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
+
+// Durée totale de la rotation déclenchée par l'appui long sur le logo (voir
+// startLogoSpin ci-dessous) et angle total parcouru sur cette durée.
+const LOGO_SPIN_HOLD_MS = 3000;
+const LOGO_SPIN_DURATION_MS = 3200;
+const LOGO_SPIN_TOTAL_DEGREES = 2200;
 
 export interface SidebarNavItem {
   href: string;
@@ -33,6 +40,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarProps) {
   const pathname = usePathname();
   const { mode, setMode } = useMode();
+  const toast = useToast();
 
   // Ferme au clavier (Échap) — confort standard pour ce genre de panneau.
   useEffect(() => {
@@ -43,6 +51,76 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  // Easter egg : appui long (3s) sur le logo → il se met à tourner de plus
+  // en plus vite (accélération réelle, pas une vitesse constante) pendant
+  // ~3s, puis se stabilise en douceur. holdTimer arme le déclenchement au
+  // bout de LOGO_SPIN_HOLD_MS ; spinRaf anime ensuite l'angle avec un
+  // exposant > 1 (t^2.2) pour que la vitesse angulaire grandisse vraiment
+  // avec le temps plutôt que de tourner à vitesse fixe.
+  const [logoSpinAngle, setLogoSpinAngle] = useState(0);
+  const [logoSpinning, setLogoSpinning] = useState(false);
+  const holdTimer = useRef<number | null>(null);
+  const spinRaf = useRef<number | null>(null);
+
+  function startLogoSpin() {
+    setLogoSpinning(true);
+    const start = performance.now();
+    function tick(now: number) {
+      const t = Math.min((now - start) / LOGO_SPIN_DURATION_MS, 1);
+      setLogoSpinAngle(LOGO_SPIN_TOTAL_DEGREES * Math.pow(t, 2.2));
+      if (t < 1) {
+        spinRaf.current = requestAnimationFrame(tick);
+      } else {
+        setLogoSpinning(false);
+        window.setTimeout(() => setLogoSpinAngle(0), 400);
+      }
+    }
+    spinRaf.current = requestAnimationFrame(tick);
+  }
+
+  function onLogoPressStart() {
+    if (holdTimer.current || logoSpinning) return;
+    holdTimer.current = window.setTimeout(() => {
+      holdTimer.current = null;
+      startLogoSpin();
+    }, LOGO_SPIN_HOLD_MS);
+  }
+
+  function onLogoPressEnd() {
+    if (holdTimer.current) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (holdTimer.current) window.clearTimeout(holdTimer.current);
+      if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
+    },
+    []
+  );
+
+  // Easter egg : basculer Sombre/Clair 10 fois de suite (en moins de 3s
+  // entre deux clics) déclenche un petit message taquin — le compteur se
+  // remet à zéro dès qu'on marque une pause.
+  const modeToggleCount = useRef(0);
+  const modeToggleResetTimer = useRef<number | null>(null);
+
+  function handleModeClick(next: "dark" | "light") {
+    setMode(next);
+    modeToggleCount.current += 1;
+    if (modeToggleResetTimer.current) window.clearTimeout(modeToggleResetTimer.current);
+    if (modeToggleCount.current >= 10) {
+      modeToggleCount.current = 0;
+      toast.info("Vous hésitez ? Le mode sombre reste notre préféré 🌙");
+    } else {
+      modeToggleResetTimer.current = window.setTimeout(() => {
+        modeToggleCount.current = 0;
+      }, 3000);
+    }
+  }
 
   return (
     <>
@@ -73,7 +151,20 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
               // Logo officiel Nebula (voir topnav.tsx) — même icône animée
               // que dans la barre du haut, pour que la bulle du menu latéral
               // ne montre plus l'ancien logo statique (étincelle seule).
-              <NebulaIcon size={32} />
+              // onPointer* : easter egg d'appui long, voir startLogoSpin.
+              <div
+                onPointerDown={onLogoPressStart}
+                onPointerUp={onLogoPressEnd}
+                onPointerLeave={onLogoPressEnd}
+                onPointerCancel={onLogoPressEnd}
+                className="cursor-pointer select-none"
+                style={{
+                  transform: logoSpinAngle ? `rotate(${logoSpinAngle}deg)` : undefined,
+                  transition: logoSpinning ? undefined : "transform 0.4s ease-out"
+                }}
+              >
+                <NebulaIcon size={32} />
+              </div>
             )}
             <span className="font-display text-base font-semibold text-white">{brandName}</span>
           </div>
@@ -145,7 +236,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
           <p className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-wide text-slate-500">Apparence</p>
           <div className="grid grid-cols-2 gap-2 px-3">
             <button
-              onClick={() => setMode("dark")}
+              onClick={() => handleModeClick("dark")}
               className={clsx(
                 "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
                 mode === "dark" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"
@@ -155,7 +246,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
               Sombre
             </button>
             <button
-              onClick={() => setMode("light")}
+              onClick={() => handleModeClick("light")}
               className={clsx(
                 "flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 text-xs transition",
                 mode === "light" ? "border-aurora-400 bg-white/[0.04] text-white" : "border-white/10 text-slate-400 hover:border-white/25"

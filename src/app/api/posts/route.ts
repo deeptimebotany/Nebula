@@ -84,9 +84,15 @@ export async function POST(req: NextRequest) {
     }
   });
 
+  let milestone: number | null = null;
   if (!scheduledDate && publishNow) {
-    await publishPost(post.id).catch(() => undefined); // erreurs déjà enregistrées par cible
+    // Erreurs déjà enregistrées par cible (voir publishPost) — seul le
+    // palier franchi, s'il y en a un, doit remonter jusqu'ici pour
+    // déclencher l'animation côté client.
+    milestone = await publishPost(post.id)
+      .then((r) => r.milestone)
+      .catch(() => null);
   }
 
-  return NextResponse.json({ ok: true, postId: post.id });
+  return NextResponse.json({ ok: true, postId: post.id, milestone });
 }

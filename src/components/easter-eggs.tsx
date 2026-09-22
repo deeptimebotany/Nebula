@@ -6,12 +6,44 @@
 //     facile à trouver pour qui n'a pas de manette en tête.
 //  3. Un petit message signé, caché dans la console du navigateur, pour les
 //     curieux qui l'ouvrent.
+//  4. À minuit pile, 2 ou 3 étoiles filantes traversent l'écran (une seule
+//     fois par jour).
+//  5. Le vendredi 13, un chat noir traverse l'écran une fois dans la
+//     journée, avec un petit message.
+//  6. Le 21 septembre (anniversaire du lancement de Nebula), confettis +
+//     message d'anniversaire, une fois par jour.
 // Rien de tout ça n'apparaît ni ne se déclenche pendant une utilisation
 // normale : aucune UI visible, aucun raccourci qui entre en conflit avec la
 // saisie de texte.
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/toast";
+
+// Hypothèse : Nebula a été lancé le 21 septembre 2025 — à corriger ici si la
+// vraie date de lancement diffère (seule cette constante calcule "Nebula a
+// X ans" ci-dessous, rien d'autre n'en dépend).
+const LAUNCH_YEAR = 2025;
+
+// Un seul déclenchement par jour et par easter egg, même si la page est
+// rechargée plusieurs fois — clé datée (année-mois-jour) dans localStorage.
+function todayFlagKey(prefix: string): string {
+  const d = new Date();
+  return `nebula:${prefix}:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+function hasFiredToday(prefix: string): boolean {
+  try {
+    return localStorage.getItem(todayFlagKey(prefix)) === "1";
+  } catch {
+    return false;
+  }
+}
+function markFiredToday(prefix: string) {
+  try {
+    localStorage.setItem(todayFlagKey(prefix), "1");
+  } catch {
+    // stockage indisponible — tant pis, l'egg pourra se redéclencher
+  }
+}
 
 const KONAMI = [
   "ArrowUp",
@@ -47,6 +79,13 @@ interface ConfettiPiece {
   drift: number;
 }
 
+interface ShootingStar {
+  id: number;
+  top: number;
+  left: number;
+  delay: number;
+}
+
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -56,10 +95,35 @@ function isTypingTarget(el: EventTarget | null) {
 export function EasterEggs() {
   const toast = useToast();
   const [confetti, setConfetti] = useState<ConfettiPiece[] | null>(null);
+  const [shootingStars, setShootingStars] = useState<ShootingStar[] | null>(null);
+  const [blackCat, setBlackCat] = useState(false);
   const konamiProgress = useRef(0);
   const wordProgress = useRef(0);
   const nextId = useRef(0);
   const cooldown = useRef(false);
+
+  // Minuit : 2 ou 3 étoiles filantes traversent l'écran en diagonale — pas
+  // de confettis ici (trop bruyant pour un effet censé être discret), pas
+  // de son, juste un joli passage.
+  function fireShootingStars() {
+    const count = 2 + Math.floor(Math.random() * 2);
+    const stars: ShootingStar[] = Array.from({ length: count }, () => ({
+      id: nextId.current++,
+      top: 5 + Math.random() * 40,
+      left: Math.random() * 35,
+      delay: Math.random() * 1.6
+    }));
+    setShootingStars(stars);
+    window.setTimeout(() => setShootingStars(null), 4200);
+  }
+
+  // Vendredi 13 : un chat noir traverse l'écran une seule fois dans la
+  // journée (voir hasFiredToday), avec un petit message.
+  function fireBlackCat() {
+    setBlackCat(true);
+    toast.info("🐈‍⬛ Vendredi 13... un chat noir traverse Nebula. Bonne chance aujourd'hui !");
+    window.setTimeout(() => setBlackCat(false), 3600);
+  }
 
   function fire(message: string) {
     if (cooldown.current) return;
@@ -129,11 +193,62 @@ export function EasterEggs() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toast]);
 
-  if (!confetti) return null;
+  // Easter eggs liés à la date/heure : vérifiés au chargement ET toutes les
+  // minutes (au cas où l'onglet reste ouvert pendant qu'on franchit minuit,
+  // ou jusqu'au 13 ou au 21 septembre). hasFiredToday/markFiredToday
+  // garantissent un seul déclenchement par jour et par egg, même si la page
+  // est rechargée plusieurs fois dans la journée.
+  useEffect(() => {
+    function checkDateEggs() {
+      const now = new Date();
+      const isMidnight = now.getHours() === 0 && now.getMinutes() < 2;
+      const isFriday13 = now.getDay() === 5 && now.getDate() === 13;
+      const isAnniversary = now.getMonth() === 8 && now.getDate() === 21; // septembre = index 8
+
+      if (isAnniversary && !hasFiredToday("anniversary")) {
+        markFiredToday("anniversary");
+        const years = now.getFullYear() - LAUNCH_YEAR;
+        window.setTimeout(
+          () => fire(`🎂 Nebula a ${years} an${years > 1 ? "s" : ""} aujourd'hui — merci d'en faire partie !`),
+          500
+        );
+      } else if (isFriday13 && !hasFiredToday("friday13")) {
+        markFiredToday("friday13");
+        window.setTimeout(fireBlackCat, 500);
+      } else if (isMidnight && !hasFiredToday("midnight-stars")) {
+        markFiredToday("midnight-stars");
+        window.setTimeout(fireShootingStars, 500);
+      }
+    }
+
+    checkDateEggs();
+    const interval = window.setInterval(checkDateEggs, 60000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!confetti && !shootingStars && !blackCat) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] overflow-hidden">
-      {confetti.map((p) => (
+      {shootingStars &&
+        shootingStars.map((s) => (
+          <span
+            key={s.id}
+            className="absolute h-px w-24 bg-gradient-to-r from-transparent via-white to-transparent"
+            style={{
+              top: `${s.top}%`,
+              left: `${s.left}%`,
+              animation: `nebula-shooting-star 1.4s ease-in ${s.delay}s forwards`
+            }}
+          />
+        ))}
+      {blackCat && (
+        <span className="absolute top-1/3 text-4xl" style={{ animation: "nebula-cat-cross 3.5s linear forwards" }}>
+          🐈‍⬛
+        </span>
+      )}
+      {confetti?.map((p) => (
         <span
           key={p.id}
           className="absolute top-[-5%] h-2.5 w-2.5 rounded-sm"
@@ -159,6 +274,27 @@ export function EasterEggs() {
           100% {
             transform: translate(var(--drift), 108vh) rotate(var(--rotate));
             opacity: 0;
+          }
+        }
+        @keyframes nebula-shooting-star {
+          0% {
+            transform: translate(0, 0) rotate(45deg);
+            opacity: 0;
+          }
+          12% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(55vw, 55vh) rotate(45deg);
+            opacity: 0;
+          }
+        }
+        @keyframes nebula-cat-cross {
+          0% {
+            left: -10%;
+          }
+          100% {
+            left: 110%;
           }
         }
       `}</style>

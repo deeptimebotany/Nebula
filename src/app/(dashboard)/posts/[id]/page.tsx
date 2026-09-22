@@ -10,6 +10,7 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
+import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
@@ -76,6 +77,7 @@ export default function PostDetailPage() {
   const aiStatus = useAiStatus(activeBrand?.id);
   const toast = useToast();
   const confirmDialog = useConfirm();
+  const { celebrateMilestone } = useMilestoneCelebration();
 
   const [post, setPost] = useState<Post | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -123,6 +125,7 @@ export default function PostDetailPage() {
     const data = await res.json();
     setBusy(null);
     if (!res.ok) toast.error(data.error ?? "Erreur lors de la publication.");
+    else if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
     load();
   }
 

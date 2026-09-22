@@ -16,9 +16,70 @@ const bodySchema = z.object({
 
 const SYSTEM_BASE = `Tu es l'assistant intégré de Nebula, une app de gestion de réseaux sociaux (planification, publication multi-réseaux, analytics). Tu aides l'utilisateur à utiliser le site (composer, calendrier, comptes, facturation) et à interpréter ses statistiques réelles fournies ci-dessous. Sois concret, concis, en français, et appuie-toi UNIQUEMENT sur les chiffres fournis dans le contexte — n'invente jamais de statistiques. Si une info manque, dis-le et explique comment l'obtenir dans l'app.`;
 
+// Easter egg : quelques questions "méta" classiques (qui es-tu, es-tu
+// vivant...) reçoivent une réponse maison au lieu d'être envoyées à Gemini —
+// plus sûr d'obtenir quelque chose d'à propos qu'en laissant le modèle
+// improviser, et ça économise un appel API pour une question qui revient
+// souvent. On ne matche que le DERNIER message de l'utilisateur, normalisé
+// (minuscules, accents et ponctuation retirés) pour couvrir les variantes
+// d'écriture ("qui es-tu", "Qui es tu ?", ...).
+const IDENTITY_TRIGGERS = [
+  "qui es tu",
+  "qui etes vous",
+  "cest qui toi",
+  "tes qui",
+  "tu es qui",
+  "es tu vivant",
+  "es tu une ia",
+  "es tu une intelligence artificielle",
+  "es tu un robot",
+  "es tu humain",
+  "who are you",
+  "are you alive",
+  "are you a robot",
+  "are you sentient",
+  "are you human"
+];
+
+const IDENTITY_REPLIES = [
+  "Je suis l'assistant intégré de Nebula — une IA, pas un être vivant, mais bien réel dans le sens où je ne travaille qu'avec vos vraies statistiques, jamais des chiffres inventés.",
+  "Ni vivant ni humain : je suis le modèle d'IA branché sur votre compte Nebula, pour vous aider à publier au bon moment sur les bons réseaux.",
+  "Une intelligence artificielle, oui — née dans le code de Nebula pour lire vos analytics et vous faire gagner du temps. Rien de plus mystérieux que ça !"
+];
+
+function normalizeForEasterEgg(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // retire les accents
+    .replace(/[^a-z0-9\s]/g, " ") // ponctuation -> espace
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchIdentityEasterEgg(lastUserText: string): string | null {
+  const normalized = normalizeForEasterEgg(lastUserText);
+  if (!normalized) return null;
+  if (!IDENTITY_TRIGGERS.some((t) => normalized === t || normalized.includes(t))) return null;
+  return IDENTITY_REPLIES[Math.floor(Math.random() * IDENTITY_REPLIES.length)];
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
+  const parsed = bodySchema.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const { brandId, messages, postId } = parsed.data;
+
+  // Easter egg "qui es-tu" : répond avant même de vérifier que Gemini est
+  // configuré ou que le palier permet l'IA — une réponse maison ne coûte
+  // rien et ne doit jamais être bloquée par ces garde-fous.
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+  if (lastUserMessage) {
+    const easterEgg = matchIdentityEasterEgg(lastUserMessage.text);
+    if (easterEgg) return NextResponse.json({ reply: easterEgg });
+  }
 
   if (!isAiEnabled()) {
     return NextResponse.json(
@@ -26,10 +87,6 @@ export async function POST(req: NextRequest) {
       { status: 503 }
     );
   }
-
-  const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, messages, postId } = parsed.data;
 
   const { limits, plan } = await getBrandPlan(brandId);
   if (!limits.aiEnabled) {

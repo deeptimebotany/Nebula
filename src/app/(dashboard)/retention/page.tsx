@@ -17,6 +17,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconRetention, IconSparkle, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
+import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
 
 interface ConnectionRow {
   id: string;
@@ -269,9 +270,12 @@ export default function RetentionToolPage() {
                   {loadingInsight ? (
                     <p className="mt-3 text-sm text-slate-500">Chargement...</p>
                   ) : !insight ? (
-                    <Button onClick={analyze} disabled={analyzing} className="mt-3">
-                      <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la rétention (IA)"}
-                    </Button>
+                    <>
+                      <Button onClick={analyze} disabled={analyzing} className="mt-3">
+                        <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la rétention (IA)"}
+                      </Button>
+                      <LoadingMiniGame active={analyzing} />
+                    </>
                   ) : (
                     <div className="mt-3 space-y-3">
                       <p className="text-sm text-slate-200">{insight.summary}</p>

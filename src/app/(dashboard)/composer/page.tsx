@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
+import { useMilestoneCelebration } from "@/components/milestone-celebration";
+import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
 import { GlassCard } from "@/components/ui/glass-card";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -231,6 +233,7 @@ function ComposerPageInner() {
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
+  const { celebrateMilestone } = useMilestoneCelebration();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
   const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
@@ -862,8 +865,25 @@ function ComposerPageInner() {
     } catch {
       // ignore
     }
+    if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
     router.push(`/posts/${data.postId}`);
-  }, [activeBrand, canSubmit, selectedNetworks, selectedConnectionByNetwork, connections, overrides, mode, scheduleDate, title, caption, firstComment, assets, toast, router]);
+  }, [
+    activeBrand,
+    canSubmit,
+    selectedNetworks,
+    selectedConnectionByNetwork,
+    connections,
+    overrides,
+    mode,
+    scheduleDate,
+    title,
+    caption,
+    firstComment,
+    assets,
+    toast,
+    celebrateMilestone,
+    router
+  ]);
 
   // Raccourci clavier Cmd/Ctrl+Entrée pour publier sans lâcher le clavier.
   useEffect(() => {
@@ -1053,6 +1073,7 @@ function ComposerPageInner() {
               />
             </div>
             {uploading && <p className="mt-3 text-sm text-aurora-300">Envoi en cours...</p>}
+            <LoadingMiniGame active={uploading} />
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
                 <p className="font-medium">Échec de l&apos;envoi</p>

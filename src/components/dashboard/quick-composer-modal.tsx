@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
+import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { NetworkLogo } from "@/components/ui/network-badge";
@@ -58,6 +59,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
+  const { celebrateMilestone } = useMilestoneCelebration();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
@@ -168,6 +170,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
     }
 
     toast.success(mode === "date" ? "Post programmé." : "Post publié.");
+    if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
     const postId = data.postId as string;
     resetAndClose();
     router.push(`/posts/${postId}`);

@@ -24,6 +24,31 @@ interface AnalyticsConnection {
   snapshots: { capturedAt: string; followers: number; reach: number; impressions: number }[];
 }
 
+// Easter egg : franchissement des 1000 abonnés sur un compte connecté —
+// célébré une seule fois par compte (voir hasFiredFollowerMilestone), au
+// moment détecté (le dernier relevé dépasse le seuil, pas le précédent).
+// Un petit insigne "🎖 1000+" reste ensuite affiché en permanence sur ce
+// compte (voir StatCard ci-dessous), sans dépendre du localStorage.
+const MILESTONE_FOLLOWERS = 1000;
+
+function milestoneFlagKey(connectionId: string): string {
+  return `nebula:milestone-followers-1000:${connectionId}`;
+}
+function hasFiredFollowerMilestone(connectionId: string): boolean {
+  try {
+    return localStorage.getItem(milestoneFlagKey(connectionId)) === "1";
+  } catch {
+    return false;
+  }
+}
+function markFiredFollowerMilestone(connectionId: string) {
+  try {
+    localStorage.setItem(milestoneFlagKey(connectionId), "1");
+  } catch {
+    // stockage indisponible — tant pis, la célébration pourra se redéclencher
+  }
+}
+
 interface CompetitorSnapshotRow {
   id: string;
   followers: number;
@@ -234,8 +259,23 @@ function AnalyticsPageInner() {
     setLoading(true);
     const res = await fetch(`/api/analytics?brandId=${activeBrand.id}`);
     const data = await res.json();
-    setConnections(data.connections ?? []);
+    const loaded: AnalyticsConnection[] = data.connections ?? [];
+    setConnections(loaded);
     setLoading(false);
+
+    for (const c of loaded) {
+      const latest = c.snapshots.at(-1);
+      const previous = c.snapshots.at(-2);
+      if (
+        latest &&
+        latest.followers >= MILESTONE_FOLLOWERS &&
+        (!previous || previous.followers < MILESTONE_FOLLOWERS) &&
+        !hasFiredFollowerMilestone(c.id)
+      ) {
+        markFiredFollowerMilestone(c.id);
+        toast.success(`🎉 ${c.displayName} vient de franchir les ${MILESTONE_FOLLOWERS.toLocaleString("fr-FR")} abonnés !`);
+      }
+    }
   }
 
   useEffect(() => {
@@ -479,6 +519,7 @@ function AnalyticsPageInner() {
                     value={latest ? latest.followers.toLocaleString("fr-FR") : "—"}
                     suffix={latest ? "abonnés" : "pas encore synchronisé"}
                     delta={latest && previous ? latest.followers - previous.followers : 0}
+                    badge={latest && latest.followers >= MILESTONE_FOLLOWERS ? "🎖 1000+" : undefined}
                   />
                 </RevealItem>
               );

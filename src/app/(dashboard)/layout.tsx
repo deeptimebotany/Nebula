@@ -9,6 +9,8 @@ import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
 import { EasterEggs } from "@/components/easter-eggs";
 import { CommandPalette } from "@/components/dashboard/command-palette";
+import { Starfield } from "@/components/starfield";
+import { MilestoneCelebrationProvider } from "@/components/milestone-celebration";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -24,17 +26,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <BrandProvider>
       <ToastProvider>
-        <ConfirmProvider>
-          <div className="flex min-h-screen flex-col">
-            <TopNav oauth={oauth} />
-            <main className="noise-grid flex-1 overflow-y-auto px-4 py-8 sm:px-8">
-              <div className="mx-auto max-w-7xl">{children}</div>
-            </main>
-            <AiAssistant />
-            <EasterEggs />
-            <CommandPalette />
-          </div>
-        </ConfirmProvider>
+        <MilestoneCelebrationProvider>
+          <ConfirmProvider>
+            <div className="flex min-h-screen flex-col">
+              <Starfield />
+              <TopNav oauth={oauth} />
+              <main className="noise-grid flex-1 overflow-y-auto px-4 py-8 sm:px-8">
+                <div className="mx-auto max-w-7xl">{children}</div>
+              </main>
+              <AiAssistant />
+              <EasterEggs />
+              <CommandPalette />
+            </div>
+          </ConfirmProvider>
+        </MilestoneCelebrationProvider>
       </ToastProvider>
     </BrandProvider>
   );

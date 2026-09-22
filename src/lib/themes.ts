@@ -17,6 +17,11 @@ export interface ThemeDefinition {
   label: string;
   vars: Record<string, string>;
   requiresPlan?: Plan;
+  // Thème easter egg : jamais listé dans la grille de Paramètres tant qu'on
+  // ne l'a pas débloqué (voir settings/page.tsx, qui détecte un mot-clé
+  // caché tapé sur la page pour le révéler) — gratuit pour tout le monde
+  // une fois trouvé, jamais de requiresPlan associé.
+  hidden?: boolean;
 }
 
 function v(rgb: number[]): string {
@@ -336,6 +341,33 @@ export const THEMES: ThemeDefinition[] = [
       "--c-accent-violet": v([201, 140, 235]),
       "--c-accent-cyan": v([99, 214, 196]),
       "--c-accent-magenta": v([235, 140, 90]),
+    }
+  },
+  {
+    // Thème easter egg — voir hidden ci-dessus et settings/page.tsx pour le
+    // mot-clé caché qui le révèle. Palette "supernova" : or et blanc
+    // incandescent, sans rapport avec un palier payant (gratuit une fois
+    // trouvé, pour tout le monde).
+    key: "nova",
+    label: "Nova",
+    hidden: true,
+    vars: {
+      "--c-nebula-900": v([22, 18, 10]),
+      "--c-nebula-800": v([37, 30, 15]),
+      "--c-nebula-700": v([56, 46, 20]),
+      "--c-nebula-600": v([84, 68, 28]),
+      "--c-nebula-500": v([214, 178, 90]),
+      "--c-nebula-400": v([230, 200, 130]),
+      "--c-nebula-300": v([240, 220, 165]),
+      "--c-nebula-200": v([247, 235, 200]),
+      "--c-nebula-100": v([252, 247, 230]),
+      "--c-aurora-500": v([255, 255, 255]),
+      "--c-aurora-400": v([255, 250, 235]),
+      "--c-aurora-300": v([255, 244, 214]),
+      "--c-aurora-glow": v([255, 248, 224]),
+      "--c-accent-violet": v([200, 210, 255]),
+      "--c-accent-cyan": v([190, 240, 255]),
+      "--c-accent-magenta": v([255, 210, 150]),
     }
   },
 ];

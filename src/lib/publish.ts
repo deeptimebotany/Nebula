@@ -2,6 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 
+// Paliers de publications GLOBAUX (tous comptes/marques confondus, pas par
+// marque : une seule marque n'atteindra jamais 100 000 ou 1 000 000 posts) —
+// voir milestone-celebration.tsx pour l'animation associée à chaque palier.
+// On compte les Post passés au statut "PUBLISHED" (succès complet sur tous
+// leurs réseaux cibles), une seule fois chacun.
+const GLOBAL_PUBLISH_MILESTONES = [100, 1000, 100_000, 1_000_000] as const;
+
+async function checkGlobalPublishMilestone(): Promise<number | null> {
+  const totalPublished = await prisma.post.count({ where: { status: "PUBLISHED" } });
+  // Chaque appel à publishPost() fait franchir le total d'exactement 1 (un
+  // post donné ne passe qu'une fois de "pas encore publié" à "PUBLISHED") :
+  // une égalité stricte suffit donc à détecter le franchissement, sans
+  // risquer de re-déclencher à toutes les publications suivantes.
+  return GLOBAL_PUBLISH_MILESTONES.find((m) => totalPublished === m) ?? null;
+}
+
 /**
  * Publie effectivement un Post sur chacun de ses réseaux cibles, en appelant
  * le vrai client d'intégration (src/lib/social/*). Utilisé à la fois pour la
@@ -84,7 +100,12 @@ export async function publishPost(postId: string) {
     failureCount === 0 ? "PUBLISHED" : successCount === 0 ? "FAILED" : "PARTIAL";
   await prisma.post.update({ where: { id: post.id }, data: { status: finalStatus } });
 
-  return { successCount, failureCount, status: finalStatus };
+  // Uniquement pertinent quand CE post vient de passer à "PUBLISHED" — pas
+  // pour un post déjà publié (aucune requête inutile) ni pour un échec
+  // partiel/total (rien à célébrer).
+  const milestone = finalStatus === "PUBLISHED" ? await checkGlobalPublishMilestone() : null;
+
+  return { successCount, failureCount, status: finalStatus, milestone };
 }
 
 /** Cherche tous les posts programmés arrivés à échéance et les publie. */

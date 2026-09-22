@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconHeart } from "@/components/dashboard/icons";
@@ -11,12 +12,39 @@ import { IconHeart } from "@/components/dashboard/icons";
 const DONATE_URL = process.env.NEXT_PUBLIC_DONATE_URL;
 
 export default function SupportPage() {
+  // Easter egg : 5 clics rapprochés sur le cœur du haut le font battre plus
+  // vite pendant ~2s avant de revenir à la normale — purement décoratif, ne
+  // touche à rien côté don/paiement.
+  const [beating, setBeating] = useState(false);
+  const heartClicks = useRef(0);
+  const heartResetTimer = useRef<number | null>(null);
+
+  function onHeartClick() {
+    heartClicks.current += 1;
+    if (heartResetTimer.current) window.clearTimeout(heartResetTimer.current);
+    if (heartClicks.current >= 5) {
+      heartClicks.current = 0;
+      setBeating(true);
+      window.setTimeout(() => setBeating(false), 2200);
+    } else {
+      heartResetTimer.current = window.setTimeout(() => {
+        heartClicks.current = 0;
+      }, 1500);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-magenta to-nebula-500 text-white shadow-glow-lg">
+        <button
+          type="button"
+          onClick={onHeartClick}
+          aria-label="Cœur Nebula"
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-magenta to-nebula-500 text-white shadow-glow-lg"
+          style={{ animation: beating ? "nebula-heartbeat 0.35s ease-in-out 5" : undefined }}
+        >
           <IconHeart className="h-6 w-6" />
-        </div>
+        </button>
         <h1 className="font-display text-2xl font-semibold text-white">Soutenir Nebula</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           Nebula est développé et hébergé par une seule personne. Si le site vous est utile, un petit coup de pouce
@@ -86,6 +114,30 @@ export default function SupportPage() {
           </li>
         </ul>
       </GlassCard>
+
+      <style jsx>{`
+        @keyframes nebula-heartbeat {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.3);
+          }
+        }
+      `}</style>
+
+      {/* Easter egg : un vrai commentaire HTML (pas un commentaire JSX, qui
+          n'apparaîtrait jamais dans le DOM final) — visible uniquement pour
+          qui ouvre "Voir le code source" sur cette page. dangerouslySetInnerHTML
+          est sûr ici : chaîne fixe, jamais de donnée utilisateur. */}
+      <div
+        aria-hidden="true"
+        dangerouslySetInnerHTML={{
+          __html:
+            "<!-- Vous lisez le code source d'une page de soutien : vous êtes exactement le genre de personne à qui elle s'adresse. Merci d'être passé·e par là. -->"
+        }}
+      />
     </div>
   );
 }

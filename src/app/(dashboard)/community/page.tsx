@@ -63,7 +63,12 @@ function ReferralLeaderboard() {
               )}
             >
               <span className="flex items-center gap-2">
-                <span className="w-5 text-center text-xs text-slate-500">{i + 1}</span>
+                <span className="w-5 text-center text-xs text-slate-500">
+                  {/* Petite couronne réservée au tout premier — un clin
+                      d'œil silencieux, pas de badge officiel ni de logique
+                      côté serveur, juste la position dans le classement. */}
+                  {i === 0 ? <span title="Premier du classement">👑</span> : i + 1}
+                </span>
                 {r.displayName} {r.isMe && <span className="text-xs text-aurora-300">(vous)</span>}
               </span>
               <span className="font-medium text-white">{r.referrals} filleul{r.referrals > 1 ? "s" : ""}</span>
