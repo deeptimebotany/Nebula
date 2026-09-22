@@ -36,7 +36,10 @@ export function LoginForm({ oauth }: LoginFormProps) {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
+      {/* Fond "Voie lactée" (idée #42 du dernier lot) — offert inconditionnellement
+          à tout le monde sur cette page, sans classe partagée avec les autres
+          pages publiques (voir bg-nebula-milky-way, tailwind.config.ts). */}
+      <div className="pointer-events-none absolute inset-0 bg-nebula-milky-way opacity-80" />
       <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
         <NebulaBrandMark className="mb-5" iconSize={52} wordHeight={48} />
         <h1 className="font-display text-2xl font-semibold text-white">Bon retour</h1>

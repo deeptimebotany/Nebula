@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 const FLAVOR_TEXTS = [
   "Ce vaisseau a dérivé hors des cartes connues de Nebula.",
@@ -47,6 +48,11 @@ export default function NotFound() {
 
   useEffect(() => {
     setFlavorIndex(Math.floor(Math.random() * FLAVOR_TEXTS.length));
+    reportEasterEggFound("lost-in-space");
+    // Indétectable par nature (voir le commentaire équivalent dans
+    // easter-eggs.tsx pour "console-signature") : cette page en cache un
+    // aussi, dans son code source.
+    reportEasterEggFound("hidden-comment");
   }, []);
 
   return (

@@ -15,6 +15,7 @@ import { useEffect, useRef } from "react";
 import { useStarfield } from "@/components/starfield-provider";
 import { useBackground } from "@/components/background-provider";
 import { findBackground } from "@/lib/backgrounds";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 interface Star {
   x: number; // fraction 0..1 de la largeur du canvas
@@ -137,6 +138,7 @@ export function Starfield() {
         points: [{ x: clickX, y: clickY }, ...neighbors.map((s) => ({ x: s.sx, y: s.sy }))],
         createdAt: performance.now()
       });
+      reportEasterEggFound("constellation");
     }
     window.addEventListener("click", onClick);
 

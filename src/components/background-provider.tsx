@@ -9,6 +9,15 @@ function applyBackground(key: string) {
   const bg = findBackground(key);
   document.documentElement.style.setProperty("--app-bg", bg.css);
   document.documentElement.dataset.background = bg.key;
+  // Fonds animés de palier (voir src/lib/backgrounds.ts) : on pose le nom de
+  // la classe d'animation dans un attribut dédié, lu par globals.css, plutôt
+  // que de l'ajouter/retirer comme classe (évite de piétiner d'autres
+  // classes posées sur <html>).
+  if (bg.animationClass) {
+    document.documentElement.dataset.backgroundAnimated = bg.animationClass;
+  } else {
+    delete document.documentElement.dataset.backgroundAnimated;
+  }
 }
 
 interface BackgroundContextValue {

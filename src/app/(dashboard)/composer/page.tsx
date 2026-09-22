@@ -29,6 +29,9 @@ import {
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { CosmeticDecorOverlay } from "@/components/cosmetics/decor-overlay";
+import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 
 // Large sélection d'émojis organisée par catégorie pour l'insertion rapide
 // dans le titre / la description (voir insertIntoField ci-dessous). Curatée
@@ -246,6 +249,18 @@ function ComposerPageInner() {
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
+  // Easter egg "Son Décollage" (voir /api/settings/publish-sound) : préférence
+  // lue une fois au montage — jamais recalculée pendant l'édition, un simple
+  // agrément sonore n'a pas besoin d'être temps réel.
+  const [publishSoundEnabled, setPublishSoundEnabled] = useState(false);
+  useEffect(() => {
+    fetch("/api/settings/publish-sound")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.enabled) setPublishSoundEnabled(true);
+      })
+      .catch(() => undefined);
+  }, []);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -816,8 +831,27 @@ function ComposerPageInner() {
 
   const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand;
 
+  // Easter egg : 20 clics sur "Publier" alors qu'il est visuellement
+  // désactivé (voir le bouton plus bas — désactivé par CSS/aria-disabled,
+  // PAS par l'attribut natif "disabled", pour que le clic reste détectable).
+  const disabledClicks = useRef(0);
+  const disabledClicksResetTimer = useRef<number | null>(null);
+
   const onSubmit = useCallback(async () => {
-    if (!activeBrand || !canSubmit) return;
+    if (!canSubmit) {
+      disabledClicks.current += 1;
+      if (disabledClicksResetTimer.current) window.clearTimeout(disabledClicksResetTimer.current);
+      if (disabledClicks.current >= 20) {
+        disabledClicks.current = 0;
+        reportEasterEggFound("composer-disabled-clicks");
+      } else {
+        disabledClicksResetTimer.current = window.setTimeout(() => {
+          disabledClicks.current = 0;
+        }, 15000);
+      }
+      return;
+    }
+    if (!activeBrand) return;
     setSubmitting(true);
 
     const targets = selectedNetworks
@@ -866,6 +900,17 @@ function ComposerPageInner() {
       // ignore
     }
     if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
+    // Easter egg "Son Décollage" : uniquement pour une publication IMMÉDIATE
+    // qui a réellement réussi (status "PUBLISHED") — jamais pour un post
+    // programmé (personne ne regarde l'écran quand il partira plus tard, même
+    // rationnel que dans milestone-celebration.tsx) ni pour un échec partiel.
+    if (mode === "now" && data.status === "PUBLISHED" && publishSoundEnabled) {
+      try {
+        playLaunchWhoosh();
+      } catch {
+        // agrément sonore facultatif — jamais bloquant
+      }
+    }
     router.push(`/posts/${data.postId}`);
   }, [
     activeBrand,
@@ -882,7 +927,8 @@ function ComposerPageInner() {
     assets,
     toast,
     celebrateMilestone,
-    router
+    router,
+    publishSoundEnabled
   ]);
 
   // Raccourci clavier Cmd/Ctrl+Entrée pour publier sans lâcher le clavier.
@@ -939,7 +985,8 @@ function ComposerPageInner() {
     // programmation...) plutôt que dans une page pleine, pour rester
     // concentré sur cette seule tâche — voir la capture de référence fournie.
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm sm:items-center">
-      <div className="glass-panel w-full max-w-5xl rounded-2xl">
+      <div className="glass-panel relative w-full max-w-5xl overflow-hidden rounded-2xl">
+        <CosmeticDecorOverlay cosmeticKey="ciel-nocturne-composer" variant="starfield" />
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <h1 className="font-display text-lg font-semibold text-white">Créer une publication</h1>
           <button
@@ -1629,7 +1676,17 @@ function ComposerPageInner() {
               </div>
             )}
 
-            <Button className="mt-4 w-full" disabled={submitting || !canSubmit} onClick={onSubmit}>
+            {/* disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton
+                doit rester réellement cliquable quand canSubmit est faux
+                pour pouvoir compter les clics (voir disabledClicks
+                ci-dessus) — l'apparence "désactivée" vient d'aria-disabled
+                + de la classe, la garde fonctionnelle reste dans onSubmit. */}
+            <Button
+              className={clsx("mt-4 w-full", !canSubmit && !submitting && "opacity-50 cursor-not-allowed")}
+              disabled={submitting}
+              aria-disabled={!canSubmit}
+              onClick={onSubmit}
+            >
               {submitting ? "Envoi..." : mode === "now" ? "Publier maintenant" : "Programmer"}
             </Button>
             <p className="mt-2 text-center text-[11px] text-slate-500">

@@ -7,8 +7,9 @@ import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
-import { NETWORK_META, type Network } from "@/lib/types";
+import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 import { PROVIDERS } from "@/lib/providers";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
@@ -87,7 +88,16 @@ function AccountsPageInner() {
     if (!activeBrand) return;
     const res = await fetch(`/api/connections?brandId=${activeBrand.id}`);
     const data = await res.json();
-    setConnections(data.connections ?? []);
+    const loaded: ConnectionRow[] = data.connections ?? [];
+    setConnections(loaded);
+
+    // Easter egg : les 6 réseaux disponibles connectés en même temps sur
+    // cette marque (peu importe combien de comptes par réseau).
+    const connectedNetworks = new Set(loaded.filter((c) => c.status === "CONNECTED").map((c) => c.network));
+    if (connectedNetworks.size >= NETWORKS.length) {
+      reportEasterEggFound("all-networks-connected");
+    }
+
     fetch(`/api/billing/plan?brandId=${activeBrand.id}`)
       .then((r) => r.json())
       .then((d) => setPlanInfo(d))

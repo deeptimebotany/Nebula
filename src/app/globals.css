@@ -267,6 +267,175 @@ body {
     mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35) 70%);
   }
 
+  /* Fonds animés (voir src/lib/backgrounds.ts, de palier, gratuit ou par
+     easter egg selon le fond) : background-provider.tsx pose
+     data-background-animated="<classe>" sur <html> quand le fond choisi en
+     a une — on anime alors le calque ::before ci-dessus en plus du dégradé
+     statique déjà appliqué. */
+  [data-background-animated="nebula-bg-anim-aurora"] .noise-grid::before {
+    background-size: 160% 160%;
+    animation: nebulaBgAurora 22s ease-in-out infinite;
+  }
+  [data-background-animated="nebula-bg-anim-drift"] .noise-grid::before {
+    background-size: 140% 140%;
+    animation: nebulaBgDrift 28s ease-in-out infinite;
+  }
+  [data-background-animated="nebula-bg-anim-meteors"] .noise-grid::before {
+    background-size: 200% 200%;
+    animation: nebulaBgMeteors 6s linear infinite;
+  }
+  /* Fond animé GRATUIT (voir "Nébuleuse scintillante" dans backgrounds.ts) :
+     un scintillement d'opacité plutôt qu'un déplacement de position, pour
+     rester visuellement distinct des fonds de palier/egg ci-dessus. */
+  [data-background-animated="nebula-bg-anim-shimmer"] .noise-grid::before {
+    animation: nebulaBgShimmer 4s ease-in-out infinite;
+  }
+  @keyframes nebulaBgAurora {
+    0%, 100% { background-position: 0% 20%; }
+    50% { background-position: 100% 80%; }
+  }
+  @keyframes nebulaBgDrift {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 60%; }
+    100% { background-position: 0% 0%; }
+  }
+  @keyframes nebulaBgMeteors {
+    0% { background-position: 0% 0%; }
+    100% { background-position: -200% 200%; }
+  }
+  @keyframes nebulaBgShimmer {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.65; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-background-animated] .noise-grid::before {
+      animation: none;
+    }
+  }
+
+  /* --- Cosmétiques (voir src/lib/cosmetics.ts + cosmetics-effects.tsx) --- */
+
+  /* Particules de clic / traversée de page / survol comète : un seul span
+     positionné en `left/top` (coordonnées écran, voir CosmeticsEffects) qui
+     s'envole vers --dx/--dy en s'estompant, puis se retire du DOM via un
+     setTimeout côté composant. */
+  .nebula-cosmetic-particle {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: nebulaParticleFly 0.7s ease-out forwards;
+  }
+  @keyframes nebulaParticleFly {
+    0% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2);
+      opacity: 0;
+    }
+  }
+
+  .nebula-cursor-comet-dot,
+  .nebula-cursor-star-dot {
+    position: fixed;
+    left: -100px;
+    top: -100px;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: left, top;
+  }
+  .nebula-cursor-comet-dot {
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, #b4c8fa 0%, #63e6ff 45%, transparent 80%);
+    box-shadow: 0 0 8px 2px rgba(99, 230, 255, 0.5);
+  }
+  .nebula-cursor-star-dot {
+    width: 5px;
+    height: 5px;
+    background: #e8d9ff;
+    box-shadow: 0 0 5px 1px rgba(232, 217, 255, 0.5);
+  }
+
+  /* "Police Cosmique" — variante plus espacée pour les titres, sans charger
+     de nouvelle police (voir la note dans cosmetics.ts / cosmetics-effects.tsx). */
+  [data-cosmic-font] .font-display {
+    letter-spacing: 0.06em;
+    font-stretch: 110%;
+  }
+
+  /* Décors de page (voir decor-overlay.tsx) : Calendrier, Importation, Succès. */
+  .nebula-decor-constellation {
+    background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 250, 0.28) 1px, transparent 0);
+    background-size: 64px 64px;
+    opacity: 0.35;
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 90%);
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 90%);
+  }
+  .nebula-decor-starfield {
+    background-image: radial-gradient(circle at 1px 1px, rgba(99, 230, 255, 0.3) 1px, transparent 0),
+      radial-gradient(circle at 1px 1px, rgba(124, 108, 240, 0.22) 1px, transparent 0);
+    background-size: 40px 40px, 90px 90px;
+    background-position: 0 0, 20px 30px;
+    opacity: 0.4;
+    animation: nebulaDecorDrift 60s linear infinite;
+  }
+  @keyframes nebulaDecorDrift {
+    0% { background-position: 0 0, 20px 30px; }
+    100% { background-position: -200px 200px, -140px 260px; }
+  }
+
+  /* Décorations de l'avatar/pastille de marque (voir topnav.tsx). */
+  .nebula-cosmetic-gold-halo::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 210, 110, 0.55), transparent 70%);
+    animation: nebulaGoldHaloPulse 2.6s ease-in-out infinite;
+    z-index: -1;
+  }
+  @keyframes nebulaGoldHaloPulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.92); }
+    50% { opacity: 0.95; transform: scale(1.08); }
+  }
+  .nebula-cosmetic-saturn-ring::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(180, 200, 250, 0.55);
+    transform: rotate(-18deg) scaleY(0.42);
+    box-shadow: 0 0 6px rgba(180, 200, 250, 0.35);
+    animation: nebulaSaturnSpin 6s linear infinite;
+  }
+  @keyframes nebulaSaturnSpin {
+    0% { transform: rotate(-18deg) scaleY(0.42); }
+    100% { transform: rotate(342deg) scaleY(0.42); }
+  }
+
+  /* Bandeau "Supernova" (voir milestone-celebration.tsx) — offert à tout le
+     monde, inconditionnel, pour chaque palier de publications. */
+  @keyframes nebula-supernova-flash {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Cosmétique "Éclat doré" (cartes de statistiques, voir stat-card.tsx). */
+  .nebula-cosmetic-gold-statcard {
+    position: relative;
+    border-color: rgba(255, 210, 110, 0.35) !important;
+    box-shadow: 0 0 0 1px rgba(255, 210, 110, 0.2), 0 0 24px -6px rgba(255, 210, 110, 0.35);
+    animation: nebulaGoldCardPulse 3.2s ease-in-out infinite;
+  }
+  @keyframes nebulaGoldCardPulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 210, 110, 0.2), 0 0 24px -6px rgba(255, 210, 110, 0.35); }
+    50% { box-shadow: 0 0 0 1px rgba(255, 210, 110, 0.4), 0 0 34px -4px rgba(255, 210, 110, 0.55); }
+  }
+
   .text-gradient {
     background: linear-gradient(90deg, #b4c8fa, #7ea1f5 35%, #63e6ff 70%, #7c6cf0);
     -webkit-background-clip: text;

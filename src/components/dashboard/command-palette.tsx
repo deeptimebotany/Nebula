@@ -18,6 +18,7 @@ import {
   IconMoon
 } from "./icons";
 import { useMode } from "@/components/mode-provider";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 interface Command {
   id: string;
@@ -68,11 +69,32 @@ export function CommandPalette() {
     return commands.filter((c) => c.label.toLowerCase().includes(q) || c.hint?.toLowerCase().includes(q));
   }, [commands, query]);
 
+  // Easter egg : ouvrir la palette 3 fois de suite en moins de 10 secondes
+  // (Cmd/Ctrl+K répété) — openCount ne compte que les OUVERTURES, pas les
+  // fermetures, et se remet à zéro dès qu'il se passe plus de 10s entre deux.
+  const openCount = useRef(0);
+  const openResetTimer = useRef<number | null>(null);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((v) => !v);
+        setOpen((v) => {
+          const next = !v;
+          if (next) {
+            openCount.current += 1;
+            if (openResetTimer.current) window.clearTimeout(openResetTimer.current);
+            if (openCount.current >= 3) {
+              openCount.current = 0;
+              reportEasterEggFound("command-palette-loop");
+            } else {
+              openResetTimer.current = window.setTimeout(() => {
+                openCount.current = 0;
+              }, 10000);
+            }
+          }
+          return next;
+        });
       } else if (e.key === "Escape" && open) {
         setOpen(false);
       }

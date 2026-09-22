@@ -7,8 +7,13 @@ import { signOut } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
 import { useMode } from "@/components/mode-provider";
 import { useToast } from "@/components/dashboard/toast";
-import { IconClose, IconLink, IconCard, IconSettings, IconMoon, IconSun, IconHeart, IconLogout } from "./icons";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { useCosmetics } from "@/components/cosmetics-provider";
+import { IconClose, IconLink, IconCard, IconSettings, IconMoon, IconSun, IconHeart, IconLogout, IconTrophy } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
+// Import JSON direct (resolveJsonModule dans tsconfig.json) : juste pour
+// afficher le numéro de version en pied de menu, jamais recopié à la main.
+import packageJson from "../../../package.json";
 
 // Durée totale de la rotation déclenchée par l'appui long sur le logo (voir
 // startLogoSpin ci-dessous) et angle total parcouru sur cette durée.
@@ -41,6 +46,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
   const pathname = usePathname();
   const { mode, setMode } = useMode();
   const toast = useToast();
+  const cosmetics = useCosmetics();
 
   // Ferme au clavier (Échap) — confort standard pour ce genre de panneau.
   useEffect(() => {
@@ -65,6 +71,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
 
   function startLogoSpin() {
     setLogoSpinning(true);
+    reportEasterEggFound("logo-spin");
     const start = performance.now();
     function tick(now: number) {
       const t = Math.min((now - start) / LOGO_SPIN_DURATION_MS, 1);
@@ -102,6 +109,31 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
     []
   );
 
+  // Easter egg "Navigation au clavier" : vrai si le bouton Déconnexion (voir
+  // plus bas) a été focus via un clic souris plutôt que Tab — voir onFocus/
+  // onMouseDown/onBlur sur ce bouton.
+  const lastFocusWasMouse = useRef(false);
+
+  // Easter egg : 5 clics sur le numéro de version, en pied de menu.
+  const versionClicks = useRef(0);
+  const versionClicksResetTimer = useRef<number | null>(null);
+  const [versionPulse, setVersionPulse] = useState(false);
+
+  function onVersionClick() {
+    versionClicks.current += 1;
+    if (versionClicksResetTimer.current) window.clearTimeout(versionClicksResetTimer.current);
+    if (versionClicks.current >= 5) {
+      versionClicks.current = 0;
+      setVersionPulse(true);
+      reportEasterEggFound("version-click");
+      window.setTimeout(() => setVersionPulse(false), 1600);
+    } else {
+      versionClicksResetTimer.current = window.setTimeout(() => {
+        versionClicks.current = 0;
+      }, 4000);
+    }
+  }
+
   // Easter egg : basculer Sombre/Clair 10 fois de suite (en moins de 3s
   // entre deux clics) déclenche un petit message taquin — le compteur se
   // remet à zéro dès qu'on marque une pause.
@@ -115,6 +147,7 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
     if (modeToggleCount.current >= 10) {
       modeToggleCount.current = 0;
       toast.info("Vous hésitez ? Le mode sombre reste notre préféré 🌙");
+      reportEasterEggFound("theme-toggle-10x");
     } else {
       modeToggleResetTimer.current = window.setTimeout(() => {
         modeToggleCount.current = 0;
@@ -143,6 +176,9 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
+        {cosmetics.has("sidebar-poussiere-etoiles") && (
+          <div aria-hidden="true" className="nebula-decor-starfield pointer-events-none absolute inset-0 -z-10" />
+        )}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
           <div className="flex items-center gap-2">
             {logoUrl ? (
@@ -208,7 +244,10 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
           {[
             { href: "/accounts", label: "Comptes", icon: IconLink },
             { href: "/billing", label: "Facturation", icon: IconCard },
-            { href: "/settings", label: "Paramètres", icon: IconSettings }
+            { href: "/settings", label: "Paramètres", icon: IconSettings },
+            // Volontairement discret ici plutôt que dans une barre de
+            // navigation principale — voir succes/page.tsx.
+            { href: "/succes", label: "Succès", icon: IconTrophy }
           ].map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -272,11 +311,37 @@ export function Sidebar({ open, onClose, items, brandName, logoUrl }: SidebarPro
             </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
+              onFocus={() => {
+                // Easter egg "Navigation au clavier" : ce bouton est le
+                // DERNIER élément focusable du menu — l'atteindre au clavier
+                // (Tab) prouve qu'on a parcouru tout le menu sans souris. Ne
+                // se déclenche PAS sur un simple clic (voir onMouseDown, qui
+                // pose un flag consulté juste après par onFocus).
+                if (!lastFocusWasMouse.current) reportEasterEggFound("keyboard-nav");
+              }}
+              onMouseDown={() => {
+                lastFocusWasMouse.current = true;
+              }}
+              onBlur={() => {
+                lastFocusWasMouse.current = false;
+              }}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white"
             >
               <IconLogout className="h-[18px] w-[18px]" /> Déconnexion
             </button>
           </div>
+
+          {/* Numéro de version — discret, mais bien réel (voir package.json)
+              plutôt qu'un chiffre inventé. Easter egg : 5 clics d'affilée. */}
+          <button
+            onClick={onVersionClick}
+            className={clsx(
+              "mt-2 w-full px-3 pb-1 text-left text-[11px] text-slate-600 transition",
+              versionPulse && "text-aurora-300"
+            )}
+          >
+            v{packageJson.version}
+          </button>
         </nav>
       </aside>
     </>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
+import { markEasterEggFound } from "@/lib/easter-eggs/server";
 
 // Paliers de publications GLOBAUX (tous comptes/marques confondus, pas par
 // marque : une seule marque n'atteindra jamais 100 000 ou 1 000 000 posts) —
@@ -16,6 +17,47 @@ async function checkGlobalPublishMilestone(): Promise<number | null> {
   // une égalité stricte suffit donc à détecter le franchissement, sans
   // risquer de re-déclencher à toutes les publications suivantes.
   return GLOBAL_PUBLISH_MILESTONES.find((m) => totalPublished === m) ?? null;
+}
+
+// Easter egg "Centenaire" : 100ᵉ post PERSONNEL publié (par auteur, pas
+// global comme GLOBAL_PUBLISH_MILESTONES ci-dessus) — même logique
+// d'égalité stricte, exacte pour la même raison.
+const PERSONAL_PUBLISH_MILESTONE = 100;
+
+async function checkPersonalPublishMilestone(userId: string): Promise<boolean> {
+  const total = await prisma.post.count({ where: { status: "PUBLISHED", createdById: userId } });
+  return total === PERSONAL_PUBLISH_MILESTONE;
+}
+
+// Easter egg "Son Décollage" (#45, dernier easter egg réel de ce lot — voir
+// easter-eggs-registry.ts) : débloque l'option de son de publication dans
+// Paramètres au 10ᵉ post personnel PUBLIÉ, immédiat OU programmé confondus
+// (donc vérifié ici, dans publishPost(), qui est le point de passage commun
+// aux deux — pas seulement à la publication immédiate).
+const PUBLISH_SOUND_UNLOCK_THRESHOLD = 10;
+
+async function checkPublishSoundUnlock(userId: string): Promise<boolean> {
+  const total = await prisma.post.count({ where: { status: "PUBLISHED", createdById: userId } });
+  return total === PUBLISH_SOUND_UNLOCK_THRESHOLD;
+}
+
+// Easter egg "Pluie d'étincelles" (#46, quatrième vague — voir
+// easter-eggs-registry.ts) : débloque le fond animé "Pluie de météores" au
+// 3ᵉ post personnel PUBLIÉ le même jour. Approximation documentée comme les
+// autres triggers datés de ce fichier : "le même jour" = la date du SERVEUR
+// au moment où CE post passe à PUBLISHED (post.updatedAt, pas de fuseau
+// horaire par compte stocké en base), et on se base sur ce même instant
+// plutôt que sur createdAt pour compter un post programmé qui vient
+// seulement MAINTENANT de basculer en PUBLISHED.
+const METEOR_SHOWER_UNLOCK_THRESHOLD = 3;
+
+async function checkMeteorShowerUnlock(userId: string): Promise<boolean> {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const total = await prisma.post.count({
+    where: { status: "PUBLISHED", createdById: userId, updatedAt: { gte: startOfToday } }
+  });
+  return total === METEOR_SHOWER_UNLOCK_THRESHOLD;
 }
 
 /**
@@ -104,6 +146,40 @@ export async function publishPost(postId: string) {
   // pour un post déjà publié (aucune requête inutile) ni pour un échec
   // partiel/total (rien à célébrer).
   const milestone = finalStatus === "PUBLISHED" ? await checkGlobalPublishMilestone() : null;
+  // Crédite l'easter egg "Jalon de publications" à l'auteur du post qui fait
+  // franchir le palier — pas à toute l'équipe, seulement à qui a déclenché
+  // publishPost() pour CE post précis.
+  if (milestone !== null) {
+    await markEasterEggFound(post.createdById, "publish-milestone");
+  }
+
+  if (finalStatus === "PUBLISHED") {
+    // Easter egg "Centenaire" (100ᵉ post personnel).
+    if (await checkPersonalPublishMilestone(post.createdById)) {
+      await markEasterEggFound(post.createdById, "posts-100");
+    }
+    // Easter egg "Son Décollage" (10ᵉ post personnel, voir plus haut).
+    if (await checkPublishSoundUnlock(post.createdById)) {
+      await markEasterEggFound(post.createdById, "publish-sound-unlock");
+    }
+    // Easter egg "Pluie d'étincelles" (3ᵉ post personnel du jour, voir plus haut).
+    if (await checkMeteorShowerUnlock(post.createdById)) {
+      await markEasterEggFound(post.createdById, "meteor-shower-unlock");
+    }
+    // Easter egg "Auto-référence" (#nebula dans la légende) — vérifié à la
+    // publication effective plutôt qu'à la création du post, pour ne pas
+    // récompenser un brouillon jamais publié.
+    if (post.caption.toLowerCase().includes("#nebula")) {
+      await markEasterEggFound(post.createdById, "hashtag-nebula");
+    }
+    // Easter egg "Lève-tôt malgré lui" : heure du SERVEUR au moment de la
+    // publication effective (pas de fuseau horaire par compte stocké en
+    // base) — approximation documentée, comme pour "Supernova analytique".
+    const hour = new Date().getHours();
+    if (hour >= 3 && hour < 5) {
+      await markEasterEggFound(post.createdById, "early-bird-post");
+    }
+  }
 
   return { successCount, failureCount, status: finalStatus, milestone };
 }

@@ -27,6 +27,8 @@ import {
 import { UpgradeButton, UpgradeGem } from "./upgrade-gem";
 import { Sidebar } from "./sidebar";
 import { AccountSwitcher } from "./account-switcher";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { useCosmetics } from "@/components/cosmetics-provider";
 
 // Onglets de travail au quotidien uniquement — Comptes, Facturation et
 // Paramètres ne sont plus ici : ils vivent désormais uniquement dans le
@@ -74,7 +76,11 @@ export function TopNav({ oauth }: TopNavProps) {
   const [maxBrands, setMaxBrands] = useState(1);
   const [brandsOwned, setBrandsOwned] = useState(0);
 
+  const cosmetics = useCosmetics();
   const [brandSwitcherOpen, setBrandSwitcherOpen] = useState(false);
+  // Easter egg : double-clic sur l'avatar/pastille de compte (façon "like"
+  // Instagram) — purement décoratif, un petit cœur flotte puis disparaît.
+  const [avatarHeart, setAvatarHeart] = useState(false);
   const [addingBrand, setAddingBrand] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -224,10 +230,31 @@ export function TopNav({ oauth }: TopNavProps) {
         <div className="relative shrink-0" ref={brandSwitcherRef}>
           <button
             onClick={() => setBrandSwitcherOpen((v) => !v)}
+            onDoubleClick={() => {
+              setAvatarHeart(true);
+              reportEasterEggFound("avatar-double-tap");
+              window.setTimeout(() => setAvatarHeart(false), 700);
+            }}
             title="Changer de marque ou gérer votre compte"
             className="glass-panel flex items-center gap-2 rounded-xl px-3 py-1.5 text-left"
           >
-            <IconAvatar className="h-4 w-4 shrink-0 text-slate-400" />
+            {avatarHeart && (
+              <span
+                className="pointer-events-none absolute -top-3 left-3 text-lg"
+                style={{ animation: "nebula-avatar-heart 0.7s ease-out forwards" }}
+              >
+                ❤️
+              </span>
+            )}
+            <span
+              className={clsx(
+                "relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                cosmetics.has("anneau-saturne-avatar") && "nebula-cosmetic-saturn-ring",
+                !cosmetics.has("anneau-saturne-avatar") && cosmetics.has("halo-dore-avatar") && "nebula-cosmetic-gold-halo"
+              )}
+            >
+              <IconAvatar className="h-4 w-4 shrink-0 text-slate-400" />
+            </span>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="max-w-[140px] truncate text-sm font-medium text-white">
@@ -370,6 +397,22 @@ export function TopNav({ oauth }: TopNavProps) {
         {plan !== "AGENCY" && <UpgradeButton size="sm" className="shrink-0" />}
       </div>
       </header>
+      <style jsx>{`
+        @keyframes nebula-avatar-heart {
+          0% {
+            transform: translateY(0) scale(0.6);
+            opacity: 0;
+          }
+          30% {
+            opacity: 1;
+            transform: translateY(-6px) scale(1.15);
+          }
+          100% {
+            transform: translateY(-22px) scale(1);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </>
   );
 }

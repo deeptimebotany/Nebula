@@ -16,6 +16,7 @@ import { WeekScrubber } from "@/components/dashboard/week-scrubber";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconChevron, IconPlus } from "@/components/dashboard/icons";
+import { CosmeticDecorOverlay } from "@/components/cosmetics/decor-overlay";
 
 interface ApiPost {
   id: string;
@@ -234,7 +235,8 @@ function CalendarPageInner() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      <CosmeticDecorOverlay cosmeticKey="constellation-calendrier" variant="constellation" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-white">Calendrier de publication</h1>

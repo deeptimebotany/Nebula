@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconHeart } from "@/components/dashboard/icons";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 // Variable publique (inlinée au build par Next.js) : tant qu'elle est vide,
 // aucun lien de paiement n'est affiché — pas de fausse promesse, pas de bouton
@@ -19,12 +20,20 @@ export default function SupportPage() {
   const heartClicks = useRef(0);
   const heartResetTimer = useRef<number | null>(null);
 
+  // Indétectable par nature (voir le commentaire équivalent dans
+  // easter-eggs.tsx pour "console-signature") : cette page cache aussi un
+  // commentaire dans son code source.
+  useEffect(() => {
+    reportEasterEggFound("hidden-comment");
+  }, []);
+
   function onHeartClick() {
     heartClicks.current += 1;
     if (heartResetTimer.current) window.clearTimeout(heartResetTimer.current);
     if (heartClicks.current >= 5) {
       heartClicks.current = 0;
       setBeating(true);
+      reportEasterEggFound("support-heartbeat");
       window.setTimeout(() => setBeating(false), 2200);
     } else {
       heartResetTimer.current = window.setTimeout(() => {

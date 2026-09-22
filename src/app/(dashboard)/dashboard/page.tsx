@@ -15,6 +15,7 @@ import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { LivingClock } from "@/components/dashboard/living-clock";
 import { MomentumComet, computeStreak } from "@/components/dashboard/momentum-comet";
+import { useCosmetics } from "@/components/cosmetics-provider";
 
 const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
@@ -70,9 +71,22 @@ interface ApiPost {
   targets: { network: Network }[];
 }
 
+// Cosmétique "Message d'accueil personnalisé" (voir src/lib/cosmetics.ts) :
+// une variante tirée au hasard À CHAQUE VISITE (pas mémorisée) parmi ces
+// phrases à thème spatial, affichée à la place du sous-titre habituel.
+const GREETING_VARIANTS = [
+  "Votre galaxie de contenu vous attend.",
+  "Prêt·e pour une nouvelle orbite de publications ?",
+  "Le cosmos Nebula tourne — à vous de le remplir.",
+  "Une nouvelle constellation de posts à écrire aujourd'hui ?",
+  "Direction les étoiles : qu'allez-vous publier aujourd'hui ?"
+];
+
 export default function DashboardPage() {
   const { activeBrand } = useBrand();
   const router = useRouter();
+  const cosmetics = useCosmetics();
+  const [greeting] = useState(() => GREETING_VARIANTS[Math.floor(Math.random() * GREETING_VARIANTS.length)]);
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [analyticsConnections, setAnalyticsConnections] = useState<AnalyticsConnection[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
@@ -181,9 +195,11 @@ export default function DashboardPage() {
             Vue d&apos;ensemble {activeBrand ? `— ${activeBrand.name}` : ""}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            {hasAnalytics
-              ? "Données réelles synchronisées depuis vos comptes connectés."
-              : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."}
+            {cosmetics.has("message-accueil-perso")
+              ? greeting
+              : hasAnalytics
+                ? "Données réelles synchronisées depuis vos comptes connectés."
+                : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."}
           </p>
         </div>
         <Link href="/composer">

@@ -4,6 +4,7 @@ import cron from "node-cron";
 // directement par tsx, hors du bundler Next.js qui résout les alias.
 import { runDuePosts } from "../src/lib/publish";
 import { runDueReports } from "../src/lib/reports";
+import { checkReferralCrownStreak } from "../src/lib/referral-crown-streak";
 
 // Worker autonome : à lancer avec `npm run worker` sur un serveur/VM/process
 // long-lived (Railway, Fly.io, VPS...). Alternative à /api/cron pour les
@@ -27,5 +28,11 @@ cron.schedule("* * * * *", async () => {
     }
   } catch (err) {
     console.error("[nebula-worker] erreur (rapports)", err);
+  }
+
+  try {
+    await checkReferralCrownStreak();
+  } catch (err) {
+    console.error("[nebula-worker] erreur (streak couronne parrainage)", err);
   }
 });

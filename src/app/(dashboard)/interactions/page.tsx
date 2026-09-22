@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { IconAvatar, IconMessage } from "@/components/dashboard/icons";
 import { NETWORK_META, type Network } from "@/lib/types";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 
 interface EngagementItemRow {
@@ -68,6 +69,14 @@ function InteractionsPageInner() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Easter egg "Inbox zero" (voir le bandeau plus bas) : déclenché dès que
+  // tout est traité pour ce compte.
+  useEffect(() => {
+    if (items && items.length > 0 && items.every((it) => it.read)) {
+      reportEasterEggFound("inbox-zero");
+    }
+  }, [items]);
 
   async function onSync() {
     if (!connectionId) return;

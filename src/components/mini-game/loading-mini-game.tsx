@@ -12,6 +12,7 @@
 // (partagé entre tous les usages du composant sur le site).
 
 import { useEffect, useRef, useState } from "react";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 const BEST_SCORE_KEY = "nebula:minigame-best";
 
@@ -75,6 +76,7 @@ export function LoadingMiniGame({
     const t = window.setTimeout(() => {
       setVisible(true);
       wasVisible.current = true;
+      reportEasterEggFound("loading-minigame");
     }, delayMs);
     return () => window.clearTimeout(t);
   }, [active, delayMs]);
@@ -115,10 +117,17 @@ export function LoadingMiniGame({
     let restartAt = 0;
     let localScore = 0;
     let lastDisplayedScore = -1;
+    // Easter egg à récompense "Zen absolu" : n'a jamais sauté avant le tout
+    // premier game over de cette ouverture du mini-jeu (voir plus bas, au
+    // moment de la collision). `hasEverJumped` ne se réinitialise PAS dans
+    // resetGame() : une seule partie plus tard, on ne le doit plus.
+    let hasEverJumped = false;
+    let zenChecked = false;
 
     function jump() {
       if (gameOver || jumping) return;
       jumping = true;
+      hasEverJumped = true;
       velocity = JUMP_VELOCITY;
     }
 
@@ -203,6 +212,10 @@ export function LoadingMiniGame({
             const finalBest = Math.max(readBestScore(), localScore);
             writeBestScore(finalBest);
             setBest(finalBest);
+            if (!zenChecked) {
+              zenChecked = true;
+              if (!hasEverJumped) reportEasterEggFound("zen-absolute");
+            }
           }
         }
       } else if (now >= restartAt) {

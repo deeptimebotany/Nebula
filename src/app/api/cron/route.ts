@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runDuePosts } from "@/lib/publish";
 import { runDueReports } from "@/lib/reports";
+import { checkReferralCrownStreak } from "@/lib/referral-crown-streak";
 
 // Endpoint appelé par un scheduler externe (Vercel Cron, cron-job.org, un
 // vrai cron système...) toutes les minutes, pour publier les posts
@@ -17,6 +18,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const [results, reports] = await Promise.all([runDuePosts(), runDueReports()]);
+  const [results, reports] = await Promise.all([runDuePosts(), runDueReports(), checkReferralCrownStreak()]);
   return NextResponse.json({ ranAt: new Date().toISOString(), results, reports });
 }

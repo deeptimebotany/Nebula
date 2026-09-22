@@ -56,7 +56,13 @@ const config: Config = {
         "aurora-radial":
           "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(45,90,220,0.35), transparent 70%)",
         "nebula-mesh":
-          "radial-gradient(circle at 20% 20%, rgba(124,108,240,0.25), transparent 40%), radial-gradient(circle at 80% 0%, rgba(62,230,221,0.15), transparent 40%), radial-gradient(circle at 50% 100%, rgba(41,85,196,0.35), transparent 50%)"
+          "radial-gradient(circle at 20% 20%, rgba(124,108,240,0.25), transparent 40%), radial-gradient(circle at 80% 0%, rgba(62,230,221,0.15), transparent 40%), radial-gradient(circle at 50% 100%, rgba(41,85,196,0.35), transparent 50%)",
+        // Fond de connexion "Voie lactée" — réservé à la page de connexion
+        // (voir login-form.tsx) : une bande diagonale plus dense d'étoiles et
+        // de nébulosité, distincte de "nebula-mesh" (utilisé sur ~13 autres
+        // pages publiques) pour ne rien changer ailleurs.
+        "nebula-milky-way":
+          "radial-gradient(circle at 15% 85%, rgba(255,255,255,0.06), transparent 1%), radial-gradient(circle at 65% 15%, rgba(255,255,255,0.05), transparent 1%), radial-gradient(circle at 40% 60%, rgba(255,255,255,0.04), transparent 1%), linear-gradient(115deg, transparent 30%, rgba(180,200,250,0.16) 48%, rgba(124,108,240,0.22) 55%, rgba(99,230,255,0.1) 62%, transparent 78%), radial-gradient(ellipse 90% 70% at 50% 100%, rgba(41,85,196,0.4), transparent 60%)"
       },
       animation: {
         "pulse-slow": "pulse 5s cubic-bezier(0.4,0,0.6,1) infinite",

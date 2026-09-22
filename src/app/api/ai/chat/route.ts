@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, chatComplete, type ChatMessage } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
+import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { z } from "zod";
 
 const bodySchema = z.object({
@@ -64,6 +65,24 @@ function matchIdentityEasterEgg(lastUserText: string): string | null {
   return IDENTITY_REPLIES[Math.floor(Math.random() * IDENTITY_REPLIES.length)];
 }
 
+// Easter egg "42" : deux occurrences du nombre 42 (mot entier) dans le même
+// message — pense "42 fois 42", "42 * 42", "42x42"... — reçoivent le vrai
+// calcul PLUS un clin d'œil, sans appeler Gemini.
+function matchMathEasterEgg(lastUserText: string): string | null {
+  const matches = lastUserText.match(/\b42\b/g);
+  if (!matches || matches.length < 2) return null;
+  return "1764 — et 42 reste la réponse à tout le reste 😉";
+}
+
+// Easter egg "merci" : le mot "merci" répété au moins 5 fois dans le même
+// message (n'importe où, n'importe quelle casse) — pas besoin d'appeler
+// Gemini pour dire merci en retour.
+function matchThanksEasterEgg(lastUserText: string): string | null {
+  const matches = lastUserText.toLowerCase().match(/merci/g);
+  if (!matches || matches.length < 5) return null;
+  return "🥹 C'est nous qui vous remercions !";
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -77,8 +96,25 @@ export async function POST(req: NextRequest) {
   // rien et ne doit jamais être bloquée par ces garde-fous.
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (lastUserMessage) {
-    const easterEgg = matchIdentityEasterEgg(lastUserMessage.text);
-    if (easterEgg) return NextResponse.json({ reply: easterEgg });
+    const userId = (session.user as { id: string }).id;
+
+    const identityEgg = matchIdentityEasterEgg(lastUserMessage.text);
+    if (identityEgg) {
+      await markEasterEggFound(userId, "ai-identity");
+      return NextResponse.json({ reply: identityEgg });
+    }
+
+    const mathEgg = matchMathEasterEgg(lastUserMessage.text);
+    if (mathEgg) {
+      await markEasterEggFound(userId, "ai-answer-42");
+      return NextResponse.json({ reply: mathEgg });
+    }
+
+    const thanksEgg = matchThanksEasterEgg(lastUserMessage.text);
+    if (thanksEgg) {
+      await markEasterEggFound(userId, "support-thanks");
+      return NextResponse.json({ reply: thanksEgg });
+    }
   }
 
   if (!isAiEnabled()) {

@@ -14,7 +14,9 @@ import { NetworkBadge } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type ChartPoint, type Network } from "@/lib/types";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { useToast } from "@/components/dashboard/toast";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
+import { useCosmetics } from "@/components/cosmetics-provider";
 
 interface AnalyticsConnection {
   id: string;
@@ -30,20 +32,42 @@ interface AnalyticsConnection {
 // Un petit insigne "🎖 1000+" reste ensuite affiché en permanence sur ce
 // compte (voir StatCard ci-dessous), sans dépendre du localStorage.
 const MILESTONE_FOLLOWERS = 1000;
+// Cap supérieur (easter egg "followers-10k") — même mécanique de
+// franchissement que MILESTONE_FOLLOWERS, juste un seuil dix fois plus haut,
+// suivi séparément (voir milestoneFlagKey, préfixé par le seuil concerné).
+const MILESTONE_FOLLOWERS_10K = 10_000;
+// Seuil "cumulé" (toutes plateformes confondues) pour l'easter egg à
+// récompense "Supernova analytique" — calculé sur le dernier relevé de
+// chaque compte connecté, pas un historique complet (voir load() plus bas).
+const SUPERNOVA_IMPRESSIONS_THRESHOLD = 1_000_000;
 
-function milestoneFlagKey(connectionId: string): string {
-  return `nebula:milestone-followers-1000:${connectionId}`;
+function milestoneFlagKey(connectionId: string, threshold: number = MILESTONE_FOLLOWERS): string {
+  return `nebula:milestone-followers-${threshold}:${connectionId}`;
 }
-function hasFiredFollowerMilestone(connectionId: string): boolean {
+function hasFiredFollowerMilestone(connectionId: string, threshold: number = MILESTONE_FOLLOWERS): boolean {
   try {
-    return localStorage.getItem(milestoneFlagKey(connectionId)) === "1";
+    return localStorage.getItem(milestoneFlagKey(connectionId, threshold)) === "1";
   } catch {
     return false;
   }
 }
-function markFiredFollowerMilestone(connectionId: string) {
+function markFiredFollowerMilestone(connectionId: string, threshold: number = MILESTONE_FOLLOWERS) {
   try {
-    localStorage.setItem(milestoneFlagKey(connectionId), "1");
+    localStorage.setItem(milestoneFlagKey(connectionId, threshold), "1");
+  } catch {
+    // stockage indisponible — tant pis, la célébration pourra se redéclencher
+  }
+}
+function hasFiredSupernova(brandId: string): boolean {
+  try {
+    return localStorage.getItem(`nebula:supernova-impressions:${brandId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+function markFiredSupernova(brandId: string) {
+  try {
+    localStorage.setItem(`nebula:supernova-impressions:${brandId}`, "1");
   } catch {
     // stockage indisponible — tant pis, la célébration pourra se redéclencher
   }
@@ -234,6 +258,7 @@ export default function AnalyticsPage() {
 function AnalyticsPageInner() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const cosmetics = useCosmetics();
   const searchParams = useSearchParams();
   // Depuis le menu déroulant d'un compte sur la page Comptes (voir
   // accounts/page.tsx) : n'affiche que ce compte-là plutôt que tous les
@@ -263,9 +288,12 @@ function AnalyticsPageInner() {
     setConnections(loaded);
     setLoading(false);
 
+    let cumulativeImpressions = 0;
     for (const c of loaded) {
       const latest = c.snapshots.at(-1);
       const previous = c.snapshots.at(-2);
+      cumulativeImpressions += latest?.impressions ?? 0;
+
       if (
         latest &&
         latest.followers >= MILESTONE_FOLLOWERS &&
@@ -274,7 +302,31 @@ function AnalyticsPageInner() {
       ) {
         markFiredFollowerMilestone(c.id);
         toast.success(`🎉 ${c.displayName} vient de franchir les ${MILESTONE_FOLLOWERS.toLocaleString("fr-FR")} abonnés !`);
+        reportEasterEggFound("followers-1000");
       }
+      if (
+        latest &&
+        latest.followers >= MILESTONE_FOLLOWERS_10K &&
+        (!previous || previous.followers < MILESTONE_FOLLOWERS_10K) &&
+        !hasFiredFollowerMilestone(c.id, MILESTONE_FOLLOWERS_10K)
+      ) {
+        markFiredFollowerMilestone(c.id, MILESTONE_FOLLOWERS_10K);
+        toast.success(`🥇 ${c.displayName} vient de franchir les ${MILESTONE_FOLLOWERS_10K.toLocaleString("fr-FR")} abonnés !`);
+        reportEasterEggFound("followers-10k");
+        // Easter egg "Éclat mérité" (#49) : même seuil, débloque en plus le
+        // cosmétique "Éclat doré" (voir src/lib/cosmetics.ts) — deux clés
+        // distinctes pour deux récompenses distinctes au même franchissement.
+        reportEasterEggFound("golden-glow-unlock");
+      }
+    }
+
+    // Easter egg à récompense "Supernova analytique" : somme des impressions
+    // du DERNIER relevé de chaque compte connecté à cette marque (pas un
+    // cumul historique complet, qui demanderait de sommer tout
+    // AnalyticsSnapshot — approximation documentée volontairement).
+    if (activeBrand && cumulativeImpressions >= SUPERNOVA_IMPRESSIONS_THRESHOLD && !hasFiredSupernova(activeBrand.id)) {
+      markFiredSupernova(activeBrand.id);
+      reportEasterEggFound("supernova-impressions");
     }
   }
 
@@ -520,6 +572,7 @@ function AnalyticsPageInner() {
                     suffix={latest ? "abonnés" : "pas encore synchronisé"}
                     delta={latest && previous ? latest.followers - previous.followers : 0}
                     badge={latest && latest.followers >= MILESTONE_FOLLOWERS ? "🎖 1000+" : undefined}
+                    glow={Boolean(latest && latest.followers >= MILESTONE_FOLLOWERS_10K && cosmetics.has("eclat-dore-statcard"))}
                   />
                 </RevealItem>
               );

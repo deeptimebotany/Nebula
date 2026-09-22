@@ -344,6 +344,58 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
   {
+    // Cosmétique de palier (voir src/lib/cosmetics.ts pour le reste du
+    // catalogue) : pas un easter egg — visible et sélectionnable directement
+    // ici dès que le palier Agence est atteint. Noir quasi absolu avec un
+    // halo lumineux ambré très concentré, façon éclipse totale.
+    key: "eclipse-totale",
+    label: "Éclipse totale (Agence)",
+    requiresPlan: "AGENCY",
+    vars: {
+      "--c-nebula-900": v([4, 4, 6]),
+      "--c-nebula-800": v([8, 8, 11]),
+      "--c-nebula-700": v([13, 13, 17]),
+      "--c-nebula-600": v([20, 19, 24]),
+      "--c-nebula-500": v([30, 28, 36]),
+      "--c-nebula-400": v([58, 54, 66]),
+      "--c-nebula-300": v([92, 87, 100]),
+      "--c-nebula-200": v([133, 127, 140]),
+      "--c-nebula-100": v([184, 178, 189]),
+      "--c-aurora-500": v([214, 158, 46]),
+      "--c-aurora-400": v([232, 184, 96]),
+      "--c-aurora-300": v([240, 205, 138]),
+      "--c-aurora-glow": v([244, 214, 156]),
+      "--c-accent-violet": v([150, 110, 200]),
+      "--c-accent-cyan": v([120, 170, 190]),
+      "--c-accent-magenta": v([200, 120, 90]),
+    }
+  },
+  {
+    // Cosmétique de palier : variante de mode clair à teinte chaude, façon
+    // lever de soleil — accessible dès le palier Pro.
+    key: "aube",
+    label: "Aube (Pro)",
+    requiresPlan: "PRO",
+    vars: {
+      "--c-nebula-900": v([56, 30, 12]),
+      "--c-nebula-800": v([87, 48, 20]),
+      "--c-nebula-700": v([121, 68, 30]),
+      "--c-nebula-600": v([160, 91, 40]),
+      "--c-nebula-500": v([204, 118, 54]),
+      "--c-nebula-400": v([224, 148, 90]),
+      "--c-nebula-300": v([233, 178, 132]),
+      "--c-nebula-200": v([241, 205, 175]),
+      "--c-nebula-100": v([248, 227, 210]),
+      "--c-aurora-500": v([237, 145, 66]),
+      "--c-aurora-400": v([242, 172, 108]),
+      "--c-aurora-300": v([246, 197, 152]),
+      "--c-aurora-glow": v([248, 209, 171]),
+      "--c-accent-violet": v([224, 130, 170]),
+      "--c-accent-cyan": v([120, 200, 214]),
+      "--c-accent-magenta": v([237, 100, 92]),
+    }
+  },
+  {
     // Thème easter egg — voir hidden ci-dessus et settings/page.tsx pour le
     // mot-clé caché qui le révèle. Palette "supernova" : or et blanc
     // incandescent, sans rapport avec un palier payant (gratuit une fois

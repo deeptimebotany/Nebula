@@ -4,11 +4,26 @@
 // (voir src/lib/themes.ts) : changer de thème recolore automatiquement le
 // fond choisi, sans rien recalculer. Opacités volontairement basses pour ne
 // jamais nuire à la lisibilité du texte par-dessus.
+import type { Plan } from "./plans";
 
 export interface BackgroundDefinition {
   key: string;
   label: string;
   css: string;
+  // Réserve ce fond à un palier minimum (voir canUseBackground ci-dessous) —
+  // même mécanique que ThemeDefinition.requiresPlan dans src/lib/themes.ts.
+  // Absent = disponible à tout le monde, comme les 30 fonds d'origine.
+  requiresPlan?: Plan;
+  // Alternative à requiresPlan : réserve ce fond à qui a trouvé l'easter egg
+  // de cette clé (voir easter-eggs-registry.ts), plutôt qu'à un palier payant
+  // — jamais les deux à la fois sur un même fond. Vérifié par
+  // /api/settings/background (PATCH) et par la page Paramètres (client),
+  // pas par canUseBackground ci-dessous qui ne connaît que les paliers.
+  requiresEgg?: string;
+  // Nom de la classe d'animation CSS (définie dans globals.css) à appliquer
+  // en plus du dégradé `css` — voir background-provider.tsx, qui pose
+  // data-background-animated sur <html> pour ces fonds-là uniquement.
+  animationClass?: string;
 }
 
 const NEBULA = "var(--c-nebula-500)";
@@ -69,11 +84,61 @@ export const BACKGROUNDS: BackgroundDefinition[] = [
   { key: "solstice", label: "Solstice", css: `${blob("100%", "0%", CYAN, "60%", 0.22)}, ${blob("0%", "100%", MAGENTA, "60%", 0.16)}, ${BASE}` },
   { key: "spirale", label: "Spirale", css: `${rays("50%", "50%", AURORA, 0.05)}, ${rings("50%", "50%", AURORA_S, "34px", 0.05)}, ${BASE}` },
   { key: "glacier", label: "Glacier", css: `${blob("50%", "0%", CYAN, "80%", 0.18)}, ${dots(CYAN, "20px", 0.07)}, ${BASE}` },
-  { key: "obsidienne", label: "Obsidienne (minimal)", css: `${blob("50%", "50%", NEBULA_D, "100%", 0.35)}, ${BASE}` }
+  { key: "obsidienne", label: "Obsidienne (minimal)", css: `${blob("50%", "50%", NEBULA_D, "100%", 0.35)}, ${BASE}` },
+
+  // --- Fonds animés de palier (voir src/lib/cosmetics.ts pour le reste du
+  // catalogue de cosmétiques) : seuls fonds ANIMÉS de la liste
+  // (animationClass), et seuls fonds réservés — par palier (requiresPlan)
+  // ou par easter egg (requiresEgg, voir plus bas) — les 30 tout en haut
+  // restent gratuits et statiques comme avant.
+  {
+    key: "aurore-boreale-animee",
+    label: "Aurore boréale (Pro)",
+    requiresPlan: "PRO",
+    animationClass: "nebula-bg-anim-aurora",
+    css: `${blob("20%", "0%", AURORA, "70%", 0.22)}, ${blob("80%", "10%", CYAN, "60%", 0.16)}, ${blob("50%", "100%", VIOLET, "65%", 0.14)}, ${BASE}`
+  },
+  {
+    key: "nebuleuse-violette-animee",
+    label: "Nébuleuse violette (Pro)",
+    requiresPlan: "PRO",
+    animationClass: "nebula-bg-anim-drift",
+    css: `${blob("15%", "30%", VIOLET, "65%", 0.24)}, ${blob("85%", "70%", MAGENTA, "60%", 0.16)}, ${dots(VIOLET, "26px", 0.08)}, ${BASE}`
+  },
+  // Fond animé GRATUIT (aucun requiresPlan/requiresEgg) — ajouté en même
+  // temps que la conversion de "Pluie de météores" en easter egg ci-dessous,
+  // pour qu'un fond animé reste accessible à tout le monde, pas seulement
+  // aux paliers payants ou à qui a trouvé un egg. Même technique d'animation
+  // (voir globals.css, nebula-bg-anim-shimmer) que les fonds ci-dessus.
+  {
+    key: "nebuleuse-scintillante-animee",
+    label: "Nébuleuse scintillante (gratuit)",
+    animationClass: "nebula-bg-anim-shimmer",
+    css: `${dots(AURORA_S, "22px", 0.16)}, ${blob("30%", "20%", NEBULA, "60%", 0.2)}, ${blob("75%", "80%", AURORA, "55%", 0.14)}, ${BASE}`
+  },
+  // Easter egg "Pluie d'étincelles" (voir easter-eggs-registry.ts et
+  // publish.ts) : plus réservé par palier — débloqué en trouvant l'egg, pas
+  // en payant. requiresEgg référence la clé de l'egg à trouver (voir
+  // canUseBackground ci-dessous — pour requiresEgg, c'est /api/settings/background
+  // et la page Paramètres qui vérifient, pas cette fonction).
+  {
+    key: "pluie-meteores-animee",
+    label: "Pluie de météores",
+    requiresEgg: "meteor-shower-unlock",
+    animationClass: "nebula-bg-anim-meteors",
+    css: `${stripes("115deg", AURORA_S, "2px", "70px", 0.09)}, ${stripes("115deg", CYAN, "1px", "140px", 0.06)}, ${BASE}`
+  }
 ];
 
 export const DEFAULT_BACKGROUND_KEY = "mesh";
 
 export function findBackground(key: string): BackgroundDefinition {
   return BACKGROUNDS.find((b) => b.key === key) ?? BACKGROUNDS[0];
+}
+
+/** true si ce compte (selon son palier) peut sélectionner ce fond. */
+export function canUseBackground(bg: BackgroundDefinition, plan: Plan): boolean {
+  if (!bg.requiresPlan) return true;
+  const order: Plan[] = ["FREE", "PRO", "AGENCY"];
+  return order.indexOf(plan) >= order.indexOf(bg.requiresPlan);
 }

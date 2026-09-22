@@ -33,6 +33,7 @@ model User {
   sharedVideos SharedVideo[]
   communityReactions CommunityReaction[]
   pollVotes    PollVote[]
+  easterEggsFound EasterEggFound[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
@@ -68,6 +69,38 @@ model User {
   // masque automatiquement sans qu'on ait besoin de la remettre à false ici.
   starfieldEnabled Boolean @default(false)
 
+  // Cosmétiques (voir src/lib/cosmetics.ts) : contenus visuels/sonores RÉELS
+  // (pas de simples badges) débloqués par palier — curseurs, halos, sons,
+  // décors de page... Chaque clé DOIT exister dans le catalogue COSMETICS
+  // pour être prise en compte (voir /api/settings/cosmetics, qui revérifie
+  // toujours le palier requis à l'activation, jamais confiance au client).
+  // Array plutôt qu'une colonne par cosmétique : le catalogue grandira sans
+  // migration supplémentaire à chaque ajout.
+  enabledCosmetics String[] @default([])
+
+  // Son "Décollage" (easter egg "publish-sound-unlock", voir
+  // easter-eggs-registry.ts) : préférence ON/OFF distincte du déblocage
+  // lui-même (found dans EasterEggFound) — trouver l'egg rend le réglage
+  // disponible dans Paramètres, cette valeur retient si la personne l'a
+  // effectivement activé.
+  publishSoundEnabled Boolean @default(false)
+
+  // --- Suivi de connexion (voir /api/easter-eggs, calculé à chaque visite
+  // de /succes ou de la Communauté — même compromis documenté que pour
+  // "account-anniversary" : un compte qui ne visite ni l'une ni l'autre un
+  // jour donné ne fait pas progresser ces compteurs ce jour-là) ---
+
+  // Easter egg "Icône rétro" (clé "retro-icon-unlock") : jours CONSÉCUTIFS
+  // avec au moins une visite, remis à 1 dès qu'un jour est manqué.
+  lastLoginDate   DateTime?
+  loginStreakDays Int       @default(0)
+
+  // Easter egg "Message d'accueil personnalisé" (clé "greeting-unlock") :
+  // connexions à peu près à la même heure (± 1h, l'heure du serveur n'étant
+  // stockée qu'en entier) sur des jours consécutifs.
+  lastLoginHour       Int?
+  sameHourLoginStreak Int @default(0)
+
   // Mode clair/sombre choisi via la bulle de profil (voir mode-provider.tsx).
   // "dark" = défaut d'origine (Nébuleuse bleu foncé). Indépendant du thème
   // de couleurs (themePreference) : le mode inverse simplement les surfaces
@@ -88,6 +121,38 @@ model User {
   // Nullable pour les mêmes raisons que referralCode ci-dessus.
   passwordResetTokenHash      String?   @unique
   passwordResetTokenExpiresAt DateTime?
+}
+
+// Onglet "Succès" (voir /succes) : chaque ligne = un easter egg trouvé par un
+// compte, une seule fois (@@unique). `key` correspond à EASTER_EGGS dans
+// src/lib/easter-eggs-registry.ts, jamais renommée ensuite car stockée ici.
+// Écrite via markEasterEggFound() (serveur) ou POST /api/easter-eggs/found
+// (client), jamais en accès direct depuis le front.
+model EasterEggFound {
+  id      String   @id @default(cuid())
+  userId  String
+  key     String
+  foundAt DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+// Ligne UNIQUE (id fixe "singleton", géré par upsert dans
+// src/lib/referral-crown-streak.ts) : suit combien de jours CONSÉCUTIFS le
+// titulaire actuel de la 1ère place du classement de parrainage
+// (/api/referral/leaderboard) l'a occupée — vérifié une fois par jour
+// civil (UTC) à chaque exécution de /api/cron ou du worker (scripts/worker.ts).
+// Alimente l'easter egg à récompense "referral-crown-30d". Pas de relation
+// vers User (onDelete non pertinent ici) : un compte supprimé fait juste
+// disparaître son propre historique de parrainage, le streak retombe à 0
+// tout seul au prochain passage du cron.
+model ReferralCrownStreak {
+  id       String    @id
+  userId   String?
+  days     Int       @default(0)
+  lastDate DateTime?
 }
 
 model Brand {

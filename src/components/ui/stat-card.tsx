@@ -7,7 +7,8 @@ export function StatCard({
   delta,
   suffix,
   icon,
-  badge
+  badge,
+  glow
 }: {
   label: string;
   value: string;
@@ -17,10 +18,15 @@ export function StatCard({
   // Petit insigne optionnel (ex : franchissement d'un palier d'abonnés) —
   // distinct de `icon`, affiché comme une puce à côté du libellé.
   badge?: React.ReactNode;
+  // Cosmétique "Éclat doré" (voir src/lib/cosmetics.ts) : contour doré animé,
+  // posé par la page appelante uniquement quand ELLE sait qu'un palier
+  // d'abonnés est dépassé ET que le compte a activé ce cosmétique — cette
+  // carte ne connaît ni l'un ni l'autre.
+  glow?: boolean;
 }) {
   const positive = (delta ?? 0) >= 0;
   return (
-    <GlassCard className="flex flex-col gap-3">
+    <GlassCard className={clsx("flex flex-col gap-3", glow && "nebula-cosmetic-gold-statcard")}>
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-400">
           {label}

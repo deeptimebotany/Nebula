@@ -10,6 +10,7 @@ import { clsx } from "@/lib/clsx";
 import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 type Tab = "forum" | "guides" | "videos";
 
@@ -35,7 +36,12 @@ function ReferralLeaderboard() {
   useEffect(() => {
     fetch("/api/referral/leaderboard")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setRows(d?.leaderboard ?? []))
+      .then((d) => {
+        const leaderboard: LeaderboardRow[] = d?.leaderboard ?? [];
+        setRows(leaderboard);
+        // Easter egg : trouver SA PROPRE couronne, pas seulement en voir une.
+        if (leaderboard[0]?.isMe) reportEasterEggFound("referral-crown");
+      })
       .catch(() => setRows([]));
   }, []);
 
@@ -125,6 +131,7 @@ export default function CommunityPage() {
   const [videos, setVideos] = useState<SharedVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
+  const [eggCount, setEggCount] = useState<{ found: number; total: number } | null>(null);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -154,6 +161,18 @@ export default function CommunityPage() {
     fetch("/api/community/badges")
       .then((r) => r.json())
       .then((d) => setBadges(d.badges ?? []))
+      .catch(() => undefined);
+  }, []);
+
+  // Compteur d'easter eggs trouvés — voir l'onglet Succès (/succes), un peu
+  // caché dans le menu latéral. Repris ici, sur "la carte de profil" de la
+  // Communauté, pour que ça se voie sans avoir à aller chercher l'onglet.
+  useEffect(() => {
+    fetch("/api/easter-eggs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setEggCount({ found: d.foundCount ?? 0, total: d.total ?? 20 });
+      })
       .catch(() => undefined);
   }, []);
 
@@ -196,6 +215,19 @@ export default function CommunityPage() {
       </div>
 
       <ReferralLeaderboard />
+
+      {eggCount && (
+        <Link href="/succes">
+          <GlassCard className="flex items-center justify-between transition hover:border-white/20">
+            <span className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-lg">🥚</span> Easter eggs trouvés
+            </span>
+            <span className="font-display text-sm font-medium text-amber-300">
+              {eggCount.found} / {eggCount.total}
+            </span>
+          </GlassCard>
+        </Link>
+      )}
 
       {badges && badges.some((b) => b.count > 0 || b.nextThreshold !== null) && (
         <GlassCard>

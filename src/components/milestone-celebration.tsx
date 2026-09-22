@@ -98,6 +98,11 @@ export function MilestoneCelebrationProvider({ children }: { children: React.Rea
   const toast = useToast();
   const [pieces, setPieces] = useState<ConfettiPiece[] | null>(null);
   const [trophy, setTrophy] = useState(false);
+  // Bandeau "Supernova" (idée #32 du dernier lot) : un flash lumineux plein
+  // écran, offert à TOUT LE MONDE sans réglage à activer — contrairement aux
+  // cosmétiques de src/lib/cosmetics.ts, ceci s'applique à chaque palier,
+  // inconditionnellement.
+  const [flash, setFlash] = useState(false);
   const nextId = useRef(0);
   const timers = useRef<number[]>([]);
 
@@ -111,6 +116,8 @@ export function MilestoneCelebrationProvider({ children }: { children: React.Rea
 
       toast.success(tier.message);
       setTrophy(Boolean(tier.showTrophy));
+      setFlash(true);
+      timers.current.push(window.setTimeout(() => setFlash(false), 900));
 
       const perBurst = Math.max(1, Math.round(tier.pieceCount / tier.bursts));
       const burstGap = Math.max(500, tier.durationMs / tier.bursts / 1.5);
@@ -143,6 +150,15 @@ export function MilestoneCelebrationProvider({ children }: { children: React.Rea
   return (
     <MilestoneContext.Provider value={{ celebrateMilestone }}>
       {children}
+      {flash && (
+        <div
+          className="pointer-events-none fixed inset-0 z-[209]"
+          style={{
+            background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.55), rgba(99,230,255,0.25) 40%, transparent 75%)",
+            animation: "nebula-supernova-flash 0.9s ease-out forwards"
+          }}
+        />
+      )}
       {((pieces && pieces.length > 0) || trophy) && (
         <div className="pointer-events-none fixed inset-0 z-[210] overflow-hidden">
           {trophy && (

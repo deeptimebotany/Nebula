@@ -2,17 +2,34 @@
 
 import { useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
-import { BACKGROUNDS } from "@/lib/backgrounds";
-import { IconChevron } from "@/components/dashboard/icons";
+import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
+import type { Plan } from "@/lib/plans";
+import { IconChevron, IconLock } from "@/components/dashboard/icons";
 
 const CARD_WIDTH = 108; // largeur d'une vignette + espace (voir gap-3 = 12px, w-24 = 96px)
 
 /**
- * Carrousel horizontal des 30 fonds d'écran : défilement à la molette/tactile
+ * Carrousel horizontal des fonds d'écran : défilement à la molette/tactile
  * normal, plus deux flèches (± une vignette) et un glisser-déposer à la
- * souris (on "attrape" la bande et on la tire à gauche/droite).
+ * souris (on "attrape" la bande et on la tire à gauche/droite). `plan` sert
+ * uniquement à l'affichage du cadenas — la page appelante (voir onSelect)
+ * reste responsable de refuser réellement la sélection d'un fond verrouillé,
+ * comme onPickTheme le fait pour les thèmes.
  */
-export function BackgroundCarousel({ selected, onSelect }: { selected: string; onSelect: (key: string) => void }) {
+export function BackgroundCarousel({
+  selected,
+  onSelect,
+  plan,
+  unlockedEggKeys
+}: {
+  selected: string;
+  onSelect: (key: string) => void;
+  plan: Plan;
+  // Clés des easter eggs trouvés par ce compte — sert uniquement aux fonds
+  // requiresEgg (voir src/lib/backgrounds.ts) ; les fonds requiresPlan
+  // continuent de dépendre uniquement de `plan`.
+  unlockedEggKeys: Set<string>;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{
     startX: number;
@@ -98,20 +115,41 @@ export function BackgroundCarousel({ selected, onSelect }: { selected: string; o
           isDragging ? "cursor-grabbing select-none" : "cursor-grab"
         )}
       >
-        {BACKGROUNDS.map((bg) => (
-          <button
-            key={bg.key}
-            type="button"
-            onClick={() => onCardClick(bg.key)}
-            className={clsx(
-              "flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-xl border-2 p-1.5 transition",
-              selected === bg.key ? "border-aurora-400 bg-white/[0.04]" : "border-white/10 hover:border-white/25"
-            )}
-          >
-            <span className="h-16 w-full rounded-lg shadow-inner" style={{ background: bg.css }} />
-            <span className="line-clamp-1 text-[10px] text-slate-400">{bg.label}</span>
-          </button>
-        ))}
+        {BACKGROUNDS.map((bg) => {
+          const locked = bg.requiresPlan
+            ? !canUseBackground(bg, plan)
+            : bg.requiresEgg
+              ? !unlockedEggKeys.has(bg.requiresEgg)
+              : false;
+          return (
+            <button
+              key={bg.key}
+              type="button"
+              onClick={() => onCardClick(bg.key)}
+              className={clsx(
+                "relative flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-xl border-2 p-1.5 transition",
+                selected === bg.key
+                  ? "border-aurora-400 bg-white/[0.04]"
+                  : locked
+                    ? "border-white/5 opacity-60 hover:opacity-90"
+                    : "border-white/10 hover:border-white/25"
+              )}
+            >
+              {locked && (
+                <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-void-950/90 text-slate-300">
+                  <IconLock className="h-2.5 w-2.5" />
+                </span>
+              )}
+              <span className="h-16 w-full rounded-lg shadow-inner" style={{ background: bg.css }} />
+              <span className="line-clamp-1 text-[10px] text-slate-400">{bg.label}</span>
+              {locked && (
+                <span className="text-[9px] text-amber-400">
+                  {bg.requiresEgg ? "Easter egg" : `Palier ${bg.requiresPlan}`}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <button

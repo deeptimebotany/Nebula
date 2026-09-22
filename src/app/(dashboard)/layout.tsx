@@ -11,6 +11,8 @@ import { EasterEggs } from "@/components/easter-eggs";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { Starfield } from "@/components/starfield";
 import { MilestoneCelebrationProvider } from "@/components/milestone-celebration";
+import { AchievementToastListener } from "@/components/achievement-toast-listener";
+import { CosmeticsEffects } from "@/components/cosmetics-effects";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -37,6 +39,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <AiAssistant />
               <EasterEggs />
               <CommandPalette />
+              <AchievementToastListener />
+              <CosmeticsEffects />
             </div>
           </ConfirmProvider>
         </MilestoneCelebrationProvider>

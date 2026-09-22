@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/toast";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 // Hypothèse : Nebula a été lancé le 21 septembre 2025 — à corriger ici si la
 // vraie date de lancement diffère (seule cette constante calcule "Nebula a
@@ -59,6 +60,18 @@ const KONAMI = [
 ];
 
 const WORD = "nebula";
+const WORD_BANANA = "banana";
+
+// Session "marathon" (4h en continu) : horodatage de début posé une seule
+// fois par onglet dans sessionStorage (pas localStorage : on veut vraiment
+// "une session", remise à zéro à la fermeture de l'onglet).
+const SESSION_START_KEY = "nebula:session-start";
+const MARATHON_THRESHOLD_MS = 4 * 60 * 60 * 1000;
+// "Statue" : immobilité totale du curseur pendant ce délai.
+const STATUE_THRESHOLD_MS = 60 * 1000;
+// "Zoom extrême" : ratio taille fenêtre externe / interne — grossit avec le
+// niveau de zoom du navigateur (heuristique, pas une vraie API de zoom).
+const EXTREME_ZOOM_RATIO = 4;
 
 const CONFETTI_COLORS = [
   "rgb(var(--c-nebula-500))",
@@ -86,6 +99,14 @@ interface ShootingStar {
   delay: number;
 }
 
+interface BananaDrop {
+  id: number;
+  left: number;
+  delay: number;
+  duration: number;
+  rotate: number;
+}
+
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -97,10 +118,34 @@ export function EasterEggs() {
   const [confetti, setConfetti] = useState<ConfettiPiece[] | null>(null);
   const [shootingStars, setShootingStars] = useState<ShootingStar[] | null>(null);
   const [blackCat, setBlackCat] = useState(false);
+  const [bananas, setBananas] = useState<BananaDrop[] | null>(null);
   const konamiProgress = useRef(0);
   const wordProgress = useRef(0);
+  const bananaProgress = useRef(0);
   const nextId = useRef(0);
   const cooldown = useRef(false);
+  const bananaCooldown = useRef(false);
+
+  // Easter egg "banana" : pluie de bananes pendant 2s, indépendante du
+  // cooldown confettis (fire()) pour pouvoir se déclencher juste après.
+  function fireBananaRain() {
+    if (bananaCooldown.current) return;
+    bananaCooldown.current = true;
+    reportEasterEggFound("banana-word");
+    const drops: BananaDrop[] = Array.from({ length: 40 }, () => ({
+      id: nextId.current++,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.5,
+      duration: 1.8 + Math.random() * 1.2,
+      rotate: Math.random() * 360
+    }));
+    setBananas(drops);
+    toast.success("🍌 Vous avez trouvé la banane !");
+    window.setTimeout(() => setBananas(null), 2600);
+    window.setTimeout(() => {
+      bananaCooldown.current = false;
+    }, 2600);
+  }
 
   // Minuit : 2 ou 3 étoiles filantes traversent l'écran en diagonale — pas
   // de confettis ici (trop bruyant pour un effet censé être discret), pas
@@ -114,6 +159,7 @@ export function EasterEggs() {
       delay: Math.random() * 1.6
     }));
     setShootingStars(stars);
+    reportEasterEggFound("midnight-stars");
     window.setTimeout(() => setShootingStars(null), 4200);
   }
 
@@ -122,12 +168,14 @@ export function EasterEggs() {
   function fireBlackCat() {
     setBlackCat(true);
     toast.info("🐈‍⬛ Vendredi 13... un chat noir traverse Nebula. Bonne chance aujourd'hui !");
+    reportEasterEggFound("friday-13");
     window.setTimeout(() => setBlackCat(false), 3600);
   }
 
-  function fire(message: string) {
+  function fire(message: string, key?: string) {
     if (cooldown.current) return;
     cooldown.current = true;
+    if (key) reportEasterEggFound(key);
     const pieces: ConfettiPiece[] = Array.from({ length: 60 }, () => ({
       id: nextId.current++,
       left: Math.random() * 100,
@@ -158,6 +206,10 @@ export function EasterEggs() {
       "%cVous cherchez quelque chose ? Essayez le code Konami, ou tapez simplement « nebula ».",
       "color:#8fd7ff;font-size:12px;"
     );
+    // Indétectable par nature (on ne peut pas savoir si la console a été
+    // lue) : marqué trouvé dès que ce message s'affiche, comme pour le
+    // commentaire caché dans le code source (voir "hidden-comment").
+    reportEasterEggFound("console-signature");
 
     function onKeyDown(e: KeyboardEvent) {
       if (isTypingTarget(e.target)) return;
@@ -170,7 +222,7 @@ export function EasterEggs() {
         konamiProgress.current += 1;
         if (konamiProgress.current === KONAMI.length) {
           konamiProgress.current = 0;
-          fire("🎉 Code Konami activé — bravo à l'ancienne !");
+          fire("🎉 Code Konami activé — bravo à l'ancienne !", "konami");
         }
       } else {
         konamiProgress.current = key === KONAMI[0] ? 1 : 0;
@@ -182,16 +234,174 @@ export function EasterEggs() {
         wordProgress.current += 1;
         if (wordProgress.current === WORD.length) {
           wordProgress.current = 0;
-          fire("🌌 Vous avez trouvé le mot secret !");
+          fire("🌌 Vous avez trouvé le mot secret !", "nebula-word");
         }
       } else {
         wordProgress.current = key === WORD[0] ? 1 : 0;
+      }
+
+      // Le mot "banana".
+      const expectedBanana = WORD_BANANA[bananaProgress.current];
+      if (key === expectedBanana) {
+        bananaProgress.current += 1;
+        if (bananaProgress.current === WORD_BANANA.length) {
+          bananaProgress.current = 0;
+          fireBananaRain();
+        }
+      } else {
+        bananaProgress.current = key === WORD_BANANA[0] ? 1 : 0;
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toast]);
+
+  // Easter eggs "ambiants", vérifiés en continu tant que le dashboard est
+  // monté : marathon (session ouverte 4h+), statue (curseur immobile 60s),
+  // zoom extrême (ratio fenêtre externe/interne). Rien de tout ça n'affiche
+  // de UI bloquante — juste un toast, une fois.
+  useEffect(() => {
+    try {
+      if (!sessionStorage.getItem(SESSION_START_KEY)) {
+        sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
+      }
+    } catch {
+      // stockage indisponible — l'egg "marathon" ne pourra pas se déclencher
+    }
+
+    let statueTimer: number | null = null;
+    let statueFired = false;
+    function armStatueTimer() {
+      if (statueTimer) window.clearTimeout(statueTimer);
+      if (statueFired) return;
+      statueTimer = window.setTimeout(() => {
+        statueFired = true;
+        toast.info("💤 Toujours là ?");
+        reportEasterEggFound("cursor-statue");
+      }, STATUE_THRESHOLD_MS);
+    }
+    armStatueTimer();
+    window.addEventListener("mousemove", armStatueTimer);
+
+    let zoomFired = false;
+    function checkZoom() {
+      if (zoomFired) return;
+      const ratio = window.outerWidth / window.innerWidth;
+      if (ratio >= EXTREME_ZOOM_RATIO) {
+        zoomFired = true;
+        toast.info("🔍 On dirait que vous cherchez quelque chose de très précis...");
+        reportEasterEggFound("extreme-zoom");
+      }
+    }
+    window.addEventListener("resize", checkZoom);
+
+    let marathonFired = false;
+    const marathonInterval = window.setInterval(() => {
+      if (marathonFired) return;
+      let start: number | null = null;
+      try {
+        const raw = sessionStorage.getItem(SESSION_START_KEY);
+        start = raw ? Number(raw) : null;
+      } catch {
+        start = null;
+      }
+      if (start && Date.now() - start >= MARATHON_THRESHOLD_MS) {
+        marathonFired = true;
+        toast.info("⏳ 4h sur Nebula — pensez à faire une pause !");
+        reportEasterEggFound("marathon-session");
+      }
+    }, 5 * 60 * 1000);
+
+    return () => {
+      if (statueTimer) window.clearTimeout(statueTimer);
+      window.removeEventListener("mousemove", armStatueTimer);
+      window.removeEventListener("resize", checkZoom);
+      window.clearInterval(marathonInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Easter egg "Multi-fenêtres" : 5 onglets Nebula ouverts EN MÊME TEMPS.
+  // Chaque onglet s'enregistre dans localStorage (partagé entre tous les
+  // onglets du même site) avec un battement de cœur régulier ; les entrées
+  // trop vieilles (onglet fermé sans prévenir, ex. crash) sont ignorées
+  // plutôt que nettoyées activement, pour rester simple.
+  useEffect(() => {
+    const tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const STORE_KEY = "nebula:open-tabs";
+    const HEARTBEAT_MS = 4000;
+    const STALE_MS = 10000;
+    let fired = false;
+
+    function heartbeat() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        const entries: Record<string, number> = raw ? JSON.parse(raw) : {};
+        const now = Date.now();
+        entries[tabId] = now;
+        for (const id of Object.keys(entries)) {
+          if (now - entries[id] > STALE_MS) delete entries[id];
+        }
+        localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+        if (!fired && Object.keys(entries).length >= 5) {
+          fired = true;
+          reportEasterEggFound("multi-tab");
+        }
+      } catch {
+        // stockage indisponible — l'egg "multi-tab" ne pourra pas se déclencher
+      }
+    }
+    heartbeat();
+    const heartbeatInterval = window.setInterval(heartbeat, HEARTBEAT_MS);
+
+    function removeSelf() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return;
+        const entries: Record<string, number> = JSON.parse(raw);
+        delete entries[tabId];
+        localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener("beforeunload", removeSelf);
+
+    return () => {
+      window.clearInterval(heartbeatInterval);
+      window.removeEventListener("beforeunload", removeSelf);
+      removeSelf();
+    };
+  }, []);
+
+  // Easter egg "Va-et-vient" : revenir sur cet onglet (visibilitychange →
+  // "visible") au moins 10 fois en 30 secondes — signe qu'on bascule
+  // frénétiquement entre deux fenêtres/onglets Nebula.
+  useEffect(() => {
+    let count = 0;
+    let resetTimer: number | null = null;
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      count += 1;
+      if (resetTimer) window.clearTimeout(resetTimer);
+      if (count >= 10) {
+        count = 0;
+        reportEasterEggFound("tab-switch-loop");
+      } else {
+        resetTimer = window.setTimeout(() => {
+          count = 0;
+        }, 30000);
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (resetTimer) window.clearTimeout(resetTimer);
+    };
+  }, []);
 
   // Easter eggs liés à la date/heure : vérifiés au chargement ET toutes les
   // minutes (au cas où l'onglet reste ouvert pendant qu'on franchit minuit,
@@ -209,7 +419,7 @@ export function EasterEggs() {
         markFiredToday("anniversary");
         const years = now.getFullYear() - LAUNCH_YEAR;
         window.setTimeout(
-          () => fire(`🎂 Nebula a ${years} an${years > 1 ? "s" : ""} aujourd'hui — merci d'en faire partie !`),
+          () => fire(`🎂 Nebula a ${years} an${years > 1 ? "s" : ""} aujourd'hui — merci d'en faire partie !`, "anniversary"),
           500
         );
       } else if (isFriday13 && !hasFiredToday("friday13")) {
@@ -227,10 +437,26 @@ export function EasterEggs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!confetti && !shootingStars && !blackCat) return null;
+  if (!confetti && !shootingStars && !blackCat && !bananas) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] overflow-hidden">
+      {bananas &&
+        bananas.map((b) => (
+          <span
+            key={b.id}
+            className="absolute top-[-8%] text-2xl"
+            style={{
+              left: `${b.left}%`,
+              animation: `nebula-confetti-fall ${b.duration}s ease-in ${b.delay}s forwards`,
+              // @ts-expect-error propriété custom lue par l'animation nebula-confetti-fall
+              "--drift": "0px",
+              "--rotate": `${b.rotate}deg`
+            }}
+          >
+            🍌
+          </span>
+        ))}
       {shootingStars &&
         shootingStars.map((s) => (
           <span

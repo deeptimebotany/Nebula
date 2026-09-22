@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 import { THEMES, canUseTheme } from "@/lib/themes";
+import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
 import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
 import { useBrand } from "@/components/brand-context";
@@ -14,7 +15,18 @@ import { IconGift, IconSettings, IconLock, IconUpload } from "@/components/dashb
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
 import { useStarfield } from "@/components/starfield-provider";
+import { useCosmetics } from "@/components/cosmetics-provider";
+import { COSMETICS, type CosmeticCategory } from "@/lib/cosmetics";
+import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import type { Plan } from "@/lib/plans";
+
+const COSMETIC_CATEGORIES: { key: CosmeticCategory; label: string }[] = [
+  { key: "curseur", label: "Curseur" },
+  { key: "clic", label: "Clic" },
+  { key: "decor", label: "Décor" },
+  { key: "son", label: "Son" },
+  { key: "profil", label: "Profil" }
+];
 
 interface ReferralInfo {
   code: string;
@@ -54,6 +66,19 @@ export default function SettingsPage() {
     refresh: refreshStarfield
   } = useStarfield();
   const [savingStarfield, setSavingStarfield] = useState(false);
+  const cosmetics = useCosmetics();
+  const [cosmeticsSaving, setCosmeticsSaving] = useState<string | null>(null);
+  // Easter egg "Son Décollage" (voir /api/settings/publish-sound) : contrairement
+  // aux cosmétiques ci-dessus, réservés par palier, cette option se débloque
+  // en JOUANT (10ᵉ post personnel publié) — d'où un état à part, chargé une
+  // seule fois au montage plutôt que via CosmeticsProvider.
+  const [publishSound, setPublishSound] = useState({ enabled: false, unlocked: false, loaded: false });
+  const [savingPublishSound, setSavingPublishSound] = useState(false);
+  // Easter eggs qui débloquent un FOND D'ÉCRAN plutôt qu'un cosmétique de la
+  // liste Cosmétiques (voir requiresEgg dans src/lib/backgrounds.ts) : la clé
+  // n'apparaît dans /api/easter-eggs QUE si trouvée (jamais dévoilée sinon),
+  // donc ce Set fait exactement ce qu'il faut sans rien exposer de plus.
+  const [foundEggKeys, setFoundEggKeys] = useState<Set<string>>(new Set());
   const { activeBrand, renameBrand } = useBrand();
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
@@ -70,7 +95,20 @@ export default function SettingsPage() {
   // de l'onglet.
   useEffect(() => {
     refreshStarfield();
+    cosmetics.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshStarfield]);
+
+  async function onToggleCosmetic(key: string, next: boolean) {
+    setCosmeticsSaving(key);
+    const ok = await cosmetics.setEnabled(key, next);
+    setCosmeticsSaving(null);
+    if (!ok) {
+      toast.error("Échec de l'enregistrement du cosmétique.");
+      return;
+    }
+    toast.success(next ? "Cosmétique activé." : "Cosmétique désactivé.");
+  }
 
   // Easter egg thème "Nova" — voir NOVA_UNLOCK_WORD ci-dessus.
   const [novaUnlocked, setNovaUnlocked] = useState(false);
@@ -93,6 +131,7 @@ export default function SettingsPage() {
           novaProgress.current = 0;
           setNovaUnlocked(true);
           toast.success("✨ Thème caché débloqué : Nova !");
+          reportEasterEggFound("nova-theme");
           try {
             localStorage.setItem(NOVA_UNLOCK_STORAGE_KEY, "1");
           } catch {
@@ -148,7 +187,39 @@ export default function SettingsPage() {
         setWlLogoUrl(d.logoUrl ?? null);
       })
       .catch(() => undefined);
+    fetch("/api/settings/publish-sound")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setPublishSound({ enabled: Boolean(d.enabled), unlocked: Boolean(d.unlocked), loaded: true });
+      })
+      .catch(() => undefined);
+    fetch("/api/easter-eggs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.eggs) return;
+        const keys = (d.eggs as { found: boolean; key?: string }[]).filter((e) => e.found && e.key).map((e) => e.key as string);
+        setFoundEggKeys(new Set(keys));
+      })
+      .catch(() => undefined);
   }, []);
+
+  async function onTogglePublishSound() {
+    if (!publishSound.unlocked) return;
+    setSavingPublishSound(true);
+    const next = !publishSound.enabled;
+    const res = await fetch("/api/settings/publish-sound", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next })
+    }).catch(() => null);
+    setSavingPublishSound(false);
+    if (!res || !res.ok) {
+      toast.error("Échec de l'enregistrement.");
+      return;
+    }
+    setPublishSound((prev) => ({ ...prev, enabled: next }));
+    toast.success(next ? "Son de décollage activé." : "Son de décollage désactivé.");
+  }
 
   async function saveWhiteLabel(next: { brandName?: string | null; logoUrl?: string | null }) {
     setWlSaving(true);
@@ -190,6 +261,19 @@ export default function SettingsPage() {
     setThemeKey(themeKeyToPick);
   }
 
+  function onPickBackground(backgroundKeyToPick: string) {
+    const bg = BACKGROUNDS.find((b) => b.key === backgroundKeyToPick);
+    if (bg?.requiresPlan && !canUseBackground(bg, plan)) {
+      toast.error(`Le fond "${bg.label}" nécessite le palier ${bg.requiresPlan}. Débloquez-le dans Facturation.`);
+      return;
+    }
+    if (bg?.requiresEgg && !foundEggKeys.has(bg.requiresEgg)) {
+      toast.error(`Le fond "${bg.label}" doit d'abord être débloqué (easter egg) — voir la page Succès.`);
+      return;
+    }
+    setBackgroundKey(backgroundKeyToPick);
+  }
+
   async function onToggleStarfield() {
     if (!starfieldAllowed) {
       toast.error("Le thème étoilé animé nécessite le palier Pro ou Agence. Débloquez-le dans Facturation.");
@@ -203,6 +287,7 @@ export default function SettingsPage() {
       return;
     }
     toast.success(starfieldEnabled ? "Thème étoilé désactivé." : "✨ Thème étoilé activé — Maj + clic pour dessiner une constellation !");
+    if (!starfieldEnabled) reportEasterEggFound("starfield-theme");
   }
 
   const referralUrl = referral ? `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral.code}` : "";
@@ -297,11 +382,12 @@ export default function SettingsPage() {
       <GlassCard>
         <h2 className="font-display text-base font-medium text-white">Fond d&apos;écran</h2>
         <p className="mt-1 text-sm text-slate-400">
-          30 fonds animés qui s&apos;accordent avec votre thème de couleurs. Faites défiler avec les flèches ou en
-          glissant à la souris.
+          34 fonds qui s&apos;accordent avec votre thème de couleurs, dont 4 fonds animés : deux réservés aux paliers
+          Pro, un gratuit pour tout le monde, et un dernier à débloquer en trouvant l&apos;easter egg correspondant.
+          Faites défiler avec les flèches ou en glissant à la souris.
         </p>
         <div className="mt-4">
-          <BackgroundCarousel selected={backgroundKey} onSelect={setBackgroundKey} />
+          <BackgroundCarousel selected={backgroundKey} onSelect={onPickBackground} plan={plan} unlockedEggKeys={foundEggKeys} />
         </div>
       </GlassCard>
 
@@ -342,6 +428,111 @@ export default function SettingsPage() {
               Thème étoilé {starfieldEnabled ? "activé" : "désactivé"}
             </button>
             <p className="text-xs text-slate-500">Une fois activé : Maj (Shift) + clic dessine une constellation.</p>
+          </div>
+        )}
+      </GlassCard>
+
+      <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Cosmétiques</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Petits effets visuels et sonores facultatifs — certains sont réservés aux paliers Pro/Agence, d&apos;autres
+          se débloquent en trouvant l&apos;easter egg correspondant (voir la page Succès), tous activables/désactivables
+          à volonté une fois débloqués.
+        </p>
+        <div className="mt-4 space-y-4">
+          {COSMETIC_CATEGORIES.map(({ key: catKey, label: catLabel }) => {
+            const items = COSMETICS.filter((c) => c.category === catKey);
+            if (items.length === 0) return null;
+            return (
+              <div key={catKey}>
+                <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500">{catLabel}</h3>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {items.map((c) => {
+                    const locked = !cosmetics.allowedKeys.has(c.key);
+                    const on = cosmetics.enabled.has(c.key);
+                    return (
+                      <div
+                        key={c.key}
+                        className={clsx(
+                          "flex items-start justify-between gap-3 rounded-xl border p-3 transition",
+                          locked ? "border-white/5 opacity-60" : "border-white/10"
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1.5 text-sm text-slate-200">
+                            {c.label}
+                            {locked && (
+                              <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-amber-300">
+                                <IconLock className="h-2.5 w-2.5" /> {c.requiresEgg ? "Easter egg" : `Palier ${c.requiresPlan}`}
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">{c.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={locked || cosmeticsSaving === c.key || !cosmetics.loaded}
+                          onClick={() => onToggleCosmetic(c.key, !on)}
+                          className={clsx(
+                            "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50",
+                            on
+                              ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
+                              : "border-white/10 text-slate-300 hover:border-white/25"
+                          )}
+                        >
+                          {on ? "Activé" : "Désactivé"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Les cosmétiques marqués d&apos;un palier se débloquent avec un abonnement — voir{" "}
+          <Link href="/billing" className="text-aurora-300 hover:underline">
+            Facturation
+          </Link>
+          . Ceux marqués « Easter egg » se débloquent en jouant — voir la page{" "}
+          <Link href="/succes" className="text-aurora-300 hover:underline">
+            Succès
+          </Link>
+          .
+        </p>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-medium text-white">Son Décollage</h2>
+          {!publishSound.unlocked && (
+            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
+              <IconLock className="h-3 w-3" /> À débloquer
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-slate-400">
+          Un petit son de décollage accompagne chaque publication immédiate réussie. Se débloque en publiant votre
+          10ᵉ post personnel (immédiat ou programmé).
+        </p>
+        {!publishSound.unlocked ? (
+          <p className="mt-3 text-sm text-slate-500">Continuez à publier — cette option apparaîtra automatiquement.</p>
+        ) : (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={onTogglePublishSound}
+              disabled={savingPublishSound || !publishSound.loaded}
+              className={clsx(
+                "rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-60",
+                publishSound.enabled
+                  ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
+                  : "border-white/10 text-slate-300 hover:border-white/25"
+              )}
+            >
+              Son de décollage {publishSound.enabled ? "activé" : "désactivé"}
+            </button>
           </div>
         )}
       </GlassCard>

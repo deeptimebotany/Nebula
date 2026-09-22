@@ -85,14 +85,23 @@ export async function POST(req: NextRequest) {
   });
 
   let milestone: number | null = null;
+  // "publishedStatus" ci-dessous : uniquement pour que le Composer sache si
+  // la publication immédiate a vraiment réussi (PUBLISHED) — utilisé pour le
+  // son de décollage optionnel (voir cosmic-audio.ts / easter egg
+  // "publish-sound-unlock") — jamais pour l'affichage lui-même, qui repart
+  // toujours vers /posts/[id] qui a sa propre vérité.
+  let publishedStatus: string | null = null;
   if (!scheduledDate && publishNow) {
     // Erreurs déjà enregistrées par cible (voir publishPost) — seul le
     // palier franchi, s'il y en a un, doit remonter jusqu'ici pour
     // déclencher l'animation côté client.
-    milestone = await publishPost(post.id)
-      .then((r) => r.milestone)
-      .catch(() => null);
+    await publishPost(post.id)
+      .then((r) => {
+        milestone = r.milestone;
+        publishedStatus = r.status;
+      })
+      .catch(() => undefined);
   }
 
-  return NextResponse.json({ ok: true, postId: post.id, milestone });
+  return NextResponse.json({ ok: true, postId: post.id, milestone, status: publishedStatus });
 }

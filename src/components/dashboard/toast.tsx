@@ -6,6 +6,8 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { useCosmetics } from "@/components/cosmetics-provider";
+import { playPulsarChime } from "@/lib/cosmic-audio";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -37,14 +39,29 @@ const KIND_ICON: Record<ToastKind, string> = {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  // Cosmétique "Son Pulsar" (voir src/lib/cosmetics.ts) : petit carillon
+  // synthétisé qui accompagne chaque notification de succès, uniquement si
+  // le compte l'a activé (et y a droit — CosmeticsProvider ne renvoie la clé
+  // dans `enabled` que dans ce cas, voir /api/settings/cosmetics).
+  const cosmetics = useCosmetics();
 
-  const push = useCallback((kind: ToastKind, message: string) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, kind, message }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
-  }, []);
+  const push = useCallback(
+    (kind: ToastKind, message: string) => {
+      const id = Math.random().toString(36).slice(2);
+      setToasts((prev) => [...prev, { id, kind, message }]);
+      if (kind === "success" && cosmetics.has("son-pulsar")) {
+        try {
+          playPulsarChime();
+        } catch {
+          // agrément sonore facultatif — jamais bloquant
+        }
+      }
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4500);
+    },
+    [cosmetics]
+  );
 
   const value: ToastContextValue = {
     success: (m) => push("success", m),
