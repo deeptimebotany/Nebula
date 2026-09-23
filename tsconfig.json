@@ -20,5 +20,10 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // "Claude outputs" : dossier personnel de téléchargements, pas du code du
+  // site — un fichier .ts qui y traîne (sans ses imports relatifs, ex.
+  // "./base") fait planter "Linting and checking validity of types" au
+  // build Next.js, même s'il n'est importé nulle part ailleurs. Exclu ici en
+  // filet de sécurité, en plus de .gitignore.
+  "exclude": ["node_modules", "Claude outputs"]
 }

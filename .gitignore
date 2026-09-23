@@ -21,3 +21,11 @@ public/uploads/
 Thumbs.db
 .idea/
 .vscode/
+
+# Dossier de téléchargement personnel (fichiers reçus de l'assistant IA) —
+# ne doit jamais être versionné ni construit : un .ts qui traîne ici sans
+# ses imports (ex. "./base") fait planter le build Next.js/TypeScript, ça
+# s'est déjà produit deux fois. Si ce dossier existe encore localement,
+# supprimez-le du projet (voir conversation) — cette ligne empêche juste
+# qu'il revienne un jour par erreur.
+Claude outputs/
