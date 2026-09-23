@@ -324,13 +324,54 @@ model SocialConnection {
   // boîte de réception /interactions se rafraîchit indépendamment, sur sa
   // propre action "Actualiser" — voir /api/engagement/sync.
   lastEngagementSyncedAt DateTime?
+  // Idem pour la page Engagements (métriques par publication : likes,
+  // partages…) — voir /api/engagements/sync.
+  lastMetricsSyncedAt DateTime?
   brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   targets           PostTarget[]
   analytics         AnalyticsSnapshot[]
   videoInsights     VideoInsight[]
   engagementItems   EngagementItem[]
+  postMetrics       PostMetric[]
 
   @@unique([brandId, network, externalAccountId])
+}
+
+// Métriques d'ENGAGEMENT par publication (page /engagements) : likes,
+// commentaires, partages, enregistrements, vues — remontées depuis l'API
+// officielle de chaque réseau (SocialClient.fetchPostMetrics, optionnel :
+// tous les réseaux n'exposent pas tout, un champ absent reste null et
+// s'affiche « — »). Une ligne par publication et par compte, mise à jour à
+// chaque « Actualiser » : les colonnes prev* gardent les valeurs de
+// l'actualisation précédente pour afficher « +12 depuis la dernière fois »
+// sans historique complet à stocker. Distinct de EngagementItem (le TEXTE
+// des commentaires, page /comments) et d'AnalyticsSnapshot (chiffres du
+// COMPTE : abonnés, portée).
+model PostMetric {
+  id             String           @id @default(cuid())
+  connectionId   String
+  network        String
+  postExternalId String
+  title          String?
+  permalink      String?
+  thumbnailUrl   String?
+  publishedAt    DateTime?
+  views          Int?
+  likes          Int?
+  comments       Int?
+  shares         Int?
+  saves          Int?
+  prevViews      Int?
+  prevLikes      Int?
+  prevComments   Int?
+  prevShares     Int?
+  prevSaves      Int?
+  capturedAt     DateTime         @default(now())
+  prevCapturedAt DateTime?
+  connection     SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, postExternalId])
+  @@index([connectionId, publishedAt])
 }
 
 // type : "VIDEO" | "IMAGE"

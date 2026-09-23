@@ -329,6 +329,20 @@ body {
   background: rgba(94, 146, 255, 0.32);
 }
 
+/* Angle animable du dégradé de .glow-border-spin (voir plus bas, dans
+   @layer components). Déclaré ici, hors du @layer Tailwind, pour être sûr
+   d'être conservé tel quel dans le CSS final. */
+@property --glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes glowAngleSpin {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
 @layer components {
   /* Voile plein écran pendant l'envoi d'une publication (voir
      src/components/composer/publish-overlay.tsx) : grise toute la page et
@@ -664,7 +678,15 @@ body {
      border-box" ne laisse visible qu'un trait de 1 px en périphérie, quel
      que soit le fond de la carte (l'ancienne version affichait un aplat
      conique entier derrière le verre translucide). L'animation ne tourne
-     qu'au survol : rien ne consomme de calcul quand elle est invisible. */
+     qu'au survol : rien ne consomme de calcul quand elle est invisible.
+
+     C'est l'ANGLE du dégradé qui tourne (variable --glow-angle animée grâce
+     à @property), pas l'élément lui-même : l'ancienne version appliquait
+     borderSpin (rotate 0→360°) au ::before entier — invisible sur un carré,
+     mais sur une carte large comme "Évolution des abonnés" (Analytics), le
+     cadre de 1 px tournait en hélice et sortait de la carte, d'où « un
+     encadré bleu qui tourne » vu en prod. Navigateurs sans @property :
+     trait fixe, sans rotation — dégradation propre. */
   .glow-border-spin {
     position: relative;
     isolation: isolate;
@@ -676,8 +698,9 @@ body {
     z-index: -1;
     border-radius: inherit;
     padding: 1px;
+    --glow-angle: 0deg;
     background: conic-gradient(
-      from 0deg,
+      from var(--glow-angle),
       rgb(var(--c-aurora-400) / 0.9),
       rgb(var(--c-accent-cyan) / 0.7),
       rgb(var(--c-accent-violet) / 0.7),
@@ -692,7 +715,7 @@ body {
   }
   .glow-border-spin:hover::before {
     opacity: 0.9;
-    animation: borderSpin 5s linear infinite;
+    animation: glowAngleSpin 5s linear infinite;
   }
 
   /* --- Page d'accueil (vitrine) ------------------------------------------ */

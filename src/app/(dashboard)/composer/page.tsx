@@ -8,6 +8,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
+import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
+import {
+  THUMBNAIL_BRIEF_EVENT,
+  clearPendingThumbnailBrief,
+  readPendingThumbnailBrief,
+  type ThumbnailBrief
+} from "@/lib/ai/thumbnail-brief-bridge";
 import { useToast } from "@/components/dashboard/toast";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
@@ -306,6 +313,18 @@ function ComposerPageInner() {
   const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
   const thumbFileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Assistant « Demander à Nebula » × section Miniature -----------------
+  // 1) Quand la section Miniature est à l'écran, l'assistant bascule en
+  //    contexte « miniatures » (accueil + suggestions dédiées, réponses
+  //    structurées « comment + pourquoi »).
+  // 2) Le bouton « Générer cette miniature » du tiroir dépose un brief
+  //    (accroche + description d'image) : on le récupère ici et on le passe
+  //    à la génération IA, qui a besoin de la frame réelle de la vidéo.
+  const assistant = useAiAssistant();
+  const thumbSectionRef = useRef<HTMLDivElement>(null);
+  const [assistantBrief, setAssistantBrief] = useState<ThumbnailBrief | null>(null);
+  const briefAutoRunRef = useRef(false);
   // Cache la frame/image envoyée à Gemini pour la génération de titre/
   // description (voir getMediaFrameForAi) — invalidé dès que le média
   // change pour ne jamais analyser un fichier obsolète.
@@ -525,6 +544,57 @@ function ComposerPageInner() {
   const availableNetworks = Array.from(new Set(connections.map((c) => c.network)));
   const videoAsset = assets.find((a) => a.type === "VIDEO");
 
+  // Section Miniature à l'écran ⇒ l'assistant passe en contexte « miniatures ».
+  // Remis à zéro dès que la section sort de l'écran, disparaît (vidéo
+  // retirée) ou que la page est quittée.
+  const { setContextOverride } = assistant;
+  useEffect(() => {
+    const el = thumbSectionRef.current;
+    if (!el || !videoAsset || typeof IntersectionObserver === "undefined") {
+      setContextOverride(null);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setContextOverride(entry.isIntersecting ? "thumbnails" : null),
+      { threshold: 0.35 }
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      setContextOverride(null);
+    };
+  }, [videoAsset, setContextOverride]);
+
+  // Brief déposé par le tiroir : lu au montage (on arrive d'une autre page)
+  // ou reçu en direct (on était déjà sur Publier — dans ce cas la génération
+  // démarre toute seule si une vidéo est là, c'est ce que le clic promettait).
+  useEffect(() => {
+    const pending = readPendingThumbnailBrief();
+    if (pending) setAssistantBrief(pending);
+    function onBrief(e: Event) {
+      const brief = (e as CustomEvent<ThumbnailBrief>).detail;
+      if (!brief?.imagePrompt) return;
+      briefAutoRunRef.current = true;
+      setAssistantBrief(brief);
+    }
+    window.addEventListener(THUMBNAIL_BRIEF_EVENT, onBrief);
+    return () => window.removeEventListener(THUMBNAIL_BRIEF_EVENT, onBrief);
+  }, []);
+
+  useEffect(() => {
+    if (!briefAutoRunRef.current || !assistantBrief) return;
+    briefAutoRunRef.current = false;
+    if (videoAsset) {
+      thumbSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      void onGenerateThumbnailWithAi(assistantBrief);
+    } else {
+      toast.info("Brief de l'assistant reçu : ajoutez votre vidéo, puis « Générer avec l'IA ».");
+    }
+    // onGenerateThumbnailWithAi est une fonction du composant, recréée à
+    // chaque rendu : on ne réagit qu'à l'arrivée du brief.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantBrief, videoAsset]);
+
   const onFilesChosen = useCallback(
     async (files: FileList | null) => {
       if (!files || !files.length || !activeBrand) return;
@@ -743,25 +813,29 @@ function ComposerPageInner() {
     }
   }
 
-  async function onGenerateThumbnailWithAi() {
+  async function onGenerateThumbnailWithAi(briefOverride?: ThumbnailBrief | null) {
     if (!videoAsset) return;
     if (!lastCapturedFrame.current) {
       await onGenerateThumbnails();
     }
     if (!lastCapturedFrame.current) return;
+    const brief = briefOverride === undefined ? assistantBrief : briefOverride;
     setAiThumbLoading(true);
     try {
       const base64 = await blobToBase64(lastCapturedFrame.current);
       const res = await fetch(`/api/media/${videoAsset.id}/thumbnails/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title })
+        body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title, brief })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Échec de la génération IA.");
       setThumbOptions((prev) => [data.url, ...prev]);
       await pickThumbnail(data.url);
-      toast.success("Miniature générée par l'IA ajoutée.");
+      // Le brief a servi : on ne le rejouera pas au prochain chargement de
+      // la page (mais il reste affiché, pour regénérer si on veut).
+      clearPendingThumbnailBrief();
+      toast.success(brief ? "Miniature générée selon le brief de l'assistant." : "Miniature générée par l'IA ajoutée.");
     } catch (err) {
       toast.error((err as Error).message ?? "Échec de la génération IA.");
     } finally {
@@ -1108,17 +1182,32 @@ function ComposerPageInner() {
             )}
 
             {videoAsset && (
-              <div className="mt-4 border-t border-white/[0.06] pt-4">
+              <div ref={thumbSectionRef} className="mt-4 border-t border-white/[0.06] pt-4">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-medium text-white">Miniature</h3>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {assistant.enabled && (
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          assistant.ask(
+                            `Propose un concept de miniature pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""} (sujet : …, public visé : …) et explique pourquoi chaque choix donne envie de cliquer.`,
+                            { submit: false, contextKey: "thumbnails" }
+                          )
+                        }
+                        title="Ouvrir l'assistant en mode miniature : concept, accroche, composition — et le pourquoi de chaque choix"
+                      >
+                        <IconSparkle className="h-4 w-4 text-aurora-300" />
+                        Demander à l&apos;assistant
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={onGenerateThumbnails} disabled={thumbLoading}>
                       {thumbLoading ? "Extraction..." : "Générer des miniatures"}
                     </Button>
                     {aiStatus?.enabled && (
-                      <Button variant="outline" onClick={onGenerateThumbnailWithAi} disabled={aiThumbLoading || thumbLoading}>
+                      <Button variant="outline" onClick={() => void onGenerateThumbnailWithAi()} disabled={aiThumbLoading || thumbLoading}>
                         <IconSparkle className="h-4 w-4" />
-                        {aiThumbLoading ? "Génération IA..." : "Générer avec l'IA"}
+                        {aiThumbLoading ? "Génération IA..." : assistantBrief ? "Générer avec l'IA (brief)" : "Générer avec l'IA"}
                       </Button>
                     )}
                     <Button variant="outline" onClick={() => thumbFileInputRef.current?.click()} disabled={thumbUploading}>
@@ -1138,6 +1227,32 @@ function ComposerPageInner() {
                     ? "L'IA présélectionne les frames les plus nettes et les mieux cadrées parmi votre vidéo — choisissez celle qui donne le plus envie de cliquer, ou laissez l'IA en créer une version plus accrocheuse."
                     : "Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
                 </p>
+                {assistantBrief && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-aurora-400/25 bg-nebula-900/40 px-3 py-2 text-xs">
+                    <IconSparkle className="h-3.5 w-3.5 shrink-0 text-aurora-300" />
+                    <span className="min-w-0 text-slate-300">
+                      Brief de l&apos;assistant
+                      {assistantBrief.hook && (
+                        <>
+                          {" "}: <span className="font-semibold text-white">« {assistantBrief.hook} »</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="flex-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssistantBrief(null);
+                        clearPendingThumbnailBrief();
+                      }}
+                      aria-label="Retirer le brief de l'assistant"
+                      title="Retirer le brief"
+                      className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-white/5 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
                 {thumbOptions.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                     {thumbOptions.map((url) => (

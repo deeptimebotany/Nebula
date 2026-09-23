@@ -17,7 +17,8 @@ import { NebulaBrandMark } from "./nebula-brandmark";
 import { AccountSwitcher } from "./account-switcher";
 import { UpgradeButton } from "./upgrade-gem";
 import { openCommandPalette } from "./command-palette";
-import { IconMenu, IconPlus, IconSearch } from "./icons";
+import { useAiAssistant } from "./ai-assistant-context";
+import { IconMenu, IconPlus, IconSearch, IconSparkle } from "./icons";
 
 interface ConnectionRow {
   id: string;
@@ -36,6 +37,7 @@ interface AppHeaderProps {
 export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeaderProps) {
   const { activeBrand } = useBrand();
   const { data } = useBootstrap();
+  const assistant = useAiAssistant();
 
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -159,6 +161,28 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
             {isMac ? "⌘" : "Ctrl"} K
           </kbd>
         </button>
+
+        {/* Assistant IA — même point d'entrée que le bouton flottant, à
+            l'endroit où YouTube Studio place « Demander à Studio ». Masqué
+            tant que l'IA n'est pas disponible pour la marque. */}
+        {assistant.enabled && (
+          <button
+            type="button"
+            onClick={assistant.toggle}
+            aria-label="Demander à Nebula"
+            aria-pressed={assistant.open}
+            title="Demander à Nebula"
+            className={clsx(
+              "flex h-9 shrink-0 items-center gap-2 rounded-lg border px-2.5 text-xs transition sm:px-3",
+              assistant.open
+                ? "border-aurora-400/50 bg-nebula-700/40 text-white"
+                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+            )}
+          >
+            <IconSparkle className="h-4 w-4 text-aurora-300" />
+            <span className="hidden md:inline">Demander à Nebula</span>
+          </button>
+        )}
 
         {data && data.plan !== "AGENCY" && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex" label="Mettre à niveau" />}
 

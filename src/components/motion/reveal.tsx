@@ -7,8 +7,8 @@
 // Volontairement discrètes (translation courte, easing doux) pour rester
 // dans l'esprit "épuré mais dense en valeur" plutôt que du motion gratuit.
 
-import { motion, type Variants } from "framer-motion";
-import { type ReactNode } from "react";
+import { motion, useInView, type Variants } from "framer-motion";
+import { useRef, type ReactNode } from "react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -49,10 +49,21 @@ export function Reveal({
 
 /** Groupe d'enfants révélés en cascade (staggerChildren) — chaque enfant
  * direct doit utiliser revealVariants (via <RevealItem>) pour hériter du
- * décalage. Utile pour une grille de cartes qui apparaît "en escalier". */
+ * décalage. Utile pour une grille de cartes qui apparaît "en escalier".
+ *
+ * Piloté par `animate` (via useInView) plutôt que `whileInView` : avec
+ * whileInView, l'état "visible" n'est transmis qu'aux enfants DÉJÀ montés au
+ * moment où le groupe entre dans l'écran. Un enfant ajouté ensuite (ex. les
+ * cartes de stats d'Analytics, qui n'existent qu'une fois les données
+ * chargées) héritait de initial="hidden" et restait invisible pour toujours
+ * — constaté en prod : carte YouTube absente au-dessus du graphique. `animate`
+ * est transmis par contexte, donc un enfant monté plus tard part bien de
+ * "hidden" et s'anime vers "visible" tout seul. */
 export function RevealGroup({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
-    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-40px" }} variants={staggerContainerVariants} className={className}>
+    <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerContainerVariants} className={className}>
       {children}
     </motion.div>
   );

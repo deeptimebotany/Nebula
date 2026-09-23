@@ -5,7 +5,8 @@ import { RemoteImage } from "@/components/ui/remote-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { signIn } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
-import { IconAvatar, IconChevron, IconPlus, IconClose } from "./icons";
+import { IconAvatar, IconChevron, IconPlus, IconClose, IconTrophy } from "./icons";
+import { openProfilePanel } from "./profile-panel";
 
 interface LinkedAccount {
   uid: string;
@@ -119,6 +120,22 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
 
       {open && (
         <div className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-20 w-72 rounded-xl p-1.5">
+          {/* Profil (badges, easter eggs, parrainage) : panneau latéral, voir
+              profile-panel.tsx. */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              openProfilePanel();
+            }}
+            className="mb-1 flex w-full items-center gap-2.5 rounded-lg border-b border-white/[0.06] px-2.5 py-2.5 text-sm text-slate-200 transition hover:bg-white/5 hover:text-white"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-aurora-300">
+              <IconTrophy className="h-3.5 w-3.5" />
+            </span>
+            <span className="flex-1 text-left">Mon profil</span>
+            <span className="text-[11px] text-slate-500">badges · succès · parrainage</span>
+          </button>
           <p className="px-2.5 pb-1 pt-1.5 text-[11px] uppercase tracking-wide text-slate-500">
             Comptes connectés sur cet appareil
           </p>

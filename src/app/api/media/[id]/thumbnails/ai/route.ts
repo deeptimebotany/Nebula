@@ -12,7 +12,10 @@ const bodySchema = z.object({
   frameBase64: z.string(),
   frameMimeType: z.string(),
   title: z.string().optional(),
-  network: z.string().optional()
+  network: z.string().optional(),
+  // Brief de l'assistant « Demander à Nebula » (bouton « Générer cette
+  // miniature ») — facultatif, voir generateThumbnail().
+  brief: z.object({ hook: z.string().max(60), imagePrompt: z.string().max(1200) }).nullable().optional()
 });
 
 // POST /api/media/[id]/thumbnails/ai — à partir d'une frame réelle de la
@@ -43,10 +46,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { frameBase64, frameMimeType, title, network } = parsed.data;
+  const { frameBase64, frameMimeType, title, network, brief } = parsed.data;
 
   try {
-    const generated = await generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network });
+    const generated = await generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network, brief: brief ?? null });
     const buffer = Buffer.from(generated.base64, "base64");
     const ext = generated.mimeType.includes("png") ? "png" : "jpg";
     const file = new File([buffer], `ia-${asset.id}.${ext}`, { type: generated.mimeType });

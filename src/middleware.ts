@@ -38,6 +38,8 @@ const PROTECTED_PREFIXES = [
   "/calendar-share",
   "/settings",
   "/interactions",
+  "/comments",
+  "/engagements",
   "/succes",
   "/dev-preview"
 ];

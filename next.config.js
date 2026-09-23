@@ -43,7 +43,12 @@ const nextConfig = {
   async redirects() {
     return [
       { source: "/terms", destination: "/legal#conditions", permanent: true },
-      { source: "/privacy", destination: "/legal#confidentialite", permanent: true }
+      { source: "/privacy", destination: "/legal#confidentialite", permanent: true },
+      // L'ancien onglet « Interactions » a été scindé en Commentaires
+      // (/comments) et Engagements (/engagements) ; les liens déjà partagés
+      // (menu déroulant d'un compte, favoris) atterrissent sur Commentaires,
+      // paramètres conservés (?connectionId=…).
+      { source: "/interactions", destination: "/comments", permanent: false }
     ];
   }
 };

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -16,7 +16,7 @@ import { clsx } from "@/lib/clsx";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
-import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus } from "@/components/dashboard/icons";
+import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus, IconRefresh, IconThumbUp } from "@/components/dashboard/icons";
 
 interface ConnectionRow {
   id: string;
@@ -73,10 +73,22 @@ export default function AccountsPage() {
 }
 
 function AccountsPageInner() {
-  const { activeBrand } = useBrand();
+  const { activeBrand, loading: brandLoading } = useBrand();
   const toast = useToast();
   const confirmDialog = useConfirm();
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  // Faux tant que la liste des comptes de la marque active n'a pas été lue
+  // au moins une fois. Au retour d'une connexion OAuth (YouTube, TikTok…),
+  // la page se recharge entièrement : pendant les 2-3 s où la marque puis
+  // les comptes se chargent, les blocs affichaient « Aucun compte connecté »
+  // + un bouton « Connecter » actif — et on pouvait relancer une connexion
+  // déjà faite. Tant que ce drapeau est faux, les blocs montrent un
+  // chargement et le bouton est désactivé.
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  // Fournisseur dont on vient de cliquer « Connecter » : le bouton passe en
+  // « Redirection… » et se désactive, le temps que le navigateur parte vers
+  // la page d'autorisation (un second clic lançait un second flux OAuth).
+  const [startingProvider, setStartingProvider] = useState<string | null>(null);
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
   // Compte dont le menu déroulant (Analytics / Publié / Interactions,
   // filtrés sur lui) est actuellement ouvert — un seul à la fois, façon
@@ -89,10 +101,17 @@ function AccountsPageInner() {
 
   async function load() {
     if (!activeBrand) return;
-    const res = await fetch(`/api/connections?brandId=${activeBrand.id}`);
-    const data = await res.json();
-    const loaded: ConnectionRow[] = data.connections ?? [];
-    setConnections(loaded);
+    let loaded: ConnectionRow[] = [];
+    try {
+      const res = await fetch(`/api/connections?brandId=${activeBrand.id}`, { cache: "no-store" });
+      const data = await res.json();
+      loaded = data.connections ?? [];
+      setConnections(loaded);
+    } catch {
+      toast.error("Impossible de charger les comptes connectés. Rechargez la page.");
+    } finally {
+      setConnectionsLoaded(true);
+    }
 
     // Easter egg : les 6 réseaux disponibles connectés en même temps sur
     // cette marque (peu importe combien de comptes par réseau).
@@ -110,9 +129,32 @@ function AccountsPageInner() {
   }
 
   useEffect(() => {
+    setConnectionsLoaded(false);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrand]);
+
+  function startConnect(providerId: string) {
+    if (!activeBrand || startingProvider) return;
+    setStartingProvider(providerId);
+    window.location.assign(`/api/connections/${providerId}/start?brandId=${activeBrand.id}`);
+  }
+
+  // Retour arrière depuis la page d'autorisation (bouton Précédent) : le
+  // navigateur peut restaurer la page telle quelle, bouton « Redirection… »
+  // compris — on le réarme.
+  useEffect(() => {
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) setStartingProvider(null);
+    }
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  // Liste en cours de chargement : marque pas encore résolue, ou comptes de
+  // cette marque pas encore lus. Sans marque du tout (compte tout neuf), on
+  // n'attend rien.
+  const listLoading = brandLoading || (Boolean(activeBrand) && !connectionsLoaded);
 
   async function disconnect(provider: string, connectionId: string, displayName: string) {
     const ok = await confirmDialog({
@@ -171,18 +213,59 @@ function AccountsPageInner() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {PROVIDERS.map((provider) => {
           const linked = connections.filter((c) => provider.networks.includes(c.network));
+          // On revient tout juste de l'autorisation de CE fournisseur : le
+          // bloc l'annonce explicitement le temps que la liste arrive.
+          const finalizing = listLoading && connected === provider.id && !error;
+          const starting = startingProvider === provider.id;
+          const buttonDisabled = !activeBrand || atLimit || listLoading || starting;
           return (
             <GlassCard key={provider.id}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-display text-base font-medium text-white">{provider.label}</h2>
-                <a href={activeBrand && !atLimit ? `/api/connections/${provider.id}/start?brandId=${activeBrand.id}` : "#"}>
-                  <Button variant="outline" disabled={!activeBrand || atLimit}>
-                    {linked.length > 0 ? "+ Ajouter un compte" : "Connecter"}
-                  </Button>
-                </a>
+                <Button
+                  variant="outline"
+                  disabled={buttonDisabled}
+                  aria-busy={listLoading || starting}
+                  onClick={() => startConnect(provider.id)}
+                >
+                  {finalizing ? (
+                    <>
+                      <IconRefresh className="h-4 w-4 animate-spin" /> Connexion en cours…
+                    </>
+                  ) : starting ? (
+                    <>
+                      <IconRefresh className="h-4 w-4 animate-spin" /> Redirection…
+                    </>
+                  ) : listLoading ? (
+                    "Chargement…"
+                  ) : linked.length > 0 ? (
+                    "+ Ajouter un compte"
+                  ) : (
+                    "Connecter"
+                  )}
+                </Button>
               </div>
 
-              {linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
+              {listLoading && (
+                <div className="space-y-2" aria-busy="true" aria-live="polite">
+                  {finalizing && (
+                    <p className="flex items-center gap-2 text-sm text-aurora-300">
+                      <IconRefresh className="h-4 w-4 shrink-0 animate-spin" />
+                      Finalisation de la connexion {provider.label} — quelques secondes…
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 rounded-lg bg-white/[0.02] px-3 py-2">
+                    <Skeleton className="h-3.5 w-3.5 rounded-full" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-2/5" />
+                      <Skeleton className="h-2.5 w-1/4" />
+                    </div>
+                    <Skeleton className="h-7 w-24" />
+                  </div>
+                </div>
+              )}
+
+              {!listLoading && linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
               <ul className="space-y-2">
                 {linked.map((c) => {
                   const expiry = tokenStatus(c.tokenExpiresAt);
@@ -251,10 +334,16 @@ function AccountsPageInner() {
                             <IconCalendar className="h-4 w-4 text-slate-500" /> Publié
                           </Link>
                           <Link
-                            href={`/interactions?connectionId=${c.id}`}
+                            href={`/comments?connectionId=${c.id}`}
                             className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
                           >
-                            <IconMessage className="h-4 w-4 text-slate-500" /> Interactions
+                            <IconMessage className="h-4 w-4 text-slate-500" /> Commentaires
+                          </Link>
+                          <Link
+                            href={`/engagements?connectionId=${c.id}`}
+                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                          >
+                            <IconThumbUp className="h-4 w-4 text-slate-500" /> Engagements
                           </Link>
                         </div>
                       )}

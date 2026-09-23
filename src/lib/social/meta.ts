@@ -4,6 +4,7 @@ import {
   type ConnectionLike,
   type EngagementItemInput,
   type OAuthTokenResult,
+  type PostMetricInput,
   type PublishInput,
   type SocialClient
 } from "./base";
@@ -186,6 +187,93 @@ async function fetchInstagramEngagement(connection: ConnectionLike): Promise<Eng
 }
 
 /**
+ * Métriques des publications Instagram récentes : like_count et
+ * comments_count viennent directement des champs du média ; partages et
+ * enregistrements passent par /insights (metric=shares,saved), qui n'existe
+ * que pour les comptes Business/Creator et certains types de médias — en
+ * cas d'échec on garde null, jamais 0.
+ */
+async function fetchInstagramPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+  const media = await fetchJson<{
+    data: {
+      id: string;
+      caption?: string;
+      permalink?: string;
+      media_type?: string;
+      thumbnail_url?: string;
+      media_url?: string;
+      timestamp?: string;
+      like_count?: number;
+      comments_count?: number;
+    }[];
+  }>(
+    "INSTAGRAM",
+    `${GRAPH_BASE}/${connection.externalAccountId}/media?fields=id,caption,permalink,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=15&access_token=${connection.accessToken}`
+  );
+
+  return Promise.all(
+    (media.data ?? []).map(async (m) => {
+      const insights = await fetchJson<{ data: { name: string; values: { value: number }[] }[] }>(
+        "INSTAGRAM",
+        `${GRAPH_BASE}/${m.id}/insights?metric=shares,saved,views&access_token=${connection.accessToken}`
+      ).catch(() => ({ data: [] as { name: string; values: { value: number }[] }[] }));
+      const metric = (name: string): number | null => {
+        const value = insights.data.find((x) => x.name === name)?.values?.[0]?.value;
+        return typeof value === "number" ? value : null;
+      };
+      return {
+        postExternalId: m.id,
+        title: m.caption?.slice(0, 120),
+        permalink: m.permalink,
+        thumbnailUrl: m.thumbnail_url ?? (m.media_type === "VIDEO" ? undefined : m.media_url),
+        publishedAt: m.timestamp ? new Date(m.timestamp) : undefined,
+        views: metric("views"),
+        likes: typeof m.like_count === "number" ? m.like_count : null,
+        comments: typeof m.comments_count === "number" ? m.comments_count : null,
+        shares: metric("shares"),
+        saves: metric("saved")
+      };
+    })
+  );
+}
+
+/**
+ * Métriques des publications Facebook récentes de la Page : réactions
+ * (likes.summary), commentaires (comments.summary) et partages (shares.count)
+ * en un seul appel. Facebook n'expose ni vues ni enregistrements ici.
+ */
+async function fetchFacebookPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+  const posts = await fetchJson<{
+    data: {
+      id: string;
+      message?: string;
+      permalink_url?: string;
+      created_time?: string;
+      full_picture?: string;
+      shares?: { count?: number };
+      likes?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+    }[];
+  }>(
+    "FACEBOOK",
+    `${GRAPH_BASE}/${connection.externalAccountId}/posts?fields=id,message,permalink_url,created_time,full_picture,shares,likes.summary(true).limit(0),comments.summary(true).limit(0)&limit=15&access_token=${connection.accessToken}`
+  );
+
+  return (posts.data ?? []).map((p) => ({
+    postExternalId: p.id,
+    title: p.message?.slice(0, 120),
+    permalink: p.permalink_url,
+    thumbnailUrl: p.full_picture,
+    publishedAt: p.created_time ? new Date(p.created_time) : undefined,
+    views: null,
+    likes: typeof p.likes?.summary?.total_count === "number" ? p.likes.summary.total_count : null,
+    comments: typeof p.comments?.summary?.total_count === "number" ? p.comments.summary.total_count : null,
+    shares: typeof p.shares?.count === "number" ? p.shares.count : null,
+    saves: null
+  }));
+}
+
+/**
  * Commentaires reçus sur les publications Facebook les plus récentes de la
  * Page (scope pages_read_engagement, déjà demandé — voir getMetaAuthUrl).
  */
@@ -335,7 +423,8 @@ export const instagramClient: SocialClient = {
     await postGraphComment("INSTAGRAM", externalPostId, connection.accessToken, comment);
   },
 
-  fetchEngagement: fetchInstagramEngagement
+  fetchEngagement: fetchInstagramEngagement,
+  fetchPostMetrics: fetchInstagramPostMetrics
 };
 
 // Facebook Page (partage la même app Meta que instagramClient)
@@ -386,5 +475,6 @@ export const facebookClient: SocialClient = {
     await postGraphComment("FACEBOOK", externalPostId, connection.accessToken, comment);
   },
 
-  fetchEngagement: fetchFacebookEngagement
+  fetchEngagement: fetchFacebookEngagement,
+  fetchPostMetrics: fetchFacebookPostMetrics
 };

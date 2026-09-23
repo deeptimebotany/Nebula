@@ -43,6 +43,22 @@ interface GenerateContentPart {
   inline_data?: { mime_type: string; data: string };
 }
 
+/**
+ * Erreur levée quand Gemini refuse pour cause de QUOTA (429 /
+ * RESOURCE_EXHAUSTED) après les tentatives automatiques — distinguée d'une
+ * simple surcharge pour que /api/ai/chat puisse répondre 429 + délai au
+ * navigateur, qui affiche alors un compte à rebours au lieu d'une erreur
+ * rouge (le palier gratuit de Gemini a des limites par minute et par jour).
+ */
+export class GeminiQuotaError extends Error {
+  retryAfterSeconds: number;
+  constructor(message: string, retryAfterSeconds = 60) {
+    super(message);
+    this.name = "GeminiQuotaError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 // "This model is currently experiencing high demand" (503/UNAVAILABLE) et
 // les quotas temporaires (429/RESOURCE_EXHAUSTED) sont les deux seuls cas où
 // Google recommande explicitement de réessayer — c'est une saturation
@@ -66,11 +82,21 @@ async function fetchGeminiWithRetry(url: string, body: unknown): Promise<Record<
     if (res.ok) return data ?? {};
 
     const status = (data as { error?: { status?: string } } | null)?.error?.status;
-    const retryable = res.status === 503 || res.status === 429 || status === "UNAVAILABLE" || status === "RESOURCE_EXHAUSTED";
+    const quota = res.status === 429 || status === "RESOURCE_EXHAUSTED";
+    const retryable = res.status === 503 || quota || status === "UNAVAILABLE";
     lastMessage = (data as { error?: { message?: string } } | null)?.error?.message || `Erreur Gemini (${res.status})`;
 
     if (!retryable) throw new Error(lastMessage);
     if (attempt === maxAttempts) {
+      if (quota) {
+        // Google indique parfois le délai à respecter ("retry in 42.3s").
+        const hinted = /retry in (\d+(?:\.\d+)?)s/i.exec(lastMessage);
+        const retryAfter = hinted ? Math.ceil(Number(hinted[1])) : 60;
+        throw new GeminiQuotaError(
+          "Le quota gratuit de l'IA est atteint pour le moment (limite par minute de Google Gemini). Ce n'est pas un bug : patientez un instant avant de renvoyer votre question.",
+          Math.min(Math.max(retryAfter, 10), 300)
+        );
+      }
       throw new Error(
         "Le service IA de Google (Gemini) est momentanément surchargé par une forte demande. Ce n'est pas un bug Nebula : réessayez dans une minute ou deux, ça repasse généralement tout seul."
       );
@@ -88,6 +114,11 @@ async function callGemini(params: {
   systemInstruction?: string;
   jsonMode?: boolean;
   model?: string;
+  /** Plafond de tokens de la réponse (1024 par défaut). Le chat contextuel
+   *  le règle par onglet : plus haut pour une fiche miniature détaillée,
+   *  plus bas pour une question d'usage — chaque token de sortie compte
+   *  dans le quota gratuit. */
+  maxOutputTokens?: number;
 }): Promise<string> {
   const key = requireKey();
   const model = params.model || DEFAULT_MODEL;
@@ -96,7 +127,7 @@ async function callGemini(params: {
     contents: params.contents,
     generationConfig: {
       temperature: 0.8,
-      maxOutputTokens: 1024,
+      maxOutputTokens: params.maxOutputTokens ?? 1024,
       ...(params.jsonMode ? { responseMimeType: "application/json" } : {})
     }
   };
@@ -114,9 +145,10 @@ async function callGemini(params: {
 }
 
 /** Chat assistant général : aide à l'usage du site + analyse des stats fournies en contexte. */
-export async function chatComplete(messages: ChatMessage[], systemInstruction: string): Promise<string> {
+export async function chatComplete(messages: ChatMessage[], systemInstruction: string, options?: { maxOutputTokens?: number }): Promise<string> {
   return callGemini({
     systemInstruction,
+    maxOutputTokens: options?.maxOutputTokens,
     contents: messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] }))
   });
 }
@@ -257,14 +289,22 @@ export async function generateThumbnail(input: {
   frameMimeType: string;
   title: string;
   network?: string;
+  /** Brief venu de l'assistant « Demander à Nebula » (bouton « Générer
+   *  cette miniature ») : accroche + description de l'image voulue. Quand
+   *  il est présent, il PRIME sur les consignes génériques — c'est le
+   *  concept que l'utilisateur vient de valider en lisant le « pourquoi ». */
+  brief?: { hook: string; imagePrompt: string } | null;
 }): Promise<GeneratedThumbnail> {
   const key = requireKey();
   const prompt = [
     "Tu vas créer une miniature vidéo accrocheuse à partir de cette image, extraite d'une vraie vidéo.",
     `Titre de la vidéo : "${input.title || "sans titre"}"${input.network ? ` (réseau : ${input.network})` : ""}.`,
     "Garde le sujet principal de l'image reconnaissable, mais rends le cadrage et le contraste plus percutants,",
-    "façon miniature YouTube/TikTok qui donne envie de cliquer. Tu peux ajouter un très court texte d'accroche",
-    "à l'écran si ça sert l'image, mais reste sobre et lisible. Format 16:9."
+    "façon miniature YouTube/TikTok qui donne envie de cliquer.",
+    input.brief
+      ? `Suis ce brief de direction artistique : ${input.brief.imagePrompt}${input.brief.hook ? ` Texte d'accroche à écrire sur l'image, en gros et très lisible : « ${input.brief.hook} ».` : ""}`
+      : "Tu peux ajouter un très court texte d'accroche à l'écran si ça sert l'image, mais reste sobre et lisible.",
+    "Format 16:9."
   ].join(" ");
 
   const data = await fetchGeminiWithRetry(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {

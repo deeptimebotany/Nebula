@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { getEnabledOAuthProviders } from "@/lib/oauth-providers";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { AiAssistant } from "@/components/dashboard/ai-assistant";
+import { AiAssistantProvider } from "@/components/dashboard/ai-assistant-context";
+import { ProfilePanel } from "@/components/dashboard/profile-panel";
 import { BrandProvider } from "@/components/brand-context";
 import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
@@ -43,10 +45,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 Aller au contenu
               </a>
               <Starfield />
-              <AppShell oauth={oauth} isOwner={isOwner}>
-                {children}
-              </AppShell>
-              <AiAssistant />
+              {/* Assistant « Demander à Nebula » : le provider enveloppe le
+                  shell pour que le bouton de l'en-tête, le bouton flottant et
+                  les pages (ex. section Miniature) pilotent le même tiroir. */}
+              <AiAssistantProvider>
+                <AppShell oauth={oauth} isOwner={isOwner}>
+                  {children}
+                </AppShell>
+                <AiAssistant />
+              </AiAssistantProvider>
+              {/* Panneau « Mon profil » (badges, easter eggs, parrainage) —
+                  ouvert depuis la Communauté ou le menu du compte. */}
+              <ProfilePanel />
               <CommandPalette isOwner={isOwner} />
               <CosmeticsEffects />
               {/* Easter eggs ambiants et toasts « succès débloqué » : montés

@@ -12,6 +12,7 @@ import {
   IconList,
   IconLink,
   IconMessage,
+  IconThumbUp,
   IconBioLink,
   IconReport,
   IconCalendarShare,
@@ -61,7 +62,13 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Présence",
     items: [
       { href: "/accounts", label: "Comptes connectés", icon: IconLink, description: "Instagram, Facebook, TikTok, YouTube", keywords: ["réseaux", "connexion", "oauth"] },
-      { href: "/interactions", label: "Interactions", icon: IconMessage, description: "Commentaires reçus sur vos publications", keywords: ["commentaires", "messages", "engagement"] },
+      // Deux onglets distincts depuis la séparation de l'ancien
+      // « Interactions » (fourre-tout) : le TEXTE des commentaires à modérer
+      // d'un côté, les CHIFFRES d'engagement de l'autre — l'application a
+      // vocation à accueillir d'autres plateformes (blogs…), le vocabulaire
+      // doit rester clair.
+      { href: "/comments", label: "Commentaires", icon: IconMessage, description: "Modérer les commentaires reçus sur vos publications", keywords: ["interactions", "messages", "modération", "réponses"] },
+      { href: "/engagements", label: "Engagements", icon: IconThumbUp, description: "Likes, partages, enregistrements et vues par publication", keywords: ["réactions", "likes", "partages", "stories", "vues", "interactions"] },
       { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] }
     ]
   },

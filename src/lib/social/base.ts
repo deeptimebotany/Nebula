@@ -58,6 +58,26 @@ export interface EngagementItemInput {
 }
 
 /**
+ * Métriques d'engagement d'UNE publication déjà en ligne — voir
+ * SocialClient.fetchPostMetrics ci-dessous et la page /engagements. Un champ
+ * absent (undefined/null) signifie « non exposé par l'API de ce réseau »,
+ * pas zéro : YouTube ne donne pas les partages, Instagram pas les vues des
+ * photos, etc. La page l'affiche « — » plutôt que 0.
+ */
+export interface PostMetricInput {
+  postExternalId: string;
+  title?: string;
+  permalink?: string;
+  thumbnailUrl?: string;
+  publishedAt?: Date;
+  views?: number | null;
+  likes?: number | null;
+  comments?: number | null;
+  shares?: number | null;
+  saves?: number | null;
+}
+
+/**
  * Contrat commun implémenté par chaque intégration réseau.
  *
  * Toutes les méthodes appellent réellement l'API officielle du réseau —
@@ -89,6 +109,14 @@ export interface SocialClient {
    * vérifie sa présence avant d'appeler et affiche un message clair sinon.
    */
   fetchEngagement?(connection: ConnectionLike): Promise<EngagementItemInput[]>;
+  /**
+   * Récupère les métriques (vues, likes, commentaires, partages,
+   * enregistrements) des publications récentes de ce compte — alimente la
+   * page /engagements. Optionnel, comme fetchEngagement : l'appelant
+   * (/api/engagements/sync) vérifie sa présence. Chaque réseau remplit ce
+   * qu'il expose et laisse le reste à null.
+   */
+  fetchPostMetrics?(connection: ConnectionLike): Promise<PostMetricInput[]>;
 }
 
 export class SocialApiError extends Error {

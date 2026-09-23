@@ -5,7 +5,8 @@ import {
   type EngagementItemInput,
   type OAuthTokenResult,
   type PublishInput,
-  type SocialClient
+  type SocialClient,
+  type PostMetricInput
 } from "./base";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
@@ -240,6 +241,39 @@ export const youtubeClient: SocialClient = {
 
     // Les plus récents en premier, toutes vidéos confondues.
     return items.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)).slice(0, 25);
+  },
+
+  /**
+   * Vues / likes / commentaires des 15 dernières vidéos (videos.list
+   * part=statistics, scope youtube.readonly déjà demandé). YouTube n'expose
+   * ni les partages ni les enregistrements via l'API Data : laissés à null.
+   */
+  async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+    const videos = await fetchRecentVideos(connection, 15);
+    if (videos.length === 0) return [];
+    const ids = videos.map((v) => v.videoId).join(",");
+    const data = await fetchJson<{
+      items: { id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }[];
+    }>("YOUTUBE", `${API_BASE}/videos?part=statistics&id=${ids}&maxResults=50`, {
+      headers: { Authorization: `Bearer ${connection.accessToken}` }
+    });
+    const statsById = new Map((data.items ?? []).map((item) => [item.id, item.statistics ?? {}]));
+    const num = (value: string | undefined) => (value === undefined ? null : Number(value));
+    return videos.map((v) => {
+      const st = statsById.get(v.videoId) ?? {};
+      return {
+        postExternalId: v.videoId,
+        title: v.title,
+        permalink: `https://www.youtube.com/watch?v=${v.videoId}`,
+        thumbnailUrl: v.thumbnailUrl,
+        publishedAt: v.publishedAt ? new Date(v.publishedAt) : undefined,
+        views: num(st.viewCount),
+        likes: num(st.likeCount),
+        comments: num(st.commentCount),
+        shares: null,
+        saves: null
+      };
+    });
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {

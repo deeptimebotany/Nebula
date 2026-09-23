@@ -1,5 +1,5 @@
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
-import { fetchJson, type ConnectionLike, type OAuthTokenResult, type PublishInput, type SocialClient } from "./base";
+import { fetchJson, type ConnectionLike, type OAuthTokenResult, type PostMetricInput, type PublishInput, type SocialClient } from "./base";
 
 // Doc officielle : https://developers.tiktok.com/doc/content-posting-api-get-started
 // Le scope video.publish est en accès audité : sans audit TikTok, la
@@ -145,6 +145,52 @@ export const tiktokClient: SocialClient = {
       reach: 0,
       postsCount: profile.data.user.video_count
     };
+  },
+
+  /**
+   * Vues, likes, commentaires et partages des 15 dernières vidéos — endpoint
+   * video/list (scope video.list, déjà demandé dans getAuthUrl). TikTok
+   * n'expose pas les enregistrements (favoris) : laissés à null.
+   * Doc : https://developers.tiktok.com/doc/display-api-get-user-videos
+   */
+  async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+    const data = await fetchJson<{
+      data: {
+        videos: {
+          id: string;
+          title?: string;
+          video_description?: string;
+          cover_image_url?: string;
+          share_url?: string;
+          create_time?: number;
+          like_count?: number;
+          comment_count?: number;
+          share_count?: number;
+          view_count?: number;
+        }[];
+      };
+    }>(
+      "TIKTOK",
+      `${API_BASE}/video/list/?fields=id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${connection.accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ max_count: 15 })
+      }
+    );
+    const num = (value: number | undefined): number | null => (typeof value === "number" ? value : null);
+    return (data.data?.videos ?? []).map((v) => ({
+      postExternalId: v.id,
+      title: (v.title || v.video_description || "").slice(0, 120) || undefined,
+      permalink: v.share_url,
+      thumbnailUrl: v.cover_image_url,
+      publishedAt: v.create_time ? new Date(v.create_time * 1000) : undefined,
+      views: num(v.view_count),
+      likes: num(v.like_count),
+      comments: num(v.comment_count),
+      shares: num(v.share_count),
+      saves: null
+    }));
   }
 
   // Pas de fetchEngagement ici : contrairement à Instagram/Facebook/YouTube,

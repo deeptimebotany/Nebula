@@ -58,6 +58,21 @@ export const IconChevron = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Utilisées par le bouton replier/déplier de la barre latérale (voir
+// sidebar-nav.tsx) : un seul bouton, l'icône change de sens selon l'action
+// que le clic va déclencher (◀ replie vers la gauche, ▶ déplie vers la droite).
+export const IconChevronLeft = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="m15 6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconChevronRight = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const IconSparkle = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M12 2 14 9 21 11 14 13 12 20 10 13 3 11 10 9Z" />
@@ -85,6 +100,16 @@ export const IconMessage = ({ className = base }: IconProps) => (
       d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5Z"
       strokeLinejoin="round"
     />
+  </svg>
+);
+
+// Onglet Engagements (likes, partages, enregistrements) — un pouce levé,
+// distinct du cœur d'IconHeart (réservé à « Soutenir Nebula ») et de la
+// bulle d'IconMessage (Commentaires).
+export const IconThumbUp = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M7 11v9H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7Z" strokeLinejoin="round" />
+    <path d="M7 11l4.2-7.2a1.6 1.6 0 0 1 2.9 1.1L13.4 9H18a2.4 2.4 0 0 1 2.3 3l-1.6 6.2A2.4 2.4 0 0 1 16.4 20H7" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 

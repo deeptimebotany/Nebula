@@ -34,6 +34,8 @@ export default function robots(): MetadataRoute.Robots {
         "/reports",
         "/retention",
         "/interactions",
+        "/comments",
+        "/engagements",
         "/link-in-bio",
         "/dev-preview",
         "/forgot-password",

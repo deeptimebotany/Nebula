@@ -18,7 +18,7 @@ import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-st
 import { NAV_GROUPS, OWNER_NAV_ITEM, isNavActive, type NavItem } from "./navigation";
 import { BrandSwitcher } from "./brand-switcher";
 import { NebulaIcon } from "./nebula-brandmark";
-import { IconClose, IconLogout, IconMoon, IconSidebar, IconSun } from "./icons";
+import { IconChevronLeft, IconChevronRight, IconClose, IconLogout, IconMoon, IconSun } from "./icons";
 // Import JSON direct (resolveJsonModule dans tsconfig.json) : juste pour
 // afficher le numéro de version en pied de menu, jamais recopié à la main.
 import packageJson from "../../../package.json";
@@ -154,9 +154,20 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
     <div className="relative flex h-full flex-col">
       {cosmetics.has("sidebar-poussiere-etoiles") && <SidebarShootingStars />}
 
-      {/* Logo + repli / fermeture */}
-      <div className={clsx("flex h-14 shrink-0 items-center border-b border-white/[0.06]", collapsed ? "justify-center px-2" : "justify-between px-4")}>
-        <Link href="/dashboard" onClick={onClose} className="flex min-w-0 items-center gap-2" aria-label={`${brandName} — vue d'ensemble`}>
+      {/* Logo + repli / fermeture.
+          Un seul bouton fait maintenant les deux actions (replier ET
+          déplier), plutôt que deux boutons séparés à deux endroits
+          différents (l'un en haut pour replier, l'autre tout en bas de la
+          colonne pour déplier — pas évident à retrouver une fois replié).
+          Ce bouton reste toujours en haut, juste à côté du logo : icône
+          "◀" (replier) en colonne dépliée, "▶" (déplier) en colonne repliée. */}
+      <div className={clsx("flex h-14 shrink-0 items-center border-b border-white/[0.06]", collapsed ? "justify-center gap-1 px-2" : "justify-between px-4")}>
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          className={clsx("flex min-w-0 items-center gap-2", collapsed && onToggleCollapsed && "sr-only")}
+          aria-label={`${brandName} — vue d'ensemble`}
+        >
           {logoUrl ? (
             <RemoteImage src={logoUrl} className="h-8 w-8 shrink-0 rounded-lg" sizes="32px" />
           ) : (
@@ -186,15 +197,15 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
             <IconClose className="h-4 w-4" />
           </button>
         )}
-        {onToggleCollapsed && !collapsed && (
+        {onToggleCollapsed && (
           <button
             type="button"
             onClick={onToggleCollapsed}
-            aria-label="Replier le menu"
-            title="Replier le menu"
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
             className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white lg:flex"
           >
-            <IconSidebar className="h-4 w-4" />
+            {collapsed ? <IconChevronRight className="h-4 w-4" /> : <IconChevronLeft className="h-4 w-4" />}
           </button>
         )}
       </div>
@@ -280,17 +291,6 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         {!collapsed && (
           <button type="button" onClick={onVersionClick} className={clsx("w-full px-3 pt-1 text-left text-[11px] text-slate-500 transition", versionPulse && "text-aurora-300")}>
             v{packageJson.version}
-          </button>
-        )}
-        {collapsed && onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label="Déplier le menu"
-            title="Déplier le menu"
-            className="mt-1 flex w-full items-center justify-center rounded-xl py-2 text-slate-500 transition hover:bg-white/5 hover:text-white"
-          >
-            <IconSidebar className="h-4 w-4" />
           </button>
         )}
       </div>
