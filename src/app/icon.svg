@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#7149e9" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#7149e9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="r1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7149e9"/><stop offset="1" stop-color="#53eadb"/></linearGradient>
+    <linearGradient id="r2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e949ae"/><stop offset="1" stop-color="#7149e9"/></linearGradient>
+    <linearGradient id="r3" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#53eadb"/><stop offset="1" stop-color="#e949ae"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <circle cx="60" cy="60" r="54" fill="url(#halo)"/>
+  <g fill="none" stroke-width="9" stroke-linecap="round">
+    <ellipse cx="60" cy="60" rx="40" ry="23" stroke="url(#r1)" opacity="0.95"/>
+    <ellipse cx="60" cy="60" rx="40" ry="23" stroke="url(#r2)" opacity="0.9" transform="rotate(60 60 60)"/>
+    <ellipse cx="60" cy="60" rx="40" ry="23" stroke="url(#r3)" opacity="0.9" transform="rotate(120 60 60)"/>
+  </g>
+  <path d="M60,38 L65,55 L82,60 L65,65 L60,82 L55,65 L38,60 L55,55 Z" fill="#ffffff" filter="url(#glow)"/>
+</svg>

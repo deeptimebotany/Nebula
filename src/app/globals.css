@@ -467,40 +467,185 @@ body {
     text-shadow: 0 0 14px rgba(99, 230, 255, 0.45);
   }
 
-  /* Décor de page (voir decor-overlay.tsx) : uniquement "Voûte céleste",
-     posé en fond de la page Succès. "Constellations (Calendrier)" et "Ciel
-     nocturne (Importation)" ont été retirés entièrement. Posé en `-z-10`
-     derrière un parent qui DOIT être `isolate` (voir succes/page.tsx) :
-     sans isolation propre, ce z-index négatif remonte jusqu'à la prochaine
-     "isolation: isolate" rencontrée dans l'arbre — ici celle de
-     <main class="noise-grid"> (voir plus haut) — et se retrouve donc
-     affiché DERRIÈRE le fond d'écran choisi dans Paramètres
-     (`.noise-grid::before`, à z-index: -1), donc invisible.
-     Nettement plus riche que la version d'origine (à peine visible) : une
-     vraie voûte colorée (nébulosités violette/cyan/magenta en arc, comme un
-     ciel vu de dessous) sur un semis d'étoiles dense, qui scintille et
-     dérive doucement. */
-  .nebula-decor-starfield {
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.55) 1px, transparent 0),
-      radial-gradient(circle at 1px 1px, rgba(180, 205, 255, 0.4) 1.3px, transparent 0),
-      radial-gradient(ellipse 70% 55% at 18% 8%, rgba(124, 108, 240, 0.5), transparent 62%),
-      radial-gradient(ellipse 65% 50% at 82% 4%, rgba(99, 230, 255, 0.45), transparent 62%),
-      radial-gradient(ellipse 85% 60% at 50% 0%, rgba(233, 73, 174, 0.32), transparent 68%);
-    background-size: 26px 26px, 58px 58px, 100% 100%, 100% 100%, 100% 100%;
-    background-position: 0 0, 13px 21px, 0 0, 0 0, 0 0;
-    opacity: 0.9;
-    animation: nebulaDecorDrift 70s linear infinite, nebulaVaultGlow 9s ease-in-out infinite;
-    -webkit-mask-image: radial-gradient(ellipse 100% 85% at 50% 0%, black 45%, transparent 92%);
-    mask-image: radial-gradient(ellipse 100% 85% at 50% 0%, black 45%, transparent 92%);
+  /* Cartes de thèmes premium (voir settings/theme-card.tsx) : texture
+     propre à chaque thème, reflet qui balaie la vignette au survol, cadre
+     conique qui scintille au survol (pseudo-élément derrière la carte,
+     découpé au masque pour ne laisser qu'un anneau de 2 px). */
+  .nebula-theme-card {
+    isolation: isolate;
+    overflow: visible;
   }
-  @keyframes nebulaDecorDrift {
-    0% { background-position: 0 0, 13px 21px, 0 0, 0 0, 0 0; }
-    100% { background-position: -200px 200px, -140px 260px, 0 0, 0 0, 0 0; }
+  .nebula-theme-card::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: 0.85rem;
+    padding: 2px;
+    background: conic-gradient(from var(--nebula-frame-angle, 0deg), transparent 0deg, var(--nebula-frame-color, rgba(255, 214, 110, 0.95)) 60deg, transparent 120deg, transparent 220deg, var(--nebula-frame-color, rgba(255, 214, 110, 0.7)) 270deg, transparent 330deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.25s ease;
   }
-  @keyframes nebulaVaultGlow {
-    0%, 100% { filter: brightness(1) saturate(1); }
-    50% { filter: brightness(1.25) saturate(1.2); }
+  .nebula-theme-card:hover::before,
+  .nebula-theme-card:focus-visible::before,
+  .nebula-theme-card[aria-pressed="true"]::before {
+    opacity: 1;
+    animation: nebulaThemeFrameSpin 3.2s linear infinite;
+  }
+  @property --nebula-frame-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
+  @keyframes nebulaThemeFrameSpin {
+    to { --nebula-frame-angle: 360deg; }
+  }
+  .nebula-theme-card-gold { --nebula-frame-color: rgba(255, 214, 110, 0.95); }
+  .nebula-theme-card-eclipse { --nebula-frame-color: rgba(244, 190, 96, 0.9); }
+  .nebula-theme-card-dawn { --nebula-frame-color: rgba(255, 170, 110, 0.95); }
+  .nebula-theme-card:hover,
+  .nebula-theme-card:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px -14px var(--nebula-frame-color, rgba(255, 214, 110, 0.6));
+  }
+
+  /* Reflet lumineux qui balaie la vignette au survol */
+  .nebula-theme-sheen {
+    position: absolute;
+    inset: -40% -60%;
+    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.28) 50%, transparent 60%);
+    transform: translateX(-70%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .nebula-theme-card:hover .nebula-theme-sheen,
+  .nebula-theme-card:focus-visible .nebula-theme-sheen {
+    animation: nebulaThemeSheen 1.4s ease-out forwards;
+  }
+  @keyframes nebulaThemeSheen {
+    0% { opacity: 0; transform: translateX(-70%); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(70%); }
+  }
+
+  /* Textures des trois thèmes premium */
+  .nebula-theme-swatch-gold {
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255, 236, 190, 0.55), transparent 32%),
+      linear-gradient(120deg, #1a1408 0%, #4a3812 28%, #d6ab4a 48%, #f3dca1 55%, #b58a24 63%, #33270e 88%, #140f06 100%);
+    background-size: 100% 100%, 220% 100%;
+    animation: nebulaThemeGoldShift 6s ease-in-out infinite;
+  }
+  @keyframes nebulaThemeGoldShift {
+    0%, 100% { background-position: 0 0, 0% 0; }
+    50% { background-position: 0 0, 100% 0; }
+  }
+  .nebula-theme-swatch-eclipse {
+    background:
+      radial-gradient(circle at 62% 48%, #04040a 0 26%, rgba(244, 214, 156, 0.95) 27%, rgba(232, 184, 96, 0.55) 31%, rgba(214, 158, 46, 0.18) 40%, transparent 56%),
+      radial-gradient(circle at 62% 48%, rgba(255, 220, 150, 0.35), transparent 60%),
+      linear-gradient(160deg, #0b0b12, #04040a 60%, #0d0d14);
+    animation: nebulaThemeEclipsePulse 4.5s ease-in-out infinite;
+  }
+  @keyframes nebulaThemeEclipsePulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.22); }
+  }
+  .nebula-theme-swatch-dawn {
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 105%, rgba(255, 214, 140, 0.95) 0%, rgba(242, 172, 108, 0.75) 30%, transparent 65%),
+      linear-gradient(180deg, #2a1330 0%, #6a2c46 35%, #cc7636 70%, #f2ac6c 100%);
+    animation: nebulaThemeDawnRise 7s ease-in-out infinite;
+  }
+  @keyframes nebulaThemeDawnRise {
+    0%, 100% { background-position: 0 0, 0 0; filter: saturate(1); }
+    50% { background-position: 0 -4px, 0 0; filter: saturate(1.15); }
+  }
+  .nebula-theme-mini {
+    background: rgba(5, 7, 15, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(1px);
+  }
+  .nebula-theme-mini-side {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: 6px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+  .nebula-theme-mini-card {
+    position: absolute;
+    height: 6px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+  .nebula-theme-badge {
+    border: 1px solid var(--nebula-frame-color, rgba(255, 214, 110, 0.6));
+    color: #fff;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  }
+
+  /* « Voûte céleste » (voir decor-overlay.tsx) : posée en `-z-10` derrière
+     un parent qui DOIT être `isolate` (voir succes/page.tsx) — sans
+     isolation propre, ce z-index négatif remonte jusqu'à la prochaine
+     "isolation: isolate" rencontrée dans l'arbre (celle de <main
+     class="noise-grid">) et se retrouve DERRIÈRE le fond d'écran choisi
+     dans Paramètres, donc invisible. Les étoiles sont dans le SVG du
+     composant ; ici, les trois arcs de nébulosités (vus de dessous, comme
+     un ciel) qui respirent lentement, et le scintillement des étoiles. */
+  .nebula-vault {
+    -webkit-mask-image: radial-gradient(ellipse 110% 95% at 50% 0%, black 55%, transparent 96%);
+    mask-image: radial-gradient(ellipse 110% 95% at 50% 0%, black 55%, transparent 96%);
+  }
+  .nebula-vault-arc {
+    position: absolute;
+    left: 50%;
+    border-radius: 9999px;
+    transform: translateX(-50%);
+    filter: blur(28px);
+    will-change: opacity, transform;
+  }
+  .nebula-vault-arc-1 {
+    top: -70%;
+    width: 150%;
+    height: 120%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(124, 108, 240, 0.55) 0%, rgba(124, 108, 240, 0.2) 40%, transparent 68%);
+    animation: nebulaVaultBreath 11s ease-in-out infinite;
+  }
+  .nebula-vault-arc-2 {
+    top: -95%;
+    width: 130%;
+    height: 130%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(83, 234, 219, 0.45) 0%, rgba(83, 234, 219, 0.14) 45%, transparent 70%);
+    animation: nebulaVaultBreath 14s ease-in-out infinite reverse;
+  }
+  .nebula-vault-arc-3 {
+    top: -125%;
+    width: 120%;
+    height: 150%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(233, 73, 174, 0.42) 0%, rgba(233, 73, 174, 0.12) 45%, transparent 70%);
+    animation: nebulaVaultBreath 17s ease-in-out infinite;
+  }
+  @keyframes nebulaVaultBreath {
+    0%, 100% { opacity: 0.75; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-52%) scale(1.04); }
+  }
+  .nebula-vault-star {
+    animation-name: nebulaVaultTwinkle;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes nebulaVaultTwinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.15); }
   }
 
   /* "Poussière d'étoiles" (menu latéral, voir sidebar-shooting-stars.tsx) :
@@ -518,33 +663,164 @@ body {
     will-change: left, top, opacity;
   }
 
-  /* Décorations de l'avatar/pastille de marque (voir topnav.tsx). */
-  .nebula-cosmetic-gold-halo::before {
+  /* Décorations de la pastille de marque active (voir brand-switcher.tsx) —
+     refonte du 24/09/2026 : les deux cosmétiques sont des <span> enfants de
+     la pastille (posée en "relative isolate"), chacun avec ses propres
+     pseudo-éléments, donc cumulables sans se marcher dessus.
+
+     « Halo doré » : une lueur d'or qui respire (::before, floutée) et un
+     fin anneau conique dont un reflet brillant fait le tour (::after,
+     anneau découpé au masque), plus deux paillettes qui scintillent en
+     alternance sur le bord. Derrière le contenu (z-index 0). */
+  .nebula-avatar-halo {
+    position: absolute;
+    inset: -6px;
+    z-index: 0;
+    border-radius: 9999px;
+    pointer-events: none;
+  }
+  .nebula-avatar-halo::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(255, 224, 140, 0.85) 0%, rgba(255, 190, 80, 0.42) 38%, rgba(255, 170, 60, 0.12) 60%, transparent 74%);
+    filter: blur(3px);
+    animation: nebulaHaloBreath 3.4s ease-in-out infinite;
+  }
+  .nebula-avatar-halo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255, 236, 180, 0) 0deg,
+      rgba(255, 246, 210, 1) 35deg,
+      rgba(255, 204, 96, 0.95) 70deg,
+      rgba(255, 236, 180, 0.08) 130deg,
+      rgba(255, 236, 180, 0.08) 200deg,
+      rgba(255, 220, 130, 0.75) 250deg,
+      rgba(255, 236, 180, 0.08) 300deg,
+      rgba(255, 236, 180, 0) 360deg
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: nebulaHaloSpin 5.5s linear infinite;
+  }
+  .nebula-avatar-halo-spark,
+  .nebula-avatar-halo-spark::before {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, #fff8e1 0%, rgba(255, 220, 120, 0.9) 45%, transparent 75%);
+    box-shadow: 0 0 6px 1px rgba(255, 214, 110, 0.8);
+    animation: nebulaHaloSpark 2.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .nebula-avatar-halo-spark {
+    top: -3px;
+    right: 2px;
+    z-index: 3;
+  }
+  .nebula-avatar-halo-spark::before {
+    content: "";
+    top: 30px;
+    left: -30px;
+    width: 4px;
+    height: 4px;
+    animation-delay: 1.4s;
+  }
+  @keyframes nebulaHaloBreath {
+    0%, 100% { opacity: 0.55; transform: scale(0.94); }
+    50% { opacity: 1; transform: scale(1.06); }
+  }
+  @keyframes nebulaHaloSpin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes nebulaHaloSpark {
+    0%, 35%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.15) rotate(45deg); }
+    65% { opacity: 0; transform: scale(0.4) rotate(90deg); }
+  }
+
+  /* « Anneau de Saturne » : un vrai anneau incliné (ellipse par scaleY) en
+     deux moitiés — l'arrière derrière la pastille (z-index 0), l'avant
+     découpée au clip-path et posée devant (z-index 2) — sur lequel un
+     reflet glacé (blanc → bleu → violet) tourne lentement, doublé d'un
+     anneau de poussière pointillé plus large et plus lent, en sens
+     inverse. */
+  .nebula-avatar-saturn,
+  .nebula-avatar-saturn-front {
+    position: absolute;
+    inset: -10px;
+    border-radius: 9999px;
+    pointer-events: none;
+    transform: rotate(-22deg) scaleY(0.4);
+  }
+  .nebula-avatar-saturn {
+    z-index: 0;
+  }
+  .nebula-avatar-saturn-front {
+    z-index: 2;
+    clip-path: inset(50% 0 0 0);
+  }
+  .nebula-avatar-saturn::before,
+  .nebula-avatar-saturn-front::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2.5px;
+    background: conic-gradient(
+      from 0deg,
+      rgba(160, 190, 255, 0.25) 0deg,
+      rgba(236, 244, 255, 1) 50deg,
+      rgba(140, 180, 255, 0.55) 110deg,
+      rgba(170, 140, 255, 0.35) 180deg,
+      rgba(210, 190, 255, 0.95) 235deg,
+      rgba(160, 190, 255, 0.25) 300deg,
+      rgba(160, 190, 255, 0.25) 360deg
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: nebulaSaturnGlint 7s linear infinite;
+  }
+  .nebula-avatar-saturn::after,
+  .nebula-avatar-saturn-front::after {
     content: "";
     position: absolute;
     inset: -4px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 210, 110, 0.55), transparent 70%);
-    animation: nebulaGoldHaloPulse 2.6s ease-in-out infinite;
-    z-index: -1;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: repeating-conic-gradient(
+      from 0deg,
+      rgba(200, 220, 255, 0.85) 0deg 3deg,
+      rgba(200, 220, 255, 0) 3deg 11deg
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0.6;
+    animation: nebulaSaturnDust 16s linear infinite reverse;
   }
-  @keyframes nebulaGoldHaloPulse {
-    0%, 100% { opacity: 0.55; transform: scale(0.92); }
-    50% { opacity: 0.95; transform: scale(1.08); }
+  @keyframes nebulaSaturnGlint {
+    to { transform: rotate(360deg); }
   }
-  .nebula-cosmetic-saturn-ring::after {
-    content: "";
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(180, 200, 250, 0.55);
-    transform: rotate(-18deg) scaleY(0.42);
-    box-shadow: 0 0 6px rgba(180, 200, 250, 0.35);
-    animation: nebulaSaturnSpin 6s linear infinite;
+  @keyframes nebulaSaturnDust {
+    to { transform: rotate(360deg); }
   }
-  @keyframes nebulaSaturnSpin {
-    0% { transform: rotate(-18deg) scaleY(0.42); }
-    100% { transform: rotate(342deg) scaleY(0.42); }
+  /* Anciennes classes conservées pour le mode "dev-preview" éventuel. */
+  .nebula-cosmetic-gold-halo,
+  .nebula-cosmetic-saturn-ring {
+    position: relative;
   }
 
   /* Bandeau "Supernova" (voir milestone-celebration.tsx) — offert à tout le
@@ -841,6 +1117,16 @@ body {
 }
 .skip-link:focus-visible {
   top: 1rem;
+}
+
+/* Assistant « Demander à Nebula » ancré sur ordinateur (voir app-shell.tsx) :
+   la page ne défile plus derrière le tiroir — c'est la colonne de contenu
+   qui défile, avec sa barre juste à gauche du panneau. */
+@media (min-width: 1024px) {
+  html.nebula-assistant-docked,
+  html.nebula-assistant-docked body {
+    overflow: hidden;
+  }
 }
 
 /* Mouvement réduit demandé par le système : on coupe TOUTES les animations

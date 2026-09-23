@@ -22,7 +22,8 @@ import {
   IconSettings,
   IconTrophy,
   IconFlask,
-  IconHeart
+  IconHeart,
+  IconGift
 } from "./icons";
 
 export type NavIcon = (props: { className?: string }) => JSX.Element;
@@ -95,6 +96,12 @@ export const NAV_GROUPS: NavGroup[] = [
 
 /** Lien privé du compte propriétaire (voir dev-preview.ts) — jamais dans NAV_GROUPS. */
 export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA", icon: IconFlask, description: "Aperçu de palier et tests" };
+/** Autres pages réservées au compte propriétaire (menu + palette). */
+export const OWNER_NAV_ITEMS: NavItem[] = [
+  OWNER_NAV_ITEM,
+  { href: "/admin/acquisition", label: "Acquisition", icon: IconChart, description: "D'où viennent inscrits et payants", keywords: ["admin", "stats", "croissance"] },
+  { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] }
+];
 
 /** Page Succès : hors menu (accessible depuis Paramètres → Apparence & Succès et la palette), mais connue pour le fil d'Ariane et la palette. */
 export const SUCCESS_NAV_ITEM: NavItem = { href: "/succes", label: "Succès", icon: IconTrophy, description: "Les easter eggs que vous avez trouvés", keywords: ["easter eggs", "trophées"] };
@@ -102,7 +109,7 @@ export const SUCCESS_NAV_ITEM: NavItem = { href: "/succes", label: "Succès", ic
 /** Onglets de la barre du bas sur téléphone (4 + le bouton Menu). */
 export const MOBILE_TAB_HREFS = ["/dashboard", "/calendar", "/composer", "/analytics"] as const;
 
-export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SUCCESS_NAV_ITEM, OWNER_NAV_ITEM];
+export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SUCCESS_NAV_ITEM, ...OWNER_NAV_ITEMS];
 
 /** Pages secondaires (sans entrée de menu) rattachées à une entrée parente pour le fil d'Ariane. */
 const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] = [

@@ -15,6 +15,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import type { Plan } from "@/lib/plans";
 import { IconAvatar, IconChevron, IconPlus } from "./icons";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { UpgradeGem } from "./upgrade-gem";
 
 const PLAN_BADGE_STYLE: Record<Plan, string> = {
@@ -110,14 +111,27 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
             ❤️
           </span>
         )}
-        <span
-          className={clsx(
-            "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-600/60 to-accent-cyan/30 font-display text-sm font-semibold text-white",
-            cosmetics.has("anneau-saturne-avatar") && "nebula-cosmetic-saturn-ring",
-            cosmetics.has("halo-dore-avatar") && "nebula-cosmetic-gold-halo"
+        {/* Pastille de marque : logo (photo de la Page bio) ou initiale ; les
+            cosmétiques « Halo doré » et « Anneau de Saturne » sont des
+            enfants absolus, cumulables (voir globals.css). */}
+        <span className="relative isolate flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-sm font-semibold text-white">
+          {cosmetics.has("halo-dore-avatar") && (
+            <>
+              <span className="nebula-avatar-halo" aria-hidden="true" />
+              <span className="nebula-avatar-halo-spark" aria-hidden="true" />
+            </>
           )}
-        >
-          {activeBrand ? activeBrand.name.charAt(0).toUpperCase() : <IconAvatar className="h-4 w-4 text-slate-300" />}
+          {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn" aria-hidden="true" />}
+          <span className="relative z-[1] flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-nebula-600/60 to-accent-cyan/30">
+            {activeBrand?.logoUrl ? (
+              <RemoteImage src={activeBrand.logoUrl} className="h-full w-full" sizes="32px" />
+            ) : activeBrand ? (
+              activeBrand.name.charAt(0).toUpperCase()
+            ) : (
+              <IconAvatar className="h-4 w-4 text-slate-300" />
+            )}
+          </span>
+          {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn-front" aria-hidden="true" />}
         </span>
         {!compact && (
           <>
@@ -153,7 +167,12 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
                 b.id === activeBrand?.id ? "bg-nebula-600/30 text-white" : "text-slate-300 hover:bg-white/5"
               )}
             >
-              <span className="truncate">{b.name}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-nebula-600/60 to-accent-cyan/30 text-[11px] font-semibold text-white">
+                  {b.logoUrl ? <RemoteImage src={b.logoUrl} className="h-full w-full" sizes="24px" /> : b.name.charAt(0).toUpperCase()}
+                </span>
+                <span className="truncate">{b.name}</span>
+              </span>
               <span className="text-[11px] uppercase text-slate-500">{b.role === "OWNER" ? "Propriétaire" : b.role}</span>
             </button>
           ))}

@@ -85,6 +85,7 @@ export async function GET() {
     trialEndedNoticeDue: Boolean(user.trialEndsAt) && !planInfo.onTrial && !planInfo.paid && !user.trialEndedNoticeAt,
     paid: planInfo.paid,
     pausedUntil: planInfo.pausedUntil ? planInfo.pausedUntil.toISOString() : null,
+    comp: planInfo.comp ? { until: planInfo.comp.until ? planInfo.comp.until.toISOString() : null } : null,
     offerExpiresAt: !planInfo.paid && !user.firstPaidAt && isOfferActive(user.offerExpiresAt, user.offerUsedAt) ? user.offerExpiresAt!.toISOString() : null,
     bonusMonths: user.bonusMonths ?? 0,
     annualNudge: planInfo.paid && planInfo.interval === "month" && (user.paidInvoices ?? 0) >= 3,

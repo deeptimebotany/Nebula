@@ -416,7 +416,7 @@ async function collectCandidates(now: Date): Promise<Candidate[]> {
   });
   for (const u of trialUsers) {
     const info = await getUserPlan(u.id);
-    if (info.paid) continue;
+    if (info.paid || info.comp) continue;
     const { ctx, timezone } = await userContext(u);
     if (isTrialActive(u.trialEndsAt, now) && u.trialEndsAt!.getTime() - now.getTime() <= 48 * HOUR_MS) {
       const summary = await computeTrialSummary(u.id);

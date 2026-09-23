@@ -90,7 +90,11 @@ export async function POST(req: NextRequest) {
     customer_email: !existing?.stripeCustomerId ? session.user.email ?? undefined : undefined,
     subscription_data: { metadata },
     metadata,
-    ...(coupon ? { discounts: [{ coupon }] } : {}),
+    // Codes promo Stripe (partenaires, campagnes — section IV de la note du
+    // 24/09/2026) : saisis par la personne sur la page de paiement. Stripe
+    // interdit de cumuler avec `discounts`, donc seulement quand aucune
+    // réduction automatique (mois offert, offre -50 %) n'est déjà appliquée.
+    ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: true }),
     success_url: `${appUrl}/billing?checkout=success`,
     cancel_url: `${appUrl}/billing?checkout=cancel`
   });

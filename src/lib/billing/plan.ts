@@ -24,6 +24,8 @@ export interface UserPlanInfo {
   pausedUntil: Date | null;
   /** Vrai s'il existe un abonnement payant actif (hors pause). */
   paid: boolean;
+  /** Accès offert (partenaire) en vigueur : date de fin (null = sans limite). */
+  comp: { until: Date | null } | null;
 }
 
 const FREE_INFO: UserPlanInfo = {
@@ -35,7 +37,8 @@ const FREE_INFO: UserPlanInfo = {
   onTrial: false,
   trialEndsAt: null,
   pausedUntil: null,
-  paid: false
+  paid: false,
+  comp: null
 };
 
 // FONCTION DE VÉRITÉ UNIQUE du palier effectif (brief growth, lot G2) :
@@ -56,7 +59,7 @@ const FREE_INFO: UserPlanInfo = {
 export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
   const [subscription, user] = await Promise.all([
     prisma.subscription.findUnique({ where: { userId } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { aiTrialUntil: true, trialEndsAt: true } })
+    prisma.user.findUnique({ where: { id: userId }, select: { aiTrialUntil: true, trialEndsAt: true, compPlan: true, compMaxBrands: true, compUntil: true } })
   ]);
   const now = new Date();
   const pausedUntil = subscription?.pausedUntil && subscription.pausedUntil.getTime() > now.getTime() ? subscription.pausedUntil : null;
@@ -73,7 +76,28 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
       onTrial: false,
       trialEndsAt: user?.trialEndsAt ?? null,
       pausedUntil: null,
-      paid: true
+      paid: true,
+      comp: null
+    };
+  }
+
+  // 1 bis. Accès offert (partenaires, voir src/lib/billing/partners.ts) :
+  // palier attribué par le propriétaire, sans Stripe, jusqu'à compUntil.
+  const compPlan = user?.compPlan === "PRO" || user?.compPlan === "AGENCY" ? (user.compPlan as Plan) : null;
+  if (compPlan && (!user?.compUntil || user.compUntil.getTime() > now.getTime())) {
+    const limits = PLAN_LIMITS[compPlan];
+    const tier = limits.tiers.find((t) => t.maxBrands === user?.compMaxBrands) ?? limits.tiers[0];
+    return {
+      plan: compPlan,
+      limits,
+      interval: "month",
+      maxBrands: tier.maxBrands,
+      aiTrialUntil: null,
+      onTrial: false,
+      trialEndsAt: user?.trialEndsAt ?? null,
+      pausedUntil,
+      paid: false,
+      comp: { until: user?.compUntil ?? null }
     };
   }
 
@@ -89,7 +113,8 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
       onTrial: true,
       trialEndsAt: user?.trialEndsAt ?? null,
       pausedUntil,
-      paid: false
+      paid: false,
+      comp: null
     };
   }
 
@@ -106,7 +131,8 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
     onTrial: false,
     trialEndsAt: user?.trialEndsAt ?? null,
     pausedUntil,
-    paid: false
+    paid: false,
+    comp: null
   };
 }
 

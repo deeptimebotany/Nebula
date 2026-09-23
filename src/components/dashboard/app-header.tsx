@@ -65,8 +65,15 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
     };
   }, [activeBrand]);
 
+  // Le menu « Connecter un compte » s'ouvre à DROITE du bouton + (aligné sur
+  // son bord gauche) : ancré à droite, il partait sous la colonne de
+  // navigation dès que la marque avait peu de comptes. Il ne bascule à
+  // droite que s'il manque de place côté droit de la fenêtre.
+  const [addAlign, setAddAlign] = useState<"left" | "right">("left");
   useEffect(() => {
     if (!addOpen) return;
+    const rect = addRef.current?.getBoundingClientRect();
+    setAddAlign(rect && rect.left + 248 > window.innerWidth ? "right" : "left");
     function onClickOutside(e: MouseEvent) {
       if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false);
     }
@@ -131,7 +138,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
                 <IconPlus className="h-3.5 w-3.5" />
               </button>
               {addOpen && (
-                <div role="menu" className="glass-panel-solid absolute right-0 top-[calc(100%+6px)] z-50 w-60 rounded-xl p-1.5">
+                <div role="menu" className={clsx("glass-panel-solid absolute top-[calc(100%+6px)] z-50 w-60 rounded-xl p-1.5", addAlign === "left" ? "left-0" : "right-0")}>
                   <p className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-wide text-slate-500">Connecter</p>
                   {PROVIDERS.map((p) => (
                     <a key={p.id} href={`/api/connections/${p.id}/start?brandId=${activeBrand.id}`} className="flex items-center rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">

@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
 import { cookies } from "next/headers";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
+import { applyPendingPartnerGrant } from "@/lib/billing/partners";
 import { trialEndDate } from "@/lib/trial";
 
 function slugifyBrand(input: string) {
@@ -74,6 +75,8 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
     }
   });
   await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrerCode), oauth: true }, user.id);
+  // Accès offert en attente pour cet email (partenaires, /admin/partenaires).
+  await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);
   return user;
 }
 
@@ -135,7 +138,9 @@ export const authOptions: NextAuthOptions = {
             // dans le navigateur — indispensable pour "Ajouter un compte"
             // (voir account-switcher.tsx et /api/accounts/link), sinon
             // cliquer "+" reconnecterait juste le même compte Google.
-            authorization: { params: { prompt: "select_account" } }
+            // GOOGLE_OAUTH_LANG=en : écrans Google en anglais (audit de
+            // vérification Google, voir .env.example).
+            authorization: { params: { prompt: "select_account", ...(process.env.GOOGLE_OAUTH_LANG ? { hl: process.env.GOOGLE_OAUTH_LANG } : {}) } }
           })
         ]
       : []),

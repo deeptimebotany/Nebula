@@ -15,7 +15,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
-import { NAV_GROUPS, OWNER_NAV_ITEM, isNavActive, type NavItem } from "./navigation";
+import { NAV_GROUPS, OWNER_NAV_ITEMS, isNavActive, type NavItem } from "./navigation";
 import { BrandSwitcher } from "./brand-switcher";
 import { NebulaIcon } from "./nebula-brandmark";
 import { IconChevronLeft, IconChevronRight, IconClose, IconLogout, IconMoon, IconSun } from "./icons";
@@ -225,7 +225,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
             {group.label && collapsed && <div className="mx-2 mb-2 border-t border-white/[0.06]" aria-hidden="true" />}
             <div className="space-y-0.5">
               {group.items.map(renderItem)}
-              {group.key === "account" && isOwner && renderItem(OWNER_NAV_ITEM)}
+              {group.key === "account" && isOwner && OWNER_NAV_ITEMS.map((item) => renderItem(item))}
             </div>
           </div>
         ))}

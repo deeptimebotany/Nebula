@@ -178,6 +178,37 @@ model User {
   referralPromptsSeen Json?
   lifecycleEmailsSent LifecycleEmail[]
   growthEvents        GrowthEvent[]
+  // Accès offert (partenaires, streamers, testeurs — décision du
+  // 24/09/2026) : palier attribué sans abonnement Stripe, jusqu'à compUntil
+  // (null = sans limite). Lu par getUserPlan() juste après l'abonnement
+  // payant. Posé via /admin/partenaires (PartnerGrant).
+  compPlan      String?
+  compMaxBrands Int?
+  compUntil     DateTime?
+  compNote      String?
+  partnerGrants PartnerGrant[]
+}
+
+// Accès offerts par le propriétaire (voir /admin/partenaires et
+// src/lib/billing/partners.ts) : une ligne par attribution, par email — le
+// compte n'a pas besoin d'exister encore : l'accès s'applique à
+// l'inscription (register + connexions Google/Meta/Apple) via
+// applyPendingPartnerGrant(). `revokedAt` conserve l'historique.
+model PartnerGrant {
+  id        String    @id @default(cuid())
+  email     String
+  plan      String // PRO | AGENCY
+  maxBrands Int
+  months    Int? // null = sans limite
+  note      String?
+  createdAt DateTime  @default(now())
+  appliedAt DateTime?
+  expiresAt DateTime?
+  revokedAt DateTime?
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
 }
 
 // Onglet "Succès" (voir /succes) : chaque ligne = un easter egg trouvé par un

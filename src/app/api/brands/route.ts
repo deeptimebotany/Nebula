@@ -16,10 +16,13 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    brands: memberships.map((m: { role: string; brand: { id: string; name: string; slug: string; timezone?: string | null; connections: unknown[] } }) => ({
+    brands: memberships.map((m: { role: string; brand: { id: string; name: string; slug: string; logoUrl?: string | null; timezone?: string | null; connections: unknown[] } }) => ({
       id: m.brand.id,
       name: m.brand.name,
       slug: m.brand.slug,
+      // Logo de la marque (= photo de sa Page bio, voir /api/link-in-bio) :
+      // affiché dans le sélecteur de marque à la place de l'initiale.
+      logoUrl: m.brand.logoUrl ?? null,
       // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
       timezone: m.brand.timezone || DEFAULT_TIMEZONE,
       role: m.role,

@@ -19,6 +19,7 @@ export async function getPublicLinkPage(slug: string): Promise<PublicLinkPageDat
     select: {
       id: true,
       name: true,
+      logoUrl: true,
       linkPage: {
         include: { links: { where: { enabled: true }, orderBy: { order: "asc" } } }
       }
@@ -31,7 +32,7 @@ export async function getPublicLinkPage(slug: string): Promise<PublicLinkPageDat
   return {
     brandName: linkPage.title || brand.name,
     bio: linkPage.bio,
-    avatarUrl: linkPage.avatarUrl,
+    avatarUrl: linkPage.avatarUrl ?? brand.logoUrl ?? null,
     theme: linkPage.theme,
     links: linkPage.links.map((l: { id: string; label: string; url: string }) => ({ id: l.id, label: l.label, url: l.url }))
   };

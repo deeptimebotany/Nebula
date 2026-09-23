@@ -35,6 +35,10 @@ export const youtubeClient: SocialClient = {
     url.searchParams.set("response_type", "code");
     url.searchParams.set("access_type", "offline");
     url.searchParams.set("prompt", "consent");
+    // Langue des écrans Google (compte, consentement, « appli non validée ») :
+    // GOOGLE_OAUTH_LANG=en les force en anglais, comme l'exige la vidéo de
+    // l'audit de vérification Google. Sans variable : langue du navigateur.
+    if (process.env.GOOGLE_OAUTH_LANG) url.searchParams.set("hl", process.env.GOOGLE_OAUTH_LANG);
     url.searchParams.set(
       "scope",
       [

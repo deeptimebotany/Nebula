@@ -6,6 +6,8 @@ export interface BrandSummary {
   id: string;
   name: string;
   slug: string;
+  /** Logo de la marque (photo de sa Page bio), ou null → initiale. */
+  logoUrl: string | null;
   /** Fuseau horaire de programmation (voir src/lib/timezone.ts). */
   timezone: string;
   role: string;

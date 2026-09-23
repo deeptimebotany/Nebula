@@ -24,10 +24,13 @@ export async function GET(req: NextRequest) {
 
   const [linkPage, brand] = await Promise.all([
     getOrCreateLinkPage(brandId),
-    prisma.brand.findUnique({ where: { id: brandId }, select: { slug: true } })
+    prisma.brand.findUnique({ where: { id: brandId }, select: { slug: true, name: true, logoUrl: true } })
   ]);
 
-  return NextResponse.json({ linkPage, slug: brand?.slug });
+  // Une page sans titre ni photo hérite du nom et du logo de la marque
+  // (même valeur que celle affichée sur /l/[slug]).
+  const merged = { ...linkPage, title: linkPage.title || brand?.name || "", avatarUrl: linkPage.avatarUrl ?? brand?.logoUrl ?? null };
+  return NextResponse.json({ linkPage: merged, slug: brand?.slug });
 }
 
 const bodySchema = z.object({
@@ -58,6 +61,15 @@ export async function PATCH(req: NextRequest) {
 
   await getOrCreateLinkPage(brandId);
 
+  // Titre de la Page bio = nom de la marque, photo = logo de la marque
+  // (décision du 24/09/2026) : le sélecteur de marque, en haut à gauche,
+  // suit immédiatement ce qui est enregistré ici. Un titre vide ne renomme
+  // pas la marque (la page publique retombe alors sur brand.name).
+  const brandPatch: { name?: string; logoUrl?: string | null } = {};
+  if (data.title !== undefined && data.title.trim().length >= 2) brandPatch.name = data.title.trim();
+  if (data.avatarUrl !== undefined) brandPatch.logoUrl = data.avatarUrl;
+  const brand = Object.keys(brandPatch).length ? await prisma.brand.update({ where: { id: brandId }, data: brandPatch, select: { id: true, name: true, logoUrl: true } }) : null;
+
   const linkPage = await prisma.linkPage.update({
     where: { brandId },
     data: {
@@ -70,5 +82,5 @@ export async function PATCH(req: NextRequest) {
     include: { links: { orderBy: { order: "asc" } } }
   });
 
-  return NextResponse.json({ linkPage });
+  return NextResponse.json({ linkPage, brand });
 }

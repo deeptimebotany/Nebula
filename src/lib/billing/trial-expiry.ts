@@ -31,8 +31,9 @@ export async function applyTrialExpirations(): Promise<{ applied: number }> {
   let applied = 0;
   for (const user of expired) {
     const info = await getUserPlan(user.id);
-    // Payant entre-temps : on marque comme traité sans rien toucher.
-    if (info.paid) {
+    // Payant entre-temps, ou accès offert (partenaire) : on marque comme
+    // traité sans rien toucher.
+    if (info.paid || info.comp) {
       await prisma.user.update({ where: { id: user.id }, data: { trialExpiredAppliedAt: now } });
       continue;
     }

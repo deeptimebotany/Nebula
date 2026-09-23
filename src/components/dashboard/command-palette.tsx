@@ -7,7 +7,7 @@ import { useMode } from "@/components/mode-provider";
 import { useBrand } from "@/components/brand-context";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import { NAV_GROUPS, OWNER_NAV_ITEM, SUCCESS_NAV_ITEM, type NavIcon } from "./navigation";
+import { NAV_GROUPS, OWNER_NAV_ITEMS, SUCCESS_NAV_ITEM, type NavIcon } from "./navigation";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun } from "./icons";
 
 interface Command {
@@ -54,7 +54,7 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
       }))
     );
     if (isOwner) {
-      nav.push({ id: OWNER_NAV_ITEM.href, label: OWNER_NAV_ITEM.label, hint: OWNER_NAV_ITEM.description, icon: OWNER_NAV_ITEM.icon, run: () => router.push(OWNER_NAV_ITEM.href) });
+      for (const item of OWNER_NAV_ITEMS) nav.push({ id: item.href, label: item.label, hint: item.description, icon: item.icon, run: () => router.push(item.href) });
     }
     const actions: Command[] = [
       { id: "new-post", label: "Nouvelle publication", hint: "Publier", icon: IconPlus, keywords: ["nouveau post", "créer", "composer"], run: () => router.push("/composer") },

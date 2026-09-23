@@ -204,7 +204,19 @@ function BillingPageInner() {
         </GlassCard>
       )}
 
-      {me?.onTrial && me.trialEndsAt && (
+      {me?.comp && (
+        <GlassCard className="border-amber-400/25 bg-amber-400/[0.05]">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-200">
+            <UpgradeGem className="h-3.5 w-3.5" /> Accès offert
+          </p>
+          <p className="mt-1 text-sm text-slate-200">
+            Nebula vous offre le palier {PLAN_LIMITS[me.plan].label}
+            {me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}` : ", sans limite de durée"} — sans carte bancaire. Rien à faire de votre côté ; à la fin, vous repassez simplement au palier Gratuit, sans rien perdre.
+          </p>
+        </GlassCard>
+      )}
+
+      {me?.onTrial && me.trialEndsAt && !me.comp && (
         <GlassCard className="border-aurora-400/25 bg-aurora-400/[0.04]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

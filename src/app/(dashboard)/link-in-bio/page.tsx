@@ -20,10 +20,11 @@ import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { Input, Textarea } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
-import { IconBioLink, IconPlus, IconClose, IconChevron, IconUpload, IconLock } from "@/components/dashboard/icons";
+import { IconBioLink, IconPlus, IconClose, IconChevron, IconUpload } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { LinktreeImportDialog } from "@/components/link-in-bio/linktree-import-dialog";
 import { THEMES, canUseTheme } from "@/lib/themes";
+import { ThemeCard } from "@/components/settings/theme-card";
 import { isUnlimitedBioLinks, type Plan } from "@/lib/plans";
 
 interface LinkRow {
@@ -45,15 +46,8 @@ interface LinkPageData {
   links: LinkRow[];
 }
 
-function swatchPreview(vars: Record<string, string>) {
-  const nebula500 = `rgb(${vars["--c-nebula-500"]})`;
-  const aurora400 = `rgb(${vars["--c-aurora-400"]})`;
-  const accentCyan = `rgb(${vars["--c-accent-cyan"]})`;
-  return `linear-gradient(135deg, ${nebula500}, ${aurora400} 55%, ${accentCyan})`;
-}
-
 export default function LinkInBioPage() {
-  const { activeBrand } = useBrand();
+  const { activeBrand, refresh: refreshBrands } = useBrand();
   const toast = useToast();
   const upgrade = useUpgradeModal();
   // Import Linktree (brief growth, lot G6.b)
@@ -122,6 +116,9 @@ export default function LinkInBioPage() {
       return;
     }
     setPage(json.linkPage);
+    // Titre ou photo modifiés → le sélecteur de marque (nom + pastille)
+    // se met à jour immédiatement (voir PATCH /api/link-in-bio).
+    if (json.brand) await refreshBrands();
   }
 
   async function onAvatarChosen(file: File) {
@@ -320,7 +317,7 @@ export default function LinkInBioPage() {
             </div>
 
             <Input
-              label="Titre affiché"
+              label="Nom de la marque (titre de la page)"
               id="bio-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -328,7 +325,7 @@ export default function LinkInBioPage() {
               placeholder={activeBrand.name}
               maxLength={60}
               wrapperClassName="mt-4"
-              hint="Enregistré automatiquement quand vous quittez le champ."
+              hint="Enregistré automatiquement quand vous quittez le champ — c'est aussi le nom de la marque dans toute l'application."
             />
 
             <Textarea
@@ -471,31 +468,9 @@ export default function LinkInBioPage() {
             <h2 className="font-display text-base font-medium text-white">Thème de la page</h2>
             <p className="mt-1 text-sm text-slate-400">Indépendant du thème de votre tableau de bord.</p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-              {THEMES.map((t) => {
-                const locked = !canUseTheme(t, plan);
-                return (
-                  <button
-                    key={t.key}
-                    onClick={() => onPickTheme(t.key)}
-                    className={clsx(
-                      "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition",
-                      page?.theme === t.key
-                        ? "border-aurora-400 bg-white/[0.04]"
-                        : locked
-                          ? "border-dashed border-white/10 hover:border-white/20"
-                          : "border-white/10 hover:border-white/25"
-                    )}
-                  >
-                    {locked && (
-                      <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-void-950/90 text-slate-300">
-                        <IconLock className="h-3 w-3" />
-                      </span>
-                    )}
-                    <span className={clsx("h-10 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: swatchPreview(t.vars) }} />
-                    <span className="text-xs text-slate-300">{t.label}</span>
-                  </button>
-                );
-              })}
+              {THEMES.filter((t) => !t.hidden || page?.theme === t.key).map((t) => (
+                <ThemeCard key={t.key} theme={t} selected={page?.theme === t.key} locked={!canUseTheme(t, plan)} onPick={() => onPickTheme(t.key)} />
+              ))}
             </div>
           </GlassCard>
         </div>

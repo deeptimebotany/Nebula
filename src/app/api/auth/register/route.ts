@@ -7,6 +7,7 @@ import { generateUniqueReferralCode } from "@/lib/referral";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
+import { applyPendingPartnerGrant } from "@/lib/billing/partners";
 import { REFERRED_TRIAL_DAYS, TRIAL_DAYS, trialEndDate } from "@/lib/trial";
 
 // Messages d'erreur lisibles : renvoyés tels quels au formulaire (avant, un
@@ -113,6 +114,8 @@ export async function POST(req: Request) {
     data: { role: "OWNER", user: { connect: { id: user.id } }, brand: { create: { name: brandName, slug } } }
   });
   await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrer) }, user.id);
+  // Accès offert en attente pour cet email (partenaires, /admin/partenaires).
+  await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);
 
   const res = NextResponse.json({ ok: true, aiTrialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS, trialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS });
   if (attribution) res.cookies.set({ name: ATTRIBUTION_COOKIE, value: "", path: "/", maxAge: 0 });

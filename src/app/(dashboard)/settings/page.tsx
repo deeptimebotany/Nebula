@@ -15,6 +15,7 @@ import { useFocusMode, useBootstrap } from "@/components/bootstrap-provider";
 import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 import { THEMES, canUseTheme } from "@/lib/themes";
+import { ThemeCard } from "@/components/settings/theme-card";
 import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
 import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
@@ -41,13 +42,6 @@ interface ReferralInfo {
   referredByCode: string | null;
   aiTrialActive: boolean;
   aiTrialUntil: string | null;
-}
-
-function swatchPreview(vars: Record<string, string>) {
-  const nebula500 = `rgb(${vars["--c-nebula-500"]})`;
-  const aurora400 = `rgb(${vars["--c-aurora-400"]})`;
-  const accentCyan = `rgb(${vars["--c-accent-cyan"]})`;
-  return `linear-gradient(135deg, ${nebula500}, ${aurora400} 55%, ${accentCyan})`;
 }
 
 // Easter egg : le thème caché "Nova" (voir src/lib/themes.ts, hidden: true)
@@ -584,35 +578,9 @@ export default function SettingsPage() {
           appareil et sur votre compte.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          {THEMES.filter((t) => !t.hidden || novaUnlocked).map((t) => {
-            const locked = !canUseTheme(t, effectivePlan);
-            return (
-              <button
-                key={t.key}
-                onClick={() => onPickTheme(t.key)}
-                className={clsx(
-                  "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition",
-                  themeKey === t.key
-                    ? "border-aurora-400 bg-white/[0.04]"
-                    : locked
-                      ? "border-dashed border-white/10 hover:border-white/20"
-                      : "border-white/10 hover:border-white/25"
-                )}
-              >
-                {locked && (
-                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-void-950/90 text-slate-300">
-                    <IconLock className="h-3 w-3" />
-                  </span>
-                )}
-                <span
-                  className={clsx("h-10 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")}
-                  style={{ background: swatchPreview(t.vars) }}
-                />
-                <span className="text-xs text-slate-300">{t.label}</span>
-                {locked && <span className="text-[10px] text-amber-400">Palier {t.requiresPlan}</span>}
-              </button>
-            );
-          })}
+          {THEMES.filter((t) => !t.hidden || novaUnlocked).map((t) => (
+            <ThemeCard key={t.key} theme={t} selected={themeKey === t.key} locked={!canUseTheme(t, effectivePlan)} onPick={() => onPickTheme(t.key)} />
+          ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Les thèmes verrouillés se débloquent avec un abonnement — voir{" "}

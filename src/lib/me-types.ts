@@ -28,6 +28,8 @@ export interface MeResponse {
   /** Abonnement payant actif (hors pause). */
   paid: boolean;
   pausedUntil: string | null;
+  /** Accès offert (partenaire) en vigueur : { until } (null = sans limite), sinon null. */
+  comp: { until: string | null } | null;
   /** Offre de bienvenue -50 % (mensuel) : fin, ou null si absente/utilisée. */
   offerExpiresAt: string | null;
   /** Mois de Pro offerts en attente (badge apporteur, parrainage). */

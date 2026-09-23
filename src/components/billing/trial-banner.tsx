@@ -16,6 +16,8 @@ import { useToast } from "@/components/dashboard/toast";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { IconClose } from "@/components/dashboard/icons";
 import { PLAN_LIMITS } from "@/lib/plans";
+
+const PLAN_LABEL: Record<string, string> = { FREE: PLAN_LIMITS.FREE.label, PRO: PLAN_LIMITS.PRO.label, AGENCY: PLAN_LIMITS.AGENCY.label };
 import { useUpgradeModal } from "./upgrade-modal";
 import type { TrialSummary } from "@/lib/billing/trial-summary";
 
@@ -64,6 +66,18 @@ export function TrialBanner() {
         <button type="button" onClick={resume} disabled={resuming} className="font-medium underline-offset-2 hover:underline">
           {resuming ? "Reprise…" : "Reprendre maintenant"}
         </button>
+      </div>
+    );
+  }
+
+  if (me.comp) {
+    return (
+      <div className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-center text-xs text-amber-100 sm:px-6">
+        <UpgradeGem className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+        Accès {PLAN_LABEL[me.plan] ?? me.plan} offert{me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""} ·{" "}
+        <Link href="/billing" className="font-medium underline-offset-2 hover:underline">
+          Détails
+        </Link>
       </div>
     );
   }

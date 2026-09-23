@@ -38,5 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(parsed.data.timezone !== undefined ? { timezone: parsed.data.timezone } : {})
     }
   });
+  // Nom de la marque = titre de sa Page bio (décision du 24/09/2026) : les
+  // deux restent synchronisés dans les deux sens (voir /api/link-in-bio).
+  if (parsed.data.name !== undefined) {
+    await prisma.linkPage.updateMany({ where: { brandId: params.id }, data: { title: parsed.data.name } }).catch(() => undefined);
+  }
   return NextResponse.json({ ok: true, brand });
 }
