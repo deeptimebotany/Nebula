@@ -23,7 +23,7 @@ function Frame({ label, className, children }: { label: string; className?: stri
     <div
       aria-hidden="true"
       className={clsx(
-        "glass-panel relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_80px_-30px_rgba(41,85,196,0.55)]",
+        "glass-panel relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.75)]",
         className
       )}
     >

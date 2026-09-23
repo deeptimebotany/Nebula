@@ -14,7 +14,7 @@ export const SITE_DESCRIPTION =
 export const SITE_LOCALE = "fr_FR";
 // Couleur de fond de l'application (voir --app-bg dans globals.css) — sert
 // de theme-color au navigateur et de fond aux images de partage.
-export const SITE_THEME_COLOR = "#05070f";
+export const SITE_THEME_COLOR = "#0e0e10";
 // Adresse de contact affichée sur les pages publiques (footer, pages
 // légales). À remplacer par une adresse sur le domaine (ex.
 // contact@nebulahub.space) dès qu'elle existe — un seul endroit à changer.

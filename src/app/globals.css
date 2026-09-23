@@ -15,31 +15,31 @@
      src/lib/themes.ts + src/components/theme-provider.tsx. Rien d'autre dans
      l'appli n'a besoin de changer : toutes les classes bg-aurora-400,
      text-nebula-300, etc. suivent automatiquement. */
-  --c-nebula-900: 7 16 51;
-  --c-nebula-800: 11 26 77;
-  --c-nebula-700: 18 42 110;
-  --c-nebula-600: 26 61 148;
-  --c-nebula-500: 41 85 196;
-  --c-nebula-400: 77 120 232;
-  --c-nebula-300: 126 161 245;
-  --c-nebula-200: 180 200 250;
-  --c-nebula-100: 223 233 253;
-  --c-aurora-500: 91 141 239;
-  --c-aurora-400: 127 178 255;
-  --c-aurora-300: 99 230 255;
-  --c-aurora-glow: 143 215 255;
-  --c-accent-violet: 124 108 240;
-  --c-accent-cyan: 62 230 221;
-  --c-accent-magenta: 232 87 176;
+  /* Dark UI (24/09/2026) : mêmes valeurs que le thème « Noir neutre
+     (défaut) » de themes.ts — surfaces neutres, accent violet du logo. */
+  --c-nebula-900: 22 22 26;
+  --c-nebula-800: 30 30 35;
+  --c-nebula-700: 40 40 46;
+  --c-nebula-600: 54 54 62;
+  --c-nebula-500: 124 98 240;
+  --c-nebula-400: 148 128 244;
+  --c-nebula-300: 176 162 248;
+  --c-nebula-200: 206 199 251;
+  --c-nebula-100: 234 231 253;
+  --c-aurora-500: 124 98 240;
+  --c-aurora-400: 150 131 246;
+  --c-aurora-300: 178 165 250;
+  --c-aurora-glow: 198 188 252;
+  --c-accent-violet: 124 98 240;
+  --c-accent-cyan: 83 234 219;
+  --c-accent-magenta: 233 73 174;
 
   /* Fond d'écran sélectionné dans Paramètres (voir src/lib/backgrounds.ts +
      background-provider.tsx, qui réécrit cette variable sur <html>). Valeur
      ci-dessous = le fond "mesh" par défaut, pour que le premier rendu (avant
      que le JS client n'ait lu la préférence) corresponde déjà à ce que verra
      un compte qui n'a jamais changé de fond. */
-  --app-bg: radial-gradient(circle at 15% 10%, rgb(var(--c-nebula-500) / 0.22), transparent 55%),
-    radial-gradient(circle at 85% 90%, rgb(var(--c-aurora-400) / 0.16), transparent 60%),
-    radial-gradient(circle at 1px 1px, rgb(var(--c-aurora-400) / 0.16) 1px, transparent 0), #05070f;
+  --app-bg: radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), #0e0e10;
 }
 
 * {
@@ -50,18 +50,17 @@ html {
   color-scheme: dark;
 }
 
+/* Dark UI (décision du 24/09/2026) : fond noir neutre uni, texte blanc
+   cassé — plus de dégradés bleus ni de halos colorés derrière les pages. */
 body {
-  background-color: #02040a;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45, 90, 220, 0.28), transparent 60%),
-    radial-gradient(circle at 15% 15%, rgba(124, 108, 240, 0.14), transparent 35%),
-    radial-gradient(circle at 85% 5%, rgba(62, 230, 221, 0.08), transparent 35%);
-  color: #eaf0ff;
+  background-color: #0e0e10;
+  background-image: none;
+  color: #ededef;
   min-height: 100vh;
 }
 
 ::selection {
-  background: rgba(94, 146, 255, 0.35);
+  background: rgb(var(--c-aurora-500) / 0.35);
   color: #fff;
 }
 
@@ -322,11 +321,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(94, 146, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(94, 146, 255, 0.32);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Angle animable du dégradé de .glow-border-spin (voir plus bas, dans
@@ -349,7 +348,7 @@ body {
      la floute légèrement. En mode clair, teinte claire plutôt que noire pour
      rester cohérent avec le fond de page (--l-page). */
   .publish-overlay-backdrop {
-    background: rgba(2, 4, 10, 0.55);
+    background: rgba(8, 8, 10, 0.6);
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
   }
@@ -357,20 +356,21 @@ body {
     background: rgba(240, 242, 245, 0.72);
   }
 
+  /* Panneaux « Dark UI » (24/09/2026) : gris neutre à peine plus clair que
+     la page, bordure fine, pas de verre bleuté ni de grosse ombre. */
   .glass-panel {
-    background: linear-gradient(180deg, rgba(20, 28, 50, 0.6), rgba(8, 12, 24, 0.55));
-    border: 1px solid rgba(120, 150, 255, 0.12);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 20px 50px -25px rgba(0, 0, 0, 0.7);
+    background: #151518;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
   }
 
   .glass-panel-hover {
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
   .glass-panel-hover:hover {
-    border-color: rgba(120, 150, 255, 0.28);
-    transform: translateY(-2px);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -20px rgba(41, 85, 196, 0.35);
+    border-color: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 16px 40px -24px rgba(0, 0, 0, 0.8);
   }
 
   /* Variante plus opaque de .glass-panel, réservée aux menus déroulants
@@ -378,10 +378,9 @@ body {
      fond translucide rendait ces menus flottants trop flous/peu lisibles
      par-dessus le contenu de la page. Fond plus couvrant + flou réduit. */
   .glass-panel-solid {
-    background: linear-gradient(180deg, rgba(17, 23, 42, 0.97), rgba(7, 10, 20, 0.97));
-    border: 1px solid rgba(120, 150, 255, 0.18);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 20px 50px -20px rgba(0, 0, 0, 0.85);
+    background: #17171b;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 20px 50px -20px rgba(0, 0, 0, 0.85);
   }
 
   /* Trame de points décorative en fond de page. Implémentée via ::before
@@ -843,22 +842,24 @@ body {
     50% { box-shadow: 0 0 0 1px rgba(255, 210, 110, 0.4), 0 0 34px -4px rgba(255, 210, 110, 0.55); }
   }
 
+  /* Dark UI : titre en blanc qui se fond vers un gris clair, plus d'arc-en-ciel. */
   .text-gradient {
-    background: linear-gradient(90deg, #b4c8fa, #7ea1f5 35%, #63e6ff 70%, #7c6cf0);
+    background: linear-gradient(180deg, #ffffff 20%, #a9a9b3);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
+  /* Bouton principal « Dark UI » : aplat de la couleur d'accent du thème,
+     fin liseré clair, sans halo — le seul élément coloré de l'écran. */
   .btn-glow {
-    background: linear-gradient(135deg, #2955c4, #4d78e8 60%, #3ee6dd);
-    box-shadow: 0 0 0 1px rgba(120, 160, 255, 0.35), 0 12px 30px -8px rgba(41, 85, 196, 0.65);
+    background: rgb(var(--c-aurora-500));
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
   }
   .btn-glow:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.08);
-    box-shadow: 0 0 0 1px rgba(140, 180, 255, 0.5), 0 16px 36px -8px rgba(41, 85, 196, 0.8);
+    filter: brightness(1.1);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16) inset, 0 4px 14px -4px rgb(var(--c-aurora-500) / 0.45);
   }
   .btn-glow:active {
     transform: translateY(0);
@@ -928,9 +929,9 @@ body {
   .shimmer-bg {
     background: linear-gradient(
       110deg,
-      rgba(120, 150, 255, 0.05) 8%,
-      rgba(120, 150, 255, 0.18) 18%,
-      rgba(120, 150, 255, 0.05) 33%
+      rgba(255, 255, 255, 0.05) 8%,
+      rgba(255, 255, 255, 0.18) 18%,
+      rgba(255, 255, 255, 0.05) 33%
     );
     background-size: 200% 100%;
   }
@@ -940,7 +941,8 @@ body {
   /* Titre à dégradé mouvant (Hero V2) — variante animée de .text-gradient,
      réservée aux titres XL pour ne pas surcharger l'interface de mouvement. */
   .text-gradient-live {
-    background: linear-gradient(90deg, #b4c8fa, #7ea1f5 30%, #63e6ff 55%, #7c6cf0 80%, #b4c8fa);
+    /* Dark UI : reflet discret dans les tons de l'accent (violet → lavande). */
+    background: linear-gradient(90deg, rgb(var(--c-aurora-300)), #ffffff 30%, rgb(var(--c-aurora-400)) 60%, rgb(var(--c-aurora-300)));
     background-size: 200% auto;
     -webkit-background-clip: text;
     background-clip: text;
@@ -1036,7 +1038,13 @@ body {
   /* Halos de nébuleuse du hero : deux orbes floutés, dérive lente en CSS
      (remplace l'ancien parallax souris, qui ne fonctionnait pas : posé sur
      un élément pointer-events:none, il ne recevait jamais d'événement). */
-  .hero-orb {
+  /* Dark UI (24/09/2026) : les orbes colorées et le ciel étoilé de la
+     vitrine sont masqués — la vitrine reprend le fond neutre de l'app. */
+  .hero-orb,
+  .hero-stars {
+    display: none;
+  }
+  .hero-orb-legacy {
     position: absolute;
     border-radius: 9999px;
     filter: blur(70px);
@@ -1064,7 +1072,7 @@ body {
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(ellipse 140% 90% at 50% 15%, transparent 45%, rgba(2, 4, 10, 0.75) 100%);
+    background: radial-gradient(ellipse 140% 90% at 50% 15%, transparent 55%, rgba(8, 8, 10, 0.6) 100%);
   }
 
   /* Grain subtil superposé au fond — casse l'aspect trop lisse d'un

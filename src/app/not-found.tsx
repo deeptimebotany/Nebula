@@ -55,7 +55,7 @@ export default function NotFound() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#02040a] px-6 py-16">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0e0e10] px-6 py-16">
       <div aria-hidden="true" className="absolute inset-0">
         {STARS.map((s, i) => (
           <span

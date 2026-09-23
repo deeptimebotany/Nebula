@@ -30,8 +30,34 @@ function v(rgb: number[]): string {
 
 export const THEMES: ThemeDefinition[] = [
   {
+    // Thème par défaut « Dark UI » (décision du 24/09/2026) : surfaces en
+    // gris-noir NEUTRES (nebula-900 → 600, sans teinte bleue) et un seul
+    // accent violet, celui du logo. L'ancien bleu nuit reste disponible
+    // juste en dessous (« Nébuleuse bleue »).
     key: "nebula",
-    label: "Nébuleuse (défaut)",
+    label: "Noir neutre (défaut)",
+    vars: {
+      "--c-nebula-900": v([22, 22, 26]),
+      "--c-nebula-800": v([30, 30, 35]),
+      "--c-nebula-700": v([40, 40, 46]),
+      "--c-nebula-600": v([54, 54, 62]),
+      "--c-nebula-500": v([124, 98, 240]),
+      "--c-nebula-400": v([148, 128, 244]),
+      "--c-nebula-300": v([176, 162, 248]),
+      "--c-nebula-200": v([206, 199, 251]),
+      "--c-nebula-100": v([234, 231, 253]),
+      "--c-aurora-500": v([124, 98, 240]),
+      "--c-aurora-400": v([150, 131, 246]),
+      "--c-aurora-300": v([178, 165, 250]),
+      "--c-aurora-glow": v([198, 188, 252]),
+      "--c-accent-violet": v([124, 98, 240]),
+      "--c-accent-cyan": v([83, 234, 219]),
+      "--c-accent-magenta": v([233, 73, 174]),
+    }
+  },
+  {
+    key: "nebuleuse-bleue",
+    label: "Nébuleuse bleue",
     vars: {
       "--c-nebula-900": v([11, 21, 56]),
       "--c-nebula-800": v([16, 33, 86]),

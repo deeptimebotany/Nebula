@@ -41,13 +41,13 @@ function build(mode: "dark" | "light"): ChartTheme {
   return {
     series,
     seriesColor: (key, index) => (key in NETWORK_META ? NETWORK_META[key as Network].color : series[index % series.length]),
-    axis: light ? "#6b6f76" : "#7b879e",
-    grid: light ? "rgba(15,23,42,0.08)" : "rgba(148,163,255,0.08)",
-    text: light ? "#1f2937" : "#eaf0ff",
+    axis: light ? "#6b6f76" : "#8b8b94",
+    grid: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.06)",
+    text: light ? "#1f2937" : "#ededef",
     tooltip: {
-      background: light ? "rgba(255,255,255,0.97)" : "rgba(10,14,26,0.95)",
-      border: light ? "1px solid rgba(15,23,42,0.12)" : "1px solid rgba(120,150,255,0.25)",
-      color: light ? "#1f2937" : "#eaf0ff",
+      background: light ? "rgba(255,255,255,0.97)" : "rgba(23,23,27,0.97)",
+      border: light ? "1px solid rgba(15,23,42,0.12)" : "1px solid rgba(255,255,255,0.1)",
+      color: light ? "#1f2937" : "#ededef",
       borderRadius: 12,
       fontSize: 12
     },

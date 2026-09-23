@@ -52,10 +52,14 @@ function rays(x: string, y: string, color: string, alpha = 0.1) {
 function rings(x: string, y: string, color: string, gap: string, alpha = 0.12) {
   return `repeating-radial-gradient(circle at ${x} ${y}, rgb(${color} / ${alpha}) 0 2px, transparent 2px ${gap})`;
 }
-const BASE = "#05070f"; // couleur de fond de secours sous chaque dégradé (identique à --c-nebula-950 visuellement)
+// Couleur de fond sous chaque dégradé : noir neutre (Dark UI, 24/09/2026),
+// identique au fond de page (body) — plus de teinte bleu nuit.
+const BASE = "#0e0e10";
 
 export const BACKGROUNDS: BackgroundDefinition[] = [
-  { key: "mesh", label: "Nébuleuse (défaut)", css: `${blob("15%", "10%", NEBULA, "55%")}, ${blob("85%", "90%", AURORA, "60%", 0.16)}, ${dots(AURORA, "28px")}, ${BASE}` },
+  // Fond par défaut « Dark UI » : un noir neutre uni, à peine éclairé en haut.
+  { key: "mesh", label: "Uni (défaut)", css: `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), ${BASE}` },
+  { key: "nebuleuse", label: "Nébuleuse", css: `${blob("15%", "10%", NEBULA, "55%")}, ${blob("85%", "90%", AURORA, "60%", 0.16)}, ${dots(AURORA, "28px")}, ${BASE}` },
   { key: "aurora-polaire", label: "Aurore polaire", css: `${blob("20%", "0%", AURORA, "70%", 0.2)}, ${blob("80%", "20%", CYAN, "60%", 0.14)}, ${blob("50%", "100%", VIOLET, "65%", 0.12)}, ${BASE}` },
   { key: "maree-nocturne", label: "Marée nocturne", css: `${stripes("100deg", AURORA, "2px", "22px", 0.07)}, ${blob("50%", "110%", NEBULA, "80%", 0.25)}, ${BASE}` },
   { key: "poussiere-etoiles", label: "Poussière d'étoiles", css: `${dots(AURORA_S, "18px", 0.14)}, ${dots(CYAN, "46px", 0.1)}, ${blob("50%", "0%", NEBULA, "70%", 0.18)}, ${BASE}` },
