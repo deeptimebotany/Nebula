@@ -69,6 +69,33 @@ export async function saveUploadedFile(file: File): Promise<{
   };
 }
 
+/**
+ * Supprime réellement un fichier précédemment renvoyé par saveUploadedFile
+ * (Vercel Blob si BLOB_READ_WRITE_TOKEN est configuré, sinon le disque
+ * local) — utilisé quand un MediaAsset n'est plus référencé par aucune
+ * publication, pour ne pas accumuler indéfiniment des fichiers orphelins
+ * dans le quota de stockage (voir DELETE /api/posts/[id] et
+ * /api/dev/cleanup-media). Ne lève jamais : un fichier déjà absent (ex.
+ * déjà nettoyé) ne doit pas faire échouer l'appelant.
+ */
+export async function deleteUploadedFile(url: string): Promise<void> {
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN && /^https?:\/\//.test(url)) {
+      const { del } = await import("@vercel/blob");
+      await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      return;
+    }
+    if (url.startsWith("/uploads/")) {
+      const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
+      const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+      const { unlink } = await import("fs/promises");
+      await unlink(path.join(absoluteDir, path.basename(url)));
+    }
+  } catch (err) {
+    console.error(`[storage] suppression du fichier ${url} échouée (ignorée) :`, err);
+  }
+}
+
 function extensionForMimeType(mimeType: string): string {
   const known: Record<string, string> = {
     "image/png": "png",

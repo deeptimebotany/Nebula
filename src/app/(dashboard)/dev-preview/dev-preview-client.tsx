@@ -18,6 +18,7 @@
 //   reflète le même aperçu tant qu'il reste actif.
 import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
+import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { useBackground } from "@/components/background-provider";
@@ -62,6 +63,8 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
   const [planPreview, setPlanPreview] = useState<Plan | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
   const [switchingPlan, setSwitchingPlan] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/easter-eggs", { cache: "no-store" })
@@ -102,6 +105,29 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
     setSavingKey(key);
     await cosmeticsCtx.setEnabled(key, next);
     setSavingKey(null);
+  }
+
+  // Purge les fichiers (vidéo/image) qui ne sont plus utilisés par aucune
+  // publication — voir /api/dev/cleanup-media. Utile surtout pour rattraper
+  // ce qui s'était déjà accumulé avant que la suppression/le remplacement
+  // d'un post n'apprennent à nettoyer automatiquement, et à relancer de
+  // temps en temps si besoin.
+  async function cleanupMedia() {
+    setCleaning(true);
+    setCleanupResult(null);
+    const res = await fetch("/api/dev/cleanup-media", { method: "POST" }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    setCleaning(false);
+    if (!res?.ok) {
+      setCleanupResult("Échec du nettoyage.");
+      return;
+    }
+    const mb = (data.freedBytes / (1024 * 1024)).toFixed(1);
+    setCleanupResult(
+      data.count > 0
+        ? `${data.count} fichier${data.count > 1 ? "s" : ""} inutilisé${data.count > 1 ? "s" : ""} supprimé${data.count > 1 ? "s" : ""} (${mb} Mo libérés).`
+        : "Rien à nettoyer — aucun fichier inutilisé trouvé."
+    );
   }
 
   function backgroundLocked(bg: BackgroundDefinition): boolean {
@@ -151,6 +177,22 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
           ))}
         </div>
         {switchingPlan && <p className="mt-2 text-xs text-slate-500">Changement d&apos;aperçu, rechargement...</p>}
+      </GlassCard>
+
+      <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Stockage (fichiers vidéo/image)</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Chaque suppression ou remplacement de fichier depuis l&apos;app nettoie maintenant automatiquement ce
+          qu&apos;elle libère. Ce bouton rattrape en plus tout ce qui aurait pu s&apos;accumuler avant (fichiers
+          liés à aucune publication) — à utiliser si l&apos;envoi de nouveaux fichiers échoue avec une erreur de
+          quota Vercel Blob.
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <Button variant="outline" onClick={cleanupMedia} disabled={cleaning}>
+            {cleaning ? "Nettoyage..." : "Nettoyer les fichiers inutilisés"}
+          </Button>
+          {cleanupResult && <p className="text-xs text-slate-400">{cleanupResult}</p>}
+        </div>
       </GlassCard>
 
       <GlassCard>
