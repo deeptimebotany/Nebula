@@ -100,8 +100,13 @@ export const youtubeClient: SocialClient = {
     const videoBuffer = Buffer.from(await sourceRes.arrayBuffer());
 
     const title = (input.title || input.caption).slice(0, 100) || "Nouvelle vidéo";
+    // Réglages "Préréglages YouTube" du composer (voir composer-types.ts →
+    // YoutubeOptions) — tous optionnels, valeurs par défaut sûres sinon :
+    // public, pas destiné aux enfants, abonnés notifiés.
+    const yt = input.youtube ?? {};
+    const notifySubscribers = yt.notifySubscribers ?? true;
     const initRes = await fetch(
-      `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status`,
+      `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status&notifySubscribers=${notifySubscribers}`,
       {
         method: "POST",
         headers: {
@@ -110,14 +115,22 @@ export const youtubeClient: SocialClient = {
           "X-Upload-Content-Type": "video/*"
         },
         body: JSON.stringify({
-          snippet: { title, description: input.caption },
+          snippet: {
+            title,
+            description: input.caption,
+            ...(yt.categoryId ? { categoryId: yt.categoryId } : {}),
+            ...(yt.tags && yt.tags.length ? { tags: yt.tags } : {})
+          },
           // selfDeclaredMadeForKids : déclaration légale (COPPA) obligatoire
           // sur chaque vidéo. Sans elle, YouTube laisse parfois la vidéo en
           // "Brouillon" en attendant que la chaîne la renseigne manuellement
           // dans Studio, même avec privacyStatus "public" — constaté en
           // production. "false" par défaut : contenu créateur/pro standard,
           // pas destiné aux enfants.
-          status: { privacyStatus: "public", selfDeclaredMadeForKids: false }
+          status: {
+            privacyStatus: yt.privacyStatus ?? "public",
+            selfDeclaredMadeForKids: yt.madeForKids ?? false
+          }
         })
       }
     );
@@ -131,6 +144,23 @@ export const youtubeClient: SocialClient = {
     });
     const video = (await uploadRes.json()) as { id: string };
     if (!uploadRes.ok) throw new Error("Échec de l'upload vidéo vers YouTube.");
+
+    // Playlist : appel séparé (playlistItems.insert), best-effort — un échec
+    // ici (playlist supprimée entre-temps, id invalide, etc.) ne doit pas
+    // faire échouer la publication elle-même, la vidéo est déjà en ligne.
+    if (yt.playlistId) {
+      try {
+        await fetchJson("YOUTUBE", `${API_BASE}/playlistItems?part=snippet`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${connection.accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            snippet: { playlistId: yt.playlistId, resourceId: { kind: "youtube#video", videoId: video.id } }
+          })
+        });
+      } catch (err) {
+        console.error(`[youtube] ajout à la playlist ${yt.playlistId} échoué pour la vidéo ${video.id} :`, err);
+      }
+    }
 
     return { externalPostId: video.id, externalUrl: `https://youtube.com/watch?v=${video.id}` };
   },
@@ -215,7 +245,15 @@ export async function fetchRetention(
   videoId: string
 ): Promise<{ timeRatio: number; watchRatio: number }[]> {
   const endDate = new Date().toISOString().slice(0, 10);
-  const startDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Fenêtre volontairement très large plutôt que "les N derniers jours" :
+  // pour une vidéo qui a quelques années, l'essentiel de ses vues (donc de
+  // ses données de rétention) date souvent de sa sortie, pas des derniers
+  // mois. Une fenêtre trop courte (ex. 400 jours) renvoyait alors "aucune
+  // donnée" alors que YouTube Analytics EN A, juste hors de la période
+  // demandée — constaté en production sur une vidéo de 2 ans. 2005-02-14 :
+  // date de création de YouTube, donc couvre TOUJOURS toute la vie de la
+  // chaîne, quelle que soit l'ancienneté de la vidéo.
+  const startDate = "2005-02-14";
 
   const params = new URLSearchParams({
     ids: "channel==MINE",

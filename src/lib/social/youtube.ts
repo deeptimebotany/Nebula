@@ -245,7 +245,15 @@ export async function fetchRetention(
   videoId: string
 ): Promise<{ timeRatio: number; watchRatio: number }[]> {
   const endDate = new Date().toISOString().slice(0, 10);
-  const startDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Fenêtre volontairement très large plutôt que "les N derniers jours" :
+  // pour une vidéo qui a quelques années, l'essentiel de ses vues (donc de
+  // ses données de rétention) date souvent de sa sortie, pas des derniers
+  // mois. Une fenêtre trop courte (ex. 400 jours) renvoyait alors "aucune
+  // donnée" alors que YouTube Analytics EN A, juste hors de la période
+  // demandée — constaté en production sur une vidéo de 2 ans. 2005-02-14 :
+  // date de création de YouTube, donc couvre TOUJOURS toute la vie de la
+  // chaîne, quelle que soit l'ancienneté de la vidéo.
+  const startDate = "2005-02-14";
 
   const params = new URLSearchParams({
     ids: "channel==MINE",

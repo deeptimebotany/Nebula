@@ -29,6 +29,10 @@ interface ApiPost {
   caption: string;
   status: string;
   scheduledAt: string | null;
+  // Toujours présent (rempli par Prisma à la création) — sert de repère de
+  // date pour les publications envoyées immédiatement, qui n'ont pas de
+  // scheduledAt (voir entriesByDay ci-dessous).
+  createdAt: string;
   media: { mediaAsset: { url: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string } }[];
   targets: { network: Network; connectionId: string }[];
 }
@@ -207,12 +211,18 @@ function CalendarPageInner() {
 
     for (const brandId of selectedBrandIds) {
       for (const p of postsByBrand[brandId] ?? []) {
-        if (!p.scheduledAt) continue;
+        // Une publication envoyée immédiatement ("Publier maintenant" dans le
+        // Composer, pas de date programmée) n'a pas de scheduledAt — avant,
+        // ça la faisait sauter complètement du calendrier (elle existait bien
+        // dans "Liste des publications", juste invisible ici). On retombe sur
+        // createdAt dans ce cas, qui correspond au moment de l'envoi.
+        const dateForDisplay = p.scheduledAt ?? p.createdAt;
+        if (!dateForDisplay) continue;
         const visibleTargets = p.targets.filter(
           (t) => !hiddenConnectionIds.has(t.connectionId) && !hiddenNetworks.has(t.network)
         );
         if (p.targets.length > 0 && visibleTargets.length === 0) continue; // tous les comptes de ce post sont masqués
-        const { key, time } = dayKeyAndTime(new Date(p.scheduledAt), timezone);
+        const { key, time } = dayKeyAndTime(new Date(dateForDisplay), timezone);
         push(key, {
           id: p.id,
           title: p.title || p.caption || "(sans titre)",
