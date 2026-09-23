@@ -24,6 +24,7 @@ import { NetworkBadge, NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash } from "@/components/dashboard/icons";
+import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { uploadMediaFile } from "@/lib/upload-client";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
@@ -1003,27 +1004,41 @@ function ComposerPageInner() {
         <div className="space-y-5 lg:col-span-2">
           <GlassCard>
             <h2 className="mb-3 font-display text-base font-medium text-white">1. Média</h2>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                onFilesChosen(e.dataTransfer.files);
-              }}
-              onClick={() => inputRef.current?.click()}
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02] py-10 text-center transition hover:border-aurora-400/40"
-            >
-              <IconUpload className="h-6 w-6 text-aurora-400" />
-              <p className="text-sm text-slate-300">Glissez-déposez une vidéo/image, ou cliquez pour sélectionner</p>
-              <p className="text-xs text-slate-500">MP4, MOV, JPG, PNG — un seul fichier à la fois</p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="video/*,image/*"
-                className="hidden"
-                onChange={(e) => onFilesChosen(e.target.files)}
-              />
+            <div className="relative">
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onFilesChosen(e.dataTransfer.files);
+                }}
+                onClick={() => inputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02] py-10 text-center transition hover:border-aurora-400/40"
+              >
+                <IconUpload className="h-6 w-6 text-aurora-400" />
+                <p className="text-sm text-slate-300">Glissez-déposez une vidéo/image, ou cliquez pour sélectionner</p>
+                <p className="text-xs text-slate-500">MP4, MOV, JPG, PNG — un seul fichier à la fois</p>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="video/*,image/*"
+                  className="hidden"
+                  onChange={(e) => onFilesChosen(e.target.files)}
+                />
+              </div>
+              {/* Voile flouté + logo animé pendant l'envoi : le logo Nebula
+                  (nebula-brandmark.tsx) a déjà ses anneaux en rotation
+                  perpétuelle en SVG, donc pas besoin d'une animation séparée
+                  ici — juste le poser par-dessus la zone d'import. */}
+              {uploading && (
+                <div
+                  aria-live="polite"
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-void-950/70 backdrop-blur-sm"
+                >
+                  <NebulaIcon size={44} />
+                  <p className="text-sm font-medium text-aurora-300">Envoi en cours...</p>
+                </div>
+              )}
             </div>
-            {uploading && <p className="mt-3 text-sm text-aurora-300">Envoi en cours...</p>}
             {!focusMode && <LoadingMiniGame active={uploading} />}
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
