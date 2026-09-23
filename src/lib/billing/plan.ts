@@ -89,12 +89,23 @@ export async function assertConnectionQuota(brandId: string) {
   }
 }
 
+export function startOfCurrentMonth(): Date {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Publications créées ce mois-ci pour la marque — le décompte utilisé par le quota ET par /api/billing/usage. */
+export async function countPostsThisMonth(brandId: string): Promise<number> {
+  return prisma.post.count({ where: { brandId, createdAt: { gte: startOfCurrentMonth() } } });
+}
+
 export async function assertPostQuota(brandId: string) {
   const { limits } = await getBrandPlan(brandId);
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-  const count = await prisma.post.count({ where: { brandId, createdAt: { gte: startOfMonth } } });
+  // Même décompte que /api/billing/usage (voir usage.ts) : ce que l'écran
+  // affiche est exactement ce qui est vérifié ici.
+  const count = await countPostsThisMonth(brandId);
   if (count >= limits.maxPostsPerMonth) {
     throw new Error(
       `Limite de publications atteinte pour le palier ${limits.label} (${limits.maxPostsPerMonth}/mois). Passez sur un palier supérieur dans Facturation.`

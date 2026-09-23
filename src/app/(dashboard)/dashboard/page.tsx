@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { SkeletonText } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
 import { StatCard } from "@/components/ui/stat-card";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
@@ -16,6 +18,10 @@ import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { LivingClock } from "@/components/dashboard/living-clock";
 import { MomentumComet, computeStreak } from "@/components/dashboard/momentum-comet";
 import { useCosmetics } from "@/components/cosmetics-provider";
+import { OnboardingChecklist, type ChecklistStep } from "@/components/dashboard/onboarding-checklist";
+import { AttentionWidget, type AttentionItem } from "@/components/dashboard/attention-widget";
+import { Input } from "@/components/ui/input";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 
 const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
@@ -68,7 +74,7 @@ interface ApiPost {
   status: string;
   scheduledAt: string | null;
   createdAt: string;
-  targets: { network: Network }[];
+  targets: { network: Network; status?: string }[];
 }
 
 // Cosmétique "Message d'accueil personnalisé" (voir src/lib/cosmetics.ts) :
@@ -92,6 +98,8 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [insightsFailed, setInsightsFailed] = useState(false);
+  const [linkPagePublished, setLinkPagePublished] = useState<boolean | null>(null);
 
   // Raccourci d'action rapide : rédige un brouillon minimal ici et redirige
   // vers le Composer/Importation, qui restaure automatiquement ce brouillon
@@ -115,21 +123,33 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!activeBrand) return;
     setLoading(true);
+    // Chaque appel est indépendant : si l'un échoue (réseau, serveur), les
+    // autres remplissent quand même la page au lieu de tout laisser vide.
+    type Loose = Record<string, unknown[] | undefined>;
+    const safe = (url: string): Promise<Loose> =>
+      fetch(url)
+        .then((r) => (r.ok ? (r.json() as Promise<Loose>) : {}))
+        .catch(() => ({}));
     Promise.all([
-      fetch(`/api/connections?brandId=${activeBrand.id}`).then((r) => r.json()),
-      fetch(`/api/analytics?brandId=${activeBrand.id}`).then((r) => r.json()),
-      fetch(`/api/posts?brandId=${activeBrand.id}`).then((r) => r.json())
+      safe(`/api/connections?brandId=${activeBrand.id}`),
+      safe(`/api/analytics?brandId=${activeBrand.id}`),
+      safe(`/api/posts?brandId=${activeBrand.id}`)
     ])
       .then(([conn, analytics, postsData]) => {
-        setConnections(conn.connections ?? []);
-        setAnalyticsConnections(analytics.connections ?? []);
-        setPosts(postsData.posts ?? []);
+        setConnections((conn.connections as ConnectionRow[] | undefined) ?? []);
+        setAnalyticsConnections((analytics.connections as AnalyticsConnection[] | undefined) ?? []);
+        setPosts((postsData.posts as ApiPost[] | undefined) ?? []);
       })
       .finally(() => setLoading(false));
+    setInsightsFailed(false);
     fetch(`/api/analytics/insights?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setInsights)
-      .catch(() => undefined);
+      .catch(() => setInsightsFailed(true));
+    fetch(`/api/link-in-bio?brandId=${activeBrand.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setLinkPagePublished(d?.linkPage ? Boolean(d.linkPage.published) : false))
+      .catch(() => setLinkPagePublished(false));
   }, [activeBrand]);
 
   const chartNetworks: Network[] = connections.map((c) => c.network);
@@ -165,11 +185,30 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.scheduledAt as string).getTime() - new Date(b.scheduledAt as string).getTime())
     .slice(0, 5);
 
-  // Jauge de progression d'onboarding : 3 étapes réelles (connecter, avoir
-  // de vraies données synchronisées, avoir déjà créé un post) — jamais une
-  // valeur arbitraire.
-  const onboardingSteps = [connections.length > 0, hasAnalytics, posts.length > 0];
-  const onboardingPercent = Math.round((onboardingSteps.filter(Boolean).length / onboardingSteps.length) * 100);
+  // Checklist de mise en route : quatre étapes réelles (voir
+  // onboarding-checklist.tsx) — jamais une valeur arbitraire.
+  const checklistSteps: ChecklistStep[] = [
+    { key: "connect", label: "Connecter un compte", description: "Instagram, Facebook, TikTok ou YouTube.", href: "/accounts", done: connections.length > 0 },
+    { key: "publish", label: "Créer une publication", description: "Immédiate ou programmée.", href: "/composer", done: posts.length > 0 },
+    { key: "sync", label: "Synchroniser vos statistiques", description: "Depuis la page Analytics.", href: "/analytics", done: hasAnalytics },
+    { key: "bio", label: "Publier votre page bio", description: "Vos liens importants, en bio de vos profils.", href: "/link-in-bio", done: linkPagePublished === true }
+  ];
+
+  // « À traiter » : échecs, comptes à reconnecter, brouillons.
+  const failedPosts = posts.filter((p) => p.status === "FAILED" || p.status === "PARTIAL");
+  const toReconnect = connections.filter((c) => c.status !== "CONNECTED");
+  const drafts = posts.filter((p) => p.status === "DRAFT");
+  const attentionItems: AttentionItem[] = [
+    ...(failedPosts.length > 0
+      ? [{ key: "failed", tone: "danger" as const, label: failedPosts.length === 1 ? "1 publication en échec" : `${failedPosts.length} publications en échec`, description: "Voir l'erreur par compte et réessayer.", href: "/publications?status=FAILED" }]
+      : []),
+    ...(toReconnect.length > 0
+      ? [{ key: "reconnect", tone: "warning" as const, label: toReconnect.length === 1 ? `Reconnecter ${toReconnect[0].displayName}` : `${toReconnect.length} comptes à reconnecter`, description: "Leur autorisation a expiré : rien ne partira sur ces comptes.", href: "/accounts" }]
+      : []),
+    ...(drafts.length > 0
+      ? [{ key: "drafts", tone: "neutral" as const, label: drafts.length === 1 ? "1 brouillon en attente" : `${drafts.length} brouillons en attente`, description: "Terminez-les ou supprimez-les.", href: "/publications?status=DRAFT" }]
+      : [])
+  ];
 
   // Widget "Momentum" — traînée de comète basée sur les vraies publications
   // envoyées (voir computeStreak, calculé sur `posts` déjà chargé ci-dessus).
@@ -189,37 +228,34 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-white">
-            Vue d&apos;ensemble {activeBrand ? `— ${activeBrand.name}` : ""}
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {cosmetics.has("message-accueil-perso")
-              ? greeting
-              : hasAnalytics
-                ? "Données réelles synchronisées depuis vos comptes connectés."
-                : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."}
-          </p>
-        </div>
-        <Link href="/composer">
-          <Button>
-            <IconPlus className="h-4 w-4" /> Nouveau post
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title={<>Vue d&apos;ensemble{activeBrand ? ` — ${activeBrand.name}` : ""}</>}
+        description={
+          cosmetics.has("message-accueil-perso")
+            ? greeting
+            : hasAnalytics
+              ? "Données réelles synchronisées depuis vos comptes connectés."
+              : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."
+        }
+        actions={
+          <ButtonLink href="/composer" className="inline-flex items-center gap-2">
+            <IconPlus className="h-4 w-4" /> Nouvelle publication
+          </ButtonLink>
+        }
+      />
 
       {/* Raccourcis d'action rapide : rédiger ou importer un média sans
-          naviguer jusqu'à l'onglet Importation — voir onQuickCreate. */}
+          naviguer jusqu'à la page Publier — voir onQuickCreate. */}
       {activeBrand && (
         <GlassCard className="border-white/[0.06] bg-white/[0.015]">
           <div className="flex flex-wrap items-center gap-2">
-            <input
+            <Input
+              aria-label="Rédiger une publication"
               value={quickText}
               onChange={(e) => setQuickText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onQuickCreate()}
-              placeholder="Rédiger un post en un clic..."
-              className="min-w-[220px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+              placeholder="Rédiger une publication en un clic…"
+              wrapperClassName="min-w-[220px] flex-1"
             />
             <Button variant="outline" onClick={() => router.push("/composer")}>
               <IconUpload className="h-4 w-4" /> Importer un média
@@ -231,42 +267,7 @@ export default function DashboardPage() {
         </GlassCard>
       )}
 
-      {!loading && connections.length === 0 && (
-        <GlassCard className="border-aurora-400/25 bg-nebula-700/[0.12]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-white">Pour démarrer, trois étapes rapides :</p>
-            <span className="text-xs font-medium text-aurora-300">Configuration à {onboardingPercent} %</span>
-          </div>
-          <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-nebula-500 to-aurora-400 transition-all duration-500"
-              style={{ width: `${onboardingPercent}%` }}
-            />
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Link
-              href="/accounts"
-              className="flex flex-1 items-center gap-2 rounded-xl border border-aurora-400/40 bg-aurora-400/[0.08] px-3.5 py-2.5 text-sm text-white transition hover:bg-aurora-400/[0.14]"
-            >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aurora-400/20 text-xs font-semibold text-aurora-200">1</span>
-              Connecter un réseau
-            </Link>
-            <span className="hidden text-slate-600 sm:inline">→</span>
-            <Link
-              href="/analytics"
-              className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm text-slate-300 transition hover:border-white/25 hover:text-white"
-            >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-slate-300">2</span>
-              Synchroniser
-            </Link>
-            <span className="hidden text-slate-600 sm:inline">→</span>
-            <span className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm text-slate-500">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-slate-400">3</span>
-              Voir vos stats ici
-            </span>
-          </div>
-        </GlassCard>
-      )}
+      {!loading && activeBrand && linkPagePublished !== null && <OnboardingChecklist brandId={activeBrand.id} steps={checklistSteps} />}
 
       <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <RevealItem>
@@ -297,15 +298,20 @@ export default function DashboardPage() {
         </RevealItem>
       </RevealGroup>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Reveal>
+          <AttentionWidget items={attentionItems} loading={loading} />
+        </Reveal>
+        <Reveal delay={0.03}>
           <MotionGlassCard className="border-aurora-400/20 bg-nebula-700/[0.08]">
             <div className="mb-2 flex items-center gap-2">
               <IconSparkle className="h-4 w-4 text-aurora-300" />
               <h2 className="font-display text-base font-medium text-white">Insights IA</h2>
             </div>
-            {!insights ? (
-              <p className="text-sm text-slate-500">Chargement...</p>
+            {insightsFailed ? (
+              <p className="text-sm text-slate-500">Indisponible pour le moment — réessayez en rechargeant la page.</p>
+            ) : !insights ? (
+              <SkeletonText lines={3} />
             ) : insights.hasEnoughData ? (
               <div className="flex flex-col gap-1.5 text-sm text-slate-300">
                 {insights.bestHour !== null && (
@@ -401,7 +407,7 @@ export default function DashboardPage() {
         <MotionGlassCard>
           <h2 className="mb-4 font-display text-base font-medium text-white">Comptes connectés</h2>
           {loading ? (
-            <p className="text-sm text-slate-500">Chargement...</p>
+            <SkeletonText lines={3} />
           ) : connections.length === 0 ? (
             <div className="space-y-3">
               <p className="text-sm text-slate-400">Aucun compte connecté pour l&apos;instant.</p>
@@ -449,10 +455,11 @@ export default function DashboardPage() {
             {upcoming.map((p) => {
               const scheduled = new Date(p.scheduledAt as string);
               const days = Math.round((scheduled.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              const time = scheduled.toLocaleTimeString("fr-FR", { timeZone: activeBrand?.timezone ?? DEFAULT_TIMEZONE, hour: "2-digit", minute: "2-digit" });
               return (
                 <Link key={p.id} href={`/posts/${p.id}`} className="glass-panel glass-panel-hover block rounded-xl p-4">
                   <p className="text-xs text-slate-500">
-                    {days <= 0 ? "Aujourd'hui" : `J+${days}`} · {scheduled.getHours()}h{String(scheduled.getMinutes()).padStart(2, "0")}
+                    {days <= 0 ? "Aujourd'hui" : `J+${days}`} · {time}
                   </p>
                   <p className="mt-1.5 line-clamp-2 text-sm font-medium text-white">{p.title || p.caption || "(sans titre)"}</p>
                   <div className="mt-3 flex gap-1.5">

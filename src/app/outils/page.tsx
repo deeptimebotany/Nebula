@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconSparkle, IconMessage, IconUpload } from "@/components/dashboard/icons";
 
@@ -8,7 +8,7 @@ import { IconSparkle, IconMessage, IconUpload } from "@/components/dashboard/ico
 // Nebula payant). Page publique, volontairement HORS du groupe (dashboard)
 // et absente de middleware.ts, pour rester accessible sans connexion.
 export const metadata = {
-  title: "Outils IA gratuits — Nebula",
+  title: "Outils IA gratuits",
   description:
     "Générateur de légendes et de miniatures pour vos réseaux sociaux, propulsé par l'IA. Gratuit, sans compte."
 };
@@ -30,21 +30,21 @@ const TOOLS = [
 
 export default function OutilsHubPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main id="contenu" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
       <div className="noise-grid grain-overlay pointer-events-none absolute inset-x-0 top-0 h-[600px]" />
 
-      <section className="relative z-10 mx-auto max-w-4xl px-6 pb-10 pt-20 text-center">
-        <div className="glow-border-spin mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-4 py-1.5 text-xs text-aurora-200">
+      <section className="relative z-10 mx-auto max-w-4xl px-6 pb-10 pt-16 text-center sm:pt-20">
+        <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-4 py-1.5 text-xs text-aurora-200">
           <IconSparkle className="h-3.5 w-3.5" />
-          100% gratuit, sans compte, sans carte bancaire
+          Gratuit, sans compte, sans carte bancaire
         </div>
         <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-5xl">
           Outils IA gratuits pour vos réseaux sociaux
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-sm text-slate-400 sm:text-base">
-          Les mêmes assistants IA que ceux de Nebula, en accès libre. Essayez-les tout de suite, aucune inscription
-          requise.
+          Les mêmes assistants IA que dans Nebula, en accès libre avec un petit quota quotidien par personne.
+          Essayez-les tout de suite, aucune inscription requise.
         </p>
       </section>
 
@@ -64,25 +64,18 @@ export default function OutilsHubPage() {
       </section>
 
       <section className="relative z-10 mx-auto max-w-2xl px-6 pb-24 text-center">
-        <GlassCard className="glow-border-spin p-8">
-          <h2 className="font-display text-xl font-semibold text-white">
-            Envie d&apos;aller plus loin ?
-          </h2>
+        <GlassCard hover={false} className="p-8">
+          <h2 className="font-display text-xl font-semibold text-white">Envie d&apos;aller plus loin ?</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-            Créez un compte Nebula gratuit pour planifier vos publications, connecter vos réseaux et générer des
-            légendes/miniatures sans limite quotidienne.
+            Créez un espace Nebula gratuit pour connecter vos réseaux, planifier vos publications et suivre vos
+            statistiques. L&apos;assistant IA intégré (titres, légendes, miniatures depuis vos vidéos) fait partie des
+            paliers Pro et Agence.
           </p>
-          <Link href="/register" className="mt-5 inline-block">
-            <Button className="px-6 py-3 text-base">Créer mon espace gratuitement</Button>
-          </Link>
+          <ButtonLink href="/register" className="mt-5 px-6 py-3 text-base">
+            Créer mon espace gratuitement
+          </ButtonLink>
         </GlassCard>
       </section>
-
-      <footer className="relative z-10 border-t border-white/[0.06] px-6 py-8 text-center text-xs text-slate-500">
-        <Link href="/" className="hover:text-slate-300 hover:underline">
-          ← Retour à l&apos;accueil Nebula
-        </Link>
-      </footer>
     </main>
   );
 }

@@ -116,11 +116,7 @@ export function BackgroundCarousel({
         )}
       >
         {BACKGROUNDS.map((bg) => {
-          const locked = bg.requiresPlan
-            ? !canUseBackground(bg, plan)
-            : bg.requiresEgg
-              ? !unlockedEggKeys.has(bg.requiresEgg)
-              : false;
+          const locked = bg.requiresPlan ? !canUseBackground(bg, plan) : bg.requiresEgg ? !unlockedEggKeys.has(bg.requiresEgg) : false;
           return (
             <button
               key={bg.key}
@@ -131,7 +127,7 @@ export function BackgroundCarousel({
                 selected === bg.key
                   ? "border-aurora-400 bg-white/[0.04]"
                   : locked
-                    ? "border-white/5 opacity-60 hover:opacity-90"
+                    ? "border-dashed border-white/10 hover:border-white/20"
                     : "border-white/10 hover:border-white/25"
               )}
             >
@@ -140,13 +136,9 @@ export function BackgroundCarousel({
                   <IconLock className="h-2.5 w-2.5" />
                 </span>
               )}
-              <span className="h-16 w-full rounded-lg shadow-inner" style={{ background: bg.css }} />
+              <span className={clsx("h-16 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: bg.css }} />
               <span className="line-clamp-1 text-[10px] text-slate-400">{bg.label}</span>
-              {locked && (
-                <span className="text-[9px] text-amber-400">
-                  {bg.requiresEgg ? "Easter egg" : `Palier ${bg.requiresPlan}`}
-                </span>
-              )}
+              {locked && <span className="text-[9px] text-amber-400">{bg.requiresEgg ? "Easter egg" : `Palier ${bg.requiresPlan}`}</span>}
             </button>
           );
         })}

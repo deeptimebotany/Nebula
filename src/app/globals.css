@@ -3,12 +3,11 @@
 @tailwind utilities;
 
 :root {
-  /* "Inter" / "Space Grotesk" restent en tête : dès que next/font/google (ou
-     des fichiers de police auto-hébergés) les injecte, ils prennent le relais
-     automatiquement sans aucun autre changement. En attendant, repli propre
-     sur les polices système. */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* Polices : --font-sans (Inter) et --font-display (Space Grotesk) sont
+     définies par next/font sur <html> (voir src/app/layout.tsx, polices
+     auto-hébergées dans src/fonts). Ne PAS les redéclarer ici : une
+     déclaration sur :root entrerait en concurrence avec celle de next/font.
+     Le repli système est géré par tailwind.config.ts (fontFamily). */
 
   /* Thème de couleurs par défaut ("Nébuleuse") — triplets "R G B" (sans
      virgule) pour la syntaxe rgb(var(...) / <alpha>) de Tailwind. Un thème
@@ -81,54 +80,156 @@ body {
    n'importe lequel des 14 thèmes de couleurs choisis dans Paramètres (voir
    themes.ts) : les couleurs d'accent (boutons dégradés, onglet actif...)
    restent celles du thème, seules les surfaces neutres changent. */
+/* Palette du mode clair : UN SEUL endroit (Lot 5). Les règles qui suivent ne
+   contiennent plus aucune couleur en dur — elles mappent chaque classe
+   neutre de Tailwind vers un de ces jetons. Pour ajuster le mode clair,
+   on modifie les valeurs ici, jamais les règles de correspondance. */
 [data-mode="light"] {
   color-scheme: light;
+
+  /* Fond de page et panneaux */
+  --l-page: #f0f2f5;
+  --l-panel: #ffffff;
+  --l-panel-border: #dadde1;
+  --l-panel-border-hover: #ccd0d5;
+  --l-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.12);
+  --l-panel-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 28px -12px rgba(0, 0, 0, 0.16);
+  --l-nav: rgba(255, 255, 255, 0.92);
+  --l-nav-soft: rgba(255, 255, 255, 0.75);
+
+  /* Texte, du plus fort au plus discret (contrastes vérifiés sur blanc) */
+  --l-text-1: #050505; /* text-white */
+  --l-text-2: #1c1e21; /* text-slate-100 */
+  --l-text-3: #333333; /* text-slate-200 */
+  --l-text-4: #444950; /* text-slate-300 */
+  --l-text-5: #65676b; /* text-slate-400 — 5,7:1 */
+  --l-text-6: #63676d; /* text-slate-500 — 5,7:1 sur blanc, 4,9:1 sur surface-4 */
+  --l-text-7: #7d8187; /* text-slate-600 — 4,0:1 */
+  --l-text-8: #bcc0c4; /* text-slate-700 (décoratif) */
+  --l-placeholder: #8a8d91;
+
+  /* Bordures et surfaces « verre » (bg-white/x), du plus léger au plus marqué */
+  --l-border: #dadde1;
+  --l-border-hover: #ccd0d5;
+  --l-surface-1: #f7f8fa;
+  --l-surface-2: #f5f6f7;
+  --l-surface-3: #f2f3f5;
+  --l-surface-4: #eef0f2;
+  --l-surface-5: #eaecef;
+  --l-surface-6: #e6e8eb;
+  --l-surface-7: #e4e6eb;
+  --l-surface-8: #dfe1e5;
+  --l-surface-9: #dadde1;
+  --l-surface-10: #ccd0d5;
+
+  --l-selection: rgba(24, 119, 242, 0.25);
+  --l-scrollbar: rgba(5, 5, 5, 0.14);
+  --l-scrollbar-hover: rgba(5, 5, 5, 0.24);
+
+  /* Couleurs sémantiques : les teintes 200–400 de Tailwind sont pensées pour
+     un fond sombre (elles sont claires) ; sur blanc on descend en 700, où le
+     contraste dépasse 4,5:1. L'accent suit le thème actif (nebula-700). */
+  --l-success: #047857; /* emerald-700 — 5,5:1 sur blanc */
+  --l-warning: #b45309; /* amber-700 — 5,0:1 */
+  --l-danger: #b91c1c; /* red-700 — 6,1:1 */
+  --l-accent: rgb(var(--c-nebula-700));
 }
 
 [data-mode="light"] body {
-  background-color: #f0f2f5;
+  background-color: var(--l-page);
   background-image: none;
-  color: #050505;
+  color: var(--l-text-1);
 }
 
 [data-mode="light"] ::selection {
-  background: rgba(24, 119, 242, 0.25);
-  color: #050505;
+  background: var(--l-selection);
+  color: var(--l-text-1);
 }
 
 /* Le halo décoratif (fonds d'écran de Paramètres, voir backgrounds.ts) est
-   pensé pour un fond sombre : sur blanc plein façon Meta, on le retire
-   plutôt que de le rendre à peine visible. */
+   pensé pour un fond sombre : sur blanc plein, on le retire plutôt que de le
+   rendre à peine visible. */
 [data-mode="light"] .noise-grid::before {
   display: none;
 }
 
-/* --- Cartes / panneaux / modales — le cœur de la référence fournie --- */
+/* --- Cartes / panneaux / modales --- */
 [data-mode="light"] .glass-panel,
 [data-mode="light"] .glass-panel-solid {
-  background: #ffffff;
-  border-color: #dadde1;
+  background: var(--l-panel);
+  border-color: var(--l-panel-border);
   backdrop-filter: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--l-panel-shadow);
 }
 [data-mode="light"] .glass-panel-hover:hover {
-  border-color: #ccd0d5;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 28px -12px rgba(0, 0, 0, 0.16);
+  border-color: var(--l-panel-border-hover);
+  box-shadow: var(--l-panel-shadow-hover);
 }
 
-/* --- Texte : même hiérarchie qu'en sombre, valeurs réelles en clair --- */
-[data-mode="light"] .text-white { color: #050505; }
-[data-mode="light"] .text-slate-100 { color: #1c1e21; }
-[data-mode="light"] .text-slate-200 { color: #333333; }
+/* --- Texte : même hiérarchie qu'en sombre --- */
+[data-mode="light"] .text-white { color: var(--l-text-1); }
+[data-mode="light"] .text-slate-100 { color: var(--l-text-2); }
+[data-mode="light"] .text-slate-200 { color: var(--l-text-3); }
 [data-mode="light"] .text-slate-300,
-[data-mode="light"] .hover\:text-slate-300:hover { color: #444950; }
-[data-mode="light"] .text-slate-400 { color: #65676b; }
-[data-mode="light"] .text-slate-500 { color: #8a8d91; }
-[data-mode="light"] .text-slate-600 { color: #a8abaf; }
-[data-mode="light"] .text-slate-700 { color: #bcc0c4; }
-[data-mode="light"] .hover\:text-white:hover { color: #050505; }
+[data-mode="light"] .hover\:text-slate-300:hover,
+[data-mode="light"] .group:hover .group-hover\:text-slate-300 { color: var(--l-text-4); }
+[data-mode="light"] .text-slate-400 { color: var(--l-text-5); }
+[data-mode="light"] .text-slate-500 { color: var(--l-text-6); }
+[data-mode="light"] .text-slate-600 { color: var(--l-text-7); }
+[data-mode="light"] .text-slate-700 { color: var(--l-text-8); }
+[data-mode="light"] .hover\:text-white:hover { color: var(--l-text-1); }
 
-/* --- Bordures : gris Meta (#dadde1) pour toutes les variantes "border-white/x" --- */
+/* --- Couleurs sémantiques et accent (voir les jetons --l-success & co) --- */
+[data-mode="light"] .text-emerald-200,
+[data-mode="light"] .text-emerald-300,
+[data-mode="light"] .text-emerald-400 { color: var(--l-success); }
+[data-mode="light"] .text-amber-200,
+[data-mode="light"] .text-amber-300,
+[data-mode="light"] .text-amber-400,
+[data-mode="light"] .text-orange-300 { color: var(--l-warning); }
+[data-mode="light"] .text-red-200,
+[data-mode="light"] .text-red-300,
+[data-mode="light"] .text-red-400 { color: var(--l-danger); }
+[data-mode="light"] .text-aurora-200,
+[data-mode="light"] .text-aurora-300,
+[data-mode="light"] .text-aurora-400,
+[data-mode="light"] .text-nebula-100,
+[data-mode="light"] .text-nebula-200,
+[data-mode="light"] .text-nebula-300,
+[data-mode="light"] .hover\:text-aurora-300:hover,
+[data-mode="light"] .hover\:text-aurora-200:hover { color: var(--l-accent); }
+/* Liens dans du texte courant : l'accent seul ne suffit plus à les
+   distinguer du texte voisin sur fond clair → soulignés en permanence. */
+[data-mode="light"] .text-aurora-300.hover\:underline,
+[data-mode="light"] .text-aurora-200.hover\:underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgb(var(--c-nebula-700) / 0.45);
+}
+/* Texte blanc sur fond plein ou dégradé (boutons principaux, pastilles,
+   badges « aujourd'hui ») : reste blanc, le fond n'a pas changé. */
+[data-mode="light"] .btn-glow,
+[data-mode="light"] .btn-glow.text-white,
+[data-mode="light"] .text-white.bg-nebula-500,
+[data-mode="light"] .text-white.bg-nebula-600,
+[data-mode="light"] .text-white.bg-black\/40,
+[data-mode="light"] .text-white.bg-black\/70,
+[data-mode="light"] .text-white.from-nebula-500,
+[data-mode="light"] .text-white.from-nebula-600,
+[data-mode="light"] .text-white.from-accent-magenta { color: #ffffff; }
+/* Couleur de marque d'un réseau en texte (voir networkInkStyle) : teinte
+   officielle en sombre, version assombrie (--nb-ink) sur fond clair. */
+[data-mode="light"] .network-ink { color: var(--nb-ink); }
+/* Fonds bleutés translucides (option retenue, ligne de la vue Liste) :
+   30 % de nebula-700 sur blanc donne un bleu moyen qui écrase le texte. */
+[data-mode="light"] .bg-nebula-700\/30,
+[data-mode="light"] .bg-nebula-600\/30 { background-color: rgb(var(--c-nebula-700) / 0.08); }
+[data-mode="light"] .bg-nebula-700\/40,
+[data-mode="light"] .bg-nebula-600\/40 { background-color: rgb(var(--c-nebula-700) / 0.1); }
+[data-mode="light"] .hover\:bg-nebula-700\/60:hover,
+[data-mode="light"] .hover\:bg-nebula-700\/70:hover { background-color: rgb(var(--c-nebula-700) / 0.11); }
+
+/* --- Bordures : toutes les variantes « border-white/x » --- */
 [data-mode="light"] .border-white,
 [data-mode="light"] .border-white\/5,
 [data-mode="light"] .border-white\/10,
@@ -139,58 +240,67 @@ body {
 [data-mode="light"] .border-white\/\[0\.02\],
 [data-mode="light"] .border-white\/\[0\.03\],
 [data-mode="light"] .border-white\/\[0\.04\],
-[data-mode="light"] .border-white\/\[0\.06\] { border-color: #dadde1; }
+[data-mode="light"] .border-white\/\[0\.06\],
+[data-mode="light"] .border-white\/\[0\.08\] { border-color: var(--l-border); }
 [data-mode="light"] .hover\:border-white\/20:hover,
 [data-mode="light"] .hover\:border-white\/25:hover,
-[data-mode="light"] .hover\:border-white\/30:hover { border-color: #ccd0d5; }
-[data-mode="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) { border-color: #dadde1; }
+[data-mode="light"] .hover\:border-white\/30:hover { border-color: var(--l-border-hover); }
+[data-mode="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]),
+[data-mode="light"] .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) { border-color: var(--l-border); }
 
-/* --- Fonds "verre" (bg-white/x) → gris très clair Meta --- */
-[data-mode="light"] .bg-white\/\[0\.015\] { background-color: #f7f8fa; }
-[data-mode="light"] .bg-white\/\[0\.02\] { background-color: #f5f6f7; }
-[data-mode="light"] .bg-white\/\[0\.03\] { background-color: #f2f3f5; }
-[data-mode="light"] .bg-white\/\[0\.04\] { background-color: #eef0f2; }
-[data-mode="light"] .bg-white\/\[0\.05\] { background-color: #eaecef; }
-[data-mode="light"] .bg-white\/\[0\.06\] { background-color: #e6e8eb; }
-[data-mode="light"] .bg-white\/5 { background-color: #f2f3f5; }
-[data-mode="light"] .bg-white\/10 { background-color: #eef0f2; }
-[data-mode="light"] .bg-white\/15 { background-color: #e9ebee; }
-[data-mode="light"] .bg-white\/20 { background-color: #e4e6eb; }
-[data-mode="light"] .bg-white\/25 { background-color: #dfe1e5; }
-[data-mode="light"] .bg-white\/30 { background-color: #dadde1; }
-[data-mode="light"] .bg-white\/40 { background-color: #ccd0d5; }
-[data-mode="light"] .bg-white { background-color: #ffffff; }
-[data-mode="light"] .bg-slate-300\/15 { background-color: #e4e6eb; }
+/* --- Fonds « verre » (bg-white/x) → gris très clairs --- */
+[data-mode="light"] .bg-white\/\[0\.015\] { background-color: var(--l-surface-1); }
+[data-mode="light"] .bg-white\/\[0\.02\] { background-color: var(--l-surface-2); }
+[data-mode="light"] .bg-white\/\[0\.03\],
+[data-mode="light"] .bg-white\/5 { background-color: var(--l-surface-3); }
+[data-mode="light"] .bg-white\/\[0\.04\],
+[data-mode="light"] .bg-white\/10 { background-color: var(--l-surface-4); }
+[data-mode="light"] .bg-white\/\[0\.05\] { background-color: var(--l-surface-5); }
+[data-mode="light"] .bg-white\/\[0\.06\],
+[data-mode="light"] .bg-white\/\[0\.08\] { background-color: var(--l-surface-6); }
+[data-mode="light"] .bg-white\/15 { background-color: var(--l-surface-7); }
+[data-mode="light"] .bg-white\/20,
+[data-mode="light"] .bg-slate-300\/15 { background-color: var(--l-surface-7); }
+[data-mode="light"] .bg-white\/25 { background-color: var(--l-surface-8); }
+[data-mode="light"] .bg-white\/30 { background-color: var(--l-surface-9); }
+[data-mode="light"] .bg-white\/40 { background-color: var(--l-surface-10); }
+[data-mode="light"] .bg-white { background-color: var(--l-panel); }
 [data-mode="light"] .hover\:bg-white\/5:hover,
 [data-mode="light"] .hover\:bg-white\/10:hover,
+[data-mode="light"] .hover\:bg-white\/15:hover,
 [data-mode="light"] .hover\:bg-white\/30:hover,
-[data-mode="light"] .hover\:bg-white\/\[0\.06\]:hover { background-color: #eef0f2; }
-[data-mode="light"] .group:hover .group-hover\:bg-white\/40 { background-color: #ccd0d5; }
+[data-mode="light"] .hover\:bg-white\/\[0\.05\]:hover,
+[data-mode="light"] .hover\:bg-white\/\[0\.06\]:hover { background-color: var(--l-surface-4); }
+[data-mode="light"] .group:hover .group-hover\:bg-white\/40 { background-color: var(--l-surface-10); }
 
-/* --- Barre de nav / menus déroulants (fond "void" quasi noir → blanc) --- */
-[data-mode="light"] .bg-void-950\/90 { background-color: rgba(255, 255, 255, 0.92); }
-[data-mode="light"] .bg-void-950\/60 { background-color: rgba(255, 255, 255, 0.75); }
-[data-mode="light"] .bg-void-900 { background-color: #ffffff; }
-[data-mode="light"] .bg-void-900\/60 { background-color: rgba(255, 255, 255, 0.75); }
-[data-mode="light"] .ring-void-950 { --tw-ring-color: #ffffff; }
+/* --- Barre de nav / menus / fonds « void » (quasi noir → blanc) --- */
+[data-mode="light"] .bg-void-950,
+[data-mode="light"] .bg-void-900,
+[data-mode="light"] .bg-void-900\/95 { background-color: var(--l-panel); }
+[data-mode="light"] .bg-void-950\/90,
+[data-mode="light"] .bg-void-950\/85,
+[data-mode="light"] .bg-void-950\/92 { background-color: var(--l-nav); }
+[data-mode="light"] .bg-void-950\/60,
+[data-mode="light"] .bg-void-900\/60 { background-color: var(--l-nav-soft); }
+[data-mode="light"] .ring-void-950 { --tw-ring-color: var(--l-panel); }
 
-/* --- Champs de saisie : fond blanc, texte sombre, placeholder gris --- */
+/* --- Champs de saisie --- */
 [data-mode="light"] input,
 [data-mode="light"] textarea,
 [data-mode="light"] select {
-  color: #050505;
+  color: var(--l-text-1);
 }
 [data-mode="light"] input::placeholder,
 [data-mode="light"] textarea::placeholder {
-  color: #8a8d91;
+  color: var(--l-placeholder);
 }
 
-/* --- Barre de défilement claire --- */
+/* --- Barre de défilement --- */
 [data-mode="light"] ::-webkit-scrollbar-thumb {
-  background: rgba(5, 5, 5, 0.14);
+  background: var(--l-scrollbar);
 }
 [data-mode="light"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(5, 5, 5, 0.24);
+  background: var(--l-scrollbar-hover);
 }
 
 /* Halo discret qui respire autour de la case "aujourd'hui" du calendrier —
@@ -535,10 +645,13 @@ body {
     animation: auroraDrift 10s ease-in-out infinite;
   }
 
-  /* Bordure luminescente tournante — un halo conique qui tourne lentement
-     derrière la carte, révélé uniquement au survol (voir Hero + cartes clés
-     du dashboard). Le ::before porte le dégradé, le ::after masque tout sauf
-     un fin trait en périphérie pour un effet de "trait de néon". */
+  /* Bordure luminescente tournante — un fin trait conique qui tourne
+     lentement autour de la carte, révélé au survol (cartes clés du
+     dashboard). Le ::before porte le dégradé ; un masque "padding-box XOR
+     border-box" ne laisse visible qu'un trait de 1 px en périphérie, quel
+     que soit le fond de la carte (l'ancienne version affichait un aplat
+     conique entier derrière le verre translucide). L'animation ne tourne
+     qu'au survol : rien ne consomme de calcul quand elle est invisible. */
   .glow-border-spin {
     position: relative;
     isolation: isolate;
@@ -549,6 +662,7 @@ body {
     inset: -1px;
     z-index: -1;
     border-radius: inherit;
+    padding: 1px;
     background: conic-gradient(
       from 0deg,
       rgb(var(--c-aurora-400) / 0.9),
@@ -556,12 +670,74 @@ body {
       rgb(var(--c-accent-violet) / 0.7),
       rgb(var(--c-aurora-400) / 0.9)
     );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
     opacity: 0;
     transition: opacity 0.4s ease;
-    animation: borderSpin 5s linear infinite;
   }
   .glow-border-spin:hover::before {
     opacity: 0.9;
+    animation: borderSpin 5s linear infinite;
+  }
+
+  /* --- Page d'accueil (vitrine) ------------------------------------------ */
+  /* Entrée du hero en CSS pur (pas de Framer Motion au-dessus de la ligne de
+     flottaison) : le HTML rendu côté serveur est visible immédiatement, même
+     avant l'hydratation, puis glisse doucement en place. */
+  .hero-enter {
+    animation: heroEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .hero-enter-1 { animation-delay: 0.05s; }
+  .hero-enter-2 { animation-delay: 0.15s; }
+  .hero-enter-3 { animation-delay: 0.25s; }
+  .hero-enter-4 { animation-delay: 0.4s; }
+  @keyframes heroEnter {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Ciel étoilé statique de la vitrine : trois couches de points de tailles
+     différentes en dégradés radiaux répétés (aucune image, aucun canvas,
+     aucun JavaScript), très discret, pour rappeler le thème étoilé de
+     l'application sans en payer le coût. */
+  .hero-stars {
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.55), transparent 100%),
+      radial-gradient(1px 1px at 70% 20%, rgba(255, 255, 255, 0.4), transparent 100%),
+      radial-gradient(1.5px 1.5px at 40% 70%, rgba(255, 255, 255, 0.45), transparent 100%),
+      radial-gradient(1px 1px at 85% 60%, rgba(255, 255, 255, 0.35), transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255, 255, 255, 0.3), transparent 100%),
+      radial-gradient(1.5px 1.5px at 55% 45%, rgba(180, 200, 250, 0.5), transparent 100%),
+      radial-gradient(1px 1px at 92% 12%, rgba(255, 255, 255, 0.4), transparent 100%),
+      radial-gradient(1px 1px at 30% 55%, rgba(255, 255, 255, 0.25), transparent 100%);
+    background-size: 900px 700px, 700px 500px, 1100px 800px, 800px 600px, 600px 900px, 1000px 750px, 750px 550px, 650px 650px;
+  }
+
+  /* Halos de nébuleuse du hero : deux orbes floutés, dérive lente en CSS
+     (remplace l'ancien parallax souris, qui ne fonctionnait pas : posé sur
+     un élément pointer-events:none, il ne recevait jamais d'événement). */
+  .hero-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(70px);
+    pointer-events: none;
+    animation: heroOrbDrift 18s ease-in-out infinite;
+  }
+  .hero-orb-b {
+    animation-duration: 24s;
+    animation-direction: reverse;
+  }
+  @keyframes heroOrbDrift {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(24px, -18px, 0) scale(1.06); }
   }
 
   /* Vignette cockpit : assombrit les bords de l'écran façon verrière de
@@ -594,5 +770,112 @@ body {
     opacity: 0.035;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+}
+
+/* ==========================================================================
+   Accessibilité globale (hors @layer : passe après les utilitaires Tailwind,
+   donc gagne sur `outline-none` à spécificité égale).
+   ========================================================================== */
+
+/* Indicateur de focus CLAVIER visible partout (boutons, liens, onglets,
+   interrupteurs...) : anneau aurora à 2 px, jamais affiché au clic souris
+   (:focus-visible). Les champs de saisie sont exclus : ils signalent déjà le
+   focus par leur bordure (voir components/ui/input.tsx), un second anneau
+   ferait doublon. */
+:focus-visible:not(input):not(textarea):not(select) {
+  outline: 2px solid rgb(var(--c-aurora-400));
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Lien "Aller au contenu" (voir (dashboard)/layout.tsx) : invisible tant
+   qu'il n'a pas le focus clavier. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  border-radius: 0.75rem;
+  background: rgb(var(--c-nebula-700));
+  color: #fff;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  transition: top 0.15s ease;
+}
+.skip-link:focus-visible {
+  top: 1rem;
+}
+
+/* Mouvement réduit demandé par le système : on coupe TOUTES les animations
+   et transitions décoratives d'un coup (logo animé, halos, comète, thème
+   étoilé, squelettes, fonds animés...), sans avoir à le prévoir composant
+   par composant. Les animations SMIL du logo SVG sont neutralisées via
+   l'attribut prefers-reduced-motion géré par le navigateur pour les
+   <animate*>, complété ici pour tout ce qui est CSS. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Easter egg « avatar-double-tap » (voir brand-switcher.tsx) : petit cœur
+   qui monte et s'efface. Était dans un <style jsx> de l'ancienne barre du
+   haut. */
+@keyframes nebula-avatar-heart {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.15);
+  }
+  100% {
+    transform: translateY(-22px) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Pseudo « doré » des membres premium (voir premium-name.tsx, spark-burst.tsx) :
+   dégradé or animé sur le texte. Classe utilisée depuis longtemps mais
+   jamais définie (Lot 5) — le texte s'affichait donc en blanc ordinaire. */
+/* Comète « Momentum » (momentum-comet.tsx) : tête blanche lumineuse en sombre,
+   couleur du thème sur fond clair (le blanc y serait invisible). */
+.momentum-head {
+  background: #ffffff;
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.7);
+}
+[data-mode="light"] .momentum-head {
+  background: rgb(var(--c-nebula-500));
+  box-shadow: 0 0 10px 2px rgb(var(--c-nebula-500) / 0.45);
+}
+[data-mode="light"] .momentum-trail {
+  --tw-gradient-to: rgb(var(--c-nebula-500)) var(--tw-gradient-to-position);
+}
+
+/* Texte à la couleur d'un réseau social (voir networkInkStyle dans
+   network-badge.tsx) ; la variante mode clair est dans le bloc [data-mode="light"]. */
+.network-ink { color: var(--nb); }
+
+.text-gold-shimmer {
+  background: linear-gradient(90deg, #d8a93a 0%, #f7e394 25%, #c9922c 50%, #f7e394 75%, #d8a93a 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: goldShimmer 3.5s linear infinite;
+}
+[data-mode="light"] .text-gold-shimmer {
+  background-image: linear-gradient(90deg, #9a6d12 0%, #d4a83a 25%, #8a5f0f 50%, #d4a83a 75%, #9a6d12 100%);
+}
+@keyframes goldShimmer {
+  to {
+    background-position: 200% center;
   }
 }

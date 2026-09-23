@@ -6,6 +6,7 @@
 // publique /approve/[token] et l'API /api/public/approvals/[token]).
 
 import { useEffect, useState } from "react";
+import { SkeletonText } from "@/components/ui/skeleton";
 import { useToast } from "@/components/dashboard/toast";
 import { Button } from "@/components/ui/button";
 import { IconClose, IconLink } from "@/components/dashboard/icons";
@@ -108,7 +109,7 @@ export function ApprovalLinkModal({ brandId, onClose }: { brandId: string; onClo
         </div>
 
         {!links ? (
-          <p className="text-sm text-slate-500">Chargement...</p>
+          <SkeletonText lines={3} />
         ) : links.length === 0 ? (
           <p className="text-sm text-slate-500">Aucun lien actif pour l&apos;instant.</p>
         ) : (

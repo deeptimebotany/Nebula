@@ -4,13 +4,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode, REFERRAL_TRIAL_DAYS } from "@/lib/referral";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
+// Messages d'erreur lisibles : renvoyés tels quels au formulaire (avant, un
+// objet zod brut arrivait au navigateur et devenait « Impossible de créer le
+// compte »). Le nom de la marque est facultatif : à défaut, l'espace prend
+// le nom de la personne — on ne bloque pas une inscription pour ça.
 const schema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
-  brandName: z.string().min(2),
-  referralCode: z.string().trim().toUpperCase().optional(),
+  name: z.string().trim().min(2, "Indiquez votre nom (2 caractères minimum).").max(80, "Nom trop long."),
+  email: z.string().trim().email("Adresse email invalide."),
+  password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères.").max(200),
+  brandName: z.string().trim().max(80, "Nom de marque trop long.").optional(),
+  referralCode: z.string().trim().toUpperCase().max(20).optional(),
+  // Consentement explicite aux conditions et à la politique de
+  // confidentialité (RGPD) — vérifié aussi côté serveur.
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Vous devez accepter les conditions d'utilisation pour créer un compte." }) }),
   turnstileToken: z.string().optional()
 });
 
@@ -26,11 +34,20 @@ function slugify(input: string) {
 }
 
 export async function POST(req: Request) {
-  const body = schema.safeParse(await req.json());
-  if (!body.success) {
-    return NextResponse.json({ error: body.error.flatten() }, { status: 400 });
+  // Anti-abus : au plus 10 créations de compte par IP et par heure (un
+  // script qui enchaîne les inscriptions est bloqué, une famille ou un
+  // bureau derrière la même IP ne l'est pas).
+  const rate = await consumeRateLimit("register", clientIpFromHeaders(req.headers), 10, 60);
+  if (!rate.ok) {
+    return NextResponse.json({ error: RATE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
   }
-  const { name, email, password, brandName, referralCode, turnstileToken } = body.data;
+
+  const body = schema.safeParse(await req.json().catch(() => null));
+  if (!body.success) {
+    return NextResponse.json({ error: body.error.issues[0]?.message ?? "Formulaire incomplet." }, { status: 400 });
+  }
+  const { name, email, password, referralCode, turnstileToken } = body.data;
+  const brandName = body.data.brandName?.trim() || name;
 
   const humanVerified = await verifyTurnstileToken(turnstileToken);
   if (!humanVerified) {
@@ -46,7 +63,7 @@ export async function POST(req: Request) {
   // NOUVEAU compte reçoit l'accès IA gratuitement pendant REFERRAL_TRIAL_DAYS
   // jours, même sur le palier Gratuit (voir src/lib/billing/plan.ts).
   let referrer: { id: string } | null = null;
-  if (referralCode) {
+  if (referralCode && referralCode.length > 0) {
     referrer = await prisma.user.findUnique({ where: { referralCode }, select: { id: true } });
     if (!referrer) {
       return NextResponse.json({ error: "Code de parrainage invalide." }, { status: 400 });

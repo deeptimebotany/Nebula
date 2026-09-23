@@ -57,7 +57,7 @@ export function AiAssistant() {
   return (
     <>
       {open && (
-        <div className="glass-panel fixed bottom-24 right-6 z-40 flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl">
+        <div className="glass-panel fixed bottom-[8.5rem] right-4 z-40 flex h-[min(520px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl lg:bottom-24 lg:right-6">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
             <div className="flex items-center gap-2">
               <NebulaIcon size={22} />
@@ -110,7 +110,7 @@ export function AiAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="nebula-chat-launcher fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white"
+        className="nebula-chat-launcher fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white lg:bottom-6 lg:right-6"
         aria-label="Ouvrir l'assistant IA"
       >
         {open ? <IconClose className="h-5 w-5" /> : <NebulaIcon size={30} />}

@@ -97,7 +97,7 @@ export function ReactionBar({ threadId, replyId, reactions: initial, myUserId }:
             title={isExclusive ? def?.label ?? "Réaction exclusive" : undefined}
           >
             {isExclusive ? (
-              def ? <img src={def.imageUrl} alt={def.label} className="h-3.5 w-3.5" /> : "✨"
+              def ? <img loading="lazy" decoding="async" src={def.imageUrl} alt={def.label} className="h-3.5 w-3.5" /> : "✨"
             ) : (
               <span>{emoji}</span>
             )}
@@ -135,7 +135,7 @@ export function ReactionBar({ threadId, replyId, reactions: initial, myUserId }:
                   ))}
                 </div>
 
-                <p className="mb-1.5 mt-3 flex items-center gap-1 text-[11px] uppercase tracking-wide text-amber-300/80">
+                <p className="mb-1.5 mt-3 flex items-center gap-1 text-[11px] uppercase tracking-wide text-amber-300">
                   Exclusif Premium ✨
                 </p>
                 {pack.length === 0 ? (
@@ -154,7 +154,7 @@ export function ReactionBar({ threadId, replyId, reactions: initial, myUserId }:
                             : "cursor-not-allowed border-white/10 bg-white/[0.02] opacity-40"
                         )}
                       >
-                        <img src={p.imageUrl} alt={p.label} className="h-5 w-5" />
+                        <img loading="lazy" decoding="async" src={p.imageUrl} alt={p.label} className="h-5 w-5" />
                       </button>
                     ))}
                   </div>

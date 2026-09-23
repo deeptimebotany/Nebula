@@ -4,8 +4,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/glass-card";
-import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
+import { PasswordInput } from "@/components/ui/password-input";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 // useSearchParams() (pour lire ?token=...) impose un <Suspense> autour du
 // composant qui l'appelle, sinon Next.js refuse de pré-générer la page au
@@ -26,13 +26,19 @@ function ResetPasswordFormInner() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setConfirmError(null);
+    if (password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
     if (password !== confirm) {
-      setError("Les deux mots de passe ne correspondent pas.");
+      setConfirmError("Les deux mots de passe ne correspondent pas.");
       return;
     }
     setLoading(true);
@@ -40,11 +46,15 @@ function ResetPasswordFormInner() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, password })
-    });
-    const data = await res.json().catch(() => ({}));
+    }).catch(() => null);
     setLoading(false);
+    if (!res) {
+      setError("Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.");
+      return;
+    }
     if (!res.ok) {
-      setError(data.error ?? "Une erreur est survenue.");
+      const data = await res.json().catch(() => ({}));
+      setError(typeof data.error === "string" ? data.error : "Une erreur est survenue. Réessayez dans un instant.");
       return;
     }
     setDone(true);
@@ -52,63 +62,58 @@ function ResetPasswordFormInner() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <div className="pointer-events-none absolute inset-0 bg-nebula-mesh opacity-70" />
-      <GlassCard className="relative z-10 w-full max-w-sm p-8" hover={false}>
-        <NebulaBrandMark className="mb-5" iconSize={52} wordHeight={48} />
-        <h1 className="font-display text-2xl font-semibold text-white">Nouveau mot de passe</h1>
-
-        {!token ? (
-          <p className="mt-4 text-sm text-red-400">
-            Lien invalide — redemandez un email depuis{" "}
+    <AuthShell title="Nouveau mot de passe" subtitle={token ? "Choisissez un mot de passe que vous n'utilisez nulle part ailleurs." : undefined}>
+      {!token ? (
+        <div className="mt-6 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
+          <p className="font-medium">Ce lien est incomplet ou a expiré.</p>
+          <p className="mt-1 text-red-200/80">
+            Redemandez un email depuis{" "}
             <Link href="/forgot-password" className="text-aurora-300 hover:underline">
-              cette page
+              la page « Mot de passe oublié »
             </Link>
             .
           </p>
-        ) : done ? (
-          <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4 text-sm text-emerald-200">
-            Mot de passe mis à jour — redirection vers la connexion...
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-400">Nouveau mot de passe</label>
-              <input
-                type="password"
-                name="new-password"
-                id="reset-new-password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-                placeholder="8 caractères min."
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-400">Confirmez-le</label>
-              <input
-                type="password"
-                name="confirm-password"
-                id="reset-confirm-password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-                placeholder="8 caractères min."
-              />
-            </div>
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Mise à jour..." : "Valider le nouveau mot de passe"}
-            </Button>
-          </form>
-        )}
-      </GlassCard>
-    </div>
+        </div>
+      ) : done ? (
+        <div role="status" className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4 text-sm text-emerald-200">
+          Mot de passe mis à jour. Redirection vers la connexion…
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+          <PasswordInput
+            label="Nouveau mot de passe"
+            name="new-password"
+            id="reset-new-password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            showStrength
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="8 caractères minimum"
+          />
+          <PasswordInput
+            label="Confirmez-le"
+            name="confirm-password"
+            id="reset-confirm-password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            error={confirmError ?? undefined}
+            placeholder="Le même mot de passe"
+          />
+          {error && (
+            <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={loading || !password || !confirm} className="w-full">
+            {loading ? "Mise à jour..." : "Valider le nouveau mot de passe"}
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

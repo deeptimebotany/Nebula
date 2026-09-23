@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { Skeleton } from "@/components/ui/skeleton";
 import { signIn } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
 import { IconAvatar, IconChevron, IconPlus, IconClose } from "./icons";
@@ -103,7 +105,7 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
         )}
       >
         {active?.image ? (
-          <img src={active.image} alt="" className="h-7 w-7 rounded-full object-cover" />
+          <RemoteImage src={active.image} className="h-7 w-7 rounded-full" sizes="28px" />
         ) : (
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06] text-slate-300">
             <IconAvatar className="h-4 w-4" />
@@ -121,7 +123,10 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
             Comptes connectés sur cet appareil
           </p>
           {accounts.length === 0 && (
-            <p className="px-2.5 py-2 text-sm text-slate-500">Chargement...</p>
+            <div className="space-y-2 px-2.5 py-2" aria-busy="true">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
           )}
           {accounts.map((a) => (
             <div
@@ -134,7 +139,7 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
               )}
             >
               {a.image ? (
-                <img src={a.image} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                <RemoteImage src={a.image} className="h-7 w-7 shrink-0 rounded-full" sizes="28px" />
               ) : (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
                   <IconAvatar className="h-4 w-4" />
@@ -152,7 +157,7 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
                 <button
                   onClick={(e) => unlink(e, a.uid)}
                   title="Retirer de cet appareil"
-                  className="shrink-0 rounded-full p-1 text-slate-600 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
+                  className="shrink-0 rounded-full p-1 text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
                 >
                   <IconClose className="h-3 w-3" />
                 </button>

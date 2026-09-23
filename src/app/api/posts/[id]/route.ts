@@ -3,19 +3,38 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishPost } from "@/lib/publish";
+import { ownedBy, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
+
+// Toutes les actions ci-dessous commencent par retrouver le post PARMI LES
+// MARQUES DE L'UTILISATEUR (`brand: ownedBy(userId)`) : un identifiant de
+// post appartenant à une autre marque renvoie 404, exactement comme un
+// identifiant inexistant. Sans ce filtre, n'importe quel compte pouvait lire,
+// modifier, supprimer ou PUBLIER le post d'un autre client.
+async function findOwnPost(userId: string, postId: string) {
+  return prisma.post.findFirst({ where: { id: postId, brand: ownedBy(userId) }, select: { id: true, brandId: true, status: true } });
+}
+
+const notFound = () => NextResponse.json({ error: "Post introuvable" }, { status: 404 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
 
-  const post = await prisma.post.findUnique({
-    where: { id: params.id },
+  const post = await prisma.post.findFirst({
+    where: { id: params.id, brand: ownedBy(userId) },
     include: {
       media: { include: { mediaAsset: true }, orderBy: { order: "asc" } },
-      targets: { include: { connection: true, insights: { orderBy: { createdAt: "desc" }, take: 1 } } }
+      targets: {
+        include: {
+          // Jamais la connexion complète : elle contient les jetons OAuth.
+          connection: { select: PUBLIC_CONNECTION_SELECT },
+          insights: { orderBy: { createdAt: "desc" }, take: 1 }
+        }
+      }
     }
   });
-  if (!post) return NextResponse.json({ error: "Post introuvable" }, { status: 404 });
+  if (!post) return notFound();
   return NextResponse.json({ post });
 }
 
@@ -23,17 +42,21 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+
+  const own = await findOwnPost(userId, params.id);
+  if (!own) return notFound();
 
   const { action } = await req.json();
 
   if (action === "cancel") {
-    await prisma.post.update({ where: { id: params.id }, data: { status: "DRAFT", scheduledAt: null } });
+    await prisma.post.update({ where: { id: own.id }, data: { status: "DRAFT", scheduledAt: null } });
     return NextResponse.json({ ok: true });
   }
 
   if (action === "publish-now") {
     try {
-      const result = await publishPost(params.id);
+      const result = await publishPost(own.id);
       return NextResponse.json({ ok: true, ...result });
     } catch (err) {
       return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -46,12 +69,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // sans tout ressaisir dans le composer.
   if (action === "duplicate") {
     const source = await prisma.post.findUnique({
-      where: { id: params.id },
+      where: { id: own.id },
       include: { media: true, targets: true }
     });
-    if (!source) return NextResponse.json({ error: "Post introuvable" }, { status: 404 });
+    if (!source) return notFound();
 
-    const userId = (session.user as { id: string }).id;
     const copy = await prisma.post.create({
       data: {
         brandId: source.brandId,
@@ -89,9 +111,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
 
-  const existing = await prisma.post.findUnique({ where: { id: params.id } });
-  if (!existing) return NextResponse.json({ error: "Post introuvable" }, { status: 404 });
+  const existing = await findOwnPost(userId, params.id);
+  if (!existing) return notFound();
   if (!["DRAFT", "SCHEDULED"].includes(existing.status)) {
     return NextResponse.json({ error: "Cette publication a déjà été envoyée, elle ne peut plus être modifiée." }, { status: 409 });
   }
@@ -101,22 +124,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (typeof body.title === "string") data.title = body.title;
   if (typeof body.caption === "string") data.caption = body.caption;
   if (typeof body.scheduledAt === "string") {
-    data.scheduledAt = new Date(body.scheduledAt);
+    const when = new Date(body.scheduledAt);
+    if (Number.isNaN(when.getTime())) return NextResponse.json({ error: "Date invalide" }, { status: 400 });
+    data.scheduledAt = when;
     data.status = "SCHEDULED";
   }
 
   if (Object.keys(data).length) {
-    await prisma.post.update({ where: { id: params.id }, data });
+    await prisma.post.update({ where: { id: existing.id }, data });
   }
   if (Array.isArray(body.mediaAssetIds)) {
-    await prisma.postMedia.deleteMany({ where: { postId: params.id } });
-    await prisma.postMedia.createMany({
-      data: body.mediaAssetIds.map((mediaAssetId: string, order: number) => ({
-        postId: params.id,
-        mediaAssetId,
-        order
-      }))
-    });
+    const mediaAssetIds = (body.mediaAssetIds as unknown[]).filter((v): v is string => typeof v === "string");
+    // Les médias de remplacement doivent appartenir à la même marque que le post.
+    const uniqueIds = Array.from(new Set(mediaAssetIds));
+    if (uniqueIds.length > 0) {
+      const okAssets = await prisma.mediaAsset.count({ where: { id: { in: uniqueIds }, brandId: existing.brandId } });
+      if (okAssets !== uniqueIds.length) {
+        return NextResponse.json({ error: "Un des médias n'appartient pas à cette marque." }, { status: 400 });
+      }
+    }
+    await prisma.postMedia.deleteMany({ where: { postId: existing.id } });
+    if (mediaAssetIds.length > 0) {
+      await prisma.postMedia.createMany({
+        data: mediaAssetIds.map((mediaAssetId, order) => ({ postId: existing.id, mediaAssetId, order }))
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });
@@ -125,6 +157,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  await prisma.post.delete({ where: { id: params.id } });
+  const userId = (session.user as { id: string }).id;
+
+  const own = await findOwnPost(userId, params.id);
+  if (!own) return notFound();
+  await prisma.post.delete({ where: { id: own.id } });
   return NextResponse.json({ ok: true });
 }

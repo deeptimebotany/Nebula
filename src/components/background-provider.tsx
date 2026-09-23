@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEFAULT_BACKGROUND_KEY, findBackground } from "@/lib/backgrounds";
+import { useBootstrap } from "@/components/bootstrap-provider";
 
 const STORAGE_KEY = "nebula:background";
 
@@ -34,11 +35,12 @@ export function useBackground() {
   return useContext(BackgroundContext);
 }
 
-// Même schéma que ThemeProvider (voir theme-provider.tsx) : applique tout de
-// suite ce qu'il y a en localStorage (pas de flash), puis synchronise avec
-// la préférence enregistrée côté serveur.
+// Même schéma que ThemeProvider (voir theme-provider.tsx) : localStorage tout
+// de suite (pas de flash), puis la valeur du bootstrap /api/me.
 export function BackgroundProvider({ children }: { children: React.ReactNode }) {
   const [backgroundKey, setBackgroundKeyState] = useState(DEFAULT_BACKGROUND_KEY);
+  const { data, patch } = useBootstrap();
+  const serverBackground = data?.background;
 
   useEffect(() => {
     const local = localStorage.getItem(STORAGE_KEY);
@@ -46,28 +48,32 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
       setBackgroundKeyState(local);
       applyBackground(local);
     }
-    fetch("/api/settings/background")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.background && d.background !== local) {
-          setBackgroundKeyState(d.background);
-          applyBackground(d.background);
-          localStorage.setItem(STORAGE_KEY, d.background);
-        }
-      })
-      .catch(() => undefined);
   }, []);
 
-  const setBackgroundKey = useCallback((key: string) => {
-    setBackgroundKeyState(key);
-    applyBackground(key);
-    localStorage.setItem(STORAGE_KEY, key);
-    fetch("/api/settings/background", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ background: key })
-    }).catch(() => undefined);
-  }, []);
+  useEffect(() => {
+    if (!serverBackground) return;
+    const local = localStorage.getItem(STORAGE_KEY);
+    if (serverBackground !== local) {
+      setBackgroundKeyState(serverBackground);
+      applyBackground(serverBackground);
+      localStorage.setItem(STORAGE_KEY, serverBackground);
+    }
+  }, [serverBackground]);
+
+  const setBackgroundKey = useCallback(
+    (key: string) => {
+      setBackgroundKeyState(key);
+      applyBackground(key);
+      localStorage.setItem(STORAGE_KEY, key);
+      patch({ background: key });
+      fetch("/api/settings/background", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ background: key })
+      }).catch(() => undefined);
+    },
+    [patch]
+  );
 
   return (
     <BackgroundContext.Provider value={{ backgroundKey, setBackgroundKey }}>{children}</BackgroundContext.Provider>

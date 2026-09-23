@@ -142,7 +142,7 @@ export function AccountPrivacyCard() {
       </div>
 
       <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-red-400/80">Zone de danger</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-red-400">Zone de danger</p>
         <p className="mt-1 text-sm text-slate-400">
           Supprime définitivement votre compte, vos marques et toutes les publications associées. Irréversible.
         </p>

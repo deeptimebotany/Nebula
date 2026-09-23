@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -8,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
 import { PLAN_LIMITS, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
 import { useToast } from "@/components/dashboard/toast";
+import { useBootstrap } from "@/components/bootstrap-provider";
+import { useBrand } from "@/components/brand-context";
+import type { BrandUsage } from "@/lib/billing/usage";
 
 interface PlanResponse {
   plan: Plan;
@@ -47,13 +52,14 @@ function RoiCalculator() {
         Ajustez les curseurs selon votre réalité — le résultat est une estimation, pas une donnée mesurée.
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {fields.map(([label, value, setValue, min, max]) => (
+        {fields.map(([label, value, setValue, min, max], i) => (
           <div key={label}>
-            <label className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
+            <label htmlFor={`roi-${i}`} className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
               <span>{label}</span>
               <span className="font-medium text-white">{value}</span>
             </label>
             <input
+              id={`roi-${i}`}
               type="range"
               min={min}
               max={max}
@@ -83,7 +89,7 @@ function RoiCalculator() {
 // celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function BillingPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <BillingPageInner />
     </Suspense>
   );
@@ -102,6 +108,26 @@ function BillingPageInner() {
   });
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get("checkout");
+  // Le message technique « Stripe non configuré » ne concerne que le
+  // propriétaire du site ; un client voit une phrase neutre (Lot 4).
+  const { data: me } = useBootstrap();
+  const { activeBrand } = useBrand();
+  // Consommation réelle de la marque active, calculée par le serveur avec
+  // les mêmes règles que les quotas (voir /api/billing/usage).
+  const [usage, setUsage] = useState<BrandUsage | null>(null);
+  useEffect(() => {
+    if (!activeBrand) return;
+    let cancelled = false;
+    fetch(`/api/billing/usage?brandId=${activeBrand.id}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d) setUsage(d as BrandUsage);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBrand]);
 
   useEffect(() => {
     fetch("/api/billing/plan")
@@ -137,10 +163,7 @@ function BillingPageInner() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-white">Facturation</h1>
-        <p className="mt-1 text-sm text-slate-400">Gérez l&apos;abonnement de votre compte Nebula.</p>
-      </div>
+      <PageHeader title="Facturation" description="Gérez l'abonnement de votre compte Nebula." />
 
       {checkoutStatus === "success" && (
         <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
@@ -152,11 +175,19 @@ function BillingPageInner() {
 
       {data && !data.billingEnabled && (
         <GlassCard className="border-white/10 bg-white/[0.02]">
-          <p className="text-sm text-slate-400">
-            Stripe n&apos;est pas encore configuré sur cette instance (<code className="text-aurora-300">STRIPE_SECRET_KEY</code> absent
-            de .env). Les paliers restent visibles à titre indicatif, mais aucun paiement ne peut être pris tant que
-            ce n&apos;est pas renseigné — voir le README.
-          </p>
+          {me?.isOwner ? (
+            <p className="text-sm text-slate-400">
+              <span className="font-medium text-amber-300">Visible par vous seul :</span> Stripe n&apos;est pas configuré (
+              <code className="text-aurora-300">STRIPE_SECRET_KEY</code> absent des variables d&apos;environnement). Les paliers
+              restent affichés, mais aucun paiement ne peut être pris tant que la clé, les prix et le webhook ne sont pas
+              renseignés sur Vercel.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Les abonnements payants ne sont pas encore ouverts. Le palier Gratuit reste disponible sans limite de durée ;
+              vous serez informé·e ici dès l&apos;ouverture.
+            </p>
+          )}
         </GlassCard>
       )}
 
@@ -174,18 +205,23 @@ function BillingPageInner() {
                 )}
               </p>
             </div>
-            <div className="flex gap-6 text-sm">
+            <div className="flex flex-wrap gap-6 text-sm">
               <div>
-                <p className="text-slate-400">Marques utilisées</p>
+                <p className="text-slate-400">Marques</p>
                 <p className="text-white">
                   {data.brandsOwned} / {data.maxBrands}
                 </p>
               </div>
               <div>
-                <p className="text-slate-400">Par marque</p>
+                <p className="text-slate-400">Comptes connectés{activeBrand ? ` (${activeBrand.name})` : ""}</p>
                 <p className="text-white">
-                  {data.limits.maxConnections >= 9999 ? "∞" : data.limits.maxConnections} comptes ·{" "}
-                  {data.limits.maxPostsPerMonth >= 999999 ? "∞" : data.limits.maxPostsPerMonth} posts/mois
+                  {usage ? usage.connectionSlots : "…"} / {data.limits.maxConnections >= 9999 ? "∞" : data.limits.maxConnections}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-400">Publications ce mois-ci{activeBrand ? ` (${activeBrand.name})` : ""}</p>
+                <p className="text-white">
+                  {usage ? usage.postsThisMonth : "…"} / {data.limits.maxPostsPerMonth >= 999999 ? "∞" : data.limits.maxPostsPerMonth}
                 </p>
               </div>
             </div>
@@ -295,7 +331,7 @@ function BillingPageInner() {
               </p>
               {perMonthEquivalent !== null && (
                 <p className="mt-0.5 text-sm font-medium text-emerald-300">
-                  soit {perMonthEquivalent}€/mois <span className="text-emerald-400/80">— moins cher qu&apos;en mensuel</span>
+                  soit {perMonthEquivalent}€/mois <span className="text-emerald-400">— moins cher qu&apos;en mensuel</span>
                 </p>
               )}
 

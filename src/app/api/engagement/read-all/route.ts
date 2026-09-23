@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 
 // "Tout marquer comme lu" pour un compte — bouton en haut de /interactions.
@@ -11,6 +12,10 @@ export async function POST(req: NextRequest) {
   const { connectionId } = await req.json();
   if (!connectionId) return NextResponse.json({ error: "connectionId requis" }, { status: 400 });
 
-  await prisma.engagementItem.updateMany({ where: { connectionId, read: false }, data: { read: true } });
+  const userId = (session.user as { id: string }).id;
+  await prisma.engagementItem.updateMany({
+    where: { connectionId, read: false, connection: { brand: ownedBy(userId) } },
+    data: { read: true }
+  });
   return NextResponse.json({ ok: true });
 }

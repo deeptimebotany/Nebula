@@ -7,6 +7,11 @@
 // Pro/Agence (calendarShareEnabled).
 
 import { useCallback, useEffect, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { Select } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -112,30 +117,29 @@ export default function CalendarSharePage() {
 
   if (loading || allowed === null) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <p className="text-sm text-slate-500">Chargement...</p>
+      <div className="space-y-6" aria-busy="true">
+        <Skeleton className="h-7 w-64" />
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={2} />
+        <span className="sr-only">Chargement en cours</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconCalendarShare className="h-5 w-5 text-slate-400" /> Calendrier client
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Une page publique, en lecture seule, montrant à votre client les prochaines publications déjà
-          programmées pour cette marque — sans aucun droit d&apos;édition de son côté.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconCalendarShare className="h-5 w-5" />}
+        title="Calendrier client"
+        description="Une page publique, en lecture seule, montrant à votre client les prochaines publications déjà programmées pour cette marque — sans aucun droit d'édition de son côté."
+      />
 
       {!allowed && (
         <GlassCard>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
-              <IconLock className="h-3 w-3" /> Palier Pro/Agence
-            </span>
+            <Badge tone="warning" icon={<IconLock className="h-3 w-3" />}>
+              Palier Pro/Agence
+            </Badge>
           </div>
           <p className="mt-2 text-sm text-slate-400">Le calendrier client public fait partie des paliers payants de Nebula.</p>
           <Link
@@ -172,25 +176,17 @@ export default function CalendarSharePage() {
                 </a>
               )}
             </div>
-            <div className="mt-4">
-              <label className="block text-xs uppercase tracking-wide text-slate-500">Fenêtre affichée</label>
-              <select
-                value={share.windowDays}
-                onChange={(e) => patch({ windowDays: Number(e.target.value) })}
-                className="mt-1.5 w-full max-w-xs rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-              >
-                {/* bg-void-900 sur chaque <option> : la liste déroulante d'un
-                    <select> natif est dessinée par le système d'exploitation,
-                    pas par le CSS du champ — sans ce fond explicite sur les
-                    options elles-mêmes, le menu ouvert restait blanc/gris
-                    clair par défaut du navigateur, détonnant avec le thème
-                    sombre de Nebula (même fix déjà appliqué ailleurs, voir
-                    composer/page.tsx et community/page.tsx). */}
-                <option value={14} className="bg-void-900">14 prochains jours</option>
-                <option value={30} className="bg-void-900">30 prochains jours</option>
-                <option value={60} className="bg-void-900">60 prochains jours</option>
-              </select>
-            </div>
+            <Select
+              label="Fenêtre affichée"
+              id="share-window"
+              value={share.windowDays}
+              onChange={(e) => patch({ windowDays: Number(e.target.value) })}
+              wrapperClassName="mt-4 max-w-xs"
+            >
+              <option value={14}>14 prochains jours</option>
+              <option value={30}>30 prochains jours</option>
+              <option value={60}>60 prochains jours</option>
+            </Select>
           </GlassCard>
 
           <GlassCard>
@@ -204,7 +200,7 @@ export default function CalendarSharePage() {
                 {posts.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5">
                     {p.thumbnailUrl ? (
-                      <img src={p.thumbnailUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                      <RemoteImage src={p.thumbnailUrl} className="h-10 w-10 shrink-0 rounded-lg" sizes="40px" />
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-lg bg-white/5" />
                     )}

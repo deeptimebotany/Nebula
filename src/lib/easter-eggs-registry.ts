@@ -64,7 +64,7 @@ export const EASTER_EGGS: EasterEggDef[] = [
   { key: "avatar-double-tap", number: 27, emoji: "❤️", title: "Double-tap", hint: "Double-cliquez rapidement sur la pastille de marque active, dans la barre du haut." },
   { key: "cursor-statue", number: 28, emoji: "🖱️", title: "Statue", hint: "Laissez le curseur totalement immobile pendant 60 secondes sur le dashboard." },
   { key: "extreme-zoom", number: 29, emoji: "🔍", title: "Zoom extrême", hint: "Zoomez le navigateur à 400% ou plus." },
-  { key: "composer-disabled-clicks", number: 30, emoji: "🚫", title: "Le bouton qui résiste", hint: "Cliquez 20 fois sur « Publier » dans l'Importation alors qu'il est grisé (rien sélectionné)." },
+  { key: "composer-disabled-clicks", number: 30, emoji: "🚫", title: "Le bouton qui résiste", hint: "Cliquez 20 fois sur le bouton « Publier » de la page Publier alors qu'il est grisé (rien sélectionné)." },
   { key: "followers-10k", number: 31, emoji: "🥇", title: "Cap des 10K", hint: "Faites franchir les 10 000 abonnés à l'un de vos comptes connectés.", reward: "Badge doré « Cap des 10K »" },
   { key: "posts-100", number: 32, emoji: "💯", title: "Centenaire", hint: "Publiez votre 100ᵉ post personnel." },
   { key: "all-networks-connected", number: 33, emoji: "🌐", title: "Tout connecté", hint: "Connectez les 6 réseaux disponibles en même temps sur une marque." },

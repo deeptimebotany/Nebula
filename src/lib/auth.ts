@@ -1,5 +1,6 @@
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import FacebookProvider from "next-auth/providers/facebook";
@@ -65,8 +66,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Anti-force brute : 20 tentatives par IP par quart d'heure, et 10
+        // par couple IP+email (un attaquant qui cible un compte précis est
+        // bloqué plus vite, sans pénaliser les autres comptes de cette IP).
+        const ip = clientIpFromHeaders(req?.headers as Record<string, string | string[] | undefined> | undefined);
+        const emailKey = credentials.email.toLowerCase();
+        const [byIp, byAccount] = await Promise.all([
+          consumeRateLimit("login-ip", ip, 20, 15),
+          consumeRateLimit("login-account", `${ip}|${emailKey}`, 10, 15)
+        ]);
+        if (!byIp.ok || !byAccount.ok) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() }

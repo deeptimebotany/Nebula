@@ -7,6 +7,11 @@
 // fichiers. Réservé aux paliers Pro/Agence (reportsEnabled).
 
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Input, Select } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useChartTheme } from "@/lib/chart-theme";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -48,6 +53,7 @@ interface ReportPreview {
 }
 
 export default function ReportsPage() {
+  const chartTheme = useChartTheme();
   const { activeBrand } = useBrand();
   const toast = useToast();
 
@@ -153,30 +159,29 @@ export default function ReportsPage() {
 
   if (loading || allowed === null) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <p className="text-sm text-slate-500">Chargement...</p>
+      <div className="space-y-6" aria-busy="true">
+        <Skeleton className="h-7 w-64" />
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={2} />
+        <span className="sr-only">Chargement en cours</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconReport className="h-5 w-5 text-slate-400" /> Rapports clients
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Une page publique de reporting pour cette marque, toujours à jour, que vous pouvez partager avec votre
-          client ou lui envoyer automatiquement par email.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconReport className="h-5 w-5" />}
+        title="Rapports clients"
+        description="Une page publique de reporting pour cette marque, toujours à jour, que vous pouvez partager avec votre client ou lui envoyer automatiquement par email."
+      />
 
       {!allowed && (
         <GlassCard>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
-              <IconLock className="h-3 w-3" /> Palier Pro/Agence
-            </span>
+            <Badge tone="warning" icon={<IconLock className="h-3 w-3" />}>
+              Palier Pro/Agence
+            </Badge>
           </div>
           <p className="mt-2 text-sm text-slate-400">Les rapports clients automatiques font partie des paliers payants de Nebula.</p>
           <Link
@@ -222,40 +227,27 @@ export default function ReportsPage() {
               les chiffres restent toujours à jour sur la page, même entre deux envois.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs uppercase tracking-wide text-slate-500">Email du destinataire</label>
-                <input
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
-                  onBlur={saveRecipient}
-                  placeholder="client@exemple.com"
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-wide text-slate-500">Fréquence</label>
-                <select
-                  value={report.frequency}
-                  onChange={(e) => patch({ frequency: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-                >
-                  <option value="OFF" className="bg-void-900">Désactivé</option>
-                  <option value="WEEKLY" className="bg-void-900">Chaque semaine</option>
-                  <option value="MONTHLY" className="bg-void-900">Chaque mois</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-wide text-slate-500">Période affichée</label>
-                <select
-                  value={report.periodDays}
-                  onChange={(e) => patch({ periodDays: Number(e.target.value) })}
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-                >
-                  <option value={7} className="bg-void-900">7 derniers jours</option>
-                  <option value={30} className="bg-void-900">30 derniers jours</option>
-                  <option value={90} className="bg-void-900">90 derniers jours</option>
-                </select>
-              </div>
+              <Input
+                label="Email du destinataire"
+                id="report-recipient"
+                type="email"
+                inputMode="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                onBlur={saveRecipient}
+                placeholder="client@exemple.com"
+                hint="Enregistré quand vous quittez le champ."
+              />
+              <Select label="Fréquence" id="report-frequency" value={report.frequency} onChange={(e) => patch({ frequency: e.target.value })}>
+                <option value="OFF">Désactivé</option>
+                <option value="WEEKLY">Chaque semaine</option>
+                <option value="MONTHLY">Chaque mois</option>
+              </Select>
+              <Select label="Période affichée" id="report-period" value={report.periodDays} onChange={(e) => patch({ periodDays: Number(e.target.value) })}>
+                <option value={7}>7 derniers jours</option>
+                <option value={30}>30 derniers jours</option>
+                <option value={90}>90 derniers jours</option>
+              </Select>
               <div className="flex items-end">
                 <Button variant="outline" onClick={sendTest} disabled={sendingTest || !recipientEmail.trim()} className="w-full">
                   <IconSend className="h-4 w-4" /> {sendingTest ? "Envoi..." : "Envoyer un test maintenant"}
@@ -299,14 +291,14 @@ export default function ReportsPage() {
                   <AreaChart data={preview.growthSeries}>
                     <defs>
                       <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgb(129 140 248)" stopOpacity={0.5} />
-                        <stop offset="100%" stopColor="rgb(129 140 248)" stopOpacity={0} />
+                        <stop offset="0%" stopColor={chartTheme.series[0]} stopOpacity={0.5} />
+                        <stop offset="100%" stopColor={chartTheme.series[0]} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} />
-                    <YAxis tick={{ fontSize: 11, fill: "#64748b" }} width={40} />
-                    <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} />
-                    <Area type="monotone" dataKey="followers" stroke="rgb(129 140 248)" fill="url(#growthFill)" strokeWidth={2} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: chartTheme.axis }} />
+                    <YAxis tick={{ fontSize: 11, fill: chartTheme.axis }} width={40} />
+                    <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
+                    <Area type="monotone" dataKey="followers" stroke={chartTheme.series[0]} fill="url(#growthFill)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

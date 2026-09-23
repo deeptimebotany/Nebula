@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishPost } from "@/lib/publish";
 import { assertPostQuota } from "@/lib/billing/plan";
+import { requireBrandMembership, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { z } from "zod";
 
 const targetSchema = z.object({
@@ -31,9 +32,19 @@ export async function GET(req: NextRequest) {
   const brandId = req.nextUrl.searchParams.get("brandId");
   if (!brandId) return NextResponse.json({ error: "brandId requis" }, { status: 400 });
 
+  // Appartenance vérifiée côté serveur : sans ça, n'importe quel compte
+  // connecté pouvait lister les publications (et, avant le `select` ci-dessous,
+  // les jetons OAuth) de n'importe quelle marque en devinant son brandId.
+  const userId = (session.user as { id: string }).id;
+  const denied = await requireBrandMembership(userId, brandId);
+  if (denied) return denied;
+
   const posts = await prisma.post.findMany({
     where: { brandId },
-    include: { media: { include: { mediaAsset: true } }, targets: { include: { connection: true } } },
+    include: {
+      media: { include: { mediaAsset: true } },
+      targets: { include: { connection: { select: PUBLIC_CONNECTION_SELECT } } }
+    },
     orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }]
   });
 
@@ -51,6 +62,30 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { brandId, title, caption, firstComment, scheduledAt, mediaAssetIds, targets, publishNow } = parsed.data;
+  const userId = (session.user as { id: string }).id;
+
+  // 1) La marque doit être une des marques de l'utilisateur.
+  const denied = await requireBrandMembership(userId, brandId);
+  if (denied) return denied;
+
+  // 2) Les comptes ciblés et les médias joints doivent appartenir à CETTE
+  // marque : sinon, en envoyant le connectionId d'un compte social d'une
+  // autre marque avec publishNow, on publierait sur ce compte-là avec ses
+  // jetons — c'est la faille la plus grave de l'ancienne version.
+  const connectionIds = Array.from(new Set(targets.map((t) => t.connectionId)));
+  const okConnections = await prisma.socialConnection.count({
+    where: { id: { in: connectionIds }, brandId }
+  });
+  if (okConnections !== connectionIds.length) {
+    return NextResponse.json({ error: "Un des comptes ciblés n'appartient pas à cette marque." }, { status: 400 });
+  }
+  const assetIds = Array.from(new Set(mediaAssetIds));
+  if (assetIds.length > 0) {
+    const okAssets = await prisma.mediaAsset.count({ where: { id: { in: assetIds }, brandId } });
+    if (okAssets !== assetIds.length) {
+      return NextResponse.json({ error: "Un des médias n'appartient pas à cette marque." }, { status: 400 });
+    }
+  }
 
   try {
     await assertPostQuota(brandId);
@@ -58,7 +93,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 402 });
   }
 
-  const userId = (session.user as { id: string }).id;
   const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;
   const status = scheduledDate ? "SCHEDULED" : publishNow ? "PUBLISHING" : "DRAFT";
 

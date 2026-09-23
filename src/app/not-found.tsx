@@ -12,8 +12,7 @@
 // déterministe (pas Math.random() direct) pour la même raison.
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 
 const FLAVOR_TEXTS = [
@@ -96,14 +95,15 @@ export default function NotFound() {
         <p className="mt-2 min-h-[3.5rem] text-sm text-slate-400">{FLAVOR_TEXTS[flavorIndex]}</p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/dashboard">
-            <Button className="px-6 py-3">Retour à la base</Button>
-          </Link>
-          <Link href="/">
-            <Button variant="outline" className="px-6 py-3">
-              Page d&apos;accueil
-            </Button>
-          </Link>
+          {/* /dashboard redirige vers /login pour un visiteur anonyme : la
+              page d'accueil est le seul "retour à la base" valable pour tout
+              le monde ; le tableau de bord reste proposé en second. */}
+          <ButtonLink href="/" className="px-6 py-3">
+            Retour à la base
+          </ButtonLink>
+          <ButtonLink href="/dashboard" variant="outline" className="px-6 py-3">
+            Mon tableau de bord
+          </ButtonLink>
         </div>
 
         {/* Easter egg discret : visible seulement pour qui ouvre le code

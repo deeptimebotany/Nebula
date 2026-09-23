@@ -7,7 +7,10 @@
 // demander des modifications, sans créer de compte Nebula.
 //
 import { useEffect, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { NETWORK_META, type Network } from "@/lib/types";
+import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 interface ApprovalPost {
   id: string;
@@ -92,8 +95,14 @@ export function ApprovalClient({ token }: { token: string }) {
 
   if (!data) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-500">Chargement...</p>
+      <main className="noise-grid min-h-screen px-4 py-10 sm:px-8">
+        <div className="mx-auto max-w-3xl space-y-4" aria-busy="true" aria-live="polite">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-3 w-80" />
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={4} />
+          <span className="sr-only">Chargement en cours</span>
+        </div>
       </main>
     );
   }
@@ -103,7 +112,7 @@ export function ApprovalClient({ token }: { token: string }) {
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center gap-3">
           {data.logoUrl ? (
-            <img src={data.logoUrl} alt="" className="h-10 w-10 rounded-xl object-cover" />
+            <RemoteImage src={data.logoUrl} className="h-10 w-10 rounded-xl" sizes="40px" />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-nebula-500 to-accent-cyan text-white">
               {data.brandName.charAt(0).toUpperCase()}
@@ -134,7 +143,7 @@ export function ApprovalClient({ token }: { token: string }) {
               return (
                 <div key={p.id} className="glass-panel flex flex-col gap-3 rounded-2xl p-4 sm:flex-row">
                   <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-black/40">
-                    {p.imageUrl && <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />}
+                    {p.imageUrl && <RemoteImage src={p.imageUrl} className="h-full w-full" sizes="(max-width: 640px) 100vw, 480px" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -209,7 +218,7 @@ export function ApprovalClient({ token }: { token: string }) {
           </div>
         )}
 
-        <p className="pt-4 text-center text-xs text-slate-600">Propulsé par Nebula</p>
+        <PoweredByNebula className="pt-4" />
       </div>
     </main>
   );

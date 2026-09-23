@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -8,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useBrand } from "@/components/brand-context";
+import { useChartTheme } from "@/lib/chart-theme";
+import { DEFAULT_TIMEZONE, timeZoneLabel } from "@/lib/timezone";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
@@ -44,6 +48,7 @@ interface Target {
 
 interface Post {
   id: string;
+  brandId: string;
   title: string;
   caption: string;
   status: string;
@@ -71,9 +76,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function PostDetailPage() {
+  const chartTheme = useChartTheme();
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { activeBrand } = useBrand();
+  const { activeBrand, brands } = useBrand();
   const aiStatus = useAiStatus(activeBrand?.id);
   const toast = useToast();
   const confirmDialog = useConfirm();
@@ -203,9 +209,20 @@ export default function PostDetailPage() {
   }
 
   if (!post) {
-    return <p className="text-sm text-slate-500">Chargement...</p>;
+    return (
+      <div className="space-y-6" aria-busy="true">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-7 w-2/3" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SkeletonCard lines={6} className="lg:col-span-2" />
+          <SkeletonCard lines={4} />
+        </div>
+        <span className="sr-only">Chargement de la publication</span>
+      </div>
+    );
   }
 
+  const brandTimezone = brands.find((b) => b.id === post.brandId)?.timezone ?? activeBrand?.timezone ?? DEFAULT_TIMEZONE;
   const thumbAsset = post.media.find((m) => m.mediaAsset.type === "VIDEO") ?? post.media[0];
 
   return (
@@ -217,7 +234,8 @@ export default function PostDetailPage() {
             <h1 className="mt-1 font-display text-2xl font-semibold text-white">{post.title || "(sans titre)"}</h1>
             <p className="mt-1 text-sm text-slate-400">
               {STATUS_LABEL[post.status] ?? post.status}
-              {post.scheduledAt && ` · programmé pour le ${new Date(post.scheduledAt).toLocaleString("fr-FR")}`}
+              {post.scheduledAt &&
+                ` · programmé pour le ${new Date(post.scheduledAt).toLocaleString("fr-FR", { timeZone: brandTimezone, day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} (${timeZoneLabel(brandTimezone)})`}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -240,7 +258,7 @@ export default function PostDetailPage() {
                 {thumbAsset.mediaAsset.type === "VIDEO" ? (
                   <video src={thumbAsset.mediaAsset.url} poster={thumbAsset.mediaAsset.thumbnailUrl ?? undefined} className="h-full w-full object-cover" muted />
                 ) : (
-                  <img src={thumbAsset.mediaAsset.url} alt="" className="h-full w-full object-cover" />
+                  <RemoteImage src={thumbAsset.mediaAsset.url} className="h-full w-full" sizes="(max-width: 1024px) 100vw, 640px" priority />
                 )}
               </div>
             )}
@@ -311,10 +329,10 @@ export default function PostDetailPage() {
                           {retentionCurve.length > 0 && (
                             <ResponsiveContainer width="100%" height={140}>
                               <LineChart data={retentionCurve.map((p) => ({ x: Math.round(p.timeRatio * 100), y: Math.round(p.watchRatio * 100) }))}>
-                                <XAxis dataKey="x" tick={{ fill: "#7386ab", fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: "#7386ab", fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
-                                <Tooltip contentStyle={{ background: "rgba(10,14,26,0.95)", border: "1px solid rgba(120,150,255,0.25)", borderRadius: 8, fontSize: 11 }} />
-                                <Line type="monotone" dataKey="y" stroke="#63e6ff" strokeWidth={2} dot={false} />
+                                <XAxis dataKey="x" tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
+                                <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
+                                <Line type="monotone" dataKey="y" stroke={chartTheme.series[1]} strokeWidth={2} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>
                           )}

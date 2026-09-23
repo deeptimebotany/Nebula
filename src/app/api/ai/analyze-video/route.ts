@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import path from "path";
 import { readFile } from "fs/promises";
 import { authOptions } from "@/lib/auth";
+import { assertBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { fetchRetention } from "@/lib/social/youtube";
 import { checkFfmpegAvailable, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
@@ -35,6 +36,12 @@ export async function POST(req: NextRequest) {
     }
   });
   if (!target) return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
+  // La publication doit appartenir à une des marques de l'utilisateur (même
+  // schéma que analyze-channel-video) : la connexion YouTube chargée ci-dessus
+  // sert ensuite à interroger YouTube Analytics avec ses jetons.
+  if (!(await assertBrandMembership((session.user as { id: string }).id, target.post.brandId))) {
+    return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
+  }
   if (target.network !== "YOUTUBE") {
     return NextResponse.json({ error: "L'analyse de rétention n'est disponible que pour YouTube." }, { status: 400 });
   }

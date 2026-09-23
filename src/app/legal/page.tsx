@@ -1,226 +1,351 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { GlassCard } from "@/components/ui/glass-card";
+import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
+import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL } from "@/lib/site";
 
-// Page publique combinée (aucune authentification requise) : certains
-// formulaires de plateforme (ex. TikTok Developer Portal) ne proposent
-// qu'UN SEUL champ d'URL "legal" au lieu de deux champs séparés Conditions /
-// Confidentialité — cette page réunit donc les deux sur une seule adresse,
-// avec des ancres (#conditions / #confidentialite) pour y renvoyer
-// directement. /terms et /privacy restent disponibles séparément (voir
-// next.config.js) pour les formulaires qui, eux, demandent bien deux URLs
-// distinctes.
-// ⚠️ Contenu générique à adapter : remplacez au minimum le nom légal si
-// besoin avant une mise en production réelle — ceci n'est pas un avis
-// juridique.
+// Page publique combinée (aucune authentification requise) : mentions
+// légales, conditions d'utilisation et politique de confidentialité sur une
+// seule adresse, avec des ancres (#mentions / #conditions /
+// #confidentialite). Certains formulaires de plateforme (ex. TikTok
+// Developer Portal) ne proposent qu'UN SEUL champ d'URL « legal » ; /terms et
+// /privacy restent des adresses valides (redirections permanentes vers ces
+// ancres, voir next.config.js) pour ceux qui demandent deux URLs.
+//
+// Les informations d'éditeur viennent de SITE_LEGAL (variables
+// d'environnement, voir .env.example) : tant qu'elles ne sont pas
+// renseignées, la page l'indique honnêtement plutôt que d'afficher des
+// valeurs inventées. Ceci n'est pas un avis juridique.
 
-const LAST_UPDATED = "20 septembre 2026";
-const CONTACT_EMAIL = "nommelucas@gmail.com";
+const LAST_UPDATED = "23 septembre 2026";
 
-export const metadata = { title: "Mentions légales — Nebula" };
+export const metadata: Metadata = {
+  title: "Mentions légales, conditions et confidentialité",
+  description: `Mentions légales, conditions d'utilisation et politique de confidentialité du service ${SITE_NAME}.`
+};
+
+const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
+  { name: "Vercel Inc.", role: "Hébergement du site et exécution du service", where: "États-Unis / Union européenne" },
+  { name: "Neon Inc.", role: "Base de données (PostgreSQL)", where: "Selon la région choisie à la création" },
+  { name: "Vercel Blob", role: "Stockage des médias importés (images, vidéos)", where: "États-Unis / Union européenne" },
+  { name: "Meta Platforms, TikTok, Google (YouTube)", role: "Publication et lecture des statistiques, uniquement sur les comptes que vous connectez", where: "Selon la plateforme" },
+  { name: "Stripe", role: "Paiement des abonnements (Nebula ne voit jamais votre numéro de carte)", where: "Union européenne / États-Unis" },
+  { name: "Resend", role: "Envoi des emails transactionnels (réinitialisation de mot de passe, rapports)", where: "États-Unis" },
+  { name: "Cloudflare (Turnstile)", role: "Protection anti-robot des formulaires publics", where: "Réseau mondial" },
+  { name: "Google (Gemini)", role: "Assistant IA, uniquement si vous utilisez ces fonctions", where: "États-Unis / Union européenne" }
+];
+
+function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-24">
+      <h3 className="font-display text-lg font-medium text-white">{title}</h3>
+      <div className="mt-2 space-y-2 text-sm leading-relaxed text-slate-400">{children}</div>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="grid gap-1 border-b border-white/[0.06] py-2.5 last:border-b-0 sm:grid-cols-[200px_1fr]">
+      <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</dt>
+      <dd className="text-sm text-slate-300">{value}</dd>
+    </div>
+  );
+}
 
 export default function LegalPage() {
+  const registered = Boolean(SITE_LEGAL.publisherName && SITE_LEGAL.siren);
+  const pending = (
+    <span className="text-slate-500">
+      En cours d&apos;immatriculation — cette information sera complétée dès réception du numéro d&apos;identification.
+    </span>
+  );
+
   return (
-    <main className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
-      <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
-        <Link href="/" className="text-sm text-aurora-300 hover:underline">
-          ← Retour à l&apos;accueil
-        </Link>
+    <PublicShell width="max-w-3xl">
+      <PublicPageHeading
+        eyebrow="Informations légales"
+        title="Mentions légales, conditions et confidentialité"
+        desc={
+          <>
+            Dernière mise à jour : {LAST_UPDATED}. Ces pages sont écrites pour être lues : en français clair, sans
+            promesse que le service ne tient pas.
+          </>
+        }
+      />
 
-        <h1 className="mt-4 font-display text-3xl font-semibold text-white">
-          Conditions d&apos;utilisation &amp; confidentialité
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">Dernière mise à jour : {LAST_UPDATED}</p>
-        <p className="mt-3 flex gap-4 text-sm">
-          <a href="#conditions" className="text-aurora-300 hover:underline">
-            Aller aux conditions d&apos;utilisation
+      <nav aria-label="Sommaire" className="mb-8 flex flex-wrap justify-center gap-2 text-sm">
+        {[
+          ["#mentions", "Mentions légales"],
+          ["#conditions", "Conditions d'utilisation"],
+          ["#confidentialite", "Confidentialité"],
+          ["#cookies", "Cookies"]
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-slate-300 transition hover:border-white/25 hover:text-white">
+            {label}
           </a>
-          <a href="#confidentialite" className="text-aurora-300 hover:underline">
-            Aller à la confidentialité
-          </a>
+        ))}
+      </nav>
+
+      {/* ---------------- Mentions légales ---------------- */}
+      <GlassCard id="mentions" className="scroll-mt-24 space-y-6" hover={false}>
+        <h2 className="font-display text-xl font-semibold text-white">Mentions légales</h2>
+        <dl>
+          <Row label="Site" value={<a href={SITE_URL} className="text-aurora-300 hover:underline">{SITE_URL.replace(/^https?:\/\//, "")}</a>} />
+          <Row label="Éditeur" value={registered ? SITE_LEGAL.publisherName : pending} />
+          <Row label="Forme juridique" value={SITE_LEGAL.publisherForm} />
+          <Row label="Immatriculation" value={SITE_LEGAL.siren ? `SIREN ${SITE_LEGAL.siren}` : pending} />
+          <Row label="Adresse" value={SITE_LEGAL.address || pending} />
+          <Row label="Responsable de la publication" value={SITE_LEGAL.publicationDirector || SITE_LEGAL.publisherName || pending} />
+          <Row label="Contact" value={<a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">{SITE_CONTACT_EMAIL}</a>} />
+          <Row
+            label="Hébergement"
+            value={
+              <>
+                {SITE_LEGAL.host.name}, {SITE_LEGAL.host.address} —{" "}
+                <a href={SITE_LEGAL.host.url} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+                  {SITE_LEGAL.host.url.replace(/^https?:\/\//, "")}
+                </a>
+                . Base de données : {SITE_LEGAL.database.name} (
+                <a href={SITE_LEGAL.database.url} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+                  {SITE_LEGAL.database.url.replace(/^https?:\/\//, "")}
+                </a>
+                ).
+              </>
+            }
+          />
+        </dl>
+        <p className="text-xs text-slate-500">
+          Les noms Instagram, Facebook, TikTok et YouTube appartiennent à leurs propriétaires respectifs. {SITE_NAME}{" "}
+          est un service indépendant qui utilise leurs interfaces de programmation officielles ; il n&apos;est ni
+          affilié ni certifié par ces plateformes.
         </p>
+      </GlassCard>
 
-        <GlassCard id="conditions" className="mt-8 scroll-mt-6 space-y-6" hover={false}>
-          <h2 className="font-display text-xl font-semibold text-white">Conditions d&apos;utilisation</h2>
+      {/* ---------------- Conditions d'utilisation ---------------- */}
+      <GlassCard id="conditions" className="mt-6 scroll-mt-24 space-y-6" hover={false}>
+        <h2 className="font-display text-xl font-semibold text-white">Conditions d&apos;utilisation</h2>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">1. Objet</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Les présentes conditions régissent l&apos;utilisation de Nebula (le « Service »), un outil de
-              gestion, planification et publication de contenu sur des réseaux sociaux tiers (Instagram,
-              Facebook, TikTok, YouTube). En créant un compte, vous acceptez ces conditions.
-            </p>
-          </section>
+        <Section title="1. Objet">
+          <p>
+            Les présentes conditions régissent l&apos;utilisation de {SITE_NAME} (le « Service »), un outil de
+            gestion, planification et publication de contenu sur des réseaux sociaux tiers (Instagram, Facebook,
+            TikTok, YouTube), d&apos;analyse de statistiques et de partage de rapports. En créant un compte, vous
+            acceptez ces conditions et la politique de confidentialité ci-dessous.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">2. Description du service</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Nebula permet de connecter vos comptes de réseaux sociaux via les API officielles de chaque
-              plateforme, de préparer, planifier et publier du contenu, et de consulter des statistiques de
-              performance. Le Service ne republie ni ne modifie votre contenu sans action explicite de votre
-              part.
-            </p>
-          </section>
+        <Section title="2. Description du service">
+          <p>
+            {SITE_NAME} permet de connecter vos comptes de réseaux sociaux via les API officielles de chaque
+            plateforme, de préparer, planifier et publier du contenu, de consulter des statistiques de performance et
+            de partager des rapports ou un calendrier avec vos clients par lien privé. Le Service ne publie ni ne
+            modifie votre contenu sans action explicite de votre part (programmation ou publication immédiate).
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">3. Compte utilisateur</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vous êtes responsable de la confidentialité de votre mot de passe et de toute activité effectuée
-              depuis votre compte. Vous devez fournir une adresse email valide et nous informer de toute
-              utilisation non autorisée de votre compte.
-            </p>
-          </section>
+        <Section title="3. Compte utilisateur">
+          <p>
+            Vous devez avoir au moins 18 ans ou l&apos;autorisation d&apos;un représentant légal. Vous êtes
+            responsable de la confidentialité de votre mot de passe et de toute activité effectuée depuis votre
+            compte. Vous devez fournir une adresse email valide et nous informer de toute utilisation non autorisée.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">4. Connexion à des plateformes tierces</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Lorsque vous connectez un compte Instagram, Facebook, TikTok ou YouTube, vous autorisez Nebula à
-              accéder à ce compte dans les limites des permissions que vous accordez lors de l&apos;autorisation
-              OAuth, uniquement pour exécuter les actions que vous demandez (publication, lecture de
-              statistiques). Votre usage de ces réseaux reste soumis à leurs propres conditions d&apos;utilisation
-              respectives. Vous pouvez révoquer cet accès à tout moment depuis la page « Comptes connectés » de
-              Nebula ou directement depuis les paramètres du réseau concerné.
-            </p>
-          </section>
+        <Section title="4. Connexion à des plateformes tierces">
+          <p>
+            Lorsque vous connectez un compte Instagram, Facebook, TikTok ou YouTube, vous autorisez {SITE_NAME} à
+            accéder à ce compte dans les limites des permissions accordées lors de l&apos;autorisation officielle
+            (OAuth), uniquement pour exécuter les actions que vous demandez (publication, lecture de statistiques,
+            lecture des commentaires). Votre usage de ces réseaux reste soumis à leurs propres conditions. Vous pouvez
+            révoquer cet accès à tout moment depuis la page « Comptes » de {SITE_NAME} ou depuis les paramètres du
+            réseau concerné.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">5. Contenu publié</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vous restez seul responsable du contenu (textes, images, vidéos) que vous importez et publiez via
-              le Service, et devez disposer de tous les droits nécessaires sur ce contenu. Nebula ne
-              revendique aucune propriété sur votre contenu et ne le republie que sur les comptes et selon la
-              programmation que vous avez définis.
-            </p>
-          </section>
+        <Section title="5. Contenu publié">
+          <p>
+            Vous restez seul responsable du contenu (textes, images, vidéos) que vous importez et publiez via le
+            Service, et devez disposer de tous les droits nécessaires sur ce contenu. {SITE_NAME} ne revendique
+            aucune propriété sur votre contenu et ne le publie que sur les comptes et selon la programmation que vous
+            avez définis. Tout contenu illicite, trompeur ou contraire aux règles des plateformes peut entraîner la
+            suspension du compte.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">6. Abonnements et paiement</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Certaines fonctionnalités sont proposées sous forme d&apos;abonnement payant, facturé via Stripe.
-              Vous pouvez résilier votre abonnement à tout moment depuis la page Facturation ; la résiliation
-              prend effet à la fin de la période déjà payée.
-            </p>
-          </section>
+        <Section title="6. Paliers, quotas et paiement">
+          <p>
+            Le palier Gratuit est limité (nombre de marques, de comptes connectés et de publications par mois,
+            indiqué sur la page Tarifs). Les paliers Pro et Agence sont des abonnements mensuels ou annuels facturés
+            via Stripe ; le prix dépend du nombre de marques choisi. Vous pouvez changer de palier ou résilier à tout
+            moment depuis la page Facturation ; la résiliation prend effet à la fin de la période déjà payée, sans
+            remboursement au prorata sauf obligation légale contraire.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">7. Disponibilité du service</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Le Service est fourni « en l&apos;état », au mieux de nos efforts, sans garantie de disponibilité
-              continue. Certaines fonctionnalités dépendent d&apos;API tierces (réseaux sociaux, IA, paiement)
-              dont la disponibilité ou les conditions peuvent changer indépendamment de notre volonté.
-            </p>
-          </section>
+        <Section title="7. Assistant IA">
+          <p>
+            Les fonctions d&apos;assistant IA (suggestions de titres, légendes, idées, analyse de vidéos) sont
+            optionnelles et produisent des propositions que vous restez libre de modifier ou d&apos;ignorer. Elles
+            peuvent contenir des erreurs : vérifiez tout contenu avant publication.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">8. Résiliation</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vous pouvez supprimer votre compte à tout moment depuis Paramètres → Compte &amp; confidentialité.
-              Cette action est définitive et efface vos données conformément à la politique de confidentialité
-              ci-dessous.
-            </p>
-          </section>
+        <Section title="8. Disponibilité du service">
+          <p>
+            Le Service est fourni « en l&apos;état », au mieux de nos efforts, sans garantie de disponibilité
+            continue. Certaines fonctionnalités dépendent d&apos;API tierces (réseaux sociaux, IA, paiement) dont la
+            disponibilité, les quotas ou les conditions peuvent changer indépendamment de notre volonté. Notre
+            responsabilité ne saurait être engagée pour une publication non effectuée du fait d&apos;une plateforme
+            tierce.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">9. Modification des conditions</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Ces conditions peuvent être mises à jour ; la date en haut de cette page indique la dernière
-              révision. Une utilisation continue du Service après modification vaut acceptation des nouvelles
-              conditions.
-            </p>
-          </section>
+        <Section title="9. Résiliation et suppression du compte">
+          <p>
+            Vous pouvez supprimer votre compte à tout moment depuis Paramètres → Compte &amp; confidentialité. Cette
+            action est définitive et efface vos données conformément à la politique de confidentialité ci-dessous.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">10. Contact</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Pour toute question relative à ces conditions : {CONTACT_EMAIL}
-            </p>
-          </section>
-        </GlassCard>
+        <Section title="10. Modification des conditions">
+          <p>
+            Ces conditions peuvent être mises à jour ; la date en haut de cette page indique la dernière révision.
+            En cas de changement important, vous en serez informé par email ou dans l&apos;application.
+          </p>
+        </Section>
 
-        <GlassCard id="confidentialite" className="mt-6 scroll-mt-6 space-y-6" hover={false}>
-          <h2 className="font-display text-xl font-semibold text-white">Politique de confidentialité</h2>
+        <Section title="11. Droit applicable et contact">
+          <p>
+            Les présentes conditions sont soumises au droit français. Pour toute question :{" "}
+            <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
+              {SITE_CONTACT_EMAIL}
+            </a>
+            .
+          </p>
+        </Section>
+      </GlassCard>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">1. Données collectées</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Nous collectons : votre nom et adresse email (à l&apos;inscription), votre mot de passe (jamais
-              stocké en clair, uniquement sous forme de hash), les préférences d&apos;affichage (thème, fond
-              d&apos;écran), le contenu que vous importez pour publication (images, vidéos, textes), et — lorsque
-              vous connectez un compte de réseau social — un jeton d&apos;accès permettant à Nebula d&apos;agir en
-              votre nom sur ce compte dans la limite des permissions accordées.
-            </p>
-          </section>
+      {/* ---------------- Confidentialité ---------------- */}
+      <GlassCard id="confidentialite" className="mt-6 scroll-mt-24 space-y-6" hover={false}>
+        <h2 className="font-display text-xl font-semibold text-white">Politique de confidentialité</h2>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">2. Finalités du traitement</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Ces données servent exclusivement à faire fonctionner le Service : vous authentifier, publier ou
-              planifier votre contenu sur les réseaux que vous connectez, afficher vos statistiques, et — si
-              vous l&apos;activez — générer des suggestions de texte ou de miniatures via un assistant IA.
-            </p>
-          </section>
+        <Section title="1. Responsable du traitement">
+          <p>
+            Le responsable du traitement est l&apos;éditeur du Service indiqué dans les mentions légales ci-dessus,
+            joignable à{" "}
+            <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
+              {SITE_CONTACT_EMAIL}
+            </a>
+            .
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">3. Destinataires des données</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vos données ne sont jamais vendues. Elles peuvent être transmises aux services suivants,
-              uniquement dans la mesure nécessaire à leur fonction :
-            </p>
-            <ul className="mt-2 space-y-1 text-sm text-slate-400">
-              <li>• Meta (Instagram/Facebook), TikTok, Google/YouTube — pour publier votre contenu et lire vos statistiques, uniquement sur les comptes que vous connectez explicitement.</li>
-              <li>• Stripe — pour le traitement des paiements d&apos;abonnement.</li>
-              <li>• Resend — pour l&apos;envoi d&apos;emails transactionnels (ex. réinitialisation de mot de passe).</li>
-              <li>• Cloudflare (Turnstile) — pour la protection anti-robot à l&apos;inscription.</li>
-              <li>• Google (Gemini) — pour les fonctionnalités d&apos;assistant IA, si activées.</li>
-              <li>• Notre hébergeur (Vercel) et notre base de données (Neon/PostgreSQL) — pour l&apos;hébergement technique du Service.</li>
-            </ul>
-          </section>
+        <Section title="2. Données collectées">
+          <p>
+            À l&apos;inscription : votre nom, votre adresse email et votre mot de passe (jamais stocké en clair,
+            uniquement sous forme hachée), ou l&apos;identifiant fourni par Google, Apple ou Meta si vous utilisez la
+            connexion rapide. En utilisant le Service : le nom de vos marques, le contenu que vous importez pour
+            publication (images, vidéos, textes), vos préférences d&apos;affichage, et — lorsque vous connectez un
+            compte de réseau social — un jeton d&apos;accès permettant à {SITE_NAME} d&apos;agir en votre nom sur ce
+            compte dans la limite des permissions accordées, ainsi que les statistiques et commentaires que ces
+            plateformes renvoient. Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
+            plus deux jours, pour limiter les tentatives abusives sur les formulaires publics.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">4. Durée de conservation</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vos données sont conservées tant que votre compte est actif. En cas de suppression de compte
-              (Paramètres → Compte &amp; confidentialité), vos données personnelles et votre contenu sont
-              effacés de nos systèmes, sauf obligation légale contraire.
-            </p>
-          </section>
+        <Section title="3. Finalités et bases légales">
+          <p>
+            Ces données servent à faire fonctionner le Service que vous avez demandé (exécution du contrat) : vous
+            authentifier, publier ou planifier votre contenu, afficher vos statistiques, partager vos rapports. La
+            protection contre les abus et la sécurité du Service relèvent de notre intérêt légitime. Les fonctions
+            d&apos;assistant IA ne traitent vos textes et images que lorsque vous les déclenchez. Nous ne faisons ni
+            profilage publicitaire, ni revente de données.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">5. Sécurité</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Les mots de passe sont hachés (bcrypt) et ne sont jamais stockés ni transmis en clair. Les
-              échanges avec le Service sont chiffrés (HTTPS). L&apos;accès aux jetons de connexion aux réseaux
-              sociaux est strictement limité aux opérations que vous initiez.
-            </p>
-          </section>
+        <Section title="4. Destinataires et sous-traitants">
+          <p>
+            Vos données ne sont jamais vendues. Elles sont transmises aux prestataires suivants, uniquement dans la
+            mesure nécessaire à leur fonction :
+          </p>
+          <div className="overflow-x-auto">
+            <table className="mt-2 w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="pb-2 pr-3 font-medium">Prestataire</th>
+                  <th className="pb-2 pr-3 font-medium">Rôle</th>
+                  <th className="pb-2 font-medium">Localisation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {SUBPROCESSORS.map((s) => (
+                  <tr key={s.name}>
+                    <td className="py-2 pr-3 text-slate-300">{s.name}</td>
+                    <td className="py-2 pr-3">{s.role}</td>
+                    <td className="py-2">{s.where}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Certains de ces prestataires sont établis hors de l&apos;Union européenne. Les transferts sont encadrés
+            par les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne et/ou
+            certification au cadre de protection des données UE–États-Unis, selon le prestataire).
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">6. Vos droits</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Vous pouvez à tout moment consulter, exporter ou supprimer vos données directement depuis
-              Paramètres → Compte &amp; confidentialité (téléchargement de vos données au format JSON,
-              suppression définitive du compte). Pour toute autre demande relative à vos données, contactez :{" "}
-              {CONTACT_EMAIL}
-            </p>
-          </section>
+        <Section title="5. Durée de conservation">
+          <p>
+            Vos données sont conservées tant que votre compte est actif. En cas de suppression du compte (Paramètres
+            → Compte &amp; confidentialité), vos données personnelles, vos contenus et les jetons de connexion sont
+            effacés de nos systèmes ; les données de facturation sont conservées par Stripe et par nous le temps
+            requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">7. Cookies</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Nebula utilise un cookie de session strictement nécessaire au maintien de votre connexion
-              (authentification). Aucun cookie publicitaire ou de traçage tiers n&apos;est utilisé.
-            </p>
-          </section>
+        <Section title="6. Sécurité">
+          <p>
+            Les mots de passe sont hachés (bcrypt) et ne sont jamais stockés ni transmis en clair. Les échanges avec
+            le Service sont chiffrés (HTTPS, HSTS). Les jetons d&apos;accès aux réseaux sociaux ne sont jamais
+            renvoyés au navigateur et ne servent qu&apos;aux opérations que vous initiez. L&apos;accès aux données
+            d&apos;une marque est réservé aux membres de cette marque.
+          </p>
+        </Section>
 
-          <section>
-            <h3 className="font-display text-lg font-medium text-white">8. Modifications</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Cette politique peut être mise à jour ; la date en haut de cette page indique la dernière
-              révision.
-            </p>
-          </section>
-        </GlassCard>
-      </div>
-    </main>
+        <Section title="7. Vos droits">
+          <p>
+            Vous disposez d&apos;un droit d&apos;accès, de rectification, d&apos;effacement, de limitation,
+            d&apos;opposition et de portabilité de vos données. La plupart s&apos;exercent directement depuis
+            Paramètres → Compte &amp; confidentialité (export de vos données au format JSON, suppression définitive
+            du compte, déconnexion de chaque réseau). Pour toute autre demande, écrivez à{" "}
+            <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
+              {SITE_CONTACT_EMAIL}
+            </a>
+            . Vous pouvez également introduire une réclamation auprès de la CNIL (
+            <a href="https://www.cnil.fr" className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              www.cnil.fr
+            </a>
+            ).
+          </p>
+        </Section>
+
+        <Section id="cookies" title="8. Cookies et stockage local">
+          <p>
+            {SITE_NAME} utilise uniquement des cookies strictement nécessaires : le cookie de session qui maintient
+            votre connexion, et un cookie technique pour retenir le compte actif si vous en utilisez plusieurs. Vos
+            préférences d&apos;affichage (thème, fond) sont mémorisées dans votre navigateur. Aucun cookie
+            publicitaire, de mesure d&apos;audience tierce ou de traçage n&apos;est déposé ; aucune bannière de
+            consentement n&apos;est donc nécessaire.
+          </p>
+        </Section>
+
+        <Section title="9. Modifications">
+          <p>
+            Cette politique peut être mise à jour ; la date en haut de cette page indique la dernière révision.
+          </p>
+        </Section>
+      </GlassCard>
+    </PublicShell>
   );
 }

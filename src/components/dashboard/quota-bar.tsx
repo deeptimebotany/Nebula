@@ -4,35 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { clsx } from "@/lib/clsx";
-import { isUnlimitedPlan, type Plan } from "@/lib/plans";
+import { isUnlimitedPlan } from "@/lib/plans";
 
-interface PlanResponse {
-  plan: Plan;
-  limits: { label: string; maxPostsPerMonth: number };
-}
+import type { BrandUsage } from "@/lib/billing/usage";
 
-/** Barre de progression "publications programmées ce mois" affichée
- * au-dessus du calendrier — masquée pour le palier Agence (illimité). */
+/** Barre de progression « publications ce mois » affichée au-dessus du
+ * calendrier — masquée pour les paliers illimités. Depuis le Lot 4, les
+ * chiffres viennent de /api/billing/usage (une seule requête, mêmes règles
+ * que le quota appliqué côté serveur) au lieu d'être recomptés ici. */
 export function QuotaBar({ brandId }: { brandId: string | undefined }) {
-  const [plan, setPlan] = useState<PlanResponse | null>(null);
-  const [used, setUsed] = useState(0);
+  const [usage, setUsage] = useState<BrandUsage | null>(null);
 
   useEffect(() => {
     if (!brandId) return;
-    fetch(`/api/billing/plan?brandId=${brandId}`)
-      .then((r) => r.json())
-      .then(setPlan);
-    fetch(`/api/posts?brandId=${brandId}`)
-      .then((r) => r.json())
+    let cancelled = false;
+    fetch(`/api/billing/usage?brandId=${brandId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        const count = (d.posts ?? []).filter((p: { createdAt: string }) => new Date(p.createdAt) >= startOfMonth).length;
-        setUsed(count);
-      });
+        if (!cancelled && d) setUsage(d as BrandUsage);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [brandId]);
 
+  const plan = usage ? { plan: usage.plan, limits: usage.limits } : null;
+  const used = usage?.postsThisMonth ?? 0;
   if (!plan || isUnlimitedPlan(plan.plan)) return null;
 
   const max = plan.limits.maxPostsPerMonth;
@@ -43,7 +41,7 @@ export function QuotaBar({ brandId }: { brandId: string | undefined }) {
     <GlassCard hover={false} className="!p-4">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="text-slate-300">
-          Publications programmées ce mois — palier <span className="text-white">{plan.limits.label}</span>
+          Publications créées ce mois — palier <span className="text-white">{plan.limits.label}</span>
         </span>
         <span className={clsx("font-medium", nearLimit ? "text-amber-300" : "text-white")}>
           {used} / {max}

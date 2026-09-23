@@ -16,6 +16,7 @@
 // curseur — un re-render à chaque frame serait inutilement coûteux pour un
 // aussi grand nombre de mises à jour par seconde.
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "@/lib/motion";
 
 interface DriftDot {
   el: HTMLSpanElement;
@@ -83,7 +84,8 @@ export function SidebarShootingStars() {
         d.el.style.height = `${d.r * 2}px`;
         d.el.style.opacity = alpha.toFixed(3);
       }
-      rafRef.current = requestAnimationFrame(tick);
+      // « Réduire les animations » : les points sont posés une fois, immobiles.
+      if (!prefersReducedMotion()) rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
 

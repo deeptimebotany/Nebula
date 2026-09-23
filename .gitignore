@@ -1,9 +1,23 @@
-node_modules
-.next
-out
+# Dépendances et sorties de build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets : jamais versionnés (copiez .env.example en .env)
 .env
 .env.local
-*.db
-*.db-journal
-dist
+.env.*.local
+!.env.example
+
+# Base SQLite de développement et médias envoyés en local
+prisma/dev.db*
+public/uploads/
+
+# Vercel / éditeurs / OS
+.vercel/
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/

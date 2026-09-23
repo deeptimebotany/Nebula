@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,10 +12,13 @@ import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
-import { NetworkBadge } from "@/components/ui/network-badge";
+import { NetworkBadge, networkInkStyle } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type ChartPoint, type Network } from "@/lib/types";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { useToast } from "@/components/dashboard/toast";
+import { useConfirm } from "@/components/dashboard/confirm";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconLink, IconUsers } from "@/components/dashboard/icons";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
@@ -95,6 +100,7 @@ interface CompetitorTrackRow {
 // profil) et saisi vous-même, jamais une valeur inventée par Nebula.
 function CompetitorTab({ brandId }: { brandId: string }) {
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const [tracks, setTracks] = useState<CompetitorTrackRow[] | null>(null);
   const [network, setNetwork] = useState<Network>("INSTAGRAM");
   const [handle, setHandle] = useState("");
@@ -130,8 +136,20 @@ function CompetitorTab({ brandId }: { brandId: string }) {
     load();
   }
 
-  async function removeCompetitor(id: string) {
-    await fetch(`/api/competitors/${id}`, { method: "DELETE" });
+  async function removeCompetitor(id: string, handle: string) {
+    const ok = await confirmDialog({
+      title: "Retirer ce concurrent ?",
+      message: `Le suivi de @${handle} et tous ses relevés seront supprimés. Cette action est définitive.`,
+      confirmLabel: "Retirer",
+      danger: true
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/competitors/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) {
+      toast.error("Impossible de retirer ce concurrent pour le moment.");
+      return;
+    }
+    toast.success(`@${handle} retiré du suivi.`);
     load();
   }
 
@@ -184,9 +202,17 @@ function CompetitorTab({ brandId }: { brandId: string }) {
       </GlassCard>
 
       {!tracks ? (
-        <p className="text-sm text-slate-500">Chargement...</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={3} />
+        </div>
       ) : tracks.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-500">Aucun concurrent suivi pour l&apos;instant.</p>
+        <EmptyState
+          icon={<IconUsers className="h-5 w-5" />}
+          title="Aucun concurrent suivi"
+          description="Ajoutez jusqu'à trois comptes à surveiller (leur @) : vous relèverez leurs abonnés quand vous le souhaitez et verrez la tendance à côté de la vôtre."
+        />
       ) : (
         <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tracks.map((t) => {
@@ -199,11 +225,11 @@ function CompetitorTab({ brandId }: { brandId: string }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-white">{t.label || t.handle}</p>
-                    <p className="text-xs" style={{ color: NETWORK_META[t.network].color }}>
+                    <p className="network-ink text-xs" style={networkInkStyle(t.network)}>
                       {NETWORK_META[t.network].label} · {t.handle}
                     </p>
                   </div>
-                  <button onClick={() => removeCompetitor(t.id)} className="text-xs text-slate-500 hover:text-red-300">
+                  <button onClick={() => removeCompetitor(t.id, t.handle)} className="text-xs text-slate-500 hover:text-red-300">
                     ✕
                   </button>
                 </div>
@@ -249,7 +275,7 @@ function CompetitorTab({ brandId }: { brandId: string }) {
 // (voir accounts/page.tsx pour le même besoin, déjà en place ailleurs).
 export default function AnalyticsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <AnalyticsPageInner />
     </Suspense>
   );
@@ -482,29 +508,29 @@ function AnalyticsPageInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Analytics</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {hasRealData
-              ? "Basé sur les dernières synchronisations réelles de vos comptes."
-              : "Connectez puis synchronisez un compte pour voir vos vraies statistiques ici."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
-            Exporter le rapport (CSV)
-          </Button>
-          {plan === "AGENCY" && (
-            <Button variant="outline" onClick={exportPdf} disabled={pdfLoading}>
-              {pdfLoading ? "Génération..." : "Rapport PDF"}
+      <PageHeader
+        title="Analytics"
+        description={
+          hasRealData
+            ? "Basé sur les dernières synchronisations réelles de vos comptes."
+            : "Connectez puis synchronisez un compte pour voir vos vraies statistiques ici."
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
+              Exporter (CSV)
             </Button>
-          )}
-          <Button onClick={onSync} disabled={syncing || connections.length === 0}>
-            {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
-          </Button>
-        </div>
-      </div>
+            {plan === "AGENCY" && (
+              <Button variant="outline" onClick={exportPdf} disabled={pdfLoading}>
+                {pdfLoading ? "Génération..." : "Rapport PDF"}
+              </Button>
+            )}
+            <Button onClick={onSync} disabled={syncing || connections.length === 0}>
+              {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
+            </Button>
+          </>
+        }
+      />
 
       {filterConnectionId && (
         <div className="flex items-center gap-2 rounded-lg border border-aurora-400/30 bg-aurora-400/[0.06] px-3 py-2 text-sm text-aurora-200">
@@ -550,12 +576,16 @@ function AnalyticsPageInner() {
         activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
       ) : connections.length === 0 && !loading ? (
         <Reveal>
-        <MotionGlassCard className="text-center">
-          <p className="text-sm text-slate-400">Aucun compte connecté pour l&apos;instant.</p>
-          <Link href="/accounts" className="mt-3 inline-block">
-            <Button variant="outline">Connecter un réseau</Button>
-          </Link>
-        </MotionGlassCard>
+          <EmptyState
+            icon={<IconLink className="h-5 w-5" />}
+            title="Aucun compte connecté"
+            description="Connectez un compte Instagram, Facebook, TikTok ou YouTube, puis synchronisez-le : vos abonnés, votre portée et votre engagement apparaîtront ici, avec leur évolution."
+            action={
+              <Link href="/accounts" className="inline-block">
+                <Button>Connecter un compte</Button>
+              </Link>
+            }
+          />
         </Reveal>
       ) : (
         <div className="space-y-6">
@@ -571,7 +601,6 @@ function AnalyticsPageInner() {
                     value={latest ? latest.followers.toLocaleString("fr-FR") : "—"}
                     suffix={latest ? "abonnés" : "pas encore synchronisé"}
                     delta={latest && previous ? latest.followers - previous.followers : 0}
-                    badge={latest && latest.followers >= MILESTONE_FOLLOWERS ? "🎖 1000+" : undefined}
                     glow={Boolean(latest && latest.followers >= MILESTONE_FOLLOWERS_10K && cosmetics.has("eclat-dore-statcard"))}
                   />
                 </RevealItem>
@@ -592,10 +621,16 @@ function AnalyticsPageInner() {
             {hasRealData ? (
               <GrowthChart data={chartData} seriesKeys={networksToShow} />
             ) : (
-              <p className="py-10 text-center text-sm text-slate-500">
-                Pas encore de synchronisation — cliquez sur &laquo; Actualiser depuis les réseaux &raquo; ci-dessus pour
-                remplir ce graphique avec vos vraies données.
-              </p>
+              <EmptyState
+                bare
+                title="Pas encore de synchronisation"
+                description="Cliquez sur « Actualiser depuis les réseaux » pour récupérer vos vraies statistiques. Chaque synchronisation ajoute un point à la courbe : revenez régulièrement pour voir la tendance."
+                action={
+                  <Button onClick={onSync} disabled={syncing || connections.length === 0}>
+                    {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}
+                  </Button>
+                }
+              />
             )}
           </MotionGlassCard>
           </Reveal>

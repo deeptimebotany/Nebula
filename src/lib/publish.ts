@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendPublishFailureEmail } from "@/lib/email";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
@@ -184,6 +185,39 @@ export async function publishPost(postId: string) {
   return { successCount, failureCount, status: finalStatus, milestone };
 }
 
+/**
+ * Prévient l'auteur d'une publication programmée dont l'envoi vient
+ * d'échouer (voir User.notifyOnFailure et sendPublishFailureEmail). Jamais
+ * bloquant : un problème d'email ne doit pas empêcher le worker de
+ * continuer avec les publications suivantes.
+ */
+async function notifyScheduledFailure(postId: string, status: string) {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: {
+        brand: { select: { name: true } },
+        createdBy: { select: { email: true, notifyOnFailure: true } },
+        targets: { where: { status: "FAILED" }, select: { network: true, errorMessage: true } }
+      }
+    });
+    if (!post || !post.createdBy?.email) return;
+    if ((post.createdBy.notifyOnFailure as boolean | null | undefined) === false) return;
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const result = await sendPublishFailureEmail({
+      to: post.createdBy.email,
+      brandName: post.brand.name,
+      postTitle: post.title || post.caption.split("\n")[0] || "",
+      postUrl: `${baseUrl}/posts/${post.id}`,
+      failures: post.targets.map((t: { network: string; errorMessage: string | null }) => ({ network: t.network, message: t.errorMessage ?? "" })),
+      partial: status === "PARTIAL"
+    });
+    if (!result.ok) console.error("[notification d'échec] email non envoyé :", result.error);
+  } catch (err) {
+    console.error("[notification d'échec]", (err as Error).message);
+  }
+}
+
 /** Cherche tous les posts programmés arrivés à échéance et les publie. */
 export async function runDuePosts() {
   const due = await prisma.post.findMany({
@@ -194,7 +228,11 @@ export async function runDuePosts() {
   const results = [];
   for (const post of due) {
     try {
-      results.push({ postId: post.id, ...(await publishPost(post.id)) });
+      const outcome = await publishPost(post.id);
+      results.push({ postId: post.id, ...outcome });
+      if (outcome.status === "FAILED" || outcome.status === "PARTIAL") {
+        await notifyScheduledFailure(post.id, outcome.status);
+      }
     } catch (err) {
       results.push({ postId: post.id, error: (err as Error).message });
     }

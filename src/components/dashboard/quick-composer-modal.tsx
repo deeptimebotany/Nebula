@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
@@ -264,7 +265,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
                 {asset.type === "VIDEO" ? (
                   <video src={asset.url} className="h-28 rounded-lg object-cover" muted />
                 ) : (
-                  <img src={asset.url} alt="" className="h-28 rounded-lg object-cover" />
+                  <RemoteImage src={asset.url} className="h-28 w-full rounded-lg" sizes="(max-width: 640px) 100vw, 400px" />
                 )}
                 <button
                   type="button"

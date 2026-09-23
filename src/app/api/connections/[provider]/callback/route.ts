@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { assertBrandMembership } from "@/lib/brand-access";
 import { getSocialClient } from "@/lib/social";
 import { exchangeMetaCode } from "@/lib/social/meta";
 import { decodeOAuthState, upsertConnection } from "@/lib/connections";
@@ -26,12 +29,25 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
     return NextResponse.redirect(redirectTo);
   }
 
+  // Le retour OAuth doit venir de la MÊME personne connectée que le départ
+  // (état signé, voir lib/connections.ts) et cette personne doit toujours
+  // être membre de la marque visée.
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.redirect(new URL("/login", req.url));
+  const userId = (session.user as { id: string }).id;
+
   let brandId: string;
   try {
-    const state = decodeOAuthState<{ brandId: string }>(stateRaw);
+    const state = decodeOAuthState<{ brandId: string; provider?: string; userId?: string }>(stateRaw);
+    if (state.userId !== userId || state.provider !== params.provider) throw new Error("mismatch");
     brandId = state.brandId;
-  } catch {
-    redirectTo.searchParams.set("error", "État OAuth invalide.");
+  } catch (err) {
+    const message = err instanceof Error && err.message.startsWith("État OAuth expiré") ? err.message : "État OAuth invalide.";
+    redirectTo.searchParams.set("error", message);
+    return NextResponse.redirect(redirectTo);
+  }
+  if (!(await assertBrandMembership(userId, brandId))) {
+    redirectTo.searchParams.set("error", "Marque introuvable.");
     return NextResponse.redirect(redirectTo);
   }
 

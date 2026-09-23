@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Tabs } from "@/components/ui/tabs";
+import { Toggle } from "@/components/ui/toggle";
+import { Input, Select } from "@/components/ui/input";
+import { DEFAULT_TIMEZONE, timeZoneLabel, timeZoneOptions } from "@/lib/timezone";
+import { IconClock } from "@/components/dashboard/icons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useFocusMode, useBootstrap } from "@/components/bootstrap-provider";
 import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 import { THEMES, canUseTheme } from "@/lib/themes";
@@ -11,7 +20,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useBackground } from "@/components/background-provider";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
-import { IconGift, IconSettings, IconLock, IconUpload } from "@/components/dashboard/icons";
+import { IconGift, IconSettings, IconLock, IconUpload, IconFocus, IconTrophy } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
 import { useStarfield } from "@/components/starfield-provider";
@@ -54,7 +63,39 @@ function isTypingTarget(el: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable || tag === "SELECT";
 }
 
+type SettingsTab = "marque" | "apparence" | "compte";
+const SETTINGS_TABS: { value: SettingsTab; label: string }[] = [
+  { value: "marque", label: "Marque" },
+  { value: "apparence", label: "Apparence & Succès" },
+  { value: "compte", label: "Compte" }
+];
+function tabFromHash(hash: string): SettingsTab {
+  const h = hash.replace("#", "");
+  return h === "apparence" || h === "compte" || h === "marque" ? h : "marque";
+}
+
 export default function SettingsPage() {
+  // Onglets (Lot 3) : la partie « Apparence & Succès » regroupe tout ce qui
+  // est cosmétique (thème, fond, thème étoilé, cosmétiques, son, Mode focus)
+  // à part des réglages de marque et de compte. L'onglet actif est dans
+  // l'ancre de l'URL (#apparence), donc partageable et conservé au retour.
+  const [tab, setTab] = useState<SettingsTab>("marque");
+  useEffect(() => {
+    setTab(tabFromHash(window.location.hash));
+    function onHash() {
+      setTab(tabFromHash(window.location.hash));
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  function changeTab(next: SettingsTab) {
+    setTab(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }
+  const { focusMode, loaded: focusLoaded, setFocusMode } = useFocusMode();
+  const [savingFocus, setSavingFocus] = useState(false);
+  const bootstrap = useBootstrap();
+
   const { themeKey, setThemeKey } = useTheme();
   const { backgroundKey, setBackgroundKey } = useBackground();
   const {
@@ -88,7 +129,38 @@ export default function SettingsPage() {
   // par défaut), sinon simule exactement ce que verrait un compte sur ce
   // palier — y compris les cosmétiques/fonds/thèmes VERROUILLÉS.
   const [planPreview, setPlanPreview] = useState<Plan | null>(null);
-  const { activeBrand, renameBrand } = useBrand();
+  const { activeBrand, renameBrand, updateBrand } = useBrand();
+  // Fuseau horaire de programmation de la marque (Lot 4, voir src/lib/timezone.ts).
+  const [tzOptions] = useState<string[]>(() => timeZoneOptions());
+  const [savingTimezone, setSavingTimezone] = useState(false);
+  async function onChangeTimezone(next: string) {
+    if (!activeBrand || next === activeBrand.timezone) return;
+    setSavingTimezone(true);
+    const res = await updateBrand(activeBrand.id, { timezone: next });
+    setSavingTimezone(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "Impossible d'enregistrer le fuseau horaire.");
+      return;
+    }
+    toast.success(`Fuseau horaire : ${next.replace(/_/g, " ")}.`);
+  }
+  // Notifications du compte (Lot 4, voir User.notifyOnFailure).
+  const [savingNotify, setSavingNotify] = useState(false);
+  async function onToggleNotify(next: boolean) {
+    setSavingNotify(true);
+    const res = await fetch("/api/settings/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notifyOnFailure: next })
+    }).catch(() => null);
+    setSavingNotify(false);
+    if (!res || !res.ok) {
+      toast.error("Échec de l'enregistrement.");
+      return;
+    }
+    bootstrap.patch({ notifyOnFailure: next });
+    toast.success(next ? "Vous serez prévenu·e par email en cas d'échec." : "Emails d'échec désactivés.");
+  }
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
@@ -191,18 +263,6 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then(setReferral)
       .catch(() => undefined);
-    fetch("/api/billing/plan")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.plan && setPlan(d.plan))
-      .catch(() => undefined);
-    fetch("/api/settings/white-label")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        setWlName(d.brandName ?? "");
-        setWlLogoUrl(d.logoUrl ?? null);
-      })
-      .catch(() => undefined);
     fetch("/api/settings/publish-sound")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -226,6 +286,27 @@ export default function SettingsPage() {
       .then((d) => setPlanPreview((d?.plan as Plan | null) ?? null))
       .catch(() => undefined);
   }, []);
+
+  // Palier et marque blanche : lus dans le bootstrap (/api/me) plutôt que
+  // par deux requêtes supplémentaires.
+  useEffect(() => {
+    if (!bootstrap.data) return;
+    setPlan(bootstrap.data.plan);
+    setWlName(bootstrap.data.whiteLabel.brandName ?? "");
+    setWlLogoUrl(bootstrap.data.whiteLabel.logoUrl ?? null);
+  }, [bootstrap.data]);
+
+  async function onToggleFocusMode() {
+    setSavingFocus(true);
+    const next = !focusMode;
+    const ok = await setFocusMode(next);
+    setSavingFocus(false);
+    if (!ok) {
+      toast.error("Échec de l'enregistrement.");
+      return;
+    }
+    toast.success(next ? "Mode focus activé : plus de surprises pendant le travail." : "Mode focus désactivé : les easter eggs sont de retour.");
+  }
 
   async function onTogglePublishSound() {
     if (!publishSound.unlocked) return;
@@ -259,6 +340,12 @@ export default function SettingsPage() {
       return;
     }
     toast.success("Marque blanche mise à jour.");
+    bootstrap.patch({
+      whiteLabel: {
+        brandName: next.brandName !== undefined ? next.brandName : (bootstrap.data?.whiteLabel.brandName ?? null),
+        logoUrl: next.logoUrl !== undefined ? next.logoUrl : (bootstrap.data?.whiteLabel.logoUrl ?? null)
+      }
+    });
   }
 
   async function onWlLogoChosen(file: File) {
@@ -330,27 +417,26 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconSettings className="h-5 w-5 text-slate-400" /> Paramètres
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">Personnalisez votre espace Nebula.</p>
-      </div>
+      <PageHeader icon={<IconSettings className="h-5 w-5" />} title="Paramètres" description="Votre marque, l'apparence de votre espace et votre compte." />
 
+      <Tabs items={SETTINGS_TABS} value={tab} onChange={changeTab} variant="line" aria-label="Sections des paramètres" />
+
+      <section hidden={tab !== "marque"} className="space-y-6" aria-label="Marque">
       <GlassCard>
-        <h2 className="font-display text-base font-medium text-white">Pseudo de la marque</h2>
+        <h2 className="font-display text-base font-medium text-white">Nom de la marque</h2>
         <p className="mt-1 text-sm text-slate-400">
           Le nom affiché pour <strong className="text-slate-300">{activeBrand?.name ?? "cette marque"}</strong>{" "}
-          dans l&apos;aperçu d&apos;Importation, le sélecteur de marque, etc.
+          dans l&apos;aperçu de Publier, le sélecteur de marque, etc.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
+          <Input
+            aria-label="Nom de la marque"
             value={pseudo}
             onChange={(e) => setPseudo(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSavePseudo()}
             disabled={!activeBrand}
-            placeholder="Pseudo de la marque"
-            className="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60 disabled:opacity-50"
+            placeholder="Nom de la marque"
+            wrapperClassName="min-w-[200px] flex-1"
           />
           <Button
             onClick={onSavePseudo}
@@ -359,6 +445,118 @@ export default function SettingsPage() {
             {savingPseudo ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </div>
+      </GlassCard>
+
+      <GlassCard>
+        <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+          <IconClock className="h-4 w-4 text-aurora-300" /> Fuseau horaire de programmation
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Les heures que vous saisissez dans Publier et le calendrier sont celles de ce fuseau, quel que soit
+          l&apos;appareil depuis lequel vous travaillez. Utile si votre audience (ou vous) n&apos;êtes pas en France
+          métropolitaine.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Select
+            aria-label="Fuseau horaire de la marque"
+            value={activeBrand?.timezone ?? DEFAULT_TIMEZONE}
+            onChange={(e) => onChangeTimezone(e.target.value)}
+            disabled={!activeBrand || savingTimezone}
+            wrapperClassName="min-w-[260px]"
+          >
+            {tzOptions.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz.replace(/_/g, " ")}
+              </option>
+            ))}
+          </Select>
+          <span className="text-xs text-slate-500">
+            Actuellement {timeZoneLabel(activeBrand?.timezone ?? DEFAULT_TIMEZONE)} · il est{" "}
+            {new Date().toLocaleTimeString("fr-FR", { timeZone: activeBrand?.timezone ?? DEFAULT_TIMEZONE, hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-medium text-white">Marque blanche</h2>
+          {plan !== "AGENCY" && (
+            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
+              <IconLock className="h-3 w-3" /> Palier Agence
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-slate-400">
+          Remplacez &laquo; Nebula &raquo; par votre propre nom et votre logo dans le menu et l&apos;en-tête de votre
+          espace de travail. Les pages publiques envoyées à vos clients (rapports, calendrier, page bio, liens
+          d&apos;approbation) gardent la mention &laquo; Propulsé par Nebula &raquo;.
+        </p>
+        {plan !== "AGENCY" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Disponible avec le palier Agence.{" "}
+            <Link href="/billing" className="text-aurora-300 hover:underline">
+              Voir Facturation
+            </Link>
+            .
+          </p>
+        ) : (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+              {wlLogoUrl ? (
+                <RemoteImage src={wlLogoUrl} className="h-full w-full" sizes="48px" />
+              ) : (
+                <IconUpload className="h-5 w-5 text-slate-500" />
+              )}
+            </div>
+            <input
+              ref={wlFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && onWlLogoChosen(e.target.files[0])}
+            />
+            <Button variant="outline" onClick={() => wlFileInputRef.current?.click()} disabled={wlUploading}>
+              {wlUploading ? "Envoi..." : "Changer le logo"}
+            </Button>
+            <Input
+              aria-label="Nom affiché en marque blanche"
+              value={wlName}
+              onChange={(e) => setWlName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveWhiteLabel({ brandName: wlName.trim() })}
+              placeholder="Nom affiché (ex : Studio Martin)"
+              wrapperClassName="min-w-[200px] flex-1"
+            />
+            <Button onClick={() => saveWhiteLabel({ brandName: wlName.trim() })} disabled={wlSaving}>
+              {wlSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </div>
+        )}
+      </GlassCard>
+
+      </section>
+
+      <section hidden={tab !== "apparence"} className="space-y-6" aria-label="Apparence et succès">
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+              <IconFocus className="h-4 w-4 text-aurora-300" /> Mode focus
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Activé par défaut : aucune surprise ni notification de succès pendant que vous travaillez. Désactivez-le
+              pour retrouver les easter eggs ambiants (code Konami, mot secret, étoiles filantes de minuit…) et les
+              toasts « succès débloqué ». Vos découvertes sont enregistrées dans les deux cas.
+            </p>
+          </div>
+          <Toggle checked={focusMode} onChange={onToggleFocusMode} disabled={!focusLoaded || savingFocus} aria-label="Mode focus" className="mt-1 shrink-0" />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Vos succès restent visibles sur la page{" "}
+          <Link href="/succes" className="text-aurora-300 hover:underline">
+            Succès
+          </Link>
+          .
+        </p>
       </GlassCard>
 
       <GlassCard>
@@ -379,7 +577,7 @@ export default function SettingsPage() {
                   themeKey === t.key
                     ? "border-aurora-400 bg-white/[0.04]"
                     : locked
-                      ? "border-white/5 opacity-60 hover:opacity-90"
+                      ? "border-dashed border-white/10 hover:border-white/20"
                       : "border-white/10 hover:border-white/25"
                 )}
               >
@@ -389,7 +587,7 @@ export default function SettingsPage() {
                   </span>
                 )}
                 <span
-                  className="h-10 w-full rounded-lg shadow-inner"
+                  className={clsx("h-10 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")}
                   style={{ background: swatchPreview(t.vars) }}
                 />
                 <span className="text-xs text-slate-300">{t.label}</span>
@@ -488,7 +686,7 @@ export default function SettingsPage() {
                         key={c.key}
                         className={clsx(
                           "flex items-start justify-between gap-3 rounded-xl border p-3 transition",
-                          locked ? "border-white/5 opacity-60" : "border-white/10"
+                          locked ? "border-dashed border-white/10" : "border-white/10"
                         )}
                       >
                         <div className="min-w-0">
@@ -570,59 +768,39 @@ export default function SettingsPage() {
 
 
       <GlassCard>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-medium text-white">Marque blanche</h2>
-          {plan !== "AGENCY" && (
-            <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
-              <IconLock className="h-3 w-3" /> Palier Agence
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Remplacez &laquo; Nebula &raquo; par votre propre nom et logo dans la barre de navigation, ainsi que sur
-          toutes les pages publiques que vos clients consultent sans se connecter (liens de validation, pages
-          &laquo; link in bio &raquo;) — le crédit &laquo; Propulsé par Nebula &raquo; y disparaît automatiquement dès
-          que c&apos;est configuré ici.
-        </p>
-        {plan !== "AGENCY" ? (
-          <p className="mt-3 text-sm text-slate-500">
-            Disponible avec le palier Agence.{" "}
-            <Link href="/billing" className="text-aurora-300 hover:underline">
-              Voir Facturation
-            </Link>
-            .
-          </p>
-        ) : (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-              {wlLogoUrl ? (
-                <img src={wlLogoUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <IconUpload className="h-5 w-5 text-slate-500" />
-              )}
-            </div>
-            <input
-              ref={wlFileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => e.target.files?.[0] && onWlLogoChosen(e.target.files[0])}
-            />
-            <Button variant="outline" onClick={() => wlFileInputRef.current?.click()} disabled={wlUploading}>
-              {wlUploading ? "Envoi..." : "Changer le logo"}
-            </Button>
-            <input
-              value={wlName}
-              onChange={(e) => setWlName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && saveWhiteLabel({ brandName: wlName.trim() })}
-              placeholder="Nom affiché (ex : Studio Martin)"
-              className="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
-            />
-            <Button onClick={() => saveWhiteLabel({ brandName: wlName.trim() })} disabled={wlSaving}>
-              {wlSaving ? "Enregistrement..." : "Enregistrer"}
-            </Button>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+              <IconTrophy className="h-4 w-4 text-amber-300" /> Succès
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">Les easter eggs que vous avez trouvés, et ceux qui restent à découvrir.</p>
           </div>
-        )}
+          <ButtonLink href="/succes" variant="outline">
+            Voir mes succès
+          </ButtonLink>
+        </div>
+      </GlassCard>
+      </section>
+
+      <section hidden={tab !== "compte"} className="space-y-6" aria-label="Compte">
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-medium text-white">Notifications par email</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Recevez un email si une publication programmée échoue sur un ou plusieurs comptes (jeton expiré, refus du
+              réseau…), avec l&apos;erreur exacte et le lien pour réessayer. Les publications envoyées immédiatement
+              affichent leur résultat à l&apos;écran, sans email.
+            </p>
+          </div>
+          <Toggle
+            checked={bootstrap.data?.notifyOnFailure ?? true}
+            onChange={onToggleNotify}
+            disabled={!bootstrap.loaded || savingNotify}
+            aria-label="Email en cas d'échec de publication"
+            className="mt-1 shrink-0"
+          />
+        </div>
       </GlassCard>
 
       <GlassCard>
@@ -653,11 +831,15 @@ export default function SettingsPage() {
             )}
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-500">Chargement...</p>
+          <div className="mt-4 space-y-2" aria-busy="true">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-3 w-72 max-w-full" />
+          </div>
         )}
       </GlassCard>
 
       <AccountPrivacyCard />
+      </section>
     </div>
   );
 }

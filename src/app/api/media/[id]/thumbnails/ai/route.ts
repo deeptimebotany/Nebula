@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, generateThumbnail } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  const asset = await prisma.mediaAsset.findUnique({ where: { id: params.id } });
+  const userId = (session.user as { id: string }).id;
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: params.id, brand: ownedBy(userId) } });
   if (!asset) return NextResponse.json({ error: "Média introuvable" }, { status: 404 });
 
   const { limits } = await getBrandPlan(asset.brandId);

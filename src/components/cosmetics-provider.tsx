@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { useBootstrap } from "@/components/bootstrap-provider";
 
 interface CosmeticsContextValue {
   enabled: Set<string>;
@@ -24,52 +25,40 @@ export function useCosmetics() {
   return useContext(CosmeticsContext);
 }
 
-// Même schéma que StarfieldProvider (voir ce fichier) : pas de copie en
-// localStorage — chaque cosmétique dépend du palier ET d'un choix explicite
-// enregistré côté serveur, jamais d'une valeur mise en cache côté client.
+// Même schéma que StarfieldProvider : valeurs lues dans le bootstrap /api/me
+// (palier ET choix explicite enregistrés côté serveur), jamais mises en
+// cache côté client.
 export function CosmeticsProvider({ children }: { children: React.ReactNode }) {
-  const [enabled, setEnabledState] = useState<Set<string>>(new Set());
-  const [allowedKeys, setAllowedKeys] = useState<Set<string>>(new Set());
-  const [loaded, setLoaded] = useState(false);
+  const { data, loaded, refresh, patch } = useBootstrap();
+  const enabledList = data?.cosmetics.enabled;
+  const allowedList = data?.cosmetics.allowedKeys;
+  const enabled = useMemo(() => new Set(enabledList ?? []), [enabledList]);
+  const allowedKeys = useMemo(() => new Set(allowedList ?? []), [allowedList]);
 
-  const refresh = useCallback(() => {
-    fetch("/api/settings/cosmetics", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d) {
-          setEnabledState(new Set(d.enabled ?? []));
-          setAllowedKeys(new Set(d.allowedKeys ?? []));
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => setLoaded(true));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const setEnabled = useCallback(async (key: string, value: boolean) => {
-    const res = await fetch("/api/settings/cosmetics", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, enabled: value })
-    }).catch(() => null);
-    if (!res || !res.ok) return false;
-    setEnabledState((prev) => {
-      const next = new Set(prev);
+  const setEnabled = useCallback(
+    async (key: string, value: boolean) => {
+      const res = await fetch("/api/settings/cosmetics", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, enabled: value })
+      }).catch(() => null);
+      if (!res || !res.ok) return false;
+      const next = new Set(enabledList ?? []);
       if (value) next.add(key);
       else next.delete(key);
-      return next;
-    });
-    return true;
-  }, []);
+      patch({ cosmetics: { enabled: Array.from(next), allowedKeys: allowedList ?? [] } });
+      return true;
+    },
+    [patch, enabledList, allowedList]
+  );
 
   const has = useCallback((key: string) => enabled.has(key), [enabled]);
+  const doRefresh = useCallback(() => {
+    refresh();
+  }, [refresh]);
 
   return (
-    <CosmeticsContext.Provider value={{ enabled, allowedKeys, loaded, has, setEnabled, refresh }}>
+    <CosmeticsContext.Provider value={{ enabled, allowedKeys, loaded, has, setEnabled, refresh: doRefresh }}>
       {children}
     </CosmeticsContext.Provider>
   );

@@ -318,3 +318,91 @@ export const IconFlask = ({ className = base }: IconProps) => (
     <path d="M7.5 15h9" strokeLinecap="round" />
   </svg>
 );
+
+// --- Icônes de la vitrine (page d'accueil, Lot 1) ---------------------------
+export const IconCheck = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={className}>
+    <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconShield = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6L12 3z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9 12l2 2 4-4.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconDownload = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M12 4v11m0 0l-4-4m4 4l4-4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 19h14" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconLayers = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M12 4l8 4.5-8 4.5-8-4.5L12 4z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4 13l8 4.5 8-4.5M4 17l8 4.5 8-4.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// --- Icônes du shell de l'application (Lot 3) -------------------------------
+export const IconList = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M8 6h12M8 12h12M8 18h12" strokeLinecap="round" />
+    <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const IconSearch = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M16 16l4.5 4.5" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconSidebar = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M9.5 4.5v15" />
+  </svg>
+);
+
+export const IconFocus = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconDots = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <circle cx="5" cy="12" r="1.8" />
+    <circle cx="12" cy="12" r="1.8" />
+    <circle cx="19" cy="12" r="1.8" />
+  </svg>
+);
+
+export const IconAlert = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M12 3.5l9 16h-18l9-16z" strokeLinejoin="round" />
+    <path d="M12 10v4.5M12 17.5h.01" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconRefresh = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M20 12a8 8 0 1 1-2.4-5.7" strokeLinecap="round" />
+    <path d="M20 4v5h-5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconClock = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);

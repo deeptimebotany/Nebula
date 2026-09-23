@@ -67,11 +67,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     features: [
       "1 marque",
       "4 comptes connectés",
-      "20 publications programmées",
+      "20 publications programmées par mois",
       "Publier une même vidéo sur vos réseaux en même temps",
       "Calendrier + analytics de base",
-      "Page « link in bio » publique (3 liens)",
-      "Sans assistant IA"
+      "Page « link in bio » publique (3 liens)"
     ],
     reportsEnabled: false,
     calendarShareEnabled: false
@@ -90,9 +89,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       { maxBrands: 10, priceMonthly: 25, priceYearly: 250, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_10_MONTHLY", year: "STRIPE_PRICE_PRO_10_YEARLY" } }
     ],
     features: [
-      "Jusqu'à 3, 5 ou 10 marques au choix",
-      "Avec un abonnement, ajoutez plusieurs comptes à votre marque sur chaque réseau",
-      "100 publications programmées / mois et par marque",
+      "3, 5 ou 10 marques au choix",
+      "Jusqu'à 8 comptes connectés par marque (plusieurs comptes par réseau)",
+      "100 publications programmées par mois et par marque",
       "Publications envoyées plus rapidement",
       "Assistant IA (titres, légendes, chat)",
       "Analyse de rétention vidéo par IA",
@@ -119,7 +118,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       { maxBrands: 50, priceMonthly: 75, priceYearly: 750, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_50_MONTHLY", year: "STRIPE_PRICE_AGENCY_50_YEARLY" } }
     ],
     features: [
-      "Jusqu'à 15, 25 ou 50 marques au choix",
+      "15, 25 ou 50 marques au choix",
       "Comptes réseaux illimités par marque",
       "Publications illimitées",
       "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",

@@ -7,12 +7,18 @@
 // src/lib/link-in-bio.ts.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
+import { useConfirm } from "@/components/dashboard/confirm";
+import { Input, Textarea } from "@/components/ui/input";
+import { Toggle } from "@/components/ui/toggle";
 import { IconBioLink, IconPlus, IconClose, IconChevron, IconUpload, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { THEMES, canUseTheme } from "@/lib/themes";
@@ -47,6 +53,7 @@ function swatchPreview(vars: Record<string, string>) {
 export default function LinkInBioPage() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const confirmDialog = useConfirm();
 
   const [page, setPage] = useState<LinkPageData | null>(null);
   const [slug, setSlug] = useState<string>("");
@@ -188,6 +195,14 @@ export default function LinkInBioPage() {
   }
 
   async function deleteLink(id: string) {
+    const target = page?.links.find((l) => l.id === id);
+    const ok = await confirmDialog({
+      title: "Supprimer ce lien ?",
+      message: `« ${target?.label ?? "Ce lien"} » disparaîtra de votre page bio, avec son compteur de clics. Cette action est définitive.`,
+      confirmLabel: "Supprimer",
+      danger: true
+    });
+    if (!ok) return;
     const res = await fetch(`/api/link-in-bio/links/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -224,15 +239,16 @@ export default function LinkInBioPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconBioLink className="h-5 w-5 text-slate-400" /> Page &laquo; link in bio &raquo;
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Une page publique unique pour <strong className="text-slate-300">{activeBrand.name}</strong>, à mettre en
-          bio Instagram/TikTok/YouTube, avec tous vos liens importants au même endroit.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconBioLink className="h-5 w-5" />}
+        title="Page bio"
+        description={
+          <>
+            Une page publique unique pour <strong className="text-slate-300">{activeBrand.name}</strong>, à mettre en bio
+            Instagram/TikTok/YouTube, avec tous vos liens importants au même endroit.
+          </>
+        }
+      />
 
       <GlassCard>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -280,7 +296,7 @@ export default function LinkInBioPage() {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.03]">
                 {page?.avatarUrl ? (
-                  <img src={page.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="64px" />
                 ) : (
                   <IconUpload className="h-5 w-5 text-slate-500" />
                 )}
@@ -297,27 +313,30 @@ export default function LinkInBioPage() {
               </Button>
             </div>
 
-            <label className="mt-4 block text-xs uppercase tracking-wide text-slate-500">Titre affiché</label>
-            <input
+            <Input
+              label="Titre affiché"
+              id="bio-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={() => title.trim() !== (page?.title ?? "") && patchPage({ title: title.trim() })}
               placeholder={activeBrand.name}
               maxLength={60}
-              className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+              wrapperClassName="mt-4"
+              hint="Enregistré automatiquement quand vous quittez le champ."
             />
 
-            <label className="mt-4 block text-xs uppercase tracking-wide text-slate-500">Bio</label>
-            <textarea
+            <Textarea
+              label="Bio"
+              id="bio-text"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               onBlur={() => bio.trim() !== (page?.bio ?? "") && patchPage({ bio: bio.trim() })}
               rows={3}
               maxLength={280}
-              placeholder="Une courte description pour vos visiteurs..."
-              className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
+              placeholder="Une courte description pour vos visiteurs…"
+              wrapperClassName="mt-4"
+              hint={`${bio.length}/280`}
             />
-            <p className="mt-1 text-right text-[11px] text-slate-500">{bio.length}/280</p>
           </GlassCard>
 
           <GlassCard>
@@ -361,19 +380,13 @@ export default function LinkInBioPage() {
                       className="min-w-0 truncate rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-aurora-400/60"
                     />
                   </div>
-                  <button
-                    onClick={() => editLink(link.id, { enabled: !link.enabled })}
-                    title={link.enabled ? "Désactiver" : "Activer"}
-                    className={clsx(
-                      "h-2.5 w-2.5 shrink-0 rounded-full transition",
-                      link.enabled ? "bg-emerald-400" : "bg-slate-600"
-                    )}
-                  />
+                  <Toggle size="sm" checked={link.enabled} onChange={(next) => editLink(link.id, { enabled: next })} aria-label={link.enabled ? `Désactiver « ${link.label} »` : `Activer « ${link.label} »`} />
                   <span className="shrink-0 text-[11px] text-slate-500" title="Clics">
                     {link.clicks}
                   </span>
                   <button
                     onClick={() => deleteLink(link.id)}
+                    aria-label={`Supprimer « ${link.label} »`}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-300"
                   >
                     <IconClose className="h-3.5 w-3.5" />
@@ -396,18 +409,21 @@ export default function LinkInBioPage() {
               </Link>
             ) : (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <input
+                <Input
+                  aria-label="Libellé du nouveau lien"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="Libellé (ex : Ma dernière vidéo)"
-                  className="min-w-[160px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
+                  wrapperClassName="min-w-[160px] flex-1"
                 />
-                <input
+                <Input
+                  aria-label="Adresse du nouveau lien"
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && submitNewLink()}
                   placeholder="URL (ex : youtube.com/...)"
-                  className="min-w-[160px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
+                  inputMode="url"
+                  wrapperClassName="min-w-[160px] flex-1"
                 />
                 <Button onClick={submitNewLink} disabled={addingLink || !newLabel.trim() || !newUrl.trim()}>
                   <IconPlus className="h-4 w-4" /> {addingLink ? "Ajout..." : "Ajouter"}
@@ -431,7 +447,7 @@ export default function LinkInBioPage() {
                       page?.theme === t.key
                         ? "border-aurora-400 bg-white/[0.04]"
                         : locked
-                          ? "border-white/5 opacity-60 hover:opacity-90"
+                          ? "border-dashed border-white/10 hover:border-white/20"
                           : "border-white/10 hover:border-white/25"
                     )}
                   >
@@ -440,7 +456,7 @@ export default function LinkInBioPage() {
                         <IconLock className="h-3 w-3" />
                       </span>
                     )}
-                    <span className="h-10 w-full rounded-lg shadow-inner" style={{ background: swatchPreview(t.vars) }} />
+                    <span className={clsx("h-10 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: swatchPreview(t.vars) }} />
                     <span className="text-xs text-slate-300">{t.label}</span>
                   </button>
                 );
@@ -461,7 +477,7 @@ export default function LinkInBioPage() {
               }}
             >
               <div className="mt-4 h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                {page?.avatarUrl && <img src={page.avatarUrl} alt="" className="h-full w-full object-cover" />}
+                {page?.avatarUrl && <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="96px" />}
               </div>
               <p className="text-center text-sm font-semibold text-white">{title.trim() || activeBrand.name}</p>
               {bio.trim() && <p className="text-center text-xs text-white/70">{bio}</p>}
@@ -490,7 +506,13 @@ export default function LinkInBioPage() {
         </div>
       </div>
 
-      {loading && !page && <p className="text-center text-sm text-slate-500">Chargement...</p>}
+      {loading && !page && (
+        <div className="space-y-3" aria-busy="true">
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={2} />
+          <span className="sr-only">Chargement de la page bio</span>
+        </div>
+      )}
     </div>
   );
 }

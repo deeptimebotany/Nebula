@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generatePasswordResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 const schema = z.object({
   email: z.string().email(),
@@ -15,6 +16,13 @@ const schema = z.object({
 // message générique (que le compte existe ou non) pour ne pas révéler
 // quels emails sont enregistrés.
 export async function POST(req: NextRequest) {
+  // Anti-abus : au plus 5 demandes par IP par quart d'heure (chaque demande
+  // peut déclencher un email).
+  const rate = await consumeRateLimit("forgot-password", clientIpFromHeaders(req.headers), 5, 15);
+  if (!rate.ok) {
+    return NextResponse.json({ error: RATE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
+  }
+
   const body = schema.safeParse(await req.json());
   if (!body.success) return NextResponse.json({ error: "Email invalide." }, { status: 400 });
   const { email, turnstileToken } = body.data;

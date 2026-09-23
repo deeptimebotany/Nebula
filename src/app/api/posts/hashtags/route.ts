@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest) {
   const brandId = req.nextUrl.searchParams.get("brandId");
   const tagsParam = req.nextUrl.searchParams.get("tags");
   if (!brandId || !tagsParam) return NextResponse.json({ error: "brandId et tags requis" }, { status: 400 });
+  const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
+  if (denied) return denied;
 
   const tags = Array.from(new Set(tagsParam.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))).slice(0, 20);
   if (tags.length === 0) return NextResponse.json({ counts: {} });

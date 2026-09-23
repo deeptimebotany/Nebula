@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
@@ -15,7 +16,9 @@ export async function GET(req: NextRequest) {
   const connectionId = req.nextUrl.searchParams.get("connectionId");
   if (!connectionId) return NextResponse.json({ error: "connectionId requis" }, { status: 400 });
 
-  const connection = await prisma.socialConnection.findUnique({ where: { id: connectionId } });
+  // Le compte connecté doit appartenir à une des marques de l'utilisateur.
+  const userId = (session.user as { id: string }).id;
+  const connection = await prisma.socialConnection.findFirst({ where: { id: connectionId, brand: ownedBy(userId) } });
   if (!connection) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
   const items = await prisma.engagementItem.findMany({

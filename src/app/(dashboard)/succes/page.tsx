@@ -8,6 +8,8 @@
 // progression est aussi repris dans la Communauté (voir community/page.tsx).
 
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { IconTrophy } from "@/components/dashboard/icons";
@@ -59,15 +61,11 @@ export default function SuccesPage() {
     // était totalement invisible, pas seulement discret.
     <div className="relative isolate space-y-6">
       <CosmeticDecorOverlay cosmeticKey="papier-peint-succes" />
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconTrophy className="h-6 w-6 text-amber-300" /> Succès
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          J&apos;ai caché {total} easter eggs un peu partout sur le site. Chacun se révèle ici dès que vous le trouvez —
-          pas d&apos;indice, juste le plaisir de tomber dessus.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconTrophy className="h-6 w-6 text-amber-300" />}
+        title="Succès"
+        description={`${total} easter eggs sont cachés un peu partout dans Nebula. Chacun se révèle ici dès que vous le trouvez — pas d'indice, juste le plaisir de tomber dessus. En Mode focus (activé par défaut), les surprises ambiantes sont en pause : désactivez-le dans Paramètres → Apparence & Succès pour les retrouver.`}
+      />
 
       <GlassCard>
         <div className="flex items-center justify-between text-sm">
@@ -85,7 +83,12 @@ export default function SuccesPage() {
       </GlassCard>
 
       {!eggs ? (
-        <p className="text-sm text-slate-500">Chargement...</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <SkeletonCard key={i} lines={2} />
+          ))}
+          <span className="sr-only">Chargement des succès</span>
+        </div>
       ) : (
         <>
           <Reveal>
@@ -103,7 +106,7 @@ export default function SuccesPage() {
                       <p className="mt-2 text-sm font-medium text-white">{egg.title}</p>
                       <p className="mt-1 flex-1 text-xs text-slate-400">{egg.hint}</p>
                       {egg.foundAt && (
-                        <p className="mt-2 text-[11px] text-amber-300/70">
+                        <p className="mt-2 text-[11px] text-amber-300">
                           Trouvé le {new Date(egg.foundAt).toLocaleDateString("fr-FR")}
                         </p>
                       )}
@@ -114,8 +117,8 @@ export default function SuccesPage() {
                         "flex h-full flex-col items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.015] p-3.5 text-center"
                       )}
                     >
-                      <span className="text-2xl text-slate-600">?</span>
-                      <span className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                      <span className="text-2xl text-slate-500">?</span>
+                      <span className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         Easter egg #{egg.number}
                       </span>
                     </div>
@@ -146,17 +149,17 @@ export default function SuccesPage() {
                           </div>
                           <p className="mt-2 text-sm font-medium text-white">{egg.title}</p>
                           <p className="mt-1 text-xs text-slate-400">{egg.hint}</p>
-                          <p className="mt-2 text-[11px] font-medium text-emerald-300/90">Récompense : {egg.reward}</p>
+                          <p className="mt-2 text-[11px] font-medium text-emerald-300">Récompense : {egg.reward}</p>
                           {egg.foundAt && (
-                            <p className="mt-1 text-[11px] text-emerald-300/70">
+                            <p className="mt-1 text-[11px] text-emerald-300">
                               Trouvé le {new Date(egg.foundAt).toLocaleDateString("fr-FR")}
                             </p>
                           )}
                         </div>
                       ) : (
                         <div className="flex h-full flex-col items-center justify-center rounded-xl border border-emerald-400/[0.15] bg-emerald-400/[0.02] p-3.5 text-center">
-                          <span className="text-2xl text-slate-600">?</span>
-                          <span className="mt-2 text-[11px] text-emerald-300/80">{egg.reward}</span>
+                          <span className="text-2xl text-slate-500">?</span>
+                          <span className="mt-2 text-[11px] text-emerald-300">{egg.reward}</span>
                         </div>
                       )}
                     </RevealItem>

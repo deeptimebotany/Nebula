@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, chatComplete, type ChatMessage } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
@@ -91,6 +92,11 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { brandId, messages, postId } = parsed.data;
 
+  // L'assistant reçoit dans son prompt les stats et les derniers posts de la
+  // marque : la marque doit donc être une de celles de l'utilisateur.
+  const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
+  if (denied) return denied;
+
   // Easter egg "qui es-tu" : répond avant même de vérifier que Gemini est
   // configuré ou que le palier permet l'IA — une réponse maison ne coûte
   // rien et ne doit jamais être bloquée par ces garde-fous.
@@ -151,7 +157,9 @@ export async function POST(req: NextRequest) {
 
   let postContext = "";
   if (postId) {
-    const post = await prisma.post.findUnique({ where: { id: postId }, include: { targets: true } });
+    // Restreint à la marque déjà vérifiée ci-dessus : un postId d'une autre
+    // marque est simplement ignoré.
+    const post = await prisma.post.findFirst({ where: { id: postId, brandId }, include: { targets: true } });
     if (post) {
       postContext = `\n\nPublication actuellement discutée : titre="${post.title}", description="${post.caption}", statut=${post.status}, réseaux=${post.targets.map((t: (typeof post.targets)[number]) => t.network).join(", ")}.`;
     }

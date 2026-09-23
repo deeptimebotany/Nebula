@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEFAULT_THEME_KEY, findTheme } from "@/lib/themes";
+import { useBootstrap } from "@/components/bootstrap-provider";
 
 const STORAGE_KEY = "nebula:theme";
 
@@ -28,41 +29,47 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
+// Au montage : applique tout de suite ce qu'il y a en localStorage (pas de
+// flash), puis se cale sur la préférence enregistrée côté serveur dès que le
+// bootstrap (/api/me, une seule requête pour toutes les préférences) a
+// répondu — utile en se connectant depuis un nouvel appareil.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeKey, setThemeKeyState] = useState(DEFAULT_THEME_KEY);
+  const { data, patch } = useBootstrap();
+  const serverTheme = data?.theme;
 
-  // Au montage : applique tout de suite ce qu'il y a en localStorage (pas de
-  // flash), puis tente une synchronisation avec la préférence enregistrée
-  // côté serveur (utile en se connectant depuis un nouvel appareil) —
-  // échec silencieux si non connecté, ce n'est pas bloquant.
   useEffect(() => {
     const local = localStorage.getItem(STORAGE_KEY);
     if (local) {
       setThemeKeyState(local);
       applyTheme(local);
     }
-    fetch("/api/settings/theme")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.theme && d.theme !== local) {
-          setThemeKeyState(d.theme);
-          applyTheme(d.theme);
-          localStorage.setItem(STORAGE_KEY, d.theme);
-        }
-      })
-      .catch(() => undefined);
   }, []);
 
-  const setThemeKey = useCallback((key: string) => {
-    setThemeKeyState(key);
-    applyTheme(key);
-    localStorage.setItem(STORAGE_KEY, key);
-    fetch("/api/settings/theme", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ theme: key })
-    }).catch(() => undefined);
-  }, []);
+  useEffect(() => {
+    if (!serverTheme) return;
+    const local = localStorage.getItem(STORAGE_KEY);
+    if (serverTheme !== local) {
+      setThemeKeyState(serverTheme);
+      applyTheme(serverTheme);
+      localStorage.setItem(STORAGE_KEY, serverTheme);
+    }
+  }, [serverTheme]);
+
+  const setThemeKey = useCallback(
+    (key: string) => {
+      setThemeKeyState(key);
+      applyTheme(key);
+      localStorage.setItem(STORAGE_KEY, key);
+      patch({ theme: key });
+      fetch("/api/settings/theme", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: key })
+      }).catch(() => undefined);
+    },
+    [patch]
+  );
 
   return <ThemeContext.Provider value={{ themeKey, setThemeKey }}>{children}</ThemeContext.Provider>;
 }

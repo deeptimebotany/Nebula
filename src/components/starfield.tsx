@@ -12,6 +12,7 @@
 // constellation éphémère, qui s'efface en douceur après quelques secondes.
 
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "@/lib/motion";
 import { useStarfield } from "@/components/starfield-provider";
 import { useBackground } from "@/components/background-provider";
 import { findBackground } from "@/lib/backgrounds";
@@ -196,7 +197,8 @@ export function Starfield() {
         }
       }
 
-      rafRef.current = requestAnimationFrame(tick);
+      // « Réduire les animations » : une seule image, pas de boucle.
+      if (!prefersReducedMotion()) rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
 

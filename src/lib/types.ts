@@ -46,6 +46,8 @@ export interface NetworkMeta {
   id: Network;
   label: string;
   color: string;
+  /** Même teinte, assombrie pour rester lisible en texte sur fond clair (mode clair, ≥ 4,5:1). */
+  ink: string;
   glow: string;
   supportsVideo: boolean;
   supportsImage: boolean;
@@ -61,6 +63,7 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     id: "INSTAGRAM",
     label: "Instagram",
     color: "#E1306C",
+    ink: "#B81F56",
     glow: "rgba(225,48,108,0.45)",
     supportsVideo: true,
     supportsImage: true,
@@ -72,6 +75,7 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     id: "FACEBOOK",
     label: "Facebook",
     color: "#1877F2",
+    ink: "#0F5CC0",
     glow: "rgba(24,119,242,0.45)",
     supportsVideo: true,
     supportsImage: true,
@@ -82,6 +86,7 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     id: "TIKTOK",
     label: "TikTok",
     color: "#69C9D0",
+    ink: "#0E737B",
     glow: "rgba(105,201,208,0.45)",
     supportsVideo: true,
     supportsImage: true,
@@ -93,6 +98,7 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     id: "YOUTUBE",
     label: "YouTube",
     color: "#FF0000",
+    ink: "#C00000",
     glow: "rgba(255,0,0,0.45)",
     supportsVideo: true,
     supportsImage: false,

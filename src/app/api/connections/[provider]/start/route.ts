@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireBrandMembership } from "@/lib/brand-access";
 import { getSocialClient } from "@/lib/social";
 import { instagramClient } from "@/lib/social/meta";
 import { encodeOAuthState } from "@/lib/connections";
@@ -20,7 +21,13 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
     return NextResponse.json({ error: "brandId requis" }, { status: 400 });
   }
 
-  const state = encodeOAuthState({ brandId, provider: params.provider });
+  // On ne peut connecter un compte social qu'à une de SES marques ; l'état
+  // signé embarque aussi l'identifiant de l'utilisateur, revérifié au retour.
+  const userId = (session.user as { id: string }).id;
+  const denied = await requireBrandMembership(userId, brandId);
+  if (denied) return denied;
+
+  const state = encodeOAuthState({ brandId, provider: params.provider, userId });
 
   try {
     const authUrl =

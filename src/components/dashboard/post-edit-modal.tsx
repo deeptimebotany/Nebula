@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { SkeletonText } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { NetworkBadge } from "@/components/ui/network-badge";
+import { useBrand } from "@/components/brand-context";
+import { DEFAULT_TIMEZONE, localInputToUtc, timeZoneLabel, utcToLocalInput } from "@/lib/timezone";
 import { IconSparkle, IconClose } from "@/components/dashboard/icons";
 import { useToast } from "@/components/dashboard/toast";
 import { useAiStatus } from "@/components/use-ai-status";
@@ -34,6 +40,12 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
   const [aiBusy, setAiBusy] = useState<"title" | "caption" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aiStatus = useAiStatus(post?.brandId);
+  // Reprogrammation (Lot 4) : date/heure dans le fuseau de la marque (voir
+  // src/lib/timezone.ts), même règle que la page Publier.
+  const { brands } = useBrand();
+  const timezone = brands.find((b) => b.id === post?.brandId)?.timezone ?? DEFAULT_TIMEZONE;
+  const [scheduleInput, setScheduleInput] = useState("");
+  const [initialScheduleInput, setInitialScheduleInput] = useState("");
 
   useEffect(() => {
     fetch(`/api/posts/${postId}`)
@@ -44,6 +56,13 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
         setCaption(d.post?.caption ?? "");
       });
   }, [postId]);
+
+  useEffect(() => {
+    if (!post?.scheduledAt) return;
+    const value = utcToLocalInput(new Date(post.scheduledAt), timezone);
+    setScheduleInput(value);
+    setInitialScheduleInput(value);
+  }, [post?.scheduledAt, timezone]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -97,10 +116,11 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
 
   async function save() {
     setSaving(true);
+    const rescheduled = post?.status === "SCHEDULED" && scheduleInput && scheduleInput !== initialScheduleInput ? localInputToUtc(scheduleInput, timezone) : null;
     const res = await fetch(`/api/posts/${postId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, caption })
+      body: JSON.stringify({ title, caption, ...(rescheduled ? { scheduledAt: rescheduled.toISOString() } : {}) })
     });
     setSaving(false);
     if (!res.ok) {
@@ -126,7 +146,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
         </div>
 
         {!post ? (
-          <p className="text-sm text-slate-500">Chargement...</p>
+          <SkeletonText lines={4} />
         ) : post.status !== "DRAFT" && post.status !== "SCHEDULED" ? (
           <p className="text-sm text-amber-300">
             Cette publication a déjà été envoyée, elle ne peut plus être modifiée depuis ici.
@@ -139,7 +159,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
                   {media.type === "VIDEO" ? (
                     <video src={media.url} poster={media.thumbnailUrl} className="h-full w-full object-cover" muted />
                   ) : (
-                    <img src={media.url} alt="" className="h-full w-full object-cover" />
+                    <RemoteImage src={media.url} className="h-full w-full" sizes="96px" />
                   )}
                 </div>
               )}
@@ -162,46 +182,44 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
               </div>
             </div>
 
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-400">Titre</label>
-                {aiStatus?.enabled && (
-                  <button
-                    onClick={() => generate("title")}
-                    disabled={aiBusy !== null}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50"
-                  >
-                    <IconSparkle className="h-3 w-3" /> {aiBusy === "title" ? "..." : "IA"}
+            <Input
+              label="Titre"
+              id="post-edit-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              labelAside={
+                aiStatus?.enabled ? (
+                  <button type="button" onClick={() => generate("title")} disabled={aiBusy !== null} className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50">
+                    <IconSparkle className="h-3 w-3" /> {aiBusy === "title" ? "…" : "Proposer avec l'IA"}
                   </button>
-                )}
-              </div>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
-              />
-            </div>
+                ) : undefined
+              }
+            />
 
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-400">Légende</label>
-                {aiStatus?.enabled && (
-                  <button
-                    onClick={() => generate("caption")}
-                    disabled={aiBusy !== null}
-                    className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50"
-                  >
-                    <IconSparkle className="h-3 w-3" /> {aiBusy === "caption" ? "..." : "IA"}
+            <Textarea
+              label="Légende"
+              id="post-edit-caption"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              rows={3}
+              labelAside={
+                aiStatus?.enabled ? (
+                  <button type="button" onClick={() => generate("caption")} disabled={aiBusy !== null} className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50">
+                    <IconSparkle className="h-3 w-3" /> {aiBusy === "caption" ? "…" : "Proposer avec l'IA"}
                   </button>
-                )}
+                ) : undefined
+              }
+            />
+
+            {post.status === "SCHEDULED" && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-400">Date et heure de publication</p>
+                <DateTimePicker value={scheduleInput} onChange={setScheduleInput} />
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Heure de {timezone.replace(/_/g, " ")} ({timeZoneLabel(timezone)}) — le fuseau de la marque, modifiable dans Paramètres → Marque.
+                </p>
               </div>
-              <textarea
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none focus:border-aurora-400/60"
-              />
-            </div>
+            )}
 
             <div className="flex items-center justify-between gap-2 pt-1">
               <Link href={`/posts/${postId}`} className="text-xs text-slate-400 hover:text-white hover:underline">

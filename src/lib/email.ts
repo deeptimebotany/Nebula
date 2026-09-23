@@ -15,7 +15,13 @@
  * Tant que RESEND_API_KEY est absent, les emails ne partent pas : on le
  * signale clairement plutôt que d'échouer silencieusement.
  */
-export async function sendEmail(params: { to: string; subject: string; html: string }): Promise<{ ok: boolean; error?: string }> {
+export async function sendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  /** Adresse à laquelle « Répondre » répondra (ex. formulaire de contact). */
+  replyTo?: string;
+}): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY absent : configurez l'envoi d'email (voir .env.example)." };
@@ -29,7 +35,13 @@ export async function sendEmail(params: { to: string; subject: string; html: str
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ from, to: params.to, subject: params.subject, html: params.html })
+      body: JSON.stringify({
+        from,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {})
+      })
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -41,7 +53,7 @@ export async function sendEmail(params: { to: string; subject: string; html: str
   }
 }
 
-function escapeHtml(input: string): string {
+export function escapeHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -99,6 +111,50 @@ export async function sendReportEmail(params: {
           </a>
         </p>
         <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${params.reportUrl}</p>
+      </div>
+    `
+  });
+}
+
+/**
+ * Email envoyé à l'auteur d'une publication PROGRAMMÉE quand son envoi
+ * échoue (totalement ou sur une partie des comptes) — voir runDuePosts dans
+ * src/lib/publish.ts, et la préférence User.notifyOnFailure (Paramètres →
+ * Compte). Le lien mène à la fiche de la publication, où l'on peut lire
+ * l'erreur exacte par compte et retenter l'envoi.
+ */
+export async function sendPublishFailureEmail(params: {
+  to: string;
+  brandName: string;
+  postTitle: string;
+  postUrl: string;
+  failures: { network: string; message: string }[];
+  partial: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const rows = params.failures
+    .map(
+      (f) =>
+        `<li style="margin: 4px 0;"><strong>${escapeHtml(f.network)}</strong> — ${escapeHtml(f.message || "erreur inconnue")}</li>`
+    )
+    .join("");
+  const title = params.postTitle.trim() || "(sans titre)";
+  return sendEmail({
+    to: params.to,
+    subject: params.partial
+      ? `Publication partiellement envoyée — ${params.brandName}`
+      : `Échec d'une publication programmée — ${params.brandName}`,
+    html: `
+      <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h2 style="margin-bottom: 4px;">${params.partial ? "Publication partiellement envoyée" : "Une publication programmée a échoué"}</h2>
+        <p>Marque : <strong>${escapeHtml(params.brandName)}</strong><br>Publication : <strong>${escapeHtml(title)}</strong></p>
+        <p>${params.partial ? "Certains comptes n'ont pas pu recevoir la publication :" : "Aucun des comptes ciblés n'a pu recevoir la publication :"}</p>
+        <ul style="padding-left: 18px;">${rows}</ul>
+        <p style="margin: 24px 0;">
+          <a href="${params.postUrl}" style="background: #2955c4; color: #fff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">
+            Voir la publication et réessayer
+          </a>
+        </p>
+        <p style="color: #999; font-size: 12px;">Le plus souvent, il suffit de reconnecter le compte concerné depuis la page Comptes connectés, puis de relancer l'envoi. Vous pouvez désactiver ces emails dans Paramètres → Compte.</p>
       </div>
     `
   });

@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,25 +11,20 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { useToast } from "@/components/dashboard/toast";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
+import { useFocusMode } from "@/components/bootstrap-provider";
+import { RepurposePanel } from "@/components/composer/repurpose-panel";
+import { ComposerPreview } from "@/components/composer/composer-preview";
+import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
+import { ComposerTips } from "@/components/composer/composer-tips";
+import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode } from "@/components/composer/composer-types";
+import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
-import { MotionGlassCard } from "@/components/ui/motion-glass-card";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge, NetworkDot, NetworkLogo } from "@/components/ui/network-badge";
+import { NetworkBadge, NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import {
-  IconUpload,
-  IconSparkle,
-  IconHeart,
-  IconMessage,
-  IconSend,
-  IconAvatar,
-  IconEmoji,
-  IconHash
-} from "@/components/dashboard/icons";
+import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash } from "@/components/dashboard/icons";
 import type { RepurposedContent } from "@/lib/ai/gemini";
-import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { uploadMediaFile } from "@/lib/upload-client";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
@@ -132,29 +129,6 @@ function EmojiPicker({
   );
 }
 
-interface UploadedAsset {
-  id: string;
-  url: string;
-  filename: string;
-  type: "VIDEO" | "IMAGE";
-  previewUrl: string;
-  thumbnailUrl?: string;
-}
-
-interface ConnectionRow {
-  id: string;
-  network: Network;
-  displayName: string;
-}
-
-interface NetworkOverride {
-  open: boolean;
-  title: string;
-  caption: string;
-}
-
-type ScheduleMode = "now" | "date";
-
 const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
 // Extrait des frames d'une vidéo directement dans le navigateur (canvas),
@@ -225,7 +199,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 // celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function ComposerPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <ComposerPageInner />
     </Suspense>
   );
@@ -261,6 +235,10 @@ function ComposerPageInner() {
       .catch(() => undefined);
   }, []);
   const [uploading, setUploading] = useState(false);
+  // Mini-jeu d'attente (voir loading-mini-game.tsx) : jamais en Mode focus.
+  const { focusMode } = useFocusMode();
+  // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
+  const timezone = activeBrand?.timezone ?? DEFAULT_TIMEZONE;
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
@@ -869,7 +847,8 @@ function ComposerPageInner() {
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
-    const scheduledAt = mode === "date" && scheduleDate ? new Date(scheduleDate).toISOString() : undefined;
+    // L'heure saisie est celle du fuseau de la marque, pas de l'appareil.
+    const scheduledAt = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone)?.toISOString() : undefined;
 
     const res = await fetch("/api/posts", {
       method: "POST",
@@ -920,6 +899,7 @@ function ComposerPageInner() {
     overrides,
     mode,
     scheduleDate,
+    timezone,
     title,
     caption,
     firstComment,
@@ -965,72 +945,33 @@ function ComposerPageInner() {
     // publication se fait directement ici, à la demande explicite (retour
     // "je veux que ça devienne comme toutes les pages du site").
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Créer une publication</h1>
-          <p className="mt-1 text-sm text-slate-400">
+      <PageHeader
+        title="Publier"
+        description={
+          <>
             Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Votre brouillon (titre + description) est sauvegardé automatiquement dans ce navigateur pendant que vous rédigez.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {aiStatus?.enabled && (title.trim() || caption.trim()) && (
-            <Button variant="outline" onClick={onRepurpose}>
-              <IconSparkle className="h-4 w-4" /> Recycler ce contenu
-            </Button>
-          )}
-          {aiStatus?.enabled && (
-            <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
-              <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
-            </Button>
-          )}
-        </div>
-      </div>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Votre brouillon (titre + description) est sauvegardé automatiquement dans ce navigateur pendant que vous rédigez.
+            </span>
+          </>
+        }
+        actions={
+          <>
+            {aiStatus?.enabled && (title.trim() || caption.trim()) && (
+              <Button variant="outline" onClick={onRepurpose}>
+                <IconSparkle className="h-4 w-4" /> Recycler ce contenu
+              </Button>
+            )}
+            {aiStatus?.enabled && (
+              <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
+                <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <AnimatePresence>
-      {repurposeOpen && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} style={{ overflow: "hidden" }}>
-        <MotionGlassCard glow className="border-aurora-400/25 bg-nebula-700/[0.08]">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-              <IconSparkle className="h-4 w-4 text-aurora-300" /> Recyclage de contenu (Auto-Repurpose)
-            </h2>
-            <button onClick={() => setRepurposeOpen(false)} className="text-xs text-slate-500 hover:text-white">
-              Fermer
-            </button>
-          </div>
-          {repurposeLoading ? (
-            <p className="text-sm text-slate-500">Génération des 3 déclinaisons...</p>
-          ) : repurposeResult ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { network: "INSTAGRAM" as Network, label: "Reel Instagram", text: repurposeResult.instagramReel },
-                { network: "FACEBOOK" as Network, label: "Post Facebook", text: repurposeResult.facebookPost },
-                { network: "TIKTOK" as Network, label: "Script TikTok", text: repurposeResult.tiktokScript }
-              ].map((v) => (
-                <div key={v.network} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                  <p className="text-xs font-medium" style={{ color: NETWORK_META[v.network].color }}>{v.label}</p>
-                  <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-300">{v.text || "—"}</p>
-                  {v.text && (
-                    <button
-                      onClick={() => applyRepurposed(v.network, v.text)}
-                      className="mt-2 text-xs text-aurora-300 hover:underline"
-                    >
-                      Utiliser pour {NETWORK_META[v.network].label}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Erreur — réessayez.</p>
-          )}
-        </MotionGlassCard>
-        </motion.div>
-      )}
-      </AnimatePresence>
+      <RepurposePanel open={repurposeOpen} loading={repurposeLoading} result={repurposeResult} onClose={() => setRepurposeOpen(false)} onApply={applyRepurposed} />
 
       {activeBrand && aiStatus && !aiStatus.enabled && (
         <GlassCard className="border-white/10 bg-white/[0.02]">
@@ -1083,11 +1024,11 @@ function ComposerPageInner() {
               />
             </div>
             {uploading && <p className="mt-3 text-sm text-aurora-300">Envoi en cours...</p>}
-            <LoadingMiniGame active={uploading} />
+            {!focusMode && <LoadingMiniGame active={uploading} />}
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
                 <p className="font-medium">Échec de l&apos;envoi</p>
-                <p className="mt-0.5 select-all text-xs text-red-300/80">{uploadError}</p>
+                <p className="mt-0.5 select-all text-xs text-red-300">{uploadError}</p>
               </div>
             )}
 
@@ -1098,7 +1039,7 @@ function ComposerPageInner() {
                     {a.type === "VIDEO" ? (
                       <video src={a.previewUrl} poster={a.thumbnailUrl} className="h-28 w-full object-cover" muted />
                     ) : (
-                      <img src={a.previewUrl} alt={a.filename} className="h-28 w-full object-cover" />
+                      <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-28 w-full object-cover" />
                     )}
                     <button
                       onClick={() => removeAsset(a.id)}
@@ -1154,7 +1095,7 @@ function ComposerPageInner() {
                           videoAsset.thumbnailUrl === url ? "border-aurora-400" : "border-white/10 hover:border-white/30"
                         )}
                       >
-                        <img src={url} alt="Miniature" className="h-16 w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={url} alt="Miniature" className="h-16 w-full object-cover" />
                       </button>
                     ))}
                   </div>
@@ -1280,7 +1221,7 @@ function ComposerPageInner() {
                           key={n}
                           href={activeBrand ? `/api/connections/${n.toLowerCase()}/start?brandId=${activeBrand.id}` : "/accounts"}
                           title={`Connecter ${NETWORK_META[n].label}`}
-                          className="flex items-center gap-1.5 rounded-full border border-dashed border-white/15 px-2.5 py-1 text-xs text-slate-500 opacity-70 transition hover:border-aurora-400/40 hover:text-white hover:opacity-100"
+                          className="flex items-center gap-1.5 rounded-full border border-dashed border-white/15 px-2.5 py-1 text-xs text-slate-500 transition hover:border-aurora-400/40 hover:text-white"
                         >
                           <NetworkLogo network={n} className="h-3.5 w-3.5" />
                           {NETWORK_META[n].label}
@@ -1291,10 +1232,12 @@ function ComposerPageInner() {
                     return (
                       <button
                         key={n}
+                        type="button"
                         onClick={() => toggleNetwork(n)}
-                        className={clsx("rounded-full transition", selectedNetworks.includes(n) ? "scale-105" : "opacity-50 hover:opacity-80")}
+                        aria-pressed={selectedNetworks.includes(n)}
+                        className={clsx("rounded-full transition", selectedNetworks.includes(n) ? "scale-105" : "hover:brightness-110")}
                       >
-                        <NetworkBadge network={n} />
+                        <NetworkBadge network={n} muted={!selectedNetworks.includes(n)} />
                       </button>
                     );
                   })}
@@ -1389,8 +1332,8 @@ function ComposerPageInner() {
               className="flex w-full items-center justify-between text-left"
             >
               <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-                <IconMessage className="h-4 w-4 text-slate-400" /> 5. Premier commentaire
-                <span className="text-xs font-normal text-slate-500">(optionnel)</span>
+                <IconMessage className="h-4 w-4 text-slate-400" /> Premier commentaire
+                <span className="text-xs font-normal text-slate-500">(option)</span>
               </h2>
               <span className="text-xs text-slate-400">{firstCommentOpen ? "▲ réduire" : "▼ ajouter"}</span>
             </button>
@@ -1414,259 +1357,40 @@ function ComposerPageInner() {
         </div>
 
         <div className="space-y-5">
-          <MotionGlassCard glow>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-base font-medium text-white">Aperçu</h2>
-              <div className="flex items-center gap-2">
-                {effectivePreviewNetwork === "TIKTOK" && previewAsset && (
-                  <button
-                    onClick={() => setShowTiktokUi((v) => !v)}
-                    className={clsx(
-                      "rounded-full border px-2 py-0.5 text-[10px] font-medium transition",
-                      showTiktokUi
-                        ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
-                        : "border-white/10 text-slate-500 hover:text-white"
-                    )}
-                  >
-                    Interface TikTok {showTiktokUi ? "ON" : "OFF"}
-                  </button>
-                )}
-                {effectivePreviewNetwork === "INSTAGRAM" && previewAsset && (
-                  <button
-                    onClick={onToggleInstagramGrid}
-                    className={clsx(
-                      "rounded-full border px-2 py-0.5 text-[10px] font-medium transition",
-                      showInstagramGrid
-                        ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
-                        : "border-white/10 text-slate-500 hover:text-white"
-                    )}
-                  >
-                    Aperçu de grille {showInstagramGrid ? "ON" : "OFF"}
-                  </button>
-                )}
-                {selectedNetworks.length > 1 && (
-                  <div className="flex gap-1">
-                    {selectedNetworks.map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setPreviewNetwork(n)}
-                        className={clsx(
-                          "rounded-full p-0.5 transition",
-                          effectivePreviewNetwork === n ? "ring-2 ring-aurora-400" : "opacity-50 hover:opacity-80"
-                        )}
-                        title={`Aperçu ${NETWORK_META[n].label}`}
-                      >
-                        <NetworkDot network={n} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-void-950/60">
-              <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white">
-                  {(activeBrand?.name ?? "N").charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-white">{activeBrand?.name ?? "Votre marque"}</p>
-                  {effectivePreviewNetwork && (
-                    <p className="text-[10px] text-slate-500">{NETWORK_META[effectivePreviewNetwork].label}</p>
-                  )}
-                </div>
-                {effectivePreviewNetwork && <NetworkDot network={effectivePreviewNetwork} />}
-              </div>
-              <div className={clsx("relative flex w-full items-center justify-center bg-black/40", previewAspectClass)}>
-                {previewAsset ? (
-                  previewAsset.type === "VIDEO" ? (
-                    <video
-                      key={previewAsset.id}
-                      src={previewAsset.previewUrl}
-                      poster={previewAsset.thumbnailUrl}
-                      className="h-full w-full object-cover"
-                      controls
-                      onLoadedMetadata={(e) => {
-                        const v = e.currentTarget;
-                        setPreviewAspectClass(
-                          v.videoHeight > v.videoWidth
-                            ? "aspect-[9/16]"
-                            : v.videoWidth > v.videoHeight
-                              ? "aspect-video"
-                              : "aspect-square"
-                        );
-                      }}
-                    />
-                  ) : (
-                    <img
-                      key={previewAsset.id}
-                      src={previewAsset.previewUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        setPreviewAspectClass(
-                          img.naturalHeight > img.naturalWidth
-                            ? "aspect-[9/16]"
-                            : img.naturalWidth > img.naturalHeight
-                              ? "aspect-video"
-                              : "aspect-square"
-                        );
-                      }}
-                    />
-                  )
-                ) : (
-                  <p className="px-4 text-center text-xs text-slate-600">
-                    Votre média apparaîtra ici dès que vous en importerez un.
-                  </p>
-                )}
+          <PublishCard mode={mode} onModeChange={setMode} scheduleDate={scheduleDate} onScheduleDateChange={setScheduleDate} timezone={timezone} shortcutLabel={shortcutLabel} />
 
-                {/* Simulateur d'interface TikTok — purement visuel, activé via
-                    le bouton "Interface TikTok ON/OFF" ci-dessus. */}
-                {showTiktokUi && effectivePreviewNetwork === "TIKTOK" && previewAsset && (
-                  <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute bottom-3 right-2.5 flex flex-col items-center gap-4 text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-white/20 backdrop-blur">
-                        <IconAvatar className="h-4 w-4" />
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <IconHeart className="h-6 w-6" />
-                        <span className="text-[10px] font-semibold">12,4k</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <IconMessage className="h-6 w-6" />
-                        <span className="text-[10px] font-semibold">348</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <IconSend className="h-6 w-6" />
-                        <span className="text-[10px] font-semibold">Partager</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+          <ComposerPreview
+            brandName={activeBrand?.name ?? ""}
+            network={effectivePreviewNetwork}
+            selectedNetworks={selectedNetworks}
+            onPickNetwork={setPreviewNetwork}
+            asset={previewAsset}
+            title={previewTitle}
+            caption={previewCaption}
+            aspectClass={previewAspectClass}
+            onAspectClass={setPreviewAspectClass}
+            showTiktokUi={showTiktokUi}
+            onToggleTiktokUi={() => setShowTiktokUi((v) => !v)}
+            showInstagramGrid={showInstagramGrid}
+            onToggleInstagramGrid={onToggleInstagramGrid}
+            instagramGridTiles={instagramGridTiles}
+            gridLoading={gridLoading}
+          />
 
-              <AnimatePresence>
-              {showInstagramGrid && effectivePreviewNetwork === "INSTAGRAM" && previewAsset && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                  style={{ overflow: "hidden" }}
-                  className="border-t border-white/[0.06] p-3"
-                >
-                  <p className="mb-2 text-[11px] text-slate-500">
-                    Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières
-                    publications Instagram réelles.
-                  </p>
-                  {gridLoading ? (
-                    <p className="text-xs text-slate-500">Chargement de votre grille...</p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-1">
-                      <div className="relative aspect-square overflow-hidden rounded ring-2 ring-aurora-400">
-                        {previewAsset.type === "VIDEO" ? (
-                          <video src={previewAsset.previewUrl} className="h-full w-full object-cover" muted />
-                        ) : (
-                          <img src={previewAsset.previewUrl} alt="" className="h-full w-full object-cover" />
-                        )}
-                      </div>
-                      {instagramGridTiles.slice(0, 8).map((tile, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: i * 0.03 }}
-                          className="aspect-square overflow-hidden rounded"
-                        >
-                          <img src={tile.imageUrl} alt="" className="h-full w-full object-cover" />
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-              </AnimatePresence>
-
-              <div className="space-y-1 px-3 py-2.5">
-                {previewTitle && <p className="truncate text-xs font-semibold text-white">{previewTitle}</p>}
-                <p className="line-clamp-4 whitespace-pre-wrap text-xs text-slate-300">
-                  {previewCaption || "Votre légende apparaîtra ici au fil de la saisie..."}
-                </p>
-              </div>
-            </div>
-            <p className="mt-2 text-center text-[11px] text-slate-500">
-              Rendu indicatif — la mise en page réelle varie selon la plateforme.
-            </p>
-          </MotionGlassCard>
-
-          <GlassCard className="border-white/10 bg-white/[0.015]">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="text-aurora-300">💡</span>
-              Astuce générale : les publications programmées en fin d&apos;après-midi en semaine (17h–19h) obtiennent
-              souvent le plus d&apos;engagement — à ajuster selon vos propres statistiques une fois synchronisées.
-            </div>
-          </GlassCard>
-
-          <GlassCard>
-            <h2 className="mb-3 font-display text-base font-medium text-white">5. Publication</h2>
-            <div className="space-y-2">
-              {[
-                { id: "now", label: "Publier immédiatement" },
-                { id: "date", label: "Programmer à une date précise" }
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  className={clsx(
-                    "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition",
-                    mode === opt.id ? "border-aurora-400/50 bg-nebula-700/30 text-white" : "border-white/10 text-slate-400 hover:border-white/20"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="mode"
-                    checked={mode === opt.id}
-                    onChange={() => setMode(opt.id as ScheduleMode)}
-                    className="accent-aurora-500"
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-
-            {mode === "date" && (
-              <div className="mt-3">
-                <DateTimePicker value={scheduleDate} onChange={setScheduleDate} />
-              </div>
-            )}
-
-            {/* disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton
-                doit rester réellement cliquable quand canSubmit est faux
-                pour pouvoir compter les clics (voir disabledClicks
-                ci-dessus) — l'apparence "désactivée" vient d'aria-disabled
-                + de la classe, la garde fonctionnelle reste dans onSubmit. */}
-            <Button
-              className={clsx("mt-4 w-full", !canSubmit && !submitting && "opacity-50 cursor-not-allowed")}
-              disabled={submitting}
-              aria-disabled={!canSubmit}
-              onClick={onSubmit}
-            >
-              {submitting ? "Envoi..." : mode === "now" ? "Publier maintenant" : "Programmer"}
-            </Button>
-            <p className="mt-2 text-center text-[11px] text-slate-500">
-              Astuce : {shortcutLabel}+Entrée pour publier sans lâcher le clavier.
-            </p>
-          </GlassCard>
-
-          <GlassCard>
-            <h2 className="mb-2 font-display text-sm font-medium text-white">Ce qui se passe ensuite</h2>
-            <ul className="space-y-1.5 text-xs text-slate-400">
-              <li>• Vous arrivez sur la page de la publication : statut par réseau, discussion, et (sur YouTube) analyse de rétention par IA.</li>
-              <li>• En mode programmé, le worker planifié publie automatiquement à l&apos;heure prévue.</li>
-              <li>• Un post resté bloqué peut être dupliqué en un clic depuis sa page pour retenter l&apos;envoi.</li>
-            </ul>
-          </GlassCard>
+          <ComposerTips />
         </div>
       </div>
+
+      <ComposerActionBar
+        mode={mode}
+        scheduleDate={scheduleDate}
+        timezone={timezone}
+        selectedCount={selectedNetworks.length}
+        hasMedia={assets.length > 0}
+        canSubmit={canSubmit}
+        submitting={submitting}
+        onSubmit={onSubmit}
+      />
 
       {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
         ? createPortal(

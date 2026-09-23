@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { SkeletonCard, SkeletonText } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +58,7 @@ function ReferralLeaderboard() {
         d&apos;abonnement Pro offerts, attribués manuellement par l&apos;équipe Nebula.
       </p>
       {!rows ? (
-        <p className="mt-3 text-sm text-slate-500">Chargement...</p>
+        <SkeletonText lines={3} className="mt-3" />
       ) : rows.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">Personne n&apos;a encore parrainé de nouveau compte.</p>
       ) : (
@@ -202,17 +205,11 @@ export default function CommunityPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-nebula-500 to-accent-cyan text-white shadow-glow">
-            <IconUsers className="h-4 w-4" />
-          </div>
-          <h1 className="font-display text-2xl font-semibold text-white">Communauté</h1>
-        </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Un espace public, ouvert à tous les utilisateurs de Nebula : entraide, guides et partage de vidéos déjà publiées.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconUsers className="h-5 w-5" />}
+        title="Communauté"
+        description="Un espace public, ouvert à tous les utilisateurs de Nebula : entraide, guides et partage de vidéos déjà publiées."
+      />
 
       <ReferralLeaderboard />
 
@@ -286,7 +283,14 @@ export default function CommunityPage() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Chargement...</p>}
+      {loading && (
+        <div className="space-y-3" aria-busy="true">
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <span className="sr-only">Chargement en cours</span>
+        </div>
+      )}
 
       {!loading && tab === "forum" && (
         <div className="space-y-4">
@@ -384,9 +388,9 @@ export default function CommunityPage() {
               <GlassCard className="h-full overflow-hidden p-0">
                 <div className="aspect-video w-full bg-black/40">
                   {v.thumbnailUrl ? (
-                    <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    <RemoteImage src={v.thumbnailUrl} className="h-full w-full" sizes="(max-width: 640px) 100vw, 320px" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-slate-600">
+                    <div className="flex h-full w-full items-center justify-center text-slate-500">
                       <IconHeart className="h-6 w-6" />
                     </div>
                   )}

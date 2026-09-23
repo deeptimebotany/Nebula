@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic, findCosmetic } from "@/lib/cosmetics";
 import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { getAppearanceAccess } from "@/lib/appearance-access";
 
 // Toujours réévalué à la demande — même raison que /api/settings/starfield :
 // `allowedKeys` doit refléter le palier réel au moment de l'appel.
@@ -17,17 +18,6 @@ export const dynamic = "force-dynamic";
 // activer maintenant, quelle que soit la voie (les autres restent visibles
 // mais verrouillées côté UI, comme pour les thèmes réservés) ; `enabled`
 // liste celles effectivement activées par la personne.
-async function eggAllowedKeys(userId: string): Promise<string[]> {
-  const eggGated = COSMETICS.filter((c) => c.requiresEgg);
-  if (eggGated.length === 0) return [];
-  const foundRows: { key: string }[] = await prisma.easterEggFound.findMany({
-    where: { userId, key: { in: eggGated.map((c) => c.requiresEgg as string) } },
-    select: { key: true }
-  });
-  const foundSet = new Set(foundRows.map((f) => f.key));
-  return eggGated.filter((c) => foundSet.has(c.requiresEgg as string)).map((c) => c.key);
-}
-
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -37,40 +27,18 @@ export async function GET() {
     });
   }
   const userId = (session.user as { id: string }).id;
-
-  // Compte propriétaire (voir dev-preview.ts) : deux modes.
-  // - Aucun aperçu de palier choisi (mode par défaut) : tout est
-  //   déverrouillé, pour prévisualiser/tester chaque cosmétique sans avoir à
-  //   réellement atteindre le palier ou trouver l'easter egg correspondant.
-  // - Un palier précis choisi (aperçu Gratuit/Pro/Agence, voir /dev-preview) :
-  //   les cosmétiques de palier suivent CE palier simulé, comme pour un
-  //   vrai compte — seuls ceux à easter egg restent basés sur les eggs
-  //   RÉELLEMENT trouvés par ce compte (un aperçu de palier ne simule pas
-  //   d'avoir trouvé un easter egg).
-  if (isOwnerEmail(session.user.email)) {
-    const previewPlan = resolvePreviewPlan(session.user.email);
-    const [user, eggKeys] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { enabledCosmetics: true } }),
-      eggAllowedKeys(userId)
-    ]);
-    const allowedKeys = previewPlan
-      ? [...COSMETICS.filter((c) => canUseCosmetic(c, previewPlan)).map((c) => c.key), ...eggKeys]
-      : COSMETICS.map((c) => c.key);
-    return NextResponse.json({
-      enabled: (user?.enabledCosmetics as string[] | undefined) ?? [],
-      allowedKeys,
-      previewPlan
-    });
-  }
-
-  const [user, { plan }, eggKeys] = await Promise.all([
+  // Droits calculés par la même fonction que /api/me (voir
+  // src/lib/appearance-access.ts) : palier réel, ou « tout déverrouillé »
+  // pour le compte propriétaire sans aperçu de palier, ou le palier simulé.
+  const [user, access] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { enabledCosmetics: true } }),
-    getUserPlan(userId),
-    eggAllowedKeys(userId)
+    getAppearanceAccess(userId, session.user.email)
   ]);
-  const planAllowed = COSMETICS.filter((c) => canUseCosmetic(c, plan)).map((c) => c.key);
-  const allowedKeys = [...planAllowed, ...eggKeys];
-  return NextResponse.json({ enabled: (user?.enabledCosmetics as string[] | undefined) ?? [], allowedKeys });
+  return NextResponse.json({
+    enabled: (user?.enabledCosmetics as string[] | undefined) ?? [],
+    allowedKeys: access.cosmeticsAllowedKeys,
+    previewPlan: access.previewPlan
+  });
 }
 
 const bodySchema = z.object({ key: z.string(), enabled: z.boolean() });

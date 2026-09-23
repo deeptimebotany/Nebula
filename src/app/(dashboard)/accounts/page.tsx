@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -56,6 +58,7 @@ function TokenHealthDot({ level }: { level: "ok" | "soon" | "expired" | "unknown
 interface PlanInfo {
   plan: string;
   limits: { maxConnections: number; label: string };
+  connectionSlots: number;
 }
 
 // useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
@@ -63,7 +66,7 @@ interface PlanInfo {
 // celle rencontrée sur /register — voir ce fichier pour le détail).
 export default function AccountsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <AccountsPageInner />
     </Suspense>
   );
@@ -98,9 +101,11 @@ function AccountsPageInner() {
       reportEasterEggFound("all-networks-connected");
     }
 
-    fetch(`/api/billing/plan?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
-      .then((d) => setPlanInfo(d))
+    // Consommation et limites calculées par le serveur (mêmes règles que le
+    // quota appliqué à la connexion — voir /api/billing/usage).
+    fetch(`/api/billing/usage?brandId=${activeBrand.id}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setPlanInfo(d))
       .catch(() => undefined);
   }
 
@@ -122,36 +127,27 @@ function AccountsPageInner() {
     load();
   }
 
-  // Instagram et Facebook passent tous les deux par "Meta" et comptent pour
-  // UN SEUL compte dans le quota (voir countConnectionSlots côté serveur,
-  // src/lib/billing/plan.ts, qui applique la même règle).
-  const connectionSlots =
-    Math.max(
-      connections.filter((c) => c.network === "INSTAGRAM").length,
-      connections.filter((c) => c.network === "FACEBOOK").length
-    ) +
-    connections.filter((c) => c.network === "TIKTOK").length +
-    connections.filter((c) => c.network === "YOUTUBE").length;
+  // Instagram et Facebook comptent pour UN SEUL compte dans le quota : le
+  // décompte vient du serveur (countConnectionSlots, via /api/billing/usage)
+  // plutôt que d'être refait ici.
+  const connectionSlots = planInfo?.connectionSlots ?? 0;
 
   const atLimit = planInfo ? connectionSlots >= planInfo.limits.maxConnections : false;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Comptes connectés</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Reliez autant de comptes Facebook, Instagram, TikTok ou YouTube que vous gérez — chaque
-            connexion utilise l&apos;API officielle de la plateforme.
-          </p>
-        </div>
-        {planInfo && (
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">
-            {connectionSlots} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections}{" "}
-            comptes (Instagram + Facebook comptent ensemble) · palier {planInfo.limits.label}
-          </span>
-        )}
-      </div>
+      <PageHeader
+        title="Comptes connectés"
+        description="Reliez autant de comptes Facebook, Instagram, TikTok ou YouTube que vous gérez — chaque connexion utilise l'API officielle de la plateforme."
+        actions={
+          planInfo && (
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">
+              {connectionSlots} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections} comptes
+              (Instagram + Facebook comptent ensemble) · palier {planInfo.limits.label}
+            </span>
+          )
+        }
+      />
 
       {error && (
         <GlassCard className="border-red-500/30 bg-red-500/[0.06]">
@@ -186,8 +182,8 @@ function AccountsPageInner() {
                 </a>
               </div>
 
+              {linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
               <ul className="space-y-2">
-                {linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
                 {linked.map((c) => {
                   const expiry = tokenStatus(c.tokenExpiresAt);
                   const expanded = expandedId === c.id;
@@ -223,10 +219,13 @@ function AccountsPageInner() {
                           {/* Raccourci "+" : ouvre directement le Composer avec CE compte
                               déjà sélectionné (et lui seul) — voir composer/page.tsx,
                               qui lit ?connectionId= au chargement. */}
-                          <Link href={`/composer?connectionId=${c.id}`} title="Ajouter une publication pour ce compte">
-                            <button className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-aurora-400/40 hover:text-white">
-                              <IconPlus className="h-3.5 w-3.5" />
-                            </button>
+                          <Link
+                            href={`/composer?connectionId=${c.id}`}
+                            title="Ajouter une publication pour ce compte"
+                            aria-label={`Ajouter une publication pour ${c.displayName}`}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
+                          >
+                            <IconPlus className="h-3.5 w-3.5" />
                           </Link>
                           {expiry && expiry.level !== "ok" && activeBrand && (
                             <a href={`/api/connections/${provider.id}/start?brandId=${activeBrand.id}`}>

@@ -1,10 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
@@ -16,6 +19,9 @@ import { WeekScrubber } from "@/components/dashboard/week-scrubber";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconChevron, IconPlus } from "@/components/dashboard/icons";
+import { Tabs } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/ui/empty-state";
+import { DEFAULT_TIMEZONE, dayKeyAndTime, timeZoneLabel, wallClockToUtc } from "@/lib/timezone";
 
 interface ApiPost {
   id: string;
@@ -48,6 +54,9 @@ const MONTHS = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
 ];
 
+type CalendarView = "month" | "hours" | "list";
+const VIEW_KEY = "nebula:calendar-view";
+
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -56,7 +65,7 @@ function dateKey(d: Date) {
 // (voir accounts/page.tsx pour le même besoin, déjà en place ailleurs).
 export default function CalendarPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <CalendarPageInner />
     </Suspense>
   );
@@ -70,7 +79,34 @@ function CalendarPageInner() {
   // les publications ciblant CE compte (voir l'effet plus bas, une fois les
   // connexions chargées).
   const filterConnectionId = searchParams.get("connectionId");
-  const [view, setView] = useState<"month" | "hours">("month");
+  // Trois vues : mois (grille), agenda (heures d'un jour), liste (jour par
+  // jour — la vue par défaut sur téléphone, où une grille de 7 colonnes est
+  // illisible). Le choix est mémorisé sur l'appareil.
+  const [view, setView] = useState<CalendarView>("month");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_KEY) as CalendarView | null;
+      if (stored === "month" || stored === "hours" || stored === "list") {
+        setView(stored);
+        return;
+      }
+    } catch {
+      // stockage indisponible
+    }
+    if (window.matchMedia("(max-width: 767px)").matches) setView("list");
+  }, []);
+  function changeView(next: CalendarView) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // ignore
+    }
+  }
+  // Fuseau horaire de programmation de la marque active (voir
+  // src/lib/timezone.ts) : toutes les heures affichées et saisies ici sont
+  // dans ce fuseau, pas dans celui de l'appareil.
+  const timezone = activeBrand?.timezone ?? DEFAULT_TIMEZONE;
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [postsByBrand, setPostsByBrand] = useState<Record<string, ApiPost[]>>({});
   const [connectionsByBrand, setConnectionsByBrand] = useState<Record<string, ConnectionRow[]>>({});
@@ -124,8 +160,8 @@ function CalendarPageInner() {
 
   async function rescheduleToDay(entryId: string, time: string, newDay: Date) {
     const [h, m] = time.split(":").map(Number);
-    const newDate = new Date(newDay);
-    newDate.setHours(h, m, 0, 0);
+    // Même heure murale, autre jour — dans le fuseau de la marque.
+    const newDate = wallClockToUtc({ year: newDay.getFullYear(), month: newDay.getMonth() + 1, day: newDay.getDate(), hour: h, minute: m }, timezone);
     await fetch(`/api/posts/${entryId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -176,20 +212,20 @@ function CalendarPageInner() {
           (t) => !hiddenConnectionIds.has(t.connectionId) && !hiddenNetworks.has(t.network)
         );
         if (p.targets.length > 0 && visibleTargets.length === 0) continue; // tous les comptes de ce post sont masqués
-        const d = new Date(p.scheduledAt);
-        push(dateKey(d), {
+        const { key, time } = dayKeyAndTime(new Date(p.scheduledAt), timezone);
+        push(key, {
           id: p.id,
           title: p.title || p.caption || "(sans titre)",
           networks: visibleTargets.map((t) => t.network),
           status: p.status,
           thumbnailUrl: p.media[0]?.mediaAsset.thumbnailUrl || p.media[0]?.mediaAsset.url,
-          time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+          time
         });
       }
     }
     for (const list of map.values()) list.sort((a, b) => a.time.localeCompare(b.time));
     return map;
-  }, [postsByBrand, selectedBrandIds, hiddenConnectionIds, hiddenNetworks]);
+  }, [postsByBrand, selectedBrandIds, hiddenConnectionIds, hiddenNetworks, timezone]);
 
   const grid = useMemo(() => {
     const first = new Date(cursor);
@@ -203,9 +239,17 @@ function CalendarPageInner() {
     });
   }, [cursor]);
 
-  const today = new Date();
-  const todayKey = dateKey(today);
+  const todayKey = dayKeyAndTime(new Date(), timezone).key;
   const agendaEntries = entriesByDay.get(dateKey(agendaDay)) ?? [];
+
+  // Vue liste : les jours du mois affiché qui ont au moins une publication.
+  const listDays = useMemo(() => {
+    const monthPrefix = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-`;
+    return Array.from(entriesByDay.keys())
+      .filter((k) => k.startsWith(monthPrefix))
+      .sort()
+      .map((k) => ({ key: k, date: new Date(`${k}T12:00:00`), entries: entriesByDay.get(k) ?? [] }));
+  }, [entriesByDay, cursor]);
 
   // Scrubber temporel : nombre de publications par jour, tous jours
   // chargés confondus (indépendant du mois affiché à l'écran).
@@ -235,24 +279,25 @@ function CalendarPageInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-white">Calendrier de publication</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Planifiez et visualisez vos publications multi-réseaux en un coup d&apos;œil.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {aiStatus?.plan === "AGENCY" && (
-            <Button variant="outline" onClick={() => setApprovalModalOpen(true)}>
-              Lien d&apos;approbation client
-            </Button>
-          )}
-          <Link href="/composer">
-            <Button>Planifier un post</Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Calendrier"
+        description="Planifiez et visualisez vos publications multi-réseaux en un coup d'œil."
+        actions={
+          <>
+            {aiStatus?.plan === "AGENCY" && (
+              <Button variant="outline" onClick={() => setApprovalModalOpen(true)}>
+                Lien d&apos;approbation client
+              </Button>
+            )}
+            <ButtonLink href="/publications" variant="outline">
+              Liste des publications
+            </ButtonLink>
+            <ButtonLink href="/composer" className="inline-flex items-center gap-2">
+              <IconPlus className="h-4 w-4" /> Nouvelle publication
+            </ButtonLink>
+          </>
+        }
+      />
 
       {filterConnectionId && (
         <div className="flex items-center gap-2 rounded-lg border border-aurora-400/30 bg-aurora-400/[0.06] px-3 py-2 text-sm text-aurora-200">
@@ -275,23 +320,16 @@ function CalendarPageInner() {
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
-          {[
-            { id: "month", label: "Mois" },
-            { id: "hours", label: "Agenda (heures)" }
-          ].map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id as "month" | "hours")}
-              className={clsx(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition",
-                view === v.id ? "bg-nebula-600/60 text-white" : "text-slate-400 hover:text-white"
-              )}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={[
+            { value: "month" as const, label: "Mois" },
+            { value: "list" as const, label: "Liste" },
+            { value: "hours" as const, label: "Agenda (heures)" }
+          ]}
+          value={view}
+          onChange={changeView}
+          aria-label="Vue du calendrier"
+        />
 
         <div className="relative">
           <button
@@ -363,7 +401,78 @@ function CalendarPageInner() {
         </div>
       )}
 
-      {view === "month" ? (
+      {view === "list" ? (
+        <MotionGlassCard>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="font-display text-lg text-white">
+              {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
+            </h2>
+            <div className="flex gap-2">
+              <Button variant="outline" aria-label="Mois précédent" onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1))}>←</Button>
+              <Button variant="ghost" onClick={() => setCursor(new Date(new Date().setDate(1)))}>Aujourd&apos;hui</Button>
+              <Button variant="outline" aria-label="Mois suivant" onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1))}>→</Button>
+            </div>
+          </div>
+          {listDays.length === 0 ? (
+            <EmptyState
+              bare
+              title="Rien de programmé ce mois-ci"
+              description="Les publications programmées apparaîtront ici, jour par jour."
+              action={
+                <Link href="/composer" className="inline-block">
+                  <Button>Nouvelle publication</Button>
+                </Link>
+              }
+            />
+          ) : (
+            <ol className="space-y-4">
+              {listDays.map((day) => (
+                <li key={day.key}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className={clsx("text-sm font-medium", day.key === todayKey ? "text-aurora-300" : "text-slate-300")}>
+                      {day.date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                      {day.key === todayKey && " · aujourd'hui"}
+                    </h3>
+                    {activeBrand && (
+                      <Link href={`/composer?date=${day.key}`} className="text-xs text-slate-500 hover:text-white">
+                        + Ajouter
+                      </Link>
+                    )}
+                  </div>
+                  <ul className="space-y-1.5">
+                    {day.entries.map((e) => (
+                      <li key={e.id}>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPostId(e.id)}
+                          style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
+                          className="flex w-full items-center gap-3 rounded-xl bg-nebula-700/30 px-3 py-2.5 text-left text-sm text-slate-100 transition hover:bg-nebula-700/60"
+                        >
+                          <span className="w-12 shrink-0 font-mono text-xs text-slate-400">{e.time}</span>
+                          {e.thumbnailUrl ? (
+                            <RemoteImage src={e.thumbnailUrl} className="h-9 w-9 shrink-0 rounded-lg" sizes="36px" />
+                          ) : (
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-[10px] text-slate-500">—</span>
+                          )}
+                          <span className="min-w-0 flex-1 truncate">{e.title}</span>
+                          <span className="flex shrink-0 gap-0.5">
+                            {e.networks.slice(0, 4).map((n, i) => (
+                              <NetworkDot key={i} network={n} />
+                            ))}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="mt-4 text-[11px] text-slate-500">
+            Heures de {timezone.replace(/_/g, " ")} ({timeZoneLabel(timezone)}).
+          </p>
+        </MotionGlassCard>
+      ) : view === "month" ? (
         <MotionGlassCard>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-lg text-white">
@@ -409,8 +518,10 @@ function CalendarPageInner() {
                     }
                   }}
                   className={clsx(
-                    "group/cell relative min-h-[112px] bg-void-900/60 p-2 align-top transition",
-                    !inMonth && "opacity-30",
+                    "group/cell relative min-h-[112px] p-2 align-top transition",
+                    // Jours hors du mois : fond transparent et numéro plus discret,
+                    // sans opacité (l'opacité rendait le numéro illisible, 2:1).
+                    inMonth ? "bg-void-900/60" : "bg-transparent",
                     dragOverKey === key && "ring-2 ring-inset ring-aurora-400/60 bg-aurora-400/[0.06]"
                   )}
                 >
@@ -418,7 +529,7 @@ function CalendarPageInner() {
                     <span
                       className={clsx(
                         "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                        isToday ? "today-glow bg-nebula-500 text-white" : "text-slate-400"
+                        isToday ? "today-glow bg-nebula-500 text-white" : inMonth ? "text-slate-400" : "text-slate-500"
                       )}
                     >
                       {day.getDate()}
@@ -428,7 +539,7 @@ function CalendarPageInner() {
                         <Link
                           href={`/composer?date=${key}`}
                           title="Créer un post à cette date"
-                          className="flex h-5 w-5 items-center justify-center rounded-full text-slate-600 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/cell:opacity-100"
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/cell:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-70"
                         >
                           <IconPlus className="h-3 w-3" />
                         </Link>
@@ -462,7 +573,7 @@ function CalendarPageInner() {
                           )}
                         >
                           {e.thumbnailUrl ? (
-                            <img src={e.thumbnailUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                            <RemoteImage src={e.thumbnailUrl} className="h-6 w-6 shrink-0 rounded" sizes="24px" />
                           ) : (
                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/5 text-[9px] text-slate-500">
                               {e.networks[0] ? "" : "—"}
@@ -516,7 +627,7 @@ function CalendarPageInner() {
                         style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
                         className="flex items-center gap-1.5 rounded-md bg-nebula-700/40 py-1 pl-1 pr-2 text-left text-[11px] text-slate-100 transition hover:scale-[1.03] hover:bg-nebula-700/70"
                       >
-                        {e.thumbnailUrl && <img src={e.thumbnailUrl} alt="" className="h-6 w-6 rounded object-cover" />}
+                        {e.thumbnailUrl && <RemoteImage src={e.thumbnailUrl} className="h-6 w-6 rounded" sizes="24px" />}
                         <span className="flex gap-0.5">
                           {e.networks.slice(0, 3).map((n, i) => (
                             <NetworkDot key={i} network={n} />
@@ -529,7 +640,7 @@ function CalendarPageInner() {
                     {activeBrand && (
                       <Link
                         href={`/composer?date=${dateKey(agendaDay)}&time=${String(h).padStart(2, "0")}:00`}
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-slate-700 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/slot:opacity-100"
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-white group-hover/slot:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-70"
                         title={`Programmer à ${String(h).padStart(2, "0")}:00`}
                       >
                         <IconPlus className="h-3.5 w-3.5" />

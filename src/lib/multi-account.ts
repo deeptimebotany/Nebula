@@ -18,7 +18,7 @@ import { decode } from "next-auth/jwt";
 const LINKED_COOKIE_PREFIX = "nebula-session.";
 const MAX_LINKED_ACCOUNTS = 5;
 
-function useSecureCookies(): boolean {
+function shouldUseSecureCookies(): boolean {
   return (process.env.NEXTAUTH_URL || "").startsWith("https://");
 }
 
@@ -27,7 +27,7 @@ function useSecureCookies(): boolean {
 // quand servi en HTTPS). Non configurable ailleurs dans ce projet — on le
 // recalcule ici plutôt que de dupliquer une constante.
 export function sessionCookieName(): string {
-  return useSecureCookies() ? "__Secure-next-auth.session-token" : "next-auth.session-token";
+  return shouldUseSecureCookies() ? "__Secure-next-auth.session-token" : "next-auth.session-token";
 }
 
 function linkedCookieName(uid: string): string {
@@ -37,7 +37,7 @@ function linkedCookieName(uid: string): string {
 function cookieOptions() {
   return {
     httpOnly: true,
-    secure: useSecureCookies(),
+    secure: shouldUseSecureCookies(),
     sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 24 * 60 // 60 jours, aligné sur authOptions.session.maxAge

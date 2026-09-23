@@ -72,7 +72,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex w-[320px] flex-col gap-2">
+      {/* Zone "live" : chaque notification est annoncée aux lecteurs d'écran
+          (aria-live polite) sans interrompre ce que fait la personne. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="pointer-events-none fixed bottom-20 right-4 z-[100] flex w-[min(320px,calc(100vw-2rem))] flex-col gap-2 lg:bottom-5 lg:right-5"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -85,7 +92,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <span className="flex-1">{t.message}</span>
             <button
               onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-              className="text-current opacity-60 hover:opacity-100"
+              className="text-current transition hover:brightness-125"
+              aria-label="Fermer la notification"
             >
               ✕
             </button>

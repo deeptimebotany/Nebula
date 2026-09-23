@@ -8,7 +8,10 @@
 // une vue en lecture seule, sans aucun bouton d'édition.
 
 import { useEffect, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
+import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 const NETWORK_LABELS: Record<string, string> = {
   INSTAGRAM: "Instagram",
@@ -27,14 +30,15 @@ interface UpcomingPost {
 
 interface PublicCalendar {
   brandName: string;
+  timezone?: string;
   windowDays: number;
   posts: UpcomingPost[];
 }
 
-function groupByDay(posts: UpcomingPost[]): { day: string; posts: UpcomingPost[] }[] {
+function groupByDay(posts: UpcomingPost[], timeZone: string): { day: string; posts: UpcomingPost[] }[] {
   const groups = new Map<string, UpcomingPost[]>();
   for (const post of posts) {
-    const day = new Date(post.scheduledAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const day = new Date(post.scheduledAt).toLocaleDateString("fr-FR", { timeZone, weekday: "long", day: "numeric", month: "long" });
     const list = groups.get(day) ?? [];
     list.push(post);
     groups.set(day, list);
@@ -59,7 +63,8 @@ export function CalendrierClient({ token }: { token: string }) {
       .catch(() => setError("Impossible de charger ce calendrier."));
   }, [token]);
 
-  const groups = data ? groupByDay(data.posts) : [];
+  const timeZone = data?.timezone || "Europe/Paris";
+  const groups = data ? groupByDay(data.posts, timeZone) : [];
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -69,7 +74,18 @@ export function CalendrierClient({ token }: { token: string }) {
       <div className="relative z-10 mx-auto max-w-2xl px-6 py-16">
         {error && <p className="mt-20 text-center text-sm text-slate-400">{error}</p>}
 
-        {!error && !data && <p className="mt-20 text-center text-sm text-slate-500">Chargement...</p>}
+        {!error && !data && (
+          <div className="mt-10 space-y-4" aria-busy="true" aria-live="polite">
+            <div className="mx-auto flex flex-col items-center gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <SkeletonCard lines={3} />
+            <SkeletonCard lines={3} />
+            <span className="sr-only">Chargement en cours</span>
+          </div>
+        )}
 
         {data && (
           <>
@@ -91,14 +107,14 @@ export function CalendrierClient({ token }: { token: string }) {
                       {group.posts.map((post) => (
                         <GlassCard key={post.id} hover={false} className="flex items-center gap-3">
                           {post.thumbnailUrl ? (
-                            <img src={post.thumbnailUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                            <RemoteImage src={post.thumbnailUrl} className="h-12 w-12 shrink-0 rounded-lg" sizes="48px" />
                           ) : (
                             <div className="h-12 w-12 shrink-0 rounded-lg bg-white/5" />
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-white">{post.title}</p>
                             <p className="mt-0.5 text-xs text-slate-500">
-                              {new Date(post.scheduledAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                              {new Date(post.scheduledAt).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" })}
                               {" · "}
                               {post.networks.map((n) => NETWORK_LABELS[n] ?? n).join(", ")}
                             </p>
@@ -111,7 +127,7 @@ export function CalendrierClient({ token }: { token: string }) {
               </div>
             )}
 
-            <p className="mt-10 text-center text-xs text-slate-600">Propulsé par Nebula</p>
+            <PoweredByNebula className="mt-10" />
           </>
         )}
       </div>

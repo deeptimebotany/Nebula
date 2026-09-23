@@ -106,6 +106,20 @@ model User {
   // (fond/texte/panneaux) par-dessus n'importe quel thème choisi.
   colorMode String @default("dark")
 
+  // Mode focus (Lot 3 de la refonte) : vrai par défaut pour tout le monde.
+  // Quand il est actif, l'application ne montre ni easter eggs ambiants
+  // (messages « Toujours là ? », étoiles filantes de minuit...) ni toasts
+  // « succès débloqué » : les découvertes sont toujours enregistrées (page
+  // Succès), mais rien ne vient interrompre le travail. Désactivable dans
+  // Paramètres → Apparence & Succès.
+  focusMode Boolean @default(true)
+
+  // Notification par email quand une publication PROGRAMMÉE échoue (Lot 4) :
+  // envoyée par le worker planifié à l'auteur de la publication (voir
+  // runDuePosts dans src/lib/publish.ts). Une publication envoyée
+  // « maintenant » affiche son résultat à l'écran, pas d'email pour elle.
+  notifyOnFailure Boolean @default(true)
+
   // --- Marque blanche (palier Agence uniquement, voir src/lib/plans.ts) ---
   // Remplace "Nebula" par votre propre nom/logo dans la barre de navigation
   // (voir topnav.tsx) — utile pour une agence qui montre l'outil à ses

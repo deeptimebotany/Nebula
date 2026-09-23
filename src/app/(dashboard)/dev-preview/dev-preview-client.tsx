@@ -168,7 +168,7 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
                 key={c.key}
                 className={clsx(
                   "flex items-start justify-between gap-3 rounded-xl border p-3 transition",
-                  locked ? "border-white/5 opacity-60" : "border-white/10"
+                  locked ? "border-dashed border-white/10" : "border-white/10"
                 )}
               >
                 <div className="min-w-0">
@@ -186,7 +186,7 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">{c.description}</p>
                   {COSMETIC_LOCATION[c.key] && (
-                    <p className="mt-1 text-xs text-aurora-300/80">Où : {COSMETIC_LOCATION[c.key]}</p>
+                    <p className="mt-1 text-xs text-aurora-300">Où : {COSMETIC_LOCATION[c.key]}</p>
                   )}
                 </div>
                 <button
@@ -227,7 +227,7 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
                   backgroundKey === bg.key
                     ? "border-aurora-400 bg-white/[0.04]"
                     : locked
-                      ? "border-white/5 opacity-60 hover:opacity-90"
+                      ? "border-dashed border-white/10 hover:border-white/20"
                       : "border-white/10 hover:border-white/25"
                 )}
               >
@@ -274,8 +274,8 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
                   {foundAt && <span className="ml-auto text-[10px] text-emerald-300">Trouvé</span>}
                 </div>
                 <p className="mt-1 text-xs text-slate-400">{e.hint}</p>
-                {e.reward && <p className="mt-1 text-[11px] text-aurora-300/80">Récompense : {e.reward}</p>}
-                <p className="mt-0.5 text-[10px] text-slate-600">Clé : {e.key}</p>
+                {e.reward && <p className="mt-1 text-[11px] text-aurora-300">Récompense : {e.reward}</p>}
+                <p className="mt-0.5 text-[10px] text-slate-500">Clé : {e.key}</p>
               </div>
             );
           })}

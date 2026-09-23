@@ -6,6 +6,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Gris "slate" secondaires ÉCLAIRCIS par rapport aux valeurs par
+        // défaut de Tailwind : sur le fond quasi noir du site (#02040a), le
+        // slate-500 d'origine (#64748b) ne fait que 4,3:1 et le slate-600
+        // (#475569) 2,7:1 — sous le minimum d'accessibilité (4,5:1) pour les
+        // ~240 petits textes qui les utilisent. Ces valeurs donnent 5,7:1 et
+        // 4,1:1 tout en restant nettement plus discrètes que slate-400.
+        // Les classes existantes (text-slate-500...) restent inchangées.
+        slate: {
+          500: "#7b879e",
+          600: "#64708a"
+        },
         void: {
           950: "#02040a",
           900: "#050810",

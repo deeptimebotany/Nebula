@@ -82,7 +82,7 @@ export default function FreeThumbnailToolPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main id="contenu" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
       <div className="noise-grid grain-overlay pointer-events-none absolute inset-x-0 top-0 h-[600px]" />
 
@@ -112,15 +112,15 @@ export default function FreeThumbnailToolPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-1.5 text-center text-xs uppercase tracking-wide text-slate-500">Original</p>
-                <img src={preview} alt="" className="aspect-video w-full rounded-xl border border-white/10 object-cover" />
+                <img loading="lazy" decoding="async" src={preview} alt="" className="aspect-video w-full rounded-xl border border-white/10 object-cover" />
               </div>
               <div>
                 <p className="mb-1.5 text-center text-xs uppercase tracking-wide text-slate-500">Résultat IA</p>
                 <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.02]">
                   {resultUrl ? (
-                    <img src={resultUrl} alt="" className="h-full w-full rounded-xl object-cover" />
+                    <img loading="lazy" decoding="async" src={resultUrl} alt="" className="h-full w-full rounded-xl object-cover" />
                   ) : (
-                    <span className="text-xs text-slate-600">{loading ? "Génération..." : "En attente"}</span>
+                    <span className="text-xs text-slate-500">{loading ? "Génération..." : "En attente"}</span>
                   )}
                 </div>
               </div>
@@ -192,9 +192,9 @@ export default function FreeThumbnailToolPage() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Envie de générer des miniatures directement depuis vos vidéos, sans les extraire vous-même ?{" "}
           <Link href="/register" className="text-aurora-300 hover:underline">
-            Créez votre compte Nebula gratuit
-          </Link>
-          .
+            Créez votre espace Nebula gratuit
+          </Link>{" "}
+          — la génération de miniatures par IA fait partie des paliers Pro et Agence.
         </p>
       </section>
     </main>

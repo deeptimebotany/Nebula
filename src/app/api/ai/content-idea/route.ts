@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, generateContentIdea } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { brandId, date } = parsed.data;
+  const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
+  if (denied) return denied;
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.aiEnabled) {

@@ -4,15 +4,26 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, chatComplete } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
+import { ownedBy } from "@/lib/brand-access";
 import { z } from "zod";
+
+// Le post doit appartenir à une des marques de l'utilisateur (sinon 404,
+// comme s'il n'existait pas) — voir posts/[id]/route.ts pour le même schéma.
+async function findOwnPost(userId: string, postId: string) {
+  return prisma.post.findFirst({ where: { id: postId, brand: ownedBy(userId) }, select: { id: true, brandId: true } });
+}
 
 // GET /api/posts/[id]/messages — fil de discussion (IA) attaché à un post.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+
+  const own = await findOwnPost(userId, params.id);
+  if (!own) return NextResponse.json({ error: "Post introuvable" }, { status: 404 });
 
   const messages = await prisma.postMessage.findMany({
-    where: { postId: params.id },
+    where: { postId: own.id },
     orderBy: { createdAt: "asc" }
   });
   return NextResponse.json({ messages });
@@ -32,14 +43,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const userId = (session.user as { id: string }).id;
+
+  // Appartenance vérifiée AVANT d'écrire quoi que ce soit (l'ancienne version
+  // créait le message d'abord, sur n'importe quel post).
+  const own = await findOwnPost(userId, params.id);
+  if (!own) return NextResponse.json({ error: "Post introuvable" }, { status: 404 });
+
   const userMessage = await prisma.postMessage.create({
-    data: { postId: params.id, role: "USER", authorId: userId, content: parsed.data.content }
+    data: { postId: own.id, role: "USER", authorId: userId, content: parsed.data.content }
   });
 
   const post = await prisma.post.findUnique({
-    where: { id: params.id },
+    where: { id: own.id },
     include: {
-      targets: { include: { connection: { include: { analytics: { orderBy: { capturedAt: "desc" }, take: 1 } } } } }
+      targets: {
+        include: {
+          // Seules les dernières stats sont utiles au prompt — jamais les jetons.
+          connection: { select: { analytics: { orderBy: { capturedAt: "desc" }, take: 1 } } }
+        }
+      }
     }
   });
 

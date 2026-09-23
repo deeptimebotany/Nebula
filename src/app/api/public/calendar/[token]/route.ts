@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import { computeUpcomingPosts } from "@/lib/calendar-share";
 
 // GET /api/public/calendar/[token] — consultée par la page publique
@@ -18,12 +19,15 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   }
 
   const [brand, posts] = await Promise.all([
-    prisma.brand.findUnique({ where: { id: share.brandId }, select: { name: true } }),
+    prisma.brand.findUnique({ where: { id: share.brandId }, select: { name: true, timezone: true } }),
     computeUpcomingPosts(share.brandId, share.windowDays)
   ]);
 
   return NextResponse.json({
     brandName: brand?.name ?? "Marque",
+    // Fuseau de la marque : les heures sont affichées dans ce fuseau chez le
+    // client, pas dans celui de son navigateur (voir src/lib/timezone.ts).
+    timezone: brand?.timezone || DEFAULT_TIMEZONE,
     windowDays: share.windowDays,
     posts
   });

@@ -58,7 +58,7 @@ export default function FreeCaptionToolPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main id="contenu" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
       <div className="noise-grid grain-overlay pointer-events-none absolute inset-x-0 top-0 h-[600px]" />
 
@@ -111,8 +111,9 @@ export default function FreeCaptionToolPage() {
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs uppercase tracking-wide text-slate-500">Réseau (optionnel)</label>
+              <label htmlFor="legendes-network" className="block text-xs uppercase tracking-wide text-slate-500">Réseau (optionnel)</label>
               <select
+                id="legendes-network"
                 value={network}
                 onChange={(e) => setNetwork(e.target.value as Network | "")}
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
@@ -161,9 +162,9 @@ export default function FreeCaptionToolPage() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Besoin de publier directement sur vos réseaux depuis ce texte ?{" "}
           <Link href="/register" className="text-aurora-300 hover:underline">
-            Créez votre compte Nebula gratuit
-          </Link>
-          .
+            Créez votre espace Nebula gratuit
+          </Link>{" "}
+          — l&apos;assistant IA intégré fait partie des paliers Pro et Agence.
         </p>
       </section>
     </main>

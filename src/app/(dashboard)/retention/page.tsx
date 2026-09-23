@@ -7,6 +7,10 @@
 // — voir le produit n°3 de la feuille de route ("outil autonome").
 
 import { useEffect, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { useChartTheme } from "@/lib/chart-theme";
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -55,6 +59,7 @@ function extractVideoId(input: string): string | null {
 }
 
 export default function RetentionToolPage() {
+  const chartTheme = useChartTheme();
   const { activeBrand } = useBrand();
   const toast = useToast();
   const aiStatus = useAiStatus(activeBrand?.id);
@@ -153,15 +158,11 @@ export default function RetentionToolPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-white">
-          <IconRetention className="h-5 w-5 text-slate-400" /> Analyse de rétention IA
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Analysez n&apos;importe quelle vidéo de votre chaîne YouTube connectée — publiée via Nebula ou non — avec la
-          vraie courbe de rétention YouTube Analytics et des recommandations générées par IA.
-        </p>
-      </div>
+      <PageHeader
+        icon={<IconRetention className="h-5 w-5" />}
+        title="Rétention IA"
+        description="Analysez n'importe quelle vidéo de votre chaîne YouTube connectée — publiée via Nebula ou non — avec la vraie courbe de rétention YouTube Analytics et des recommandations générées par IA."
+      />
 
       {locked && (
         <GlassCard>
@@ -221,7 +222,13 @@ export default function RetentionToolPage() {
               <GlassCard>
                 <h2 className="font-display text-base font-medium text-white">Vidéos récentes</h2>
                 <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto">
-                  {loadingVideos && <p className="text-sm text-slate-500">Chargement...</p>}
+                  {loadingVideos && (
+                    <div className="space-y-2" aria-busy="true">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  )}
                   {!loadingVideos && videos.length === 0 && <p className="text-sm text-slate-500">Aucune vidéo trouvée.</p>}
                   {videos.map((v) => (
                     <button
@@ -232,7 +239,7 @@ export default function RetentionToolPage() {
                         selectedVideoId === v.videoId ? "border-aurora-400/60 bg-white/[0.04]" : "border-white/10 hover:border-white/25"
                       )}
                     >
-                      <img src={v.thumbnailUrl} alt="" className="h-12 w-20 shrink-0 rounded-lg object-cover" />
+                      <RemoteImage src={v.thumbnailUrl} className="h-12 w-20 shrink-0 rounded-lg" sizes="80px" />
                       <span className="min-w-0 flex-1 truncate text-xs text-slate-300">{v.title}</span>
                     </button>
                   ))}
@@ -268,7 +275,7 @@ export default function RetentionToolPage() {
                   <h2 className="font-display text-base font-medium text-white">{selectedTitle}</h2>
 
                   {loadingInsight ? (
-                    <p className="mt-3 text-sm text-slate-500">Chargement...</p>
+                    <SkeletonText lines={4} className="mt-3" />
                   ) : !insight ? (
                     <>
                       <Button onClick={analyze} disabled={analyzing} className="mt-3">
@@ -282,10 +289,10 @@ export default function RetentionToolPage() {
                       {retentionCurve.length > 0 && (
                         <ResponsiveContainer width="100%" height={180}>
                           <LineChart data={retentionCurve.map((p) => ({ x: Math.round(p.timeRatio * 100), y: Math.round(p.watchRatio * 100) }))}>
-                            <XAxis dataKey="x" tick={{ fill: "#7386ab", fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: "#7386ab", fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
-                            <Tooltip contentStyle={{ background: "rgba(10,14,26,0.95)", border: "1px solid rgba(120,150,255,0.25)", borderRadius: 8, fontSize: 11 }} />
-                            <Line type="monotone" dataKey="y" stroke="#63e6ff" strokeWidth={2} dot={false} />
+                            <XAxis dataKey="x" tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
+                            <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
+                            <Line type="monotone" dataKey="y" stroke={chartTheme.series[1]} strokeWidth={2} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       )}

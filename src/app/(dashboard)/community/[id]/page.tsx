@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -90,7 +91,16 @@ export default function ThreadDetailPage() {
     router.push("/community");
   }
 
-  if (!thread) return <p className="text-sm text-slate-500">Chargement...</p>;
+  if (!thread) {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <Skeleton className="h-7 w-2/3" />
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={2} />
+        <span className="sr-only">Chargement de la discussion</span>
+      </div>
+    );
+  }
 
   const userId = (session?.user as { id?: string } | undefined)?.id;
 

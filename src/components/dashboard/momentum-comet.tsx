@@ -58,23 +58,22 @@ export function MomentumComet({ streak }: { streak: number }) {
     <div>
       <div className="flex h-10 items-center gap-1.5">
         {streak === 0 ? (
-          <p className="text-xs text-slate-500">
-            Aucune traînée pour l&apos;instant — publiez cette semaine pour l&apos;amorcer.
-          </p>
+          <p className="text-xs text-slate-500">Aucune traînée pour l&apos;instant — publiez cette semaine pour l&apos;amorcer.</p>
         ) : (
           <>
             {Array.from({ length: dots }, (_, i) => (
               <motion.span
                 key={i}
-                className="h-1.5 rounded-full bg-gradient-to-r from-transparent via-aurora-300 to-white"
+                className="momentum-trail h-1.5 rounded-full bg-gradient-to-r from-transparent via-aurora-300 to-white"
                 style={{ width: 6 + i * 3, opacity: 0.35 + (i / dots) * 0.65 }}
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
               />
             ))}
             <motion.span
-              className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
-              style={{ boxShadow: "0 0 10px 2px rgba(255,255,255,0.7)" }}
+              // Tête de la comète : blanche et lumineuse en sombre, couleur du
+              // thème en mode clair (voir .momentum-head dans globals.css).
+              className="momentum-head h-2.5 w-2.5 shrink-0 rounded-full"
               animate={{ scale: [1, 1.25, 1] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -86,8 +85,7 @@ export function MomentumComet({ streak }: { streak: number }) {
           "Votre régularité de publication apparaîtra ici, semaine après semaine."
         ) : (
           <>
-            <span className="font-display text-lg text-white">{streak}</span> semaine{streak > 1 ? "s" : ""} de suite
-            avec au moins une publication réelle.
+            <span className="font-display text-lg text-white">{streak}</span> semaine{streak > 1 ? "s" : ""} de suite avec au moins une publication réelle.
           </>
         )}
       </p>

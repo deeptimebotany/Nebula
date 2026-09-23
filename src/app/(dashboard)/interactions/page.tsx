@@ -1,10 +1,15 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { RemoteImage } from "@/components/ui/remote-image";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useBrand } from "@/components/brand-context";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { IconAvatar, IconMessage } from "@/components/dashboard/icons";
 import { NETWORK_META, type Network } from "@/lib/types";
@@ -34,11 +39,12 @@ interface ConnectionInfo {
 // commentaires reçus sur les publications récentes de CE compte connecté,
 // distincte de la page Communauté (/community, forum public partagé entre
 // tous les utilisateurs de Nebula). Toujours ouverte avec ?connectionId=...
-// depuis le menu déroulant d'un compte sur la page Comptes — sans ce
-// paramètre, on affiche une invite à y retourner plutôt qu'une liste vide.
+// depuis le menu déroulant d'un compte sur la page Comptes, ou depuis le
+// menu (Lot 3) — sans ce paramètre, on liste les comptes de la marque
+// active pour en choisir un.
 export default function InteractionsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton />}>
       <InteractionsPageInner />
     </Suspense>
   );
@@ -112,53 +118,41 @@ function InteractionsPageInner() {
   }
 
   if (!connectionId) {
-    return (
-      <div className="mx-auto max-w-lg py-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-nebula-500 to-accent-cyan text-white">
-          <IconMessage className="h-5 w-5" />
-        </div>
-        <h1 className="font-display text-xl font-semibold text-white">Interactions</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          Choisissez un compte depuis la page Comptes pour voir les commentaires reçus sur ses publications.
-        </p>
-        <Link href="/accounts" className="mt-4 inline-block">
-          <Button variant="outline">Aller aux Comptes</Button>
-        </Link>
-      </div>
-    );
+    return <InteractionsAccountPicker />;
   }
 
   const unreadCount = items?.filter((it) => !it.read).length ?? 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-semibold text-white">Interactions</h1>
-            {connection && <NetworkBadge network={connection.network} size="sm" />}
-          </div>
-          <p className="mt-1 text-sm text-slate-400">
-            {connection ? (
-              <>
-                Commentaires reçus sur les publications de <span className="text-slate-300">{connection.displayName}</span>.
-              </>
-            ) : (
-              "Chargement du compte..."
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            Interactions {connection && <NetworkBadge network={connection.network} size="sm" />}
+          </span>
+        }
+        description={
+          connection ? (
+            <>
+              Commentaires reçus sur les publications de <span className="text-slate-300">{connection.displayName}</span>.
+            </>
+          ) : (
+            "Chargement du compte…"
+          )
+        }
+        actions={
+          <>
+            {unreadCount > 0 && (
+              <Button variant="outline" onClick={markAllRead}>
+                Tout marquer comme lu
+              </Button>
             )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {unreadCount > 0 && (
-            <Button variant="outline" onClick={markAllRead}>
-              Tout marquer comme lu
+            <Button onClick={onSync} disabled={syncing || !supportsEngagement}>
+              {syncing ? "Synchronisation..." : "Actualiser"}
             </Button>
-          )}
-          <Button onClick={onSync} disabled={syncing || !supportsEngagement}>
-            {syncing ? "Synchronisation..." : "Actualiser"}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {!supportsEngagement && connection && (
         <GlassCard className="border-amber-500/30 bg-amber-500/[0.04]">
@@ -185,7 +179,12 @@ function InteractionsPageInner() {
       )}
 
       {items === null ? (
-        <p className="text-sm text-slate-500">Chargement...</p>
+        <div className="space-y-3" aria-busy="true">
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <span className="sr-only">Chargement des interactions</span>
+        </div>
       ) : items.length === 0 ? (
         <GlassCard className="text-center">
           <p className="text-sm text-slate-400">
@@ -203,7 +202,7 @@ function InteractionsPageInner() {
               onClick={() => !it.read && markRead(it.id)}
             >
               {it.authorAvatarUrl ? (
-                <img src={it.authorAvatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                <RemoteImage src={it.authorAvatarUrl} className="h-9 w-9 shrink-0 rounded-full" sizes="36px" />
               ) : (
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
                   <IconAvatar className="h-4 w-4" />
@@ -235,6 +234,71 @@ function InteractionsPageInner() {
             </GlassCard>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Sans ?connectionId (arrivée depuis le menu) : les comptes connectés de la
+// marque active, à choisir en un clic.
+function InteractionsAccountPicker() {
+  const { activeBrand } = useBrand();
+  const [connections, setConnections] = useState<ConnectionInfo[] | null>(null);
+
+  useEffect(() => {
+    if (!activeBrand) return;
+    let cancelled = false;
+    setConnections(null);
+    fetch(`/api/connections?brandId=${activeBrand.id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setConnections((d.connections ?? []) as ConnectionInfo[]);
+      })
+      .catch(() => {
+        if (!cancelled) setConnections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBrand]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        icon={<IconMessage className="h-5 w-5" />}
+        title="Interactions"
+        description="Les commentaires reçus sur les publications d'un compte connecté. Choisissez le compte à consulter."
+      />
+      {connections === null ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <SkeletonCard lines={1} />
+          <SkeletonCard lines={1} />
+          <SkeletonCard lines={1} />
+        </div>
+      ) : connections.length === 0 ? (
+        <EmptyState
+          icon={<IconMessage className="h-5 w-5" />}
+          title="Aucun compte connecté"
+          description="Connectez un compte Instagram, Facebook, TikTok ou YouTube pour voir ici les commentaires reçus."
+          action={<ButtonLink href="/accounts">Connecter un compte</ButtonLink>}
+        />
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Comptes connectés">
+          {connections.map((c) => (
+            <li key={c.id}>
+              <Link
+                href={`/interactions?connectionId=${c.id}`}
+                className="glass-panel glass-panel-hover flex items-center gap-3 rounded-2xl p-4 transition"
+              >
+                <NetworkBadge network={c.network} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-white">{c.displayName}</span>
+                  <span className="block text-xs text-slate-500">{NETWORK_META[c.network].label}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

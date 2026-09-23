@@ -10,6 +10,8 @@
 import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { GlassCard } from "@/components/ui/glass-card";
+import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
 
 const NETWORK_LABELS: Record<string, string> = {
   INSTAGRAM: "Instagram",
@@ -63,7 +65,18 @@ export function RapportClient({ token }: { token: string }) {
       <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
         {error && <p className="mt-20 text-center text-sm text-slate-400">{error}</p>}
 
-        {!error && !report && <p className="mt-20 text-center text-sm text-slate-500">Chargement...</p>}
+        {!error && !report && (
+          <div className="mt-10 space-y-4" aria-busy="true" aria-live="polite">
+            <div className="mx-auto flex flex-col items-center gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <SkeletonGrid count={4} />
+            <SkeletonCard lines={4} />
+            <span className="sr-only">Chargement en cours</span>
+          </div>
+        )}
 
         {report && (
           <>
@@ -170,7 +183,7 @@ export function RapportClient({ token }: { token: string }) {
               )}
             </GlassCard>
 
-            <p className="mt-10 text-center text-xs text-slate-600">Propulsé par Nebula</p>
+            <PoweredByNebula className="mt-10" />
           </>
         )}
       </div>

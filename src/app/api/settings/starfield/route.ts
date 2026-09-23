@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { getAppearanceAccess } from "@/lib/appearance-access";
 
 // Toujours réévalué à la demande, jamais mis en cache (statiquement au build
 // ou par un intermédiaire) — `allowed` doit refléter le palier réel au
@@ -21,19 +22,13 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ enabled: false, allowed: false }, { status: 200 });
   const userId = (session.user as { id: string }).id;
-  const isOwner = isOwnerEmail(session.user.email);
-  const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
-
-  const [user, { plan: realPlan }] = await Promise.all([
+  // Droit d'accès calculé par la même fonction que /api/me (voir
+  // src/lib/appearance-access.ts), pour que les deux ne divergent jamais.
+  const [user, access] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { starfieldEnabled: true } }),
-    getUserPlan(userId)
+    getAppearanceAccess(userId, session.user.email)
   ]);
-  // Compte propriétaire, aucun aperçu de palier choisi : toujours autorisé
-  // (mode "tout déverrouillé", voir dev-preview.ts) ; un aperçu actif suit ce
-  // palier simulé exactement comme un vrai compte.
-  const plan = isOwner && !previewPlan ? "AGENCY" : (previewPlan ?? realPlan);
-  const allowed = plan === "PRO" || plan === "AGENCY";
-  return NextResponse.json({ enabled: Boolean(user?.starfieldEnabled), allowed });
+  return NextResponse.json({ enabled: Boolean(user?.starfieldEnabled), allowed: access.starfieldAllowed });
 }
 
 const bodySchema = z.object({ enabled: z.boolean() });

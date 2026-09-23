@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import path from "path";
 import { authOptions } from "@/lib/auth";
+import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { checkFfmpegAvailable, evenlySpacedTimestamps, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
 
@@ -11,7 +12,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const asset = await prisma.mediaAsset.findUnique({ where: { id: params.id } });
+  const userId = (session.user as { id: string }).id;
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: params.id, brand: ownedBy(userId) } });
   if (!asset) return NextResponse.json({ error: "Média introuvable" }, { status: 404 });
   if (asset.type !== "VIDEO") return NextResponse.json({ error: "Ce média n'est pas une vidéo" }, { status: 400 });
   if (asset.url.startsWith("http")) {

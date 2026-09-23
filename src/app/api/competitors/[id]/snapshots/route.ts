@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -21,7 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const track = await prisma.competitorTrack.findUnique({ where: { id: params.id } });
+  const userId = (session.user as { id: string }).id;
+  const track = await prisma.competitorTrack.findFirst({ where: { id: params.id, brand: ownedBy(userId) } });
   if (!track) return NextResponse.json({ error: "Concurrent introuvable" }, { status: 404 });
 
   const snapshot = await prisma.competitorSnapshot.create({

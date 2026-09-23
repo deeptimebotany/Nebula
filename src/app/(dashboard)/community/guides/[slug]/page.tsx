@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -28,7 +29,15 @@ export default function GuideDetailPage() {
   }, [params.slug]);
 
   if (notFound) return <p className="text-sm text-slate-500">Guide introuvable.</p>;
-  if (!guide) return <p className="text-sm text-slate-500">Chargement...</p>;
+  if (!guide) {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <Skeleton className="h-7 w-1/2" />
+        <SkeletonText lines={6} />
+        <span className="sr-only">Chargement du guide</span>
+      </div>
+    );
+  }
 
   // Le corps est écrit en markdown léger (titres "## ", listes "- ") dans le
   // seed — on le rend en HTML très simple, sans dépendance externe.

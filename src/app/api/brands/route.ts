@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertBrandQuota } from "@/lib/billing/plan";
 import { z } from "zod";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -15,10 +16,12 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    brands: memberships.map((m: { role: string; brand: { id: string; name: string; slug: string; connections: unknown[] } }) => ({
+    brands: memberships.map((m: { role: string; brand: { id: string; name: string; slug: string; timezone?: string | null; connections: unknown[] } }) => ({
       id: m.brand.id,
       name: m.brand.name,
       slug: m.brand.slug,
+      // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
+      timezone: m.brand.timezone || DEFAULT_TIMEZONE,
       role: m.role,
       connectionsCount: m.brand.connections.length
     }))
