@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { ATTRIBUTION_COOKIE, ATTRIBUTION_MAX_AGE_SECONDS, attributionFromSearchParams, parseAttributionCookie, serializeAttribution } from "@/lib/growth-attribution";
 
 // Middleware (Lot 5) : deux rôles.
 //
@@ -20,6 +21,13 @@ import { getToken } from "next-auth/jwt";
 // 2. Pages de l'application connectée : redirection vers /login sans
 //    session (auparavant next-auth/middleware, remplacé par getToken pour
 //    pouvoir poser les en-têtes ci-dessus sur la même réponse).
+//
+// 3. Attribution d'acquisition (brief growth, lot G0) : si l'URL porte
+//    utm_source / utm_medium / utm_campaign / utm_content / via / ref, un
+//    cookie nb_attr (httpOnly, SameSite=Lax, 30 jours) mémorise le PREMIER
+//    contact — jamais écrasé ensuite, sauf pour compléter `ref` s'il
+//    manquait. /api/auth/register et la connexion rapide le lisent à la
+//    création du compte (voir src/lib/growth.ts).
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -41,6 +49,7 @@ const PROTECTED_PREFIXES = [
   "/comments",
   "/engagements",
   "/succes",
+  "/admin",
   "/dev-preview"
 ];
 
@@ -116,6 +125,28 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set(headerName, csp);
+
+  // Cookie d'attribution (premier contact conservé). Les routes API ne
+  // posent jamais le cookie (une URL d'API avec ?ref= n'est pas une visite).
+  if (!pathname.startsWith("/api/")) {
+    const incoming = attributionFromSearchParams(req.nextUrl.searchParams, pathname);
+    if (incoming) {
+      const existing = parseAttributionCookie(req.cookies.get(ATTRIBUTION_COOKIE)?.value);
+      let next = existing ? null : incoming;
+      if (existing && !existing.ref && incoming.ref) next = { ...existing, ref: incoming.ref };
+      if (next) {
+        res.cookies.set({
+          name: ATTRIBUTION_COOKIE,
+          value: serializeAttribution(next),
+          httpOnly: true,
+          sameSite: "lax",
+          secure: !dev,
+          path: "/",
+          maxAge: ATTRIBUTION_MAX_AGE_SECONDS
+        });
+      }
+    }
+  }
   return res;
 }
 

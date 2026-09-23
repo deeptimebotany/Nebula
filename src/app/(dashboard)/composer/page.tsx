@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import {
   THUMBNAIL_BRIEF_EVENT,
   clearPendingThumbnailBrief,
@@ -244,6 +245,9 @@ function ComposerPageInner() {
   const { celebrateMilestone } = useMilestoneCelebration();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
+  // Brouillon venu d'un outil gratuit (« Programmer cette publication avec
+  // Nebula », brief growth lot G4.a) : /composer?draft=<id>.
+  const publicDraftId = searchParams.get("draft");
   const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
   const prefilledTime = searchParams.get("time"); // optionnel, depuis la vue heures du calendrier (HH:mm)
   // Depuis le "+" d'un compte précis sur la page Comptes (voir accounts/page.tsx)
@@ -322,6 +326,7 @@ function ComposerPageInner() {
   //    (accroche + description d'image) : on le récupère ici et on le passe
   //    à la génération IA, qui a besoin de la frame réelle de la vidéo.
   const assistant = useAiAssistant();
+  const upgrade = useUpgradeModal();
   const thumbSectionRef = useRef<HTMLDivElement>(null);
   const [assistantBrief, setAssistantBrief] = useState<ThumbnailBrief | null>(null);
   const briefAutoRunRef = useRef(false);
@@ -505,8 +510,45 @@ function ComposerPageInner() {
   // cette marque au chargement (sauf si on duplique un post existant), et on
   // sauvegarde en continu pour ne jamais perdre un titre/texte en cas de
   // fermeture accidentelle de l'onglet.
+  // Brouillon public (outil gratuit) : titre / description / miniature
+  // pré-remplis, puis brouillon supprimé côté serveur. Prend le pas sur le
+  // brouillon local. L'image générée est réinjectée comme média via le
+  // mécanisme d'envoi habituel (onFilesChosen), donc stockée normalement.
+  const publicDraftConsumed = useRef(false);
   useEffect(() => {
-    if (!activeBrand || duplicateId || draftRestored.current) return;
+    if (!publicDraftId || !activeBrand || publicDraftConsumed.current) return;
+    publicDraftConsumed.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/public/drafts/${publicDraftId}`, { cache: "no-store" });
+        if (!res.ok) {
+          toast.error("Ce brouillon n'est plus disponible (il expire après 7 jours).");
+          return;
+        }
+        const d = (await res.json()) as { kind: string; network: string | null; content: { title?: string; caption?: string; imageBase64?: string; imageMimeType?: string } };
+        if (d.content.title) setTitle(d.content.title);
+        if (d.content.caption) setCaption(d.content.caption);
+        if (d.network && (NETWORKS as readonly string[]).includes(d.network)) setSelectedNetworks([d.network as Network]);
+        if (d.content.imageBase64 && d.content.imageMimeType) {
+          const bytes = Uint8Array.from(atob(d.content.imageBase64), (c) => c.charCodeAt(0));
+          const ext = d.content.imageMimeType.includes("png") ? "png" : "jpg";
+          const file = new File([bytes], `miniature-nebula.${ext}`, { type: d.content.imageMimeType });
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          await onFilesChosen(dt.files);
+        }
+        await fetch(`/api/public/drafts/${publicDraftId}`, { method: "DELETE" }).catch(() => undefined);
+        toast.success("Votre création est pré-remplie : choisissez vos réseaux et programmez.");
+      } catch {
+        toast.error("Impossible de récupérer le brouillon.");
+      }
+    })();
+    // onFilesChosen est stable tant que la marque ne change pas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicDraftId, activeBrand]);
+
+  useEffect(() => {
+    if (!activeBrand || duplicateId || publicDraftId || draftRestored.current) return;
     draftRestored.current = true;
     try {
       const raw = localStorage.getItem(DRAFT_KEY_PREFIX + activeBrand.id);
@@ -526,6 +568,8 @@ function ComposerPageInner() {
     } catch {
       // stockage indisponible — tant pis, pas de brouillon
     }
+    // publicDraftId : lu une fois à l'arrivée (voir l'effet dédié plus bas)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrand, duplicateId, toast]);
 
   useEffect(() => {
@@ -977,6 +1021,9 @@ function ComposerPageInner() {
 
     if (!res.ok) {
       setSubmitting(false);
+      // Quota de publications ou marque en lecture seule → modale de mise à
+      // niveau (lot G2.b) plutôt qu'un message d'erreur.
+      if (upgrade.openFromResponse(res.status, data)) return;
       toast.error(typeof data.error === "string" ? data.error : "Erreur lors de la création du post.");
       return;
     }
@@ -1021,7 +1068,8 @@ function ComposerPageInner() {
     toast,
     celebrateMilestone,
     router,
-    publishSoundEnabled
+    publishSoundEnabled,
+    upgrade
   ]);
 
   // Raccourci clavier Cmd/Ctrl+Entrée pour publier sans lâcher le clavier.

@@ -6,6 +6,8 @@ import { AppShell } from "@/components/dashboard/app-shell";
 import { AiAssistant } from "@/components/dashboard/ai-assistant";
 import { AiAssistantProvider } from "@/components/dashboard/ai-assistant-context";
 import { ProfilePanel } from "@/components/dashboard/profile-panel";
+import { UpgradeModalProvider } from "@/components/billing/upgrade-modal";
+import { TrialEndedNotice } from "@/components/billing/trial-banner";
 import { BrandProvider } from "@/components/brand-context";
 import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
@@ -48,15 +50,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {/* Assistant « Demander à Nebula » : le provider enveloppe le
                   shell pour que le bouton de l'en-tête, le bouton flottant et
                   les pages (ex. section Miniature) pilotent le même tiroir. */}
-              <AiAssistantProvider>
-                <AppShell oauth={oauth} isOwner={isOwner}>
-                  {children}
-                </AppShell>
-                <AiAssistant />
-              </AiAssistantProvider>
-              {/* Panneau « Mon profil » (badges, easter eggs, parrainage) —
-                  ouvert depuis la Communauté ou le menu du compte. */}
-              <ProfilePanel />
+              {/* Paywall contextuel (UpgradeModal) : disponible partout dans
+                  l'application connectée — pages, tiroir IA, composer. */}
+              <UpgradeModalProvider>
+                <AiAssistantProvider>
+                  <AppShell oauth={oauth} isOwner={isOwner}>
+                    {children}
+                  </AppShell>
+                  <AiAssistant />
+                </AiAssistantProvider>
+                {/* Panneau « Mon profil » (badges, easter eggs, parrainage) —
+                    ouvert depuis la Communauté ou le menu du compte. */}
+                <ProfilePanel />
+                <TrialEndedNotice />
+              </UpgradeModalProvider>
               <CommandPalette isOwner={isOwner} />
               <CosmeticsEffects />
               {/* Easter eggs ambiants et toasts « succès débloqué » : montés

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { generateUniqueReferralCode, REFERRAL_TRIAL_DAYS } from "@/lib/referral";
+import { generateUniqueReferralCode } from "@/lib/referral";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
+import { REFERRED_TRIAL_DAYS, TRIAL_DAYS, trialEndDate } from "@/lib/trial";
 
 // Messages d'erreur lisibles : renvoyés tels quels au formulaire (avant, un
 // objet zod brut arrivait au navigateur et devenait « Impossible de créer le
@@ -59,15 +62,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Un compte existe déjà avec cet email." }, { status: 409 });
   }
 
-  // Code de parrainage optionnel : s'il correspond à un compte existant, ce
-  // NOUVEAU compte reçoit l'accès IA gratuitement pendant REFERRAL_TRIAL_DAYS
-  // jours, même sur le palier Gratuit (voir src/lib/billing/plan.ts).
+  // Attribution « premier contact » posée par le middleware (utm_*, via,
+  // ref) — copiée sur le compte puis le cookie est effacé (lot G0).
+  const cookieStore = cookies();
+  const attribution = parseAttributionCookie(cookieStore.get(ATTRIBUTION_COOKIE)?.value);
+
+  // Code de parrainage optionnel (champ du formulaire, sinon celui du
+  // cookie d'attribution si la personne est arrivée par un lien ?ref=).
+  // Valide → essai Pro porté à REFERRED_TRIAL_DAYS jours au lieu de
+  // TRIAL_DAYS (lot G7) ; le parrain sera récompensé à la première
+  // souscription payante de ce compte (voir src/lib/billing/rewards.ts).
   let referrer: { id: string } | null = null;
+  let usedReferralCode: string | null = null;
   if (referralCode && referralCode.length > 0) {
     referrer = await prisma.user.findUnique({ where: { referralCode }, select: { id: true } });
     if (!referrer) {
       return NextResponse.json({ error: "Code de parrainage invalide." }, { status: 400 });
     }
+    usedReferralCode = referralCode;
+  } else if (attribution?.ref) {
+    const fromCookie = attribution.ref.toUpperCase();
+    referrer = await prisma.user.findUnique({ where: { referralCode: fromCookie }, select: { id: true } });
+    if (referrer) usedReferralCode = fromCookie;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -76,24 +92,29 @@ export async function POST(req: Request) {
   if (slugTaken) slug = `${slug}-${Math.floor(Math.random() * 10000)}`;
 
   const ownReferralCode = await generateUniqueReferralCode();
-  const aiTrialUntil = referrer ? new Date(Date.now() + REFERRAL_TRIAL_DAYS * 24 * 60 * 60 * 1000) : null;
+  // Essai Pro pour tout le monde (14 j), 30 j avec parrainage. aiTrialUntil
+  // reste aligné pour la compatibilité (message « IA offerte » des
+  // Paramètres) : l'essai Pro inclut déjà l'IA.
+  const trialEndsAt = trialEndDate(Boolean(referrer));
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name,
       email: email.toLowerCase(),
       passwordHash,
       referralCode: ownReferralCode,
-      referredByCode: referrer ? referralCode : null,
-      aiTrialUntil,
-      memberships: {
-        create: {
-          role: "OWNER",
-          brand: { create: { name: brandName, slug } }
-        }
-      }
+      referredByCode: usedReferralCode,
+      aiTrialUntil: referrer ? trialEndsAt : null,
+      trialEndsAt,
+      ...attributionToUserFields(attribution)
     }
   });
+  await prisma.membership.create({
+    data: { role: "OWNER", user: { connect: { id: user.id } }, brand: { create: { name: brandName, slug } } }
+  });
+  await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrer) }, user.id);
 
-  return NextResponse.json({ ok: true, aiTrialDays: referrer ? REFERRAL_TRIAL_DAYS : 0 });
+  const res = NextResponse.json({ ok: true, aiTrialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS, trialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS });
+  if (attribution) res.cookies.set({ name: ATTRIBUTION_COOKIE, value: "", path: "/", maxAge: 0 });
+  return res;
 }

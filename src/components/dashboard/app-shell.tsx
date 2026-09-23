@@ -12,6 +12,7 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { SidebarNav } from "./sidebar-nav";
 import { AppHeader } from "./app-header";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { TrialBanner } from "@/components/billing/trial-banner";
 
 const COLLAPSED_KEY = "nebula:sidebar-collapsed";
 
@@ -130,6 +131,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       {/* Colonne de contenu */}
       <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
         <AppHeader oauth={oauth} onOpenMenu={openDrawer} menuOpen={drawerOpen} whiteLabel={whiteLabel} />
+        <TrialBanner />
         <main id="contenu" tabIndex={-1} className="noise-grid flex-1 px-4 pb-24 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-10">
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>

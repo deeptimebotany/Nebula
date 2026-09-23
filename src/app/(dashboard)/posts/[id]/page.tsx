@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
+import { ReferralPrompt } from "@/components/dashboard/referral-prompt";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -56,6 +57,10 @@ interface Post {
   createdAt: string;
   media: { mediaAsset: MediaAsset }[];
   targets: Target[];
+  /** Import CSV (lot G6.a) : média distant en attente de rapatriement. */
+  sourceMediaUrl?: string | null;
+  sourceMediaAttempts?: number;
+  importedAt?: string | null;
 }
 
 interface Message {
@@ -230,6 +235,10 @@ export default function PostDetailPage() {
 
   const brandTimezone = brands.find((b) => b.id === post.brandId)?.timezone ?? activeBrand?.timezone ?? DEFAULT_TIMEZONE;
   const thumbAsset = post.media.find((m) => m.mediaAsset.type === "VIDEO") ?? post.media[0];
+  // Publiée sur au moins deux réseaux → invitation de parrainage (lot G7),
+  // une seule fois par compte (le composant vérifie referralPromptsSeen).
+  const publishedNetworks = new Set(post.targets.filter((t) => t.status === "PUBLISHED").map((t) => t.network));
+  const multiNetworkPublished = post.status === "PUBLISHED" && publishedNetworks.size >= 2;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -257,6 +266,8 @@ export default function PostDetailPage() {
           </div>
         </div>
 
+        {multiNetworkPublished && <ReferralPrompt trigger="first_multi_network" />}
+
         <GlassCard>
           <div className="flex gap-4">
             {thumbAsset && (
@@ -270,6 +281,15 @@ export default function PostDetailPage() {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm text-slate-300">{post.caption || "(pas de description)"}</p>
+              {post.media.length === 0 && post.sourceMediaUrl && (
+                <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100">
+                  {(post.sourceMediaAttempts ?? 0) >= 3 ? "Le média d’origine n’a pas pu être récupéré : ajoutez-le à la main avant de programmer." : "Média importé en cours de récupération (quelques minutes). Si rien n’apparaît, ajoutez-le à la main."}{" "}
+                  <a href={post.sourceMediaUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+                    Voir l&apos;URL d&apos;origine
+                  </a>
+                </p>
+              )}
+              {post.media.length === 0 && !post.sourceMediaUrl && post.importedAt && <p className="mt-3 text-xs text-slate-500">Publication importée sans média : ajoutez-en un avant de programmer si le réseau l&apos;exige.</p>}
             </div>
           </div>
         </GlassCard>

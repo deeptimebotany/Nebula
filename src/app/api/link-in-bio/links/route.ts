@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     await assertBioLinkQuota(brandId);
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 403 });
+    return NextResponse.json({ error: (err as Error).message, reason: "links_limit" }, { status: 403 });
   }
 
   const linkPage = await getOrCreateLinkPage(brandId);

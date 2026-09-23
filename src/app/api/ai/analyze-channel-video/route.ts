@@ -64,10 +64,7 @@ export async function POST(req: NextRequest) {
 
   const { limits } = await getBrandPlan(connection.brandId);
   if (!limits.aiEnabled) {
-    return NextResponse.json(
-      { error: "L'analyse de rétention IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-      { status: 402 }
-    );
+    return NextResponse.json({ error: "L'analyse de rétention IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "retention" }, { status: 402 });
   }
 
   try {

@@ -5,6 +5,7 @@ import cron from "node-cron";
 import { runDuePosts } from "../src/lib/publish";
 import { runDueReports } from "../src/lib/reports";
 import { checkReferralCrownStreak } from "../src/lib/referral-crown-streak";
+import { runGrowthMaintenance } from "../src/lib/growth-jobs";
 
 // Worker autonome : à lancer avec `npm run worker` sur un serveur/VM/process
 // long-lived (Railway, Fly.io, VPS...). Alternative à /api/cron pour les
@@ -34,5 +35,14 @@ cron.schedule("* * * * *", async () => {
     await checkReferralCrownStreak();
   } catch (err) {
     console.error("[nebula-worker] erreur (streak couronne parrainage)", err);
+  }
+
+  try {
+    const growth = await runGrowthMaintenance();
+    if (growth && (growth.lifecycle?.sent || growth.trialsApplied || growth.legacyTrials)) {
+      console.log("[nebula-worker] growth", growth);
+    }
+  } catch (err) {
+    console.error("[nebula-worker] erreur (growth)", err);
   }
 });

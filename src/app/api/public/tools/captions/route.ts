@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       brandName: brandName?.trim() || "un créateur de contenu",
       topic
     });
-    return NextResponse.json({ text, remaining: quota.remaining, limit: quota.limit });
+    return NextResponse.json({ text, remaining: quota.remaining, limit: quota.limit, used: quota.used });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

@@ -19,6 +19,8 @@ export async function sendEmail(params: {
   to: string;
   subject: string;
   html: string;
+  /** Version texte brut (clients sans HTML, accessibilité) — facultative. */
+  text?: string;
   /** Adresse à laquelle « Répondre » répondra (ex. formulaire de contact). */
   replyTo?: string;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -40,6 +42,7 @@ export async function sendEmail(params: {
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.text ? { text: params.text } : {}),
         ...(params.replyTo ? { reply_to: params.replyTo } : {})
       })
     });
@@ -96,11 +99,31 @@ export async function sendReportEmail(params: {
   periodLabel: string;
   followers: number;
   followersDelta: number;
+  /** Slug de la marque : alimente le lien « Créez le vôtre » du pied de
+   *  page (attribution `via`, brief growth lot G1.c). */
+  brandSlug?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const sign = params.followersDelta >= 0 ? "+" : "";
+  const appUrl = process.env.NEXTAUTH_URL || "https://nebulahub.space";
+  const discoverUrl = `${appUrl}/decouvrir/rapports-clients?${new URLSearchParams({
+    ...(params.brandSlug ? { via: params.brandSlug } : {}),
+    utm_source: "email",
+    utm_medium: "rapport",
+    utm_campaign: "footer"
+  }).toString()}`;
+  const text = [
+    `Rapport ${params.periodLabel} — ${params.brandName}`,
+    "",
+    `Abonnés actuels : ${params.followers.toLocaleString("fr-FR")} (${sign}${params.followersDelta.toLocaleString("fr-FR")} sur la période)`,
+    "",
+    `Voir le rapport complet : ${params.reportUrl}`,
+    "",
+    `Rapport généré par Nebula — Créez le vôtre en 2 minutes : ${discoverUrl}`
+  ].join("\n");
   return sendEmail({
     to: params.to,
     subject: `Rapport ${params.periodLabel} — ${params.brandName}`,
+    text,
     html: `
       <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
         <h2 style="margin-bottom: 4px;">Rapport ${escapeHtml(params.periodLabel)} — ${escapeHtml(params.brandName)}</h2>
@@ -111,6 +134,9 @@ export async function sendReportEmail(params: {
           </a>
         </p>
         <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${params.reportUrl}</p>
+        <p style="margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px;">
+          Rapport généré par Nebula — <a href="${discoverUrl}" style="color: #2955c4;">Créez le vôtre en 2 minutes</a>
+        </p>
       </div>
     `
   });

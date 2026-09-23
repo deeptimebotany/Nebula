@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { PublicConversionBlock } from "@/components/marketing/public-conversion-block";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 interface ApprovalPost {
@@ -25,6 +26,7 @@ interface ApprovalPost {
 
 interface ApprovalData {
   brandName: string;
+  brandSlug?: string | null;
   logoUrl: string | null;
   posts: ApprovalPost[];
 }
@@ -218,7 +220,8 @@ export function ApprovalClient({ token }: { token: string }) {
           </div>
         )}
 
-        <PoweredByNebula className="pt-4" />
+        <PublicConversionBlock surface="approve" brandName={data.brandName} via={data.brandSlug} className="mt-6" />
+        <PoweredByNebula className="pt-4" surface="approve" via={data.brandSlug} />
       </div>
     </main>
   );

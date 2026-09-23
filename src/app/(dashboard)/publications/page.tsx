@@ -14,13 +14,14 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { Input, Select } from "@/components/ui/input";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { CsvImportDialog } from "@/components/posts/csv-import-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
-import { IconList, IconPlus, IconSearch } from "@/components/dashboard/icons";
+import { IconList, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 
 interface ApiPost {
@@ -83,6 +84,10 @@ function PublicationsPageInner() {
   const [status, setStatus] = useState<StatusFilter>(STATUS_FILTERS.includes(initialStatus as StatusFilter) ? (initialStatus as StatusFilter) : "ALL");
   const [network, setNetwork] = useState<Network | "ALL">("ALL");
   const [query, setQuery] = useState("");
+  // Import CSV (brief growth, lot G6.a) : la modale, et un compteur qui
+  // force le rechargement de la liste une fois les brouillons créés.
+  const [importOpen, setImportOpen] = useState(searchParams.get("import") === "1");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -104,7 +109,7 @@ function PublicationsPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [activeBrand]);
+  }, [activeBrand, reloadKey]);
 
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = { ALL: 0, SCHEDULED: 0, PUBLISHED: 0, FAILED: 0, DRAFT: 0 };
@@ -145,10 +150,24 @@ function PublicationsPageInner() {
         title="Publications"
         description={activeBrand ? `Tout ce qui a été créé pour ${activeBrand.name} : programmé, publié, en échec ou en brouillon.` : "Toutes vos publications, en un seul endroit."}
         actions={
-          <ButtonLink href="/composer" className="inline-flex items-center gap-2">
-            <IconPlus className="h-4 w-4" /> Nouvelle publication
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2" disabled={!activeBrand}>
+              <IconUpload className="h-4 w-4" /> Importer
+            </Button>
+            <ButtonLink href="/composer" className="inline-flex items-center gap-2">
+              <IconPlus className="h-4 w-4" /> Nouvelle publication
+            </ButtonLink>
+          </div>
         }
+      />
+
+      <CsvImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => {
+          setStatus("DRAFT");
+          setReloadKey((k) => k + 1);
+        }}
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -185,9 +204,14 @@ function PublicationsPageInner() {
           title="Aucune publication pour l'instant"
           description="Créez votre première publication : choisissez un média, une légende et les comptes cibles, puis publiez tout de suite ou programmez-la."
           action={
-            <ButtonLink href="/composer" className="inline-flex items-center gap-2">
-              <IconPlus className="h-4 w-4" /> Créer une publication
-            </ButtonLink>
+            <div className="flex flex-wrap justify-center gap-2">
+              <ButtonLink href="/composer" className="inline-flex items-center gap-2">
+                <IconPlus className="h-4 w-4" /> Créer une publication
+              </ButtonLink>
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2">
+                <IconUpload className="h-4 w-4" /> Importer un CSV
+              </Button>
+            </div>
           }
         />
       ) : filtered.length === 0 ? (

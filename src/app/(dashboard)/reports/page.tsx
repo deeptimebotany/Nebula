@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useChartTheme } from "@/lib/chart-theme";
@@ -20,6 +21,7 @@ import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { IconReport, IconLock, IconSend } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
+import { ReferralPrompt } from "@/components/dashboard/referral-prompt";
 
 const NETWORK_LABELS: Record<string, string> = {
   INSTAGRAM: "Instagram",
@@ -56,6 +58,7 @@ export default function ReportsPage() {
   const chartTheme = useChartTheme();
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const upgrade = useUpgradeModal();
 
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -119,6 +122,8 @@ export default function ReportsPage() {
     toast.success("Destinataire enregistré.");
   }
 
+  const [reportSent, setReportSent] = useState(false);
+
   async function sendTest() {
     if (!activeBrand || !recipientEmail.trim()) {
       toast.error("Renseignez d'abord un email destinataire.");
@@ -137,6 +142,9 @@ export default function ReportsPage() {
       return;
     }
     toast.success("Email de test envoyé.");
+    // Premier rapport client envoyé → invitation de parrainage (lot G7),
+    // carte inline sous l'en-tête, une seule fois.
+    setReportSent(true);
   }
 
   const publicUrl = report && typeof window !== "undefined" ? `${window.location.origin}/rapport/${report.token}` : "";
@@ -176,20 +184,23 @@ export default function ReportsPage() {
         description="Une page publique de reporting pour cette marque, toujours à jour, que vous pouvez partager avec votre client ou lui envoyer automatiquement par email."
       />
 
+      {reportSent && <ReferralPrompt trigger="first_report_sent" />}
+
       {!allowed && (
         <GlassCard>
           <div className="flex items-center gap-2">
             <Badge tone="warning" icon={<IconLock className="h-3 w-3" />}>
-              Palier Pro/Agence
+              Pro
             </Badge>
           </div>
-          <p className="mt-2 text-sm text-slate-400">Les rapports clients automatiques font partie des paliers payants de Nebula.</p>
-          <Link
-            href="/billing"
-            className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
+          <p className="mt-2 text-sm text-slate-400">Vos clients reçoivent chaque semaine un rapport à jour, sans que vous ayez rien à faire — avec le palier Pro.</p>
+          <button
+            type="button"
+            onClick={() => upgrade.open("reports")}
+            className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-left text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
           >
-            <UpgradeGem className="h-4 w-4 opacity-70" /> Passer sur un palier supérieur
-          </Link>
+            <UpgradeGem className="h-4 w-4 opacity-70" /> Débloquer les rapports clients
+          </button>
         </GlassCard>
       )}
 

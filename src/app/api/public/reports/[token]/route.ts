@@ -14,17 +14,23 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     select: { brandId: true, enabled: true, periodDays: true }
   });
 
-  if (!report || !report.enabled) {
+  if (!report) {
     return NextResponse.json({ error: "Ce rapport n'existe pas ou n'est plus disponible." }, { status: 404 });
+  }
+  // Rapport dépublié (par l'agence, ou automatiquement à la fin de l'essai
+  // Pro — brief growth, lot G2) : message clair plutôt qu'une page d'erreur.
+  if (!report.enabled) {
+    return NextResponse.json({ error: "Ce rapport n'est plus partagé.", unpublished: true }, { status: 410 });
   }
 
   const [brand, data] = await Promise.all([
-    prisma.brand.findUnique({ where: { id: report.brandId }, select: { name: true } }),
+    prisma.brand.findUnique({ where: { id: report.brandId }, select: { name: true, slug: true } }),
     computeReportData(report.brandId, report.periodDays)
   ]);
 
   return NextResponse.json({
     brandName: brand?.name ?? "Marque",
+    brandSlug: brand?.slug ?? null,
     data
   });
 }

@@ -31,21 +31,50 @@ export interface QuotaResult {
   ok: boolean;
   remaining: number;
   limit: number;
+  /** Générations déjà faites aujourd'hui (sert au formulaire de capture
+   *  d'email des outils, après la 2e — brief growth lot G4.b). */
+  used: number;
+}
+
+/** Générations bonus accordées pour la journée à une IP (capture d'email,
+ *  lot G4.b) — stockées dans la même table, sous l'outil « lead-bonus ». */
+export const LEAD_BONUS_TOOL = "lead-bonus";
+export const LEAD_BONUS_GENERATIONS = 5;
+
+export function ipHashFromRequest(req: NextRequest): string {
+  return hashIp(getClientIp(req));
+}
+
+export async function grantLeadBonus(req: NextRequest): Promise<void> {
+  const ipHash = hashIp(getClientIp(req));
+  const day = todayUtc();
+  await prisma.publicToolUsage.upsert({
+    where: { ipHash_tool_day: { ipHash, tool: LEAD_BONUS_TOOL, day } },
+    // Une seule fois par IP et par jour : pas d'incrément cumulatif.
+    update: { count: LEAD_BONUS_GENERATIONS },
+    create: { ipHash, tool: LEAD_BONUS_TOOL, day, count: LEAD_BONUS_GENERATIONS }
+  });
 }
 
 /**
  * Incrémente et vérifie le quota du jour pour cette IP + cet outil. Renvoie
  * ok=false SANS incrémenter davantage si la limite est déjà atteinte (un
- * visiteur qui insiste ne consomme pas de quota "en négatif").
+ * visiteur qui insiste ne consomme pas de quota "en négatif"). La limite
+ * effective = limite de base + bonus lead du jour (le refus du formulaire
+ * laisse le quota de base ; on ne bloque jamais complètement).
  */
 export async function consumePublicQuota(req: NextRequest, tool: string, dailyLimit: number): Promise<QuotaResult> {
   const ipHash = hashIp(getClientIp(req));
   const day = todayUtc();
 
-  const existing = await prisma.publicToolUsage.findUnique({ where: { ipHash_tool_day: { ipHash, tool, day } } });
+  const [existing, bonus] = await Promise.all([
+    prisma.publicToolUsage.findUnique({ where: { ipHash_tool_day: { ipHash, tool, day } } }),
+    prisma.publicToolUsage.findUnique({ where: { ipHash_tool_day: { ipHash, tool: LEAD_BONUS_TOOL, day } } })
+  ]);
+  const limit = dailyLimit + (bonus?.count ?? 0);
 
-  if (existing && existing.count >= dailyLimit) {
-    return { ok: false, remaining: 0, limit: dailyLimit };
+  if (existing && existing.count >= limit) {
+    return { ok: false, remaining: 0, limit, used: existing.count };
   }
 
   const updated = await prisma.publicToolUsage.upsert({
@@ -54,5 +83,5 @@ export async function consumePublicQuota(req: NextRequest, tool: string, dailyLi
     create: { ipHash, tool, day, count: 1 }
   });
 
-  return { ok: true, remaining: Math.max(0, dailyLimit - updated.count), limit: dailyLimit };
+  return { ok: true, remaining: Math.max(0, limit - updated.count), limit, used: updated.count };
 }

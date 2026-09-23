@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { IconUpload, IconSparkle } from "@/components/dashboard/icons";
+import { ScheduleWithNebula } from "@/components/tools/schedule-with-nebula";
+import { ToolLeadCapture, hasToolLead } from "@/components/tools/tool-lead-capture";
 
 function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
@@ -30,6 +32,10 @@ export default function FreeThumbnailToolPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [generated, setGenerated] = useState<{ base64: string; mimeType: string } | null>(null);
+  // Capture d'email après la 2e génération du jour (lot G4.b).
+  const [used, setUsed] = useState(0);
+  const [leadStep, setLeadStep] = useState<"idle" | "ask" | "done" | "skipped">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function onFileChosen(file: File) {
@@ -53,6 +59,10 @@ export default function FreeThumbnailToolPage() {
       setError("Envoyez d'abord une photo.");
       return;
     }
+    if (used >= 2 && leadStep === "idle" && !hasToolLead()) {
+      setLeadStep("ask");
+      return;
+    }
     setLoading(true);
     setError(null);
     setResultUrl(null);
@@ -73,7 +83,9 @@ export default function FreeThumbnailToolPage() {
         return;
       }
       setResultUrl(`data:${data.imageMimeType};base64,${data.imageBase64}`);
+      setGenerated({ base64: data.imageBase64, mimeType: data.imageMimeType });
       setRemaining(data.remaining ?? null);
+      if (typeof data.used === "number") setUsed(data.used);
     } catch {
       setError("Impossible de contacter le générateur pour le moment.");
     } finally {
@@ -177,24 +189,43 @@ export default function FreeThumbnailToolPage() {
 
           {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
+          {leadStep === "ask" && (
+            <ToolLeadCapture
+              tool="miniatures"
+              onDone={(bonus) => {
+                setLeadStep("done");
+                setRemaining((r) => (r === null ? null : r + bonus));
+              }}
+              onSkip={() => setLeadStep("skipped")}
+            />
+          )}
+
           {resultUrl && (
-            <div className="mt-3 flex items-center justify-between">
-              <a href={resultUrl} download="miniature-nebula.png" className="text-xs font-medium text-aurora-300 hover:underline">
-                Télécharger l&apos;image
-              </a>
-              {remaining !== null && (
-                <span className="text-[11px] text-slate-500">{remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</span>
+            <>
+              <div className="mt-3 flex items-center justify-between">
+                <a href={resultUrl} download="miniature-nebula.png" className="text-xs font-medium text-aurora-300 hover:underline">
+                  Télécharger l&apos;image
+                </a>
+                {remaining !== null && (
+                  <span className="text-[11px] text-slate-500">{remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</span>
+                )}
+              </div>
+              {generated && (
+                <ScheduleWithNebula
+                  className="mt-4"
+                  payload={{ kind: "THUMBNAIL", tool: "miniatures", network: network || undefined, content: { title: title.trim() || undefined, imageBase64: generated.base64, imageMimeType: generated.mimeType } }}
+                />
               )}
-            </div>
+            </>
           )}
         </GlassCard>
 
         <p className="mt-6 text-center text-sm text-slate-500">
           Envie de générer des miniatures directement depuis vos vidéos, sans les extraire vous-même ?{" "}
-          <Link href="/register" className="text-aurora-300 hover:underline">
+          <Link href="/register?utm_source=outils&utm_medium=link&utm_campaign=miniatures" className="text-aurora-300 hover:underline">
             Créez votre espace Nebula gratuit
           </Link>{" "}
-          — la génération de miniatures par IA fait partie des paliers Pro et Agence.
+          — 14 jours de Pro offerts.
         </p>
       </section>
     </main>

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishPost } from "@/lib/publish";
 import { assertPostQuota } from "@/lib/billing/plan";
+import { assertBrandWritable } from "@/lib/billing/trial-expiry";
 import { requireBrandMembership, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { z } from "zod";
 
@@ -93,10 +94,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Marque au-delà de la limite du palier (fin d'essai, rétrogradation) :
+  // lecture seule — brief growth, lot G2.a. `reason` ouvre la bonne modale.
+  const writable = await assertBrandWritable(brandId);
+  if (!writable.ok) return NextResponse.json({ error: writable.message, reason: "second_brand" }, { status: 402 });
+
   try {
     await assertPostQuota(brandId);
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 402 });
+    return NextResponse.json({ error: (err as Error).message, reason: "post_quota" }, { status: 402 });
   }
 
   const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;

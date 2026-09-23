@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { PublicConversionBlock } from "@/components/marketing/public-conversion-block";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ interface UpcomingPost {
 
 interface PublicCalendar {
   brandName: string;
+  brandSlug?: string | null;
   timezone?: string;
   windowDays: number;
   posts: UpcomingPost[];
@@ -127,7 +129,8 @@ export function CalendrierClient({ token }: { token: string }) {
               </div>
             )}
 
-            <PoweredByNebula className="mt-10" />
+            <PublicConversionBlock surface="calendrier" brandName={data.brandName} via={data.brandSlug} className="mt-8" />
+            <PoweredByNebula className="mt-6" surface="calendrier" via={data.brandSlug} />
           </>
         )}
       </div>

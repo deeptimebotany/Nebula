@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
+import { PublicConversionBlock } from "@/components/marketing/public-conversion-block";
 import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -37,6 +38,7 @@ interface ReportData {
 
 interface PublicReport {
   brandName: string;
+  brandSlug?: string | null;
   data: ReportData;
 }
 
@@ -183,7 +185,8 @@ export function RapportClient({ token }: { token: string }) {
               )}
             </GlassCard>
 
-            <PoweredByNebula className="mt-10" />
+            <PublicConversionBlock surface="rapport" brandName={report.brandName} via={report.brandSlug} className="mt-8" />
+            <PoweredByNebula className="mt-6" surface="rapport" via={report.brandSlug} />
           </>
         )}
       </div>

@@ -27,6 +27,14 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
     ]
   },
   {
+    title: "Comparatifs",
+    links: [
+      { href: "/alternatives/hootsuite", label: "Alternative à Hootsuite" },
+      { href: "/alternatives/metricool", label: "Alternative à Metricool" },
+      { href: "/alternatives", label: "Tous les comparatifs" }
+    ]
+  },
+  {
     title: "Compte",
     links: [
       { href: "/register", label: "Créer mon espace" },
@@ -50,7 +58,7 @@ export function MarketingFooter() {
   return (
     <footer className="relative z-10 border-t border-white/[0.06] bg-void-950/60">
       <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_repeat(5,1fr)]">
           <div className="col-span-2 md:col-span-1">
             <NebulaBrandMark iconSize={34} wordHeight={30} />
             <p className="mt-4 max-w-xs text-sm text-slate-400">

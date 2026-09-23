@@ -33,13 +33,13 @@ export async function POST(req: NextRequest) {
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.reportsEnabled) {
-    return NextResponse.json({ error: "Les rapports clients font partie des paliers payants de Nebula." }, { status: 403 });
+    return NextResponse.json({ error: "Les rapports clients font partie des paliers payants de Nebula.", reason: "reports" }, { status: 403 });
   }
 
   const report = await getOrCreateBrandReport(brandId);
   const [data, brand] = await Promise.all([
     computeReportData(brandId, report.periodDays),
-    prisma.brand.findUnique({ where: { id: brandId }, select: { name: true } })
+    prisma.brand.findUnique({ where: { id: brandId }, select: { name: true, slug: true } })
   ]);
 
   const baseUrl = process.env.NEXTAUTH_URL || "";
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     reportUrl: `${baseUrl}/rapport/${report.token}`,
     periodLabel: "de test",
     followers: data.totals.followers,
-    followersDelta: data.totals.followersDelta
+    followersDelta: data.totals.followersDelta,
+    brandSlug: brand?.slug ?? null
   });
 
   if (!result.ok) {

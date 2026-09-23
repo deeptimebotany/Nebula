@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest) {
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.reportsEnabled) {
-    return NextResponse.json({ error: "Les rapports clients font partie des paliers payants de Nebula." }, { status: 403 });
+    return NextResponse.json({ error: "Les rapports clients font partie des paliers payants de Nebula.", reason: "reports" }, { status: 403 });
   }
 
   if (data.frequency && data.frequency !== "OFF" && !data.recipientEmail) {

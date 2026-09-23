@@ -231,6 +231,31 @@ export async function generateFreeCaption(input: {
   return text.trim().replace(/^"|"$/g, "");
 }
 
+/**
+ * Génération texte libre pour les micro-outils gratuits de /outils (bio
+ * Instagram, hashtags, reformulations de titre — brief growth lot G4.c) :
+ * un prompt, une réponse JSON (tableau de chaînes) — même quota Gemini que
+ * les autres outils publics, via consumePublicQuota côté route.
+ */
+export async function generateFreeList(prompt: string, maxItems = 5): Promise<string[]> {
+  const text = await callGemini({
+    jsonMode: true,
+    maxOutputTokens: 700,
+    contents: [{ role: "user", parts: [{ text: `${prompt}\nRéponds UNIQUEMENT par un tableau JSON de ${maxItems} chaînes de caractères, sans autre texte.` }] }]
+  });
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    const arr = Array.isArray(parsed) ? parsed : Array.isArray((parsed as { items?: unknown[] })?.items) ? (parsed as { items: unknown[] }).items : [];
+    return arr.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((x) => x.trim()).slice(0, maxItems);
+  } catch {
+    return text
+      .split("\n")
+      .map((l) => l.replace(/^[-*\d.)\s"]+|"$/g, "").trim())
+      .filter(Boolean)
+      .slice(0, maxItems);
+  }
+}
+
 export interface FrameCandidate {
   index: number;
   base64: string;

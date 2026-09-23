@@ -3,6 +3,7 @@ import { runDuePosts } from "@/lib/publish";
 import { runDueReports } from "@/lib/reports";
 import { checkReferralCrownStreak } from "@/lib/referral-crown-streak";
 import { purgeExpiredRateLimits } from "@/lib/rate-limit";
+import { runGrowthMaintenance } from "@/lib/growth-jobs";
 
 // Endpoint appelé par un scheduler externe (Vercel Cron, cron-job.org, un
 // vrai cron système...) toutes les minutes, pour publier les posts
@@ -26,13 +27,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const [results, reports] = await Promise.all([
+  const [results, reports, , , growth] = await Promise.all([
     runDuePosts(),
     runDueReports(),
     checkReferralCrownStreak(),
     // Ménage des compteurs anti-abus périmés (voir lib/rate-limit.ts) — ne
     // doit jamais faire échouer le reste du cron.
-    purgeExpiredRateLimits().catch(() => 0)
+    purgeExpiredRateLimits().catch(() => 0),
+    // Brief growth : essais (attribution + expiration), emails de cycle de
+    // vie (au plus une fois par heure), purges — voir src/lib/growth-jobs.ts.
+    runGrowthMaintenance().catch((err) => {
+      console.error("[cron] growth :", (err as Error).message);
+      return null;
+    })
   ]);
-  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports });
+  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports, growth });
 }

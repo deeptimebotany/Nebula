@@ -18,7 +18,7 @@ interface BrandContextValue {
   setActiveBrandId: (id: string) => void;
   loading: boolean;
   refresh: () => Promise<void>;
-  createBrand: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  createBrand: (name: string) => Promise<{ ok: boolean; error?: string; reason?: string; status?: number }>;
   renameBrand: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
   updateBrand: (id: string, patch: { name?: string; timezone?: string }) => Promise<{ ok: boolean; error?: string }>;
 }
@@ -75,7 +75,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ name })
       });
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error ?? "Erreur lors de la création de la marque." };
+      if (!res.ok) return { ok: false, error: data.error ?? "Erreur lors de la création de la marque.", reason: data.reason, status: res.status };
       await refresh();
       if (data.brand?.id) setActiveBrandId(data.brand.id);
       return { ok: true };

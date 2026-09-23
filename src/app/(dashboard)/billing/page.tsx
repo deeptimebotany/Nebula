@@ -8,7 +8,9 @@ import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
-import { PLAN_LIMITS, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
+import { PLAN_LIMITS, annualFreeMonths, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
+import { BeforeLeavingModal } from "@/components/billing/before-leaving-modal";
+import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { useToast } from "@/components/dashboard/toast";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { useBrand } from "@/components/brand-context";
@@ -99,6 +101,13 @@ function BillingPageInner() {
   const toast = useToast();
   const [data, setData] = useState<PlanResponse | null>(null);
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  // Compte à rebours de l'offre de bienvenue (-50 % premier mois, 48 h).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
   const [interval, setInterval] = useState<BillingInterval>("month");
   // Palier "nombre de marques" sélectionné (radio) pour chaque plan payant.
   const [selectedTier, setSelectedTier] = useState<Record<Plan, number>>({
@@ -110,8 +119,12 @@ function BillingPageInner() {
   const checkoutStatus = searchParams.get("checkout");
   // Le message technique « Stripe non configuré » ne concerne que le
   // propriétaire du site ; un client voit une phrase neutre (Lot 4).
-  const { data: me } = useBootstrap();
+  const { data: me, patch: patchMe } = useBootstrap();
   const { activeBrand } = useBrand();
+  const offerMs = me?.offerExpiresAt ? new Date(me.offerExpiresAt).getTime() - now : 0;
+  const offerCountdown =
+    offerMs > 0 ? `${Math.floor(offerMs / 3600000)} h ${String(Math.floor((offerMs % 3600000) / 60000)).padStart(2, "0")} min ${String(Math.floor((offerMs % 60000) / 1000)).padStart(2, "0")} s` : null;
+  const proTier = PLAN_LIMITS.PRO.tiers[0];
   // Consommation réelle de la marque active, calculée par le serveur avec
   // les mêmes règles que les quotas (voir /api/billing/usage).
   const [usage, setUsage] = useState<BrandUsage | null>(null);
@@ -191,6 +204,49 @@ function BillingPageInner() {
         </GlassCard>
       )}
 
+      {me?.onTrial && me.trialEndsAt && (
+        <GlassCard className="border-aurora-400/25 bg-aurora-400/[0.04]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-aurora-200">
+                <UpgradeGem className="h-3.5 w-3.5" /> Essai Pro
+              </p>
+              <p className="mt-1 text-sm text-slate-200">
+                Essai Pro jusqu&apos;au {new Date(me.trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} — {me.trialDaysLeft} jour{me.trialDaysLeft > 1 ? "s" : ""} restant{me.trialDaysLeft > 1 ? "s" : ""}.
+                Rien n&apos;est supprimé à la fin : vous repassez en Gratuit, vos données restent.
+              </p>
+            </div>
+            <a href="#paliers" className="rounded-xl border border-aurora-400/40 px-4 py-2 text-sm font-medium text-aurora-100 transition hover:bg-aurora-400/10">
+              Garder Pro
+            </a>
+          </div>
+        </GlassCard>
+      )}
+
+      {offerCountdown && !me?.paid && (
+        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.05]">
+          <p className="text-sm text-emerald-200">
+            <strong>-50 % sur votre premier mois Pro</strong> ({(proTier.priceMonthly / 2).toLocaleString("fr-FR")} € au lieu de {proTier.priceMonthly} €) — expire dans <span className="tabular-nums">{offerCountdown}</span>. Sur le mensuel uniquement : l&apos;annuel a déjà ses {annualFreeMonths(proTier)} mois offerts.
+          </p>
+        </GlassCard>
+      )}
+
+      {me?.pausedUntil && (
+        <GlassCard className="border-amber-500/30 bg-amber-500/[0.05]">
+          <p className="text-sm text-amber-200">
+            Abonnement en pause jusqu&apos;au {new Date(me.pausedUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} : votre compte est en Gratuit, vos données sont conservées et Stripe reprend seul à cette date.
+          </p>
+        </GlassCard>
+      )}
+
+      {me?.annualNudge && data?.interval === "month" && data.plan !== "FREE" && (
+        <GlassCard className="border-aurora-400/25 bg-aurora-400/[0.04]">
+          <p className="text-sm text-slate-200">
+            Vous en êtes à votre 3e mois : passez à l&apos;annuel et gagnez <strong>{annualFreeMonths(PLAN_LIMITS[data.plan].tiers.find((t) => t.maxBrands === data.maxBrands) ?? PLAN_LIMITS[data.plan].tiers[0])} mois offerts</strong> — basculez l&apos;interrupteur Mensuel / Annuel ci-dessous puis choisissez votre palier.
+          </p>
+        </GlassCard>
+      )}
+
       {data && (
         <GlassCard>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -225,14 +281,31 @@ function BillingPageInner() {
                 </p>
               </div>
             </div>
-            {data.plan !== "FREE" && (
-              <Button variant="outline" onClick={openPortal}>
-                Gérer mon abonnement
-              </Button>
+            {(data.plan !== "FREE" || me?.pausedUntil) && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={openPortal}>
+                  Gérer mon abonnement
+                </Button>
+                {!me?.pausedUntil && (
+                  <Button variant="ghost" onClick={() => setLeaving(true)}>
+                    Résilier
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </GlassCard>
       )}
+
+      <BeforeLeavingModal
+        open={leaving}
+        onClose={() => setLeaving(false)}
+        onDowngrade={openPortal}
+        onPaused={(pausedUntil) => {
+          patchMe({ pausedUntil, paid: false, plan: "FREE" });
+          setLeaving(false);
+        }}
+      />
 
       <RoiCalculator />
 
@@ -251,11 +324,11 @@ function BillingPageInner() {
           />
         </button>
         <span className={clsx("text-sm", interval === "year" ? "text-white" : "text-slate-500")}>
-          Annuel <span className="text-emerald-400">— 2 mois offerts</span>
+          Annuel <span className="text-emerald-400">— {annualFreeMonths(proTier)} mois offerts</span>
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div id="paliers" className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <GlassCard>
           <p className="font-display text-lg text-white">{PLAN_LIMITS.FREE.label}</p>
           <p className="mt-1">

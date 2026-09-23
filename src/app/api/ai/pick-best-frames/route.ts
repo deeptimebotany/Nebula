@@ -46,10 +46,7 @@ export async function POST(req: NextRequest) {
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.aiEnabled) {
-    return NextResponse.json(
-      { error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-      { status: 402 }
-    );
+    return NextResponse.json({ error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
   }
 
   try {

@@ -170,3 +170,10 @@ export function maxBrandsOf(subscription: { plan?: string | null; status?: strin
 export function findTier(plan: Plan, maxBrands: number): BrandTier | undefined {
   return PLAN_LIMITS[plan].tiers.find((t) => t.maxBrands === maxBrands);
 }
+
+/** Mois offerts par la facturation annuelle d'un palier (ex. 90 € / an pour
+ *  9 € / mois → 2 mois offerts). Calculé, jamais écrit en dur dans l'UI. */
+export function annualFreeMonths(tier: BrandTier): number {
+  if (!tier.priceMonthly) return 0;
+  return Math.max(0, Math.round(12 - tier.priceYearly / tier.priceMonthly));
+}

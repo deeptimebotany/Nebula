@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     return NextResponse.json({ error: "Lien invalide ou révoqué." }, { status: 404 });
   }
 
-  const brand = await prisma.brand.findUnique({ where: { id: link.brandId }, select: { name: true, logoUrl: true } });
+  const brand = await prisma.brand.findUnique({ where: { id: link.brandId }, select: { name: true, slug: true, logoUrl: true } });
   if (!brand) return NextResponse.json({ error: "Marque introuvable." }, { status: 404 });
 
   const posts = await prisma.post.findMany({
@@ -55,6 +55,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
 
   return NextResponse.json({
     brandName: brand.name,
+    brandSlug: brand.slug,
     logoUrl: brand.logoUrl,
     posts: typedPosts.map((p) => ({
       id: p.id,

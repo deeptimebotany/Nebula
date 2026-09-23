@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest) {
 
   const { limits } = await getBrandPlan(brandId);
   if (!limits.calendarShareEnabled) {
-    return NextResponse.json({ error: "Le calendrier client fait partie des paliers payants de Nebula." }, { status: 403 });
+    return NextResponse.json({ error: "Le calendrier client fait partie des paliers payants de Nebula.", reason: "calendar_share" }, { status: 403 });
   }
 
   await getOrCreateCalendarShare(brandId);

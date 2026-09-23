@@ -4,12 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { PLAN_LIMITS, findTier, type Plan, type BillingInterval } from "@/lib/plans";
+import { isOfferActive } from "@/lib/trial";
+import { trackGrowth } from "@/lib/growth";
 import { z } from "zod";
 
 const bodySchema = z.object({
   plan: z.enum(["PRO", "AGENCY"]),
   interval: z.enum(["month", "year"]).default("month"),
-  maxBrands: z.number().int().positive()
+  maxBrands: z.number().int().positive(),
+  /** Raison de la modale de mise à niveau qui a mené ici (mesure). */
+  reason: z.string().max(40).optional()
 });
 
 // POST /api/billing/checkout — crée une session Stripe Checkout pour
@@ -48,10 +52,35 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = (session.user as { id: string }).id;
-  const existing = await prisma.subscription.findUnique({ where: { userId } });
+  const [existing, user] = await Promise.all([
+    prisma.subscription.findUnique({ where: { userId } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { bonusMonths: true, offerExpiresAt: true, offerUsedAt: true, firstPaidAt: true } })
+  ]);
+
+  // Réductions (brief growth) — au plus UN coupon par session Checkout :
+  //   1. un mois de Pro offert en attente (badge apporteur / parrainage,
+  //      User.bonusMonths) → coupon 100 % « une fois » ;
+  //   2. sinon l'offre de bienvenue -50 % premier mois, si elle est encore
+  //      valide, sur le MENSUEL uniquement (l'annuel a déjà ses mois offerts).
+  // Les coupons sont créés à la main dans Stripe ; leurs identifiants sont
+  // lus dans STRIPE_FREE_MONTH_COUPON / STRIPE_FIRST_MONTH_COUPON. Sans
+  // variable, pas de réduction, pas d'erreur.
+  const freeMonthCoupon = process.env.STRIPE_FREE_MONTH_COUPON;
+  const firstMonthCoupon = process.env.STRIPE_FIRST_MONTH_COUPON;
+  let coupon: string | undefined;
+  let usedBonus = false;
+  let usedOffer = false;
+  if ((user?.bonusMonths ?? 0) > 0 && freeMonthCoupon) {
+    coupon = freeMonthCoupon;
+    usedBonus = true;
+  } else if (interval === "month" && firstMonthCoupon && !user?.firstPaidAt && isOfferActive(user?.offerExpiresAt, user?.offerUsedAt)) {
+    coupon = firstMonthCoupon;
+    usedOffer = true;
+  }
 
   const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
   const client = stripe();
+  const metadata = { userId, plan, interval, maxBrands: String(maxBrands), usedBonus: usedBonus ? "1" : "0", usedOffer: usedOffer ? "1" : "0" };
 
   const checkoutSession = await client.checkout.sessions.create({
     mode: "subscription",
@@ -59,11 +88,13 @@ export async function POST(req: NextRequest) {
     client_reference_id: userId,
     customer: existing?.stripeCustomerId || undefined,
     customer_email: !existing?.stripeCustomerId ? session.user.email ?? undefined : undefined,
-    subscription_data: { metadata: { userId, plan, interval, maxBrands: String(maxBrands) } },
-    metadata: { userId, plan, interval, maxBrands: String(maxBrands) },
+    subscription_data: { metadata },
+    metadata,
+    ...(coupon ? { discounts: [{ coupon }] } : {}),
     success_url: `${appUrl}/billing?checkout=success`,
     cancel_url: `${appUrl}/billing?checkout=cancel`
   });
 
-  return NextResponse.json({ url: checkoutSession.url });
+  await trackGrowth("checkout_started", { plan, interval, maxBrands, usedBonus, usedOffer, reason: parsed.data.reason ?? "" }, userId);
+  return NextResponse.json({ url: checkoutSession.url, coupon: usedBonus ? "free-month" : usedOffer ? "first-month-50" : null });
 }

@@ -12,12 +12,14 @@ import { SITE_URL } from "@/lib/site";
 // « link in bio » (/l/[slug]) sont publiques par nature (une marque les met
 // dans ses bios) : elles restent explorables, rendues côté serveur avec leur
 // propre titre.
-export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: [
+// Les robots des moteurs de réponse (ChatGPT, Claude, Perplexity) sont
+// explicitement autorisés sur les pages publiques (brief growth, lot G5.e,
+// décision de Lucas) : ils lisent /llms.txt et les comparatifs, et
+// recommandent l'outil quand on leur demande « un planificateur en
+// français ». Les mêmes interdictions s'appliquent à eux.
+const AI_ANSWER_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-User", "Claude-SearchBot", "PerplexityBot", "Perplexity-User"];
+
+const DISALLOW = [
         "/api/",
         "/dashboard",
         "/composer",
@@ -36,6 +38,7 @@ export default function robots(): MetadataRoute.Robots {
         "/interactions",
         "/comments",
         "/engagements",
+        "/admin/",
         "/link-in-bio",
         "/dev-preview",
         "/forgot-password",
@@ -43,8 +46,14 @@ export default function robots(): MetadataRoute.Robots {
         "/approve/",
         "/rapport/",
         "/calendrier/"
-      ]
-    },
+];
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      { userAgent: "*", allow: "/", disallow: DISALLOW },
+      { userAgent: AI_ANSWER_BOTS, allow: ["/", "/llms.txt"], disallow: DISALLOW }
+    ],
     sitemap: `${SITE_URL}/sitemap.xml`
   };
 }

@@ -161,6 +161,22 @@ export default function SettingsPage() {
     bootstrap.patch({ notifyOnFailure: next });
     toast.success(next ? "Vous serez prévenu·e par email en cas d'échec." : "Emails d'échec désactivés.");
   }
+  const [savingLifecycle, setSavingLifecycle] = useState(false);
+  async function onToggleLifecycle(next: boolean) {
+    setSavingLifecycle(true);
+    const res = await fetch("/api/settings/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lifecycleEmails: next })
+    }).catch(() => null);
+    setSavingLifecycle(false);
+    if (!res || !res.ok) {
+      toast.error("Échec de l'enregistrement.");
+      return;
+    }
+    bootstrap.patch({ lifecycleEmails: next });
+    toast.success(next ? "Conseils par email réactivés." : "Vous ne recevrez plus les conseils par email.");
+  }
   const toast = useToast();
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
@@ -446,6 +462,8 @@ export default function SettingsPage() {
           </Button>
         </div>
       </GlassCard>
+
+      <BrandImpactCard brandId={activeBrand?.id} />
 
       <GlassCard>
         <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
@@ -801,6 +819,21 @@ export default function SettingsPage() {
             className="mt-1 shrink-0"
           />
         </div>
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4 border-t border-white/[0.06] pt-4">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-white">Conseils par email</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Quelques emails, espacés, pour tirer parti de Nebula (première publication, rapports, page bio…). Les informations de service liées à votre essai ou votre facturation continuent d&apos;arriver quoi qu&apos;il en soit.
+            </p>
+          </div>
+          <Toggle
+            checked={bootstrap.data?.lifecycleEmails ?? true}
+            onChange={onToggleLifecycle}
+            disabled={!bootstrap.loaded || savingLifecycle}
+            aria-label="Recevoir les conseils par email"
+            className="mt-1 shrink-0"
+          />
+        </div>
       </GlassCard>
 
       <GlassCard>
@@ -841,5 +874,39 @@ export default function SettingsPage() {
       <AccountPrivacyCard />
       </section>
     </div>
+  );
+}
+
+
+// « Votre page bio a amené N visiteurs et M inscriptions » (brief growth,
+// lot G1.a) : retour visible sur ce que le badge « Propulsé par Nebula »
+// rapporte réellement à la marque — chaque compte qui devient payant après
+// être passé par sa page lui offre un mois de Pro.
+function BrandImpactCard({ brandId }: { brandId: string | undefined }) {
+  const [impact, setImpact] = useState<{ visits: number; signups: number; paid: number } | null>(null);
+  useEffect(() => {
+    if (!brandId) return;
+    let cancelled = false;
+    fetch(`/api/growth/brand-impact?brandId=${brandId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d) setImpact({ visits: d.visits ?? 0, signups: d.signups ?? 0, paid: d.paid ?? 0 });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId]);
+  if (!impact) return null;
+  return (
+    <GlassCard>
+      <h2 className="font-display text-base font-medium text-white">Ce que votre page bio rapporte</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Votre page bio et vos pages partagées ont amené <strong className="text-slate-200">{impact.visits}</strong> visiteur{impact.visits > 1 ? "s" : ""} et{" "}
+        <strong className="text-slate-200">{impact.signups}</strong> inscription{impact.signups > 1 ? "s" : ""} sur Nebula
+        {impact.paid > 0 ? <>, dont <strong className="text-slate-200">{impact.paid}</strong> devenue{impact.paid > 1 ? "s" : ""} payante{impact.paid > 1 ? "s" : ""}</> : null}.
+      </p>
+      <p className="mt-2 text-xs text-slate-500">Chaque compte qui s&apos;abonne après être passé par votre page vous offre un mois de Pro (voir Mon profil).</p>
+    </GlassCard>
   );
 }

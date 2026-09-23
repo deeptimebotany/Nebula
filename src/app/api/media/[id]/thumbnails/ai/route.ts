@@ -38,10 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const { limits } = await getBrandPlan(asset.brandId);
   if (!limits.aiEnabled) {
-    return NextResponse.json(
-      { error: "La miniature générée par IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-      { status: 402 }
-    );
+    return NextResponse.json({ error: "La miniature générée par IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
   }
 
   const parsed = bodySchema.safeParse(await req.json());

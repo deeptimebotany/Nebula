@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 // PATCH /api/settings/notifications — préférences de notification du compte
-// (voir User.notifyOnFailure). La valeur courante est servie par /api/me.
-const bodySchema = z.object({ notifyOnFailure: z.boolean() });
+// (User.notifyOnFailure : échecs de publication ; User.lifecycleEmails :
+// emails de conseils du brief growth). Les valeurs courantes sont servies
+// par /api/me.
+const bodySchema = z.object({ notifyOnFailure: z.boolean().optional(), lifecycleEmails: z.boolean().optional() });
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -16,6 +18,10 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Données invalides." }, { status: 400 });
 
   const userId = (session.user as { id: string }).id;
-  await prisma.user.update({ where: { id: userId }, data: { notifyOnFailure: parsed.data.notifyOnFailure } });
-  return NextResponse.json({ ok: true, notifyOnFailure: parsed.data.notifyOnFailure });
+  const data: { notifyOnFailure?: boolean; lifecycleEmails?: boolean } = {};
+  if (typeof parsed.data.notifyOnFailure === "boolean") data.notifyOnFailure = parsed.data.notifyOnFailure;
+  if (typeof parsed.data.lifecycleEmails === "boolean") data.lifecycleEmails = parsed.data.lifecycleEmails;
+  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Données invalides." }, { status: 400 });
+  await prisma.user.update({ where: { id: userId }, data });
+  return NextResponse.json({ ok: true, ...data });
 }

@@ -9,6 +9,7 @@ import {
   type BillingInterval
 } from "@/lib/plans";
 import { hasActiveReferralTrial } from "@/lib/referral";
+import { isTrialActive } from "@/lib/trial";
 
 export interface UserPlanInfo {
   plan: Plan;
@@ -16,8 +17,38 @@ export interface UserPlanInfo {
   interval: BillingInterval;
   maxBrands: number;
   aiTrialUntil: Date | null;
+  /** Vrai quand le palier vient de l'essai Pro applicatif (pas d'abonnement payant). */
+  onTrial: boolean;
+  trialEndsAt: Date | null;
+  /** Abonnement payant en pause (Stripe pause_collection) jusqu'à cette date. */
+  pausedUntil: Date | null;
+  /** Vrai s'il existe un abonnement payant actif (hors pause). */
+  paid: boolean;
 }
 
+const FREE_INFO: UserPlanInfo = {
+  plan: "FREE",
+  limits: PLAN_LIMITS.FREE,
+  interval: "month",
+  maxBrands: PLAN_LIMITS.FREE.tiers[0].maxBrands,
+  aiTrialUntil: null,
+  onTrial: false,
+  trialEndsAt: null,
+  pausedUntil: null,
+  paid: false
+};
+
+// FONCTION DE VÉRITÉ UNIQUE du palier effectif (brief growth, lot G2) :
+//   1. abonnement payant actif (ACTIVE/TRIALING côté Stripe) et non en
+//      pause → son palier ;
+//   2. sinon, essai Pro applicatif en cours (User.trialEndsAt > maintenant)
+//      → Pro, avec le premier palier de marques Pro ;
+//   3. sinon → Gratuit.
+// Tous les gardes de fonctionnalités (rapports, calendrier client, liens de
+// page bio, IA, Rétention, nombre de marques, quotas, thèmes) passent par
+// getUserPlan / getBrandPlan : aucune lecture directe de Subscription.plan
+// ailleurs (voir src/lib/premium.ts, réaligné).
+//
 // L'abonnement est rattaché au compte (User), pas à une marque : il gouverne
 // combien de marques ce compte peut créer au total. Les quotas de comptes
 // connectés / publications par mois, eux, restent appliqués marque par
@@ -25,20 +56,57 @@ export interface UserPlanInfo {
 export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
   const [subscription, user] = await Promise.all([
     prisma.subscription.findUnique({ where: { userId } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { aiTrialUntil: true } })
+    prisma.user.findUnique({ where: { id: userId }, select: { aiTrialUntil: true, trialEndsAt: true } })
   ]);
-  const plan = planOf(subscription);
-  const limits = PLAN_LIMITS[plan];
-  const onTrial = hasActiveReferralTrial(user?.aiTrialUntil);
+  const now = new Date();
+  const pausedUntil = subscription?.pausedUntil && subscription.pausedUntil.getTime() > now.getTime() ? subscription.pausedUntil : null;
+  const paidPlan = pausedUntil ? "FREE" : planOf(subscription);
+  const paid = paidPlan !== "FREE";
+
+  if (paid) {
+    return {
+      plan: paidPlan,
+      limits: PLAN_LIMITS[paidPlan],
+      interval: intervalOf(subscription),
+      maxBrands: maxBrandsOf(subscription),
+      aiTrialUntil: null,
+      onTrial: false,
+      trialEndsAt: user?.trialEndsAt ?? null,
+      pausedUntil: null,
+      paid: true
+    };
+  }
+
+  const onTrial = isTrialActive(user?.trialEndsAt, now);
+  if (onTrial) {
+    const limits = PLAN_LIMITS.PRO;
+    return {
+      plan: "PRO",
+      limits,
+      interval: "month",
+      maxBrands: limits.tiers[0].maxBrands,
+      aiTrialUntil: user?.trialEndsAt ?? null,
+      onTrial: true,
+      trialEndsAt: user?.trialEndsAt ?? null,
+      pausedUntil,
+      paid: false
+    };
+  }
+
+  // Gratuit — avec, le cas échéant, l'ancien essai IA de parrainage
+  // (comptes créés avant l'essai Pro) qui active l'IA seule.
+  const aiOnly = hasActiveReferralTrial(user?.aiTrialUntil);
+  const limits = PLAN_LIMITS.FREE;
   return {
-    plan,
-    // Un essai IA de parrainage actif active l'IA même sur le palier
-    // Gratuit, sans changer le plan lui-même (les autres quotas — marques,
-    // comptes connectés, publications — restent ceux du palier réel).
-    limits: onTrial ? { ...limits, aiEnabled: true } : limits,
-    interval: intervalOf(subscription),
-    maxBrands: maxBrandsOf(subscription),
-    aiTrialUntil: onTrial ? user!.aiTrialUntil! : null
+    plan: "FREE",
+    limits: aiOnly ? { ...limits, aiEnabled: true } : limits,
+    interval: "month",
+    maxBrands: limits.tiers[0].maxBrands,
+    aiTrialUntil: aiOnly ? user!.aiTrialUntil! : null,
+    onTrial: false,
+    trialEndsAt: user?.trialEndsAt ?? null,
+    pausedUntil,
+    paid: false
   };
 }
 
@@ -47,15 +115,7 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
 // utilisée par la plupart des routes/pages existantes.
 export async function getBrandPlan(brandId: string): Promise<UserPlanInfo> {
   const owner = await prisma.membership.findFirst({ where: { brandId, role: "OWNER" }, orderBy: { id: "asc" } });
-  if (!owner) {
-    return {
-      plan: "FREE",
-      limits: PLAN_LIMITS.FREE,
-      interval: "month",
-      maxBrands: PLAN_LIMITS.FREE.tiers[0].maxBrands,
-      aiTrialUntil: null
-    };
-  }
+  if (!owner) return FREE_INFO;
   return getUserPlan(owner.userId);
 }
 

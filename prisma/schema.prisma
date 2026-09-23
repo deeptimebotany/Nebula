@@ -134,6 +134,50 @@ model User {
   // Nullable pour les mêmes raisons que referralCode ci-dessus.
   passwordResetTokenHash      String?   @unique
   passwordResetTokenExpiresAt DateTime?
+
+  // --- Croissance (brief growth du 23/09/2026) ---
+  // Attribution « premier contact » : copiée depuis le cookie nb_attr posé
+  // par src/middleware.ts au moment de l'inscription (formulaire ou
+  // connexion rapide). Lue par la page propriétaire /admin/acquisition.
+  acqSource   String?
+  acqMedium   String?
+  acqCampaign String?
+  acqContent  String?
+  // Slug de la marque dont le badge « Propulsé par Nebula » (ou le bloc de
+  // conversion) a amené la visite — récompensée d'un mois de Pro quand ce
+  // compte devient payant (voir src/lib/billing/rewards.ts).
+  acqVia      String?
+  acqLanding  String?
+  acqAt       DateTime?
+  // Première souscription payante (webhook Stripe) — jamais réécrite.
+  firstPaidAt DateTime?
+  // Essai Pro applicatif (« reverse trial ») : Pro tant que cette date est
+  // dans le futur et qu'aucun abonnement payant n'est actif. Posé à
+  // l'inscription (14 j, 30 j avec un code de parrainage) ; les comptes
+  // gratuits existants au déploiement le reçoivent une fois via le cron.
+  // Un seul essai par email, jamais réinitialisé. Voir getUserPlan().
+  trialEndsAt DateTime?
+  // Fin d'essai déjà appliquée (liens au-delà de la limite désactivés,
+  // rapports/calendrier dépubliés) et modale « essai terminé » déjà vue.
+  trialExpiredAppliedAt DateTime?
+  trialEndedNoticeAt    DateTime?
+  // Offre unique de bienvenue (-50 % premier mois, 48 h) : posée à la
+  // première ouverture d'une modale de mise à niveau hors essai.
+  offerExpiresAt DateTime?
+  offerUsedAt    DateTime?
+  // Mois de Pro gagnés (badge apporteur, parrainage) en attente d'être
+  // consommés à la prochaine souscription — pour un compte sans abonnement
+  // Stripe actif (sinon le coupon est appliqué directement à l'abonnement).
+  bonusMonths Int @default(0)
+  // Nombre de factures mensuelles payées (rappel annuel à la 3e).
+  paidInvoices Int @default(0)
+  // Emails de conseils (cycle de vie) — désinscription dans Paramètres ou
+  // via le lien de chaque email. Les emails de service (essai) restent.
+  lifecycleEmails Boolean @default(true)
+  // Déclencheurs d'invitation au parrainage déjà affichés (clés).
+  referralPromptsSeen Json?
+  lifecycleEmailsSent LifecycleEmail[]
+  growthEvents        GrowthEvent[]
 }
 
 // Onglet "Succès" (voir /succes) : chaque ligne = un easter egg trouvé par un
@@ -285,6 +329,10 @@ model Subscription {
   stripePriceId        String?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean   @default(false)
+  // Pause plutôt qu'annulation (Stripe pause_collection, behavior "void") :
+  // tant que cette date est dans le futur, le compte est traité en Gratuit,
+  // les données sont conservées, et Stripe reprend seul à cette date.
+  pausedUntil          DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -408,6 +456,14 @@ model Post {
   status       String        @default("DRAFT")
   scheduledAt  DateTime?
   duplicatedFromId String?
+  // Import CSV (brief growth, lot G6.a) : URL distante du média conservée
+  // en référence tant qu'il n'a pas été rapatrié vers notre stockage par la
+  // tâche de fond (src/lib/import-media.ts) ; le compteur d'essais évite de
+  // réessayer indéfiniment une URL morte (abandon après 3 essais, la fiche
+  // invite alors à ajouter le média à la main).
+  sourceMediaUrl      String?
+  sourceMediaAttempts Int       @default(0)
+  importedAt          DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
@@ -772,4 +828,81 @@ model PollVote {
 
   @@unique([pollId, userId])
   @@index([optionId])
+}
+
+// ---------------------------------------------------------------------------
+// Croissance (brief growth du 23/09/2026) — mesure interne, sans tiers.
+// ---------------------------------------------------------------------------
+
+// Événement léger d'acquisition/conversion (badge_click, landing_view,
+// paid, upgrade_modal_shown…). Jamais de donnée personnelle dans `meta`
+// pour les événements venus des pages publiques (/api/growth). Purgé au
+// bout de 180 jours par /api/cron. Lu par /admin/acquisition.
+model GrowthEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  name      String
+  meta      Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([name, createdAt])
+  @@index([userId])
+}
+
+// Email de cycle de vie déjà envoyé — une clé par adresse, jamais deux fois
+// (voir src/lib/emails/lifecycle.ts et runLifecycleEmails()).
+model LifecycleEmail {
+  id     String   @id @default(cuid())
+  userId String?
+  email  String
+  key    String
+  sentAt DateTime @default(now())
+  user   User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([email, key])
+  @@index([email, sentAt])
+}
+
+// Résultat d'un outil gratuit (légende, miniature…) mis de côté le temps
+// que le visiteur crée un compte : « Programmer cette publication avec
+// Nebula » → /register?next=/composer?draft=<id>. Expire en 7 jours (purge
+// par le cron), supprimé dès qu'il est consommé par le Composer.
+model PublicDraft {
+  id        String   @id @default(cuid())
+  kind      String   // "CAPTION" | "THUMBNAIL"
+  content   Json
+  network   String?
+  ipHash    String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// Lead capturé sur les outils gratuits (« Recevez 5 générations de plus par
+// jour ») — alimente la séquence lead_* des emails de cycle de vie tant
+// qu'aucun compte n'existe avec la même adresse.
+model ToolLead {
+  id        String   @id @default(cuid())
+  email     String
+  tool      String
+  consent   Boolean  @default(false)
+  ipHash    String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+// Liste d'attente par réseau non encore supporté (/reseaux/[slug]).
+model NetworkWaitlist {
+  id        String   @id @default(cuid())
+  email     String
+  network   String
+  consent   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([email, network])
+  @@index([network])
 }

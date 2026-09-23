@@ -289,8 +289,13 @@ export function ProfilePanel() {
                       Copier le lien
                     </button>
                   </div>
+                  {(me?.bonusMonths ?? 0) > 0 && (
+                    <p className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-2.5 py-1.5 text-xs text-emerald-200">
+                      {me!.bonusMonths} mois de Pro offert{me!.bonusMonths > 1 ? "s" : ""} en attente — déduit{me!.bonusMonths > 1 ? "s" : ""} automatiquement de votre prochaine souscription.
+                    </p>
+                  )}
                   <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                    Chaque compte créé avec votre lien reçoit l&apos;assistant IA offert 14 jours. Le podium du classement reçoit des mois Pro offerts, attribués par l&apos;équipe Nebula.
+                    Chaque compte créé avec votre lien reçoit 30 jours de Pro offerts, et vous gagnez un mois de Pro à sa première souscription. Le podium du classement reçoit en plus des mois Pro attribués par l&apos;équipe Nebula.
                     {data.referral.aiTrialActive && data.referral.aiTrialUntil && (
                       <> IA offerte via parrainage jusqu&apos;au {new Date(data.referral.aiTrialUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.</>
                     )}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconSparkle, IconMessage, IconUpload } from "@/components/dashboard/icons";
+import { IconSparkle, IconMessage, IconUpload, IconChart, IconAvatar, IconHash, IconYouTube, IconClock } from "@/components/dashboard/icons";
 
 // Hub des outils IA gratuits, sans compte (voir la feuille de route —
 // produit n°2 : aimant à visiteurs qui redirige ensuite vers un compte
@@ -10,7 +10,7 @@ import { IconSparkle, IconMessage, IconUpload } from "@/components/dashboard/ico
 export const metadata = {
   title: "Outils IA gratuits",
   description:
-    "Générateur de légendes et de miniatures pour vos réseaux sociaux, propulsé par l'IA. Gratuit, sans compte."
+    "Générateur de légendes, de miniatures, de bio Instagram et de hashtags, calculateur de taux d'engagement, testeur de titre YouTube, meilleur moment pour publier. Gratuit, sans compte."
 };
 
 const TOOLS = [
@@ -25,6 +25,36 @@ const TOOLS = [
     icon: IconUpload,
     title: "Générateur de miniatures",
     desc: "Envoyez une photo, l'IA la rend plus percutante façon miniature YouTube/TikTok qui donne envie de cliquer."
+  },
+  {
+    href: "/outils/bio-instagram",
+    icon: IconAvatar,
+    title: "Générateur de bio Instagram",
+    desc: "Votre activité, un ton, un appel à l'action : cinq bios de 150 caractères maximum, prêtes à coller."
+  },
+  {
+    href: "/outils/hashtags",
+    icon: IconHash,
+    title: "Générateur de hashtags",
+    desc: "Trois groupes — larges, moyens, de niche — pour votre thématique et le réseau visé, à copier en un clic."
+  },
+  {
+    href: "/outils/titre-youtube",
+    icon: IconYouTube,
+    title: "Testeur de titre YouTube",
+    desc: "Un score sur cinq critères en direct, puis trois reformulations plus accrocheuses proposées par l'IA."
+  },
+  {
+    href: "/outils/taux-engagement",
+    icon: IconChart,
+    title: "Calculateur de taux d'engagement",
+    desc: "Abonnés, j'aime, commentaires, partages : votre taux et son ordre de grandeur par réseau. Sans IA, sans quota."
+  },
+  {
+    href: "/outils/meilleur-moment",
+    icon: IconClock,
+    title: "Meilleur moment pour publier",
+    desc: "Les créneaux qui fonctionnent le mieux en moyenne, par réseau et par jour, ajustés à votre fuseau horaire."
   }
 ];
 

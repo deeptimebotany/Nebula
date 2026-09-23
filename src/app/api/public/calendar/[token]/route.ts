@@ -14,17 +14,21 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     select: { brandId: true, enabled: true, windowDays: true }
   });
 
-  if (!share || !share.enabled) {
+  if (!share) {
     return NextResponse.json({ error: "Ce calendrier n'existe pas ou n'est plus disponible." }, { status: 404 });
+  }
+  if (!share.enabled) {
+    return NextResponse.json({ error: "Ce calendrier n'est plus partagé.", unpublished: true }, { status: 410 });
   }
 
   const [brand, posts] = await Promise.all([
-    prisma.brand.findUnique({ where: { id: share.brandId }, select: { name: true, timezone: true } }),
+    prisma.brand.findUnique({ where: { id: share.brandId }, select: { name: true, slug: true, timezone: true } }),
     computeUpcomingPosts(share.brandId, share.windowDays)
   ]);
 
   return NextResponse.json({
     brandName: brand?.name ?? "Marque",
+    brandSlug: brand?.slug ?? null,
     // Fuseau de la marque : les heures sont affichées dans ce fuseau chez le
     // client, pas dans celui de son navigateur (voir src/lib/timezone.ts).
     timezone: brand?.timezone || DEFAULT_TIMEZONE,

@@ -20,6 +20,7 @@ import { useConfirm } from "@/components/dashboard/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconLink, IconUsers } from "@/components/dashboard/icons";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { ReferralPrompt, type ReferralPromptKey } from "@/components/dashboard/referral-prompt";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
 
@@ -296,6 +297,10 @@ function AnalyticsPageInner() {
   const [tab, setTab] = useState<"overview" | "competitors">("overview");
   const [plan, setPlan] = useState<string>("FREE");
   const [pdfLoading, setPdfLoading] = useState(false);
+  // Invitation de parrainage aux 1 000 / 10 000 abonnés (lot G7) : calculée
+  // à la synchronisation (dernier relevé), affichée une seule fois par
+  // compte — le composant vérifie referralPromptsSeen.
+  const [referralTrigger, setReferralTrigger] = useState<ReferralPromptKey | null>(null);
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -315,6 +320,8 @@ function AnalyticsPageInner() {
     setLoading(false);
 
     let cumulativeImpressions = 0;
+    const maxFollowers = Math.max(0, ...loaded.map((c) => c.snapshots.at(-1)?.followers ?? 0));
+    setReferralTrigger(maxFollowers >= MILESTONE_FOLLOWERS_10K ? "followers_10000" : maxFollowers >= MILESTONE_FOLLOWERS ? "followers_1000" : null);
     for (const c of loaded) {
       const latest = c.snapshots.at(-1);
       const previous = c.snapshots.at(-2);
@@ -531,6 +538,8 @@ function AnalyticsPageInner() {
           </>
         }
       />
+
+      {referralTrigger && <ReferralPrompt trigger={referralTrigger} />}
 
       {filterConnectionId && (
         <div className="flex items-center gap-2 rounded-lg border border-aurora-400/30 bg-aurora-400/[0.06] px-3 py-2 text-sm text-aurora-200">

@@ -8,6 +8,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { clsx } from "@/lib/clsx";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { IconMessage, IconSparkle } from "@/components/dashboard/icons";
+import { ScheduleWithNebula } from "@/components/tools/schedule-with-nebula";
+import { ToolLeadCapture, hasToolLead } from "@/components/tools/tool-lead-capture";
 
 type Field = "title" | "description";
 
@@ -21,10 +23,18 @@ export default function FreeCaptionToolPage() {
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  // Capture d'email après la 2e génération du jour (lot G4.b) : `used` vient
+  // de la réponse de l'API ; le formulaire s'affiche avant la 3e, une fois.
+  const [used, setUsed] = useState(0);
+  const [leadStep, setLeadStep] = useState<"idle" | "ask" | "done" | "skipped">("idle");
 
   async function generate() {
     if (topic.trim().length < 3) {
       setError("Décrivez votre publication en quelques mots.");
+      return;
+    }
+    if (used >= 2 && leadStep === "idle" && !hasToolLead()) {
+      setLeadStep("ask");
       return;
     }
     setLoading(true);
@@ -43,6 +53,7 @@ export default function FreeCaptionToolPage() {
       }
       setResult(data.text);
       setRemaining(data.remaining ?? null);
+      if (typeof data.used === "number") setUsed(data.used);
     } catch {
       setError("Impossible de contacter le générateur pour le moment.");
     } finally {
@@ -144,6 +155,17 @@ export default function FreeCaptionToolPage() {
 
           {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
+          {leadStep === "ask" && (
+            <ToolLeadCapture
+              tool="legendes"
+              onDone={(bonus) => {
+                setLeadStep("done");
+                setRemaining((r) => (r === null ? null : r + bonus));
+              }}
+              onSkip={() => setLeadStep("skipped")}
+            />
+          )}
+
           {result && (
             <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
               <p className="whitespace-pre-line text-sm text-white">{result}</p>
@@ -155,16 +177,20 @@ export default function FreeCaptionToolPage() {
                   <span className="text-[11px] text-slate-500">{remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</span>
                 )}
               </div>
+              <ScheduleWithNebula
+                className="mt-4"
+                payload={{ kind: "CAPTION", tool: "legendes", network: network || undefined, content: field === "title" ? { title: result } : { caption: result } }}
+              />
             </div>
           )}
         </GlassCard>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          Besoin de publier directement sur vos réseaux depuis ce texte ?{" "}
-          <Link href="/register" className="text-aurora-300 hover:underline">
-            Créez votre espace Nebula gratuit
+          Nebula programme et publie sur vos réseaux, avec l&apos;IA intégrée.{" "}
+          <Link href="/register?utm_source=outils&utm_medium=link&utm_campaign=legendes" className="text-aurora-300 hover:underline">
+            Créez votre espace gratuit
           </Link>{" "}
-          — l&apos;assistant IA intégré fait partie des paliers Pro et Agence.
+          — 14 jours de Pro offerts.
         </p>
       </section>
     </main>

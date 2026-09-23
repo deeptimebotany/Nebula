@@ -5,6 +5,10 @@ import { PricingComparison } from "@/components/marketing/pricing-comparison";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { SavingsCalculator } from "@/components/marketing/savings-calculator";
+import { ExitIntentModal } from "@/components/marketing/exit-intent";
+import { COMPETITORS } from "@/data/competitors";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Tarifs",
@@ -61,12 +65,33 @@ export default function TarifsPage() {
         <PricingSection showComparisonLink={false} showHeading={false} />
       </div>
 
+      {/* Maillage vers les comparatifs (brief growth, lot G5.a) */}
+      <p className="-mt-4 text-center text-sm text-slate-400">
+        Comparer avec…{" "}
+        {COMPETITORS.slice(0, 4).map((c, i) => (
+          <span key={c.slug}>
+            {i > 0 && " · "}
+            <Link href={`/alternatives/${c.slug}`} className="text-aurora-300 underline-offset-2 hover:underline">
+              {c.name}
+            </Link>
+          </span>
+        ))}{" "}
+        ·{" "}
+        <Link href="/alternatives" className="text-slate-300 underline-offset-2 hover:underline">
+          tous les comparatifs
+        </Link>
+      </p>
+
       <section className="mt-6">
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Comparatif</p>
           <h2 className="mt-3 font-display text-3xl font-semibold text-white">Ce que chaque palier inclut</h2>
         </div>
         <PricingComparison />
+      </section>
+
+      <section id="economies" className="mx-auto mt-20 max-w-4xl scroll-mt-24">
+        <SavingsCalculator />
       </section>
 
       <section id="faq-tarifs" className="mx-auto mt-24 max-w-3xl scroll-mt-24">
@@ -106,6 +131,8 @@ export default function TarifsPage() {
           </div>
         </GlassCard>
       </section>
+
+      <ExitIntentModal page="tarifs" />
     </PublicShell>
   );
 }

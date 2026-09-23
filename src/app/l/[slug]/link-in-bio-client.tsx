@@ -79,7 +79,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
             )}
           </div>
 
-          <PoweredByNebula tone="light" className="pt-10" />
+          <PoweredByNebula tone="light" className="pt-10" surface="bio" via={slug} />
         </div>
       </div>
     </div>

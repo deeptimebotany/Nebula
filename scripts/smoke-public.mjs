@@ -26,6 +26,20 @@ const PAGES = [
   { path: "/outils", title: /Outils/, contains: "Outils" },
   { path: "/outils/legendes", title: /Légendes|légendes/i, contains: "légende" },
   { path: "/outils/miniatures", title: /Miniatures|miniatures/i, contains: "miniature" },
+  { path: "/outils/bio-instagram", title: /bio Instagram/i, contains: "bio" },
+  { path: "/outils/hashtags", title: /hashtags/i, contains: "hashtag" },
+  { path: "/outils/titre-youtube", title: /titre YouTube/i, contains: "titre" },
+  { path: "/outils/taux-engagement", title: /engagement/i, contains: "engagement" },
+  { path: "/outils/meilleur-moment", title: /moment/i, contains: "publier" },
+  { path: "/decouvrir/page-bio", title: /bio/i, contains: "link in bio" },
+  { path: "/decouvrir/rapports-clients", title: /rapport/i, contains: "rapport" },
+  { path: "/alternatives", title: /Alternatives/i, contains: "Comparer" },
+  { path: "/alternatives/hootsuite", title: /Alternative à Hootsuite/i, contains: "Prix constatés" },
+  { path: "/alternatives/metricool", title: /Alternative à Metricool/i, contains: "Prix constatés" },
+  { path: "/prix/buffer", title: /Buffer : tarifs/i, contains: "grille officielle" },
+  { path: "/reseaux", title: /Réseaux/i, contains: "Bientôt" },
+  { path: "/reseaux/linkedin", title: /LinkedIn/i, contains: "Prévenez-moi" },
+  { path: "/llms.txt", title: null, contains: "# Nebula" },
   { path: "/login", title: /Connexion/, contains: "Se connecter" },
   { path: "/register", title: /Inscription|Créer/i, contains: "conditions" },
   { path: "/forgot-password", title: /Mot de passe/i, contains: "Envoyer le lien" }
@@ -75,7 +89,7 @@ for (const page of PAGES) {
     }
     const title = titleOf(text);
     const problems = [];
-    if (!page.title.test(title)) problems.push(`titre « ${title || "(vide)"} »`);
+    if (page.title && !page.title.test(title)) problems.push(`titre « ${title || "(vide)"} »`);
     if (!text.includes(page.contains)) problems.push(`texte « ${page.contains} » absent`);
     if (/Application error|Internal Server Error/.test(text)) problems.push("page d'erreur Next.js");
     if (problems.length) ko(page.path, problems.join(", "));

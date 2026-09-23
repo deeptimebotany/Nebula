@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       imageBase64: result.base64,
       imageMimeType: result.mimeType,
       remaining: quota.remaining,
-      limit: quota.limit
+      limit: quota.limit,
+      used: quota.used
     });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

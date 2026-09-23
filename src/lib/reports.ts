@@ -160,7 +160,7 @@ export async function runDueReports(): Promise<{ sent: number; failed: number }>
       recipientEmail: { not: null },
       nextSendAt: { lte: now }
     },
-    include: { brand: { select: { id: true, name: true } } }
+    include: { brand: { select: { id: true, name: true, slug: true } } }
   });
 
   let sent = 0;
@@ -178,7 +178,8 @@ export async function runDueReports(): Promise<{ sent: number; failed: number }>
         reportUrl,
         periodLabel: periodLabel(report.frequency),
         followers: data.totals.followers,
-        followersDelta: data.totals.followersDelta
+        followersDelta: data.totals.followersDelta,
+        brandSlug: report.brand.slug
       });
 
       if (result.ok) sent += 1;

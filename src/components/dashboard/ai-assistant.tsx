@@ -23,6 +23,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { useAiAssistant } from "./ai-assistant-context";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import {
   ASSISTANT_CONTEXTS,
   pickSuggestionBatch,
@@ -91,6 +92,7 @@ export function AiAssistant() {
   const { enabled, open, setOpen, contextKey, pendingPrompt, consumePendingPrompt } = useAiAssistant();
   const pathname = usePathname();
   const router = useRouter();
+  const upgrade = useUpgradeModal();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -193,6 +195,13 @@ export function AiAssistant() {
 
         if (!res.ok) {
           const errorText = typeof data.error === "string" ? data.error : "L'assistant n'a pas pu répondre. Réessayez dans un instant.";
+          // Palier sans IA (fin d'essai) : paywall contextuel plutôt qu'une
+          // erreur dans le fil (lot G2.b).
+          if (res.status === 402 && upgrade.openFromResponse(res.status, data)) {
+            setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+            setInput(text);
+            return;
+          }
           if (res.status === 429) {
             const seconds = Math.min(Math.max(Number(data.retryAfterSeconds) || 60, 5), 600);
             setCooldownUntil(Date.now() + seconds * 1000);
@@ -215,7 +224,7 @@ export function AiAssistant() {
         setSending(false);
       }
     },
-    [input, activeBrand, sending, cooldownUntil, messages, contextKey]
+    [input, activeBrand, sending, cooldownUntil, messages, contextKey, upgrade]
   );
 
   // --- Question poussée par une page (ex. section Miniature) --------------

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { useToast } from "@/components/dashboard/toast";
@@ -26,6 +27,7 @@ const PLAN_LABEL: Record<Plan, string> = { FREE: "Gratuit", PRO: "Pro", AGENCY: 
 
 export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
   const { brands, activeBrand, setActiveBrandId, createBrand } = useBrand();
+  const upgrade = useUpgradeModal();
   const { data, refresh } = useBootstrap();
   const cosmetics = useCosmetics();
   const toast = useToast();
@@ -69,6 +71,12 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
     const res = await createBrand(newName.trim());
     setCreating(false);
     if (!res.ok) {
+      // Limite de marques du palier → modale de mise à niveau (lot G2.b)
+      // plutôt qu'un message d'erreur.
+      if (upgrade.openFromResponse(res.status ?? 0, { reason: res.reason })) {
+        setOpen(false);
+        return;
+      }
       toast.error(res.error ?? "Erreur lors de la création de la marque.");
       return;
     }

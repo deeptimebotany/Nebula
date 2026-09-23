@@ -7,6 +7,9 @@ import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
+import { cookies } from "next/headers";
+import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
+import { trialEndDate } from "@/lib/trial";
 
 function slugifyBrand(input: string) {
   return (
@@ -32,14 +35,36 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
   const slugTaken = await prisma.brand.findUnique({ where: { slug } });
   if (slugTaken) slug = `${slug}-${Math.floor(Math.random() * 10000)}`;
 
+  // Même chemin d'attribution et d'essai que /api/auth/register (lot G0/G2/
+  // G7) : le cookie nb_attr posé par le middleware est lisible ici (le
+  // callback NextAuth s'exécute dans une route handler). Le code de
+  // parrainage ne peut venir que du cookie (?ref= sur un lien).
+  let attribution: ReturnType<typeof parseAttributionCookie> = null;
+  try {
+    attribution = parseAttributionCookie(cookies().get(ATTRIBUTION_COOKIE)?.value);
+  } catch {
+    attribution = null;
+  }
+  let referrerCode: string | null = null;
+  if (attribution?.ref) {
+    const code = attribution.ref.toUpperCase();
+    const referrer = await prisma.user.findUnique({ where: { referralCode: code }, select: { id: true } });
+    if (referrer) referrerCode = code;
+  }
+  const trialEndsAt = trialEndDate(Boolean(referrerCode));
+
   const referralCode = await generateUniqueReferralCode();
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name: brandName,
       email: normalizedEmail,
       passwordHash: null,
       avatarUrl: avatarUrl ?? undefined,
       referralCode,
+      referredByCode: referrerCode,
+      aiTrialUntil: referrerCode ? trialEndsAt : null,
+      trialEndsAt,
+      ...attributionToUserFields(attribution),
       memberships: {
         create: {
           role: "OWNER",
@@ -48,6 +73,8 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
       }
     }
   });
+  await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrerCode), oauth: true }, user.id);
+  return user;
 }
 
 export const authOptions: NextAuthOptions = {

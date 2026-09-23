@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -21,6 +22,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
 import { IconBioLink, IconPlus, IconClose, IconChevron, IconUpload, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
+import { LinktreeImportDialog } from "@/components/link-in-bio/linktree-import-dialog";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { isUnlimitedBioLinks, type Plan } from "@/lib/plans";
 
@@ -53,6 +55,9 @@ function swatchPreview(vars: Record<string, string>) {
 export default function LinkInBioPage() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const upgrade = useUpgradeModal();
+  // Import Linktree (brief growth, lot G6.b)
+  const [linktreeOpen, setLinktreeOpen] = useState(false);
   const confirmDialog = useConfirm();
 
   const [page, setPage] = useState<LinkPageData | null>(null);
@@ -101,6 +106,7 @@ export default function LinkInBioPage() {
         setMaxBioLinks(d.limits?.maxBioLinks ?? 3);
       })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrand?.id]);
 
   async function patchPage(data: Partial<{ title: string; bio: string; avatarUrl: string | null; theme: string; published: boolean }>) {
@@ -380,7 +386,20 @@ export default function LinkInBioPage() {
                       className="min-w-0 truncate rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-aurora-400/60"
                     />
                   </div>
-                  <Toggle size="sm" checked={link.enabled} onChange={(next) => editLink(link.id, { enabled: next })} aria-label={link.enabled ? `Désactiver « ${link.label} »` : `Activer « ${link.label} »`} />
+                  {/* Lien au-delà de la limite du palier (fin d'essai) : conservé,
+                      grisé « Pro », réactivable seulement en passant en Pro. */}
+                  {i >= maxBioLinks && !link.enabled ? (
+                    <button
+                      type="button"
+                      onClick={() => upgrade.open("links_limit")}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-aurora-400/40 hover:text-white"
+                      title="Ce lien dépasse la limite de votre palier — passez en Pro pour le réactiver"
+                    >
+                      <UpgradeGem className="h-3 w-3" /> Pro
+                    </button>
+                  ) : (
+                    <Toggle size="sm" checked={link.enabled} onChange={(next) => editLink(link.id, { enabled: next })} aria-label={link.enabled ? `Désactiver « ${link.label} »` : `Activer « ${link.label} »`} />
+                  )}
                   <span className="shrink-0 text-[11px] text-slate-500" title="Clics">
                     {link.clicks}
                   </span>
@@ -398,15 +417,31 @@ export default function LinkInBioPage() {
               )}
             </div>
 
+            {activeBrand && (
+              <LinktreeImportDialog
+                open={linktreeOpen}
+                onClose={() => setLinktreeOpen(false)}
+                brandId={activeBrand.id}
+                maxBioLinks={maxBioLinks}
+                currentCount={page?.links.length ?? 0}
+                onImported={() => void load()}
+              />
+            )}
+            <div className="mt-3 flex justify-end">
+              <button type="button" onClick={() => setLinktreeOpen(true)} className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-white hover:underline">
+                <IconUpload className="h-3.5 w-3.5" /> Importer depuis Linktree
+              </button>
+            </div>
+
             {atLinkLimit ? (
-              <Link
-                href="/billing"
-                className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
+              <button
+                type="button"
+                onClick={() => upgrade.open("links_limit")}
+                className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-left text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
               >
                 <UpgradeGem className="h-4 w-4 opacity-70" />
-                Limite de {maxBioLinks} liens atteinte pour le palier actuel — passez sur un palier supérieur pour en
-                ajouter plus.
-              </Link>
+                Limite de {maxBioLinks} liens atteinte pour le palier actuel — passez en Pro pour en ajouter plus.
+              </button>
             ) : (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Input

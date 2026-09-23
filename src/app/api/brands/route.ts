@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   try {
     await assertBrandQuota(userId);
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 403 });
+    return NextResponse.json({ error: (err as Error).message, reason: "second_brand" }, { status: 403 });
   }
 
   let slug = slugify(parsed.data.name);

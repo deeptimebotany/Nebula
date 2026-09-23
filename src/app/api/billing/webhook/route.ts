@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
+import { trackGrowth } from "@/lib/growth";
+import { rewardOnFirstPayment } from "@/lib/billing/rewards";
 import type Stripe from "stripe";
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
@@ -40,6 +42,10 @@ export async function POST(req: NextRequest) {
           ? "month"
           : (sub.metadata?.interval as string | undefined) || "month";
     const periodEndTimestamp = (sub as unknown as { current_period_end?: number }).current_period_end;
+    // Pause plutôt qu'annulation (lot G2.c) : Stripe expose pause_collection
+    // tant que la pause court ; resumes_at absent = pas de pause.
+    const pause = (sub as unknown as { pause_collection?: { behavior?: string; resumes_at?: number | null } | null }).pause_collection;
+    const pausedUntil = pause?.resumes_at ? new Date(pause.resumes_at * 1000) : null;
 
     await prisma.subscription.upsert({
       where: { userId: resolvedUserId },
@@ -52,7 +58,8 @@ export async function POST(req: NextRequest) {
         stripeSubscriptionId: sub.id,
         stripePriceId: priceId,
         currentPeriodEnd: periodEndTimestamp ? new Date(periodEndTimestamp * 1000) : null,
-        cancelAtPeriodEnd: sub.cancel_at_period_end
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        pausedUntil
       },
       create: {
         userId: resolvedUserId,
@@ -64,9 +71,53 @@ export async function POST(req: NextRequest) {
         stripeSubscriptionId: sub.id,
         stripePriceId: priceId,
         currentPeriodEnd: periodEndTimestamp ? new Date(periodEndTimestamp * 1000) : null,
-        cancelAtPeriodEnd: sub.cancel_at_period_end
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        pausedUntil
       }
     });
+
+    await markFirstPayment(resolvedUserId, sub);
+  }
+
+  // Première souscription payante d'un compte (lot G0) : firstPaidAt posé
+  // une seule fois, événement `paid` avec l'instantané d'acquisition, puis
+  // récompenses de la marque apporteuse / du parrain (lots G1.a, G7), et
+  // consommation d'un éventuel mois offert ou de l'offre de bienvenue.
+  async function markFirstPayment(userId: string, sub: Stripe.Subscription) {
+    if (!["active", "trialing"].includes(sub.status)) return;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, firstPaidAt: true, acqSource: true, acqMedium: true, acqCampaign: true, acqContent: true, acqVia: true, acqLanding: true, referredByCode: true, offerExpiresAt: true, offerUsedAt: true }
+    });
+    if (!user || user.firstPaidAt) return;
+    const usedBonus = sub.metadata?.usedBonus === "1";
+    const usedOffer = sub.metadata?.usedOffer === "1";
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstPaidAt: new Date(),
+        ...(usedBonus ? { bonusMonths: { decrement: 1 } } : {}),
+        ...(usedOffer && !user.offerUsedAt ? { offerUsedAt: new Date() } : {})
+      }
+    });
+    await trackGrowth(
+      "paid",
+      {
+        source: user.acqSource ?? "direct",
+        medium: user.acqMedium ?? "",
+        campaign: user.acqCampaign ?? "",
+        content: user.acqContent ?? "",
+        via: user.acqVia ?? "",
+        landing: user.acqLanding ?? "",
+        referred: Boolean(user.referredByCode),
+        plan: (sub.metadata?.plan as string | undefined) ?? "PRO",
+        interval: sub.items.data[0]?.price?.recurring?.interval ?? "month",
+        offer: usedOffer
+      },
+      userId
+    );
+    if (usedOffer) await trackGrowth("offer_used", { plan: (sub.metadata?.plan as string | undefined) ?? "PRO" }, userId);
+    await rewardOnFirstPayment(user).catch((err) => console.error("[rewards]", (err as Error).message));
   }
 
   switch (event.type) {
@@ -88,7 +139,20 @@ export async function POST(req: NextRequest) {
       const sub = event.data.object as Stripe.Subscription;
       const userId = sub.metadata?.userId as string | undefined;
       if (userId) {
-        await prisma.subscription.updateMany({ where: { userId }, data: { plan: "FREE", status: "CANCELED", maxBrands: 1 } });
+        await prisma.subscription.updateMany({ where: { userId }, data: { plan: "FREE", status: "CANCELED", maxBrands: 1, pausedUntil: null } });
+      }
+      break;
+    }
+    case "invoice.paid": {
+      // Compteur de factures mensuelles payées (rappel annuel à la 3e, lot
+      // G2.c). L'utilisateur est retrouvé par l'abonnement Stripe.
+      const invoice = event.data.object as Stripe.Invoice;
+      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      if (subId && (invoice.amount_paid ?? 0) > 0) {
+        const row = await prisma.subscription.findFirst({ where: { stripeSubscriptionId: subId }, select: { userId: true, interval: true } });
+        if (row && row.interval === "month") {
+          await prisma.user.update({ where: { id: row.userId }, data: { paidInvoices: { increment: 1 } } }).catch(() => undefined);
+        }
       }
       break;
     }

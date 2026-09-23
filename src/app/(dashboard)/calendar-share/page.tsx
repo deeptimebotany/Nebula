@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
@@ -46,6 +47,7 @@ interface UpcomingPost {
 export default function CalendarSharePage() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const upgrade = useUpgradeModal();
 
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -138,16 +140,17 @@ export default function CalendarSharePage() {
         <GlassCard>
           <div className="flex items-center gap-2">
             <Badge tone="warning" icon={<IconLock className="h-3 w-3" />}>
-              Palier Pro/Agence
+              Pro
             </Badge>
           </div>
-          <p className="mt-2 text-sm text-slate-400">Le calendrier client public fait partie des paliers payants de Nebula.</p>
-          <Link
-            href="/billing"
-            className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
+          <p className="mt-2 text-sm text-slate-400">Un lien en lecture seule : votre client voit ce qui part, et quand, sans compte à créer — avec le palier Pro.</p>
+          <button
+            type="button"
+            onClick={() => upgrade.open("calendar_share")}
+            className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-white/10 px-3.5 py-3 text-left text-sm text-slate-400 transition hover:border-aurora-400/40 hover:text-white"
           >
-            <UpgradeGem className="h-4 w-4 opacity-70" /> Passer sur un palier supérieur
-          </Link>
+            <UpgradeGem className="h-4 w-4 opacity-70" /> Débloquer le calendrier client
+          </button>
         </GlassCard>
       )}
 

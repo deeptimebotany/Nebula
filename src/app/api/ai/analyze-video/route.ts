@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   const { limits } = await getBrandPlan(target.post.brandId);
   if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'analyse IA fait partie des paliers Pro/Agence." }, { status: 402 });
+    return NextResponse.json({ error: "L'analyse IA fait partie des paliers Pro/Agence.", reason: "retention" }, { status: 402 });
   }
 
   try {

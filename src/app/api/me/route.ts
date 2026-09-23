@@ -8,6 +8,7 @@ import { isBillingEnabled } from "@/lib/billing/stripe";
 import { DEFAULT_THEME_KEY } from "@/lib/themes";
 import { DEFAULT_BACKGROUND_KEY } from "@/lib/backgrounds";
 import type { MeResponse } from "@/lib/me-types";
+import { isOfferActive, trialDaysLeft } from "@/lib/trial";
 
 // Toujours réévalué à la demande : le palier et les droits d'apparence
 // doivent refléter l'état réel au moment de l'appel.
@@ -40,7 +41,17 @@ export async function GET() {
         starfieldEnabled: true,
         enabledCosmetics: true,
         whiteLabelBrandName: true,
-        whiteLabelLogoUrl: true
+        whiteLabelLogoUrl: true,
+        trialEndsAt: true,
+        trialEndedNoticeAt: true,
+        offerExpiresAt: true,
+        offerUsedAt: true,
+        firstPaidAt: true,
+        bonusMonths: true,
+        paidInvoices: true,
+        lifecycleEmails: true,
+        referralPromptsSeen: true,
+        referralCode: true
       }
     }),
     getUserPlan(userId),
@@ -65,7 +76,21 @@ export async function GET() {
     notifyOnFailure: (user.notifyOnFailure as boolean | null | undefined) ?? true,
     starfield: { enabled: Boolean(user.starfieldEnabled), allowed: access.starfieldAllowed },
     cosmetics: { enabled: (user.enabledCosmetics as string[] | undefined) ?? [], allowedKeys: access.cosmeticsAllowedKeys },
-    whiteLabel: { brandName: user.whiteLabelBrandName ?? null, logoUrl: user.whiteLabelLogoUrl ?? null }
+    whiteLabel: { brandName: user.whiteLabelBrandName ?? null, logoUrl: user.whiteLabelLogoUrl ?? null },
+    onTrial: planInfo.onTrial,
+    trialEndsAt: user.trialEndsAt ? user.trialEndsAt.toISOString() : null,
+    trialDaysLeft: planInfo.onTrial ? trialDaysLeft(user.trialEndsAt) : 0,
+    // La modale de fin d'essai ne concerne que les comptes qui ONT eu un
+    // essai, dont il est fini, non payants, et qui ne l'ont pas encore vue.
+    trialEndedNoticeDue: Boolean(user.trialEndsAt) && !planInfo.onTrial && !planInfo.paid && !user.trialEndedNoticeAt,
+    paid: planInfo.paid,
+    pausedUntil: planInfo.pausedUntil ? planInfo.pausedUntil.toISOString() : null,
+    offerExpiresAt: !planInfo.paid && !user.firstPaidAt && isOfferActive(user.offerExpiresAt, user.offerUsedAt) ? user.offerExpiresAt!.toISOString() : null,
+    bonusMonths: user.bonusMonths ?? 0,
+    annualNudge: planInfo.paid && planInfo.interval === "month" && (user.paidInvoices ?? 0) >= 3,
+    lifecycleEmails: (user.lifecycleEmails as boolean | null | undefined) ?? true,
+    referralPromptsSeen: Array.isArray(user.referralPromptsSeen) ? (user.referralPromptsSeen as string[]) : [],
+    referralCode: user.referralCode ?? null
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }
