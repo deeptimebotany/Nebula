@@ -330,6 +330,19 @@ body {
 }
 
 @layer components {
+  /* Voile plein écran pendant l'envoi d'une publication (voir
+     src/components/composer/publish-overlay.tsx) : grise toute la page et
+     la floute légèrement. En mode clair, teinte claire plutôt que noire pour
+     rester cohérent avec le fond de page (--l-page). */
+  .publish-overlay-backdrop {
+    background: rgba(2, 4, 10, 0.55);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+  }
+  [data-mode="light"] .publish-overlay-backdrop {
+    background: rgba(240, 242, 245, 0.72);
+  }
+
   .glass-panel {
     background: linear-gradient(180deg, rgba(20, 28, 50, 0.6), rgba(8, 12, 24, 0.55));
     border: 1px solid rgba(120, 150, 255, 0.12);

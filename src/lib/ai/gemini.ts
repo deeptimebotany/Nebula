@@ -43,6 +43,46 @@ interface GenerateContentPart {
   inline_data?: { mime_type: string; data: string };
 }
 
+// "This model is currently experiencing high demand" (503/UNAVAILABLE) et
+// les quotas temporaires (429/RESOURCE_EXHAUSTED) sont les deux seuls cas où
+// Google recommande explicitement de réessayer — c'est une saturation
+// passagère côté Google, pas un bug Nebula, et ça repasse souvent en
+// quelques secondes. Partagé par callGemini (texte) et les deux générateurs
+// d'image ci-dessous : on retente automatiquement avant de renoncer, plutôt
+// que de faire remonter tout de suite une erreur brute en anglais à
+// l'utilisateur (constaté en prod sur l'analyse de rétention).
+async function fetchGeminiWithRetry(url: string, body: unknown): Promise<Record<string, unknown>> {
+  const maxAttempts = 3;
+  let lastMessage = "Erreur Gemini inconnue.";
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json().catch(() => null);
+    if (res.ok) return data ?? {};
+
+    const status = (data as { error?: { status?: string } } | null)?.error?.status;
+    const retryable = res.status === 503 || res.status === 429 || status === "UNAVAILABLE" || status === "RESOURCE_EXHAUSTED";
+    lastMessage = (data as { error?: { message?: string } } | null)?.error?.message || `Erreur Gemini (${res.status})`;
+
+    if (!retryable) throw new Error(lastMessage);
+    if (attempt === maxAttempts) {
+      throw new Error(
+        "Le service IA de Google (Gemini) est momentanément surchargé par une forte demande. Ce n'est pas un bug Nebula : réessayez dans une minute ou deux, ça repasse généralement tout seul."
+      );
+    }
+
+    // Backoff progressif entre les tentatives (1,5 s puis 3 s).
+    await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+  }
+
+  throw new Error(lastMessage);
+}
+
 async function callGemini(params: {
   contents: { role: string; parts: GenerateContentPart[] }[];
   systemInstruction?: string;
@@ -64,18 +104,11 @@ async function callGemini(params: {
     body.systemInstruction = { role: "system", parts: [{ text: params.systemInstruction }] };
   }
 
-  const res = await fetch(`${API_BASE}/models/${model}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Erreur Gemini (${res.status})`);
-  }
-
-  const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${model}:generateContent?key=${key}`, body);
+  const text =
+    (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text ?? "")
+      .join("") ?? "";
   if (!text) throw new Error("Gemini n'a renvoyé aucun contenu (réponse peut-être filtrée).");
   return text;
 }
@@ -234,25 +267,17 @@ export async function generateThumbnail(input: {
     "à l'écran si ça sert l'image, mais reste sobre et lisible. Format 16:9."
   ].join(" ");
 
-  const res = await fetch(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }]
-        }
-      ]
-    })
+  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }]
+      }
+    ]
   });
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Erreur Gemini (${res.status})`);
-  }
-
-  const parts: GenerateContentPart[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const parts: GenerateContentPart[] =
+    (data as { candidates?: { content?: { parts?: GenerateContentPart[] } }[] })?.candidates?.[0]?.content?.parts ?? [];
   const imagePart = parts.find((p) => p.inline_data?.data);
   if (!imagePart?.inline_data) {
     throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");
@@ -278,20 +303,12 @@ export async function generateStickerPack(input: { prompt: string }): Promise<Ge
     "utilisable en petite taille (comme une réaction sur un réseau social)."
   ].join(" ");
 
-  const res = await fetch(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }]
-    })
+  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+    contents: [{ role: "user", parts: [{ text: prompt }] }]
   });
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Erreur Gemini (${res.status})`);
-  }
-
-  const parts: GenerateContentPart[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const parts: GenerateContentPart[] =
+    (data as { candidates?: { content?: { parts?: GenerateContentPart[] } }[] })?.candidates?.[0]?.content?.parts ?? [];
   const imagePart = parts.find((p) => p.inline_data?.data);
   if (!imagePart?.inline_data) {
     throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");

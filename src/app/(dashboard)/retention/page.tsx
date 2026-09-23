@@ -22,6 +22,7 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { IconRetention, IconSparkle, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
+import { useFocusMode } from "@/components/bootstrap-provider";
 
 interface ConnectionRow {
   id: string;
@@ -60,6 +61,9 @@ function extractVideoId(input: string): string | null {
 
 export default function RetentionToolPage() {
   const chartTheme = useChartTheme();
+  // Mini-jeu d'attente (voir loading-mini-game.tsx) : jamais en Mode focus,
+  // même règle que dans le Composer (composer/page.tsx).
+  const { focusMode } = useFocusMode();
   const { activeBrand } = useBrand();
   const toast = useToast();
   const aiStatus = useAiStatus(activeBrand?.id);
@@ -281,7 +285,7 @@ export default function RetentionToolPage() {
                       <Button onClick={analyze} disabled={analyzing} className="mt-3">
                         <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la rétention (IA)"}
                       </Button>
-                      <LoadingMiniGame active={analyzing} />
+                      {!focusMode && <LoadingMiniGame active={analyzing} />}
                     </>
                   ) : (
                     <div className="mt-3 space-y-3">

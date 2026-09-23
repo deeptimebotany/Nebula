@@ -16,6 +16,7 @@ import { RepurposePanel } from "@/components/composer/repurpose-panel";
 import { ComposerPreview } from "@/components/composer/composer-preview";
 import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
 import { ComposerTips } from "@/components/composer/composer-tips";
+import { PublishOverlay } from "@/components/composer/publish-overlay";
 import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
 import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/composer/composer-types";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
@@ -899,12 +900,16 @@ function ComposerPageInner() {
       })
     });
     const data = await res.json();
-    setSubmitting(false);
 
     if (!res.ok) {
+      setSubmitting(false);
       toast.error(typeof data.error === "string" ? data.error : "Erreur lors de la création du post.");
       return;
     }
+    // Succès : on laisse volontairement `submitting` à true jusqu'à ce que
+    // router.push (plus bas) démonte cette page — sinon le voile d'envoi
+    // (PublishOverlay) disparaîtrait et le formulaire redeviendrait cliquable
+    // pendant la demi-seconde de chargement de la fiche de la publication.
 
     try {
       if (activeBrand) localStorage.removeItem(DRAFT_KEY_PREFIX + activeBrand.id);
@@ -1548,6 +1553,10 @@ function ComposerPageInner() {
         submitting={submitting}
         onSubmit={onSubmit}
       />
+
+      {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et
+          inutilisable tant que « Envoi... » tourne — voir publish-overlay.tsx. */}
+      <PublishOverlay active={submitting} networks={selectedNetworks} mode={mode} mediaType={assets[0]?.type} />
 
       {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
         ? createPortal(
