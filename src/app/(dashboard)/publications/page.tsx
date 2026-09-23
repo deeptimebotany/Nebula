@@ -209,7 +209,7 @@ function PublicationsPageInner() {
 
 function PublicationRow({ post }: { post: ApiPost }) {
   const first = post.media[0]?.mediaAsset;
-  const thumb = first ? (first.type === "IMAGE" ? first.url : first.thumbnailUrl ?? null) : null;
+  const thumb = first && first.type === "IMAGE" ? first.url : first?.thumbnailUrl ?? null;
   const meta = STATUS_META[post.status] ?? { label: post.status, tone: "neutral" as BadgeTone };
   const networks = Array.from(new Set(post.targets.map((t) => t.network)));
   const failedTargets = post.targets.filter((t) => t.status === "FAILED");
@@ -226,8 +226,15 @@ function PublicationRow({ post }: { post: ApiPost }) {
           {thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
             <RemoteImage src={thumb} className="h-full w-full" sizes="56px" />
+          ) : first?.type === "VIDEO" ? (
+            // Pas de miniature enregistrée (l'IA n'en a pas généré ou l'utilisateur
+            // n'en a pas choisi) : on affiche quand même un aperçu en demandant au
+            // navigateur de se positionner à 0.5s via #t=0.5 dans l'URL — aucun
+            // traitement serveur requis (ffmpeg n'est pas disponible sur Vercel),
+            // fonctionne directement depuis le fichier vidéo déjà hébergé.
+            <video src={`${first.url}#t=0.5`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
           ) : (
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{first?.type === "VIDEO" ? "Vidéo" : "Texte"}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Texte</span>
           )}
         </div>
         <div className="min-w-0 flex-1">

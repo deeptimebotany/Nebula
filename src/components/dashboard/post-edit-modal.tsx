@@ -148,9 +148,42 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
         {!post ? (
           <SkeletonText lines={4} />
         ) : post.status !== "DRAFT" && post.status !== "SCHEDULED" ? (
-          <p className="text-sm text-amber-300">
-            Cette publication a déjà été envoyée, elle ne peut plus être modifiée depuis ici.
-          </p>
+          // Une publication déjà envoyée ne peut plus être modifiée depuis cette
+          // modale rapide (titre/légende/date figés côté réseau), mais avant, on
+          // s'arrêtait là : cliquer sur une vidéo déjà publiée dans le calendrier
+          // ouvrait cette modale sans aucun lien vers ses infos (lien YouTube,
+          // statut, rétention...), ce qui donnait l'impression que le clic ne
+          // faisait "rien". On ajoute donc le même lien vers la fiche complète
+          // que dans la branche éditable ci-dessous.
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              {media && (
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                  {media.type === "VIDEO" ? (
+                    <video src={media.url} poster={media.thumbnailUrl} className="h-full w-full object-cover" muted />
+                  ) : (
+                    <RemoteImage src={media.url} className="h-full w-full" sizes="96px" />
+                  )}
+                </div>
+              )}
+              <div className="flex flex-col justify-center gap-2">
+                <p className="text-sm text-amber-300">
+                  Cette publication a déjà été envoyée, elle ne peut plus être modifiée depuis ici.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {post.targets.map((t, i) => (
+                    <NetworkBadge key={i} network={t.network} size="sm" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <Link href={`/posts/${postId}`} className="text-xs text-aurora-300 hover:underline">
+                Voir la fiche complète (lien YouTube, statut, rétention...) →
+              </Link>
+              <Button variant="ghost" onClick={onClose}>Fermer</Button>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="flex gap-3">

@@ -166,36 +166,63 @@ export const youtubeClient: SocialClient = {
   },
 
   /**
-   * Commentaires reçus sur les vidéos de la chaîne — un seul appel grâce à
-   * allThreadsRelatedToChannelId, qui couvre toutes les vidéos de la chaîne
-   * d'un coup (pas besoin de les lister une par une comme pour Meta ci-
-   * dessus). Scope youtube.readonly, déjà demandé (voir getAuthUrl).
+   * Commentaires reçus sur les vidéos de la chaîne.
+   *
+   * Avant : un seul appel via allThreadsRelatedToChannelId (balaie toute la
+   * chaîne d'un coup). Ce paramètre est en réalité réservé par YouTube à un
+   * usage "content owner/partner" — un compte YouTube classique (comme celui
+   * de Lucas) se fait systématiquement rejeter avec "Request had
+   * insufficient authentication scopes", même avec youtube.readonly déjà
+   * accordé (constaté en prod, capture d'écran à l'appui). Ajouter le scope
+   * youtube.force-ssl aurait réglé le symptôme mais aurait obligé à relancer
+   * toute la procédure de vérification Google (nouveau scope = nouvel écran
+   * de consentement à re-filmer).
+   *
+   * Maintenant : on liste les vidéos récentes de la chaîne (fetchRecentVideos,
+   * scope youtube.readonly déjà demandé) puis on interroge les commentaires
+   * vidéo par vidéo (part=snippet&videoId=...), ce qui ne nécessite aucun
+   * scope supplémentaire. Une vidéo dont les commentaires sont désactivés
+   * renvoie une erreur : on l'ignore et on continue avec les autres plutôt
+   * que de faire échouer tout le rafraîchissement.
    */
   async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
-    const channelId = connection.externalAccountId;
-    const threads = await fetchJson<{
-      items: {
-        id: string;
-        snippet: {
-          videoId: string;
-          topLevelComment: {
-            id: string;
-            snippet: {
-              textDisplay: string;
-              authorDisplayName: string;
-              authorProfileImageUrl: string;
-              publishedAt: string;
-            };
-          };
-        };
-      }[];
-    }>(
-      "YOUTUBE",
-      `${API_BASE}/commentThreads?part=snippet&allThreadsRelatedToChannelId=${channelId}&maxResults=25&order=time`,
-      { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+    const videos = await fetchRecentVideos(connection, 15);
+
+    const perVideo = await Promise.all(
+      videos.map(async (video) => {
+        try {
+          const threads = await fetchJson<{
+            items: {
+              id: string;
+              snippet: {
+                videoId: string;
+                topLevelComment: {
+                  id: string;
+                  snippet: {
+                    textDisplay: string;
+                    authorDisplayName: string;
+                    authorProfileImageUrl: string;
+                    publishedAt: string;
+                  };
+                };
+              };
+            }[];
+          }>(
+            "YOUTUBE",
+            `${API_BASE}/commentThreads?part=snippet&videoId=${video.videoId}&maxResults=25&order=time`,
+            { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+          );
+          return threads.items ?? [];
+        } catch (err) {
+          // Commentaires désactivés sur cette vidéo, ou vidéo trop récente :
+          // non bloquant, on passe simplement à la suivante.
+          console.error(`[youtube] commentaires indisponibles pour la vidéo ${video.videoId} :`, err);
+          return [];
+        }
+      })
     );
 
-    return (threads.items ?? []).map((item) => {
+    const items = perVideo.flat().map((item) => {
       const c = item.snippet.topLevelComment.snippet;
       const videoId = item.snippet.videoId;
       return {
@@ -210,6 +237,9 @@ export const youtubeClient: SocialClient = {
         publishedAt: c.publishedAt ? new Date(c.publishedAt) : undefined
       };
     });
+
+    // Les plus récents en premier, toutes vidéos confondues.
+    return items.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)).slice(0, 25);
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {

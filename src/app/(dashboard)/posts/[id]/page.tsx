@@ -91,6 +91,11 @@ export default function PostDetailPage() {
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
+  // Erreur d'analyse de rétention affichée directement sous le bouton
+  // concerné (par cible/réseau) plutôt qu'en toast éphémère en bas à droite
+  // — trop discret/vite disparu pour un message parfois long (ex. "aucune
+  // donnée disponible pour cette vidéo").
+  const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
   const [copiedTargetId, setCopiedTargetId] = useState<string | null>(null);
   const [sharedTargetIds, setSharedTargetIds] = useState<string[]>([]);
   const [sharing, setSharing] = useState<string | null>(null);
@@ -150,6 +155,7 @@ export default function PostDetailPage() {
 
   async function analyzeRetention(targetId: string) {
     setAnalyzing(targetId);
+    setAnalyzeError((prev) => ({ ...prev, [targetId]: "" }));
     const res = await fetch("/api/ai/analyze-video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -158,7 +164,7 @@ export default function PostDetailPage() {
     const data = await res.json();
     setAnalyzing(null);
     if (!res.ok) {
-      toast.error(data.error ?? "Erreur d'analyse.");
+      setAnalyzeError((prev) => ({ ...prev, [targetId]: data.error ?? "Erreur d'analyse." }));
       return;
     }
     load();
@@ -319,10 +325,17 @@ export default function PostDetailPage() {
                   {t.network === "YOUTUBE" && t.status === "PUBLISHED" && aiStatus?.enabled && (
                     <div className="mt-3 border-t border-white/[0.06] pt-3">
                       {!insight ? (
-                        <Button variant="outline" onClick={() => analyzeRetention(t.id)} disabled={analyzing === t.id}>
-                          <IconSparkle className="h-4 w-4" />{" "}
-                          {analyzing === t.id ? "Analyse en cours..." : "Analyser la rétention (IA)"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button variant="outline" onClick={() => analyzeRetention(t.id)} disabled={analyzing === t.id}>
+                            <IconSparkle className="h-4 w-4" />{" "}
+                            {analyzing === t.id ? "Analyse en cours..." : "Analyser la rétention (IA)"}
+                          </Button>
+                          {analyzeError[t.id] && (
+                            <p className="max-w-md rounded-lg border border-red-400/20 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300">
+                              {analyzeError[t.id]}
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <div className="space-y-3">
                           <p className="text-sm text-slate-200">{insight.summary}</p>
