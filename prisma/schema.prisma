@@ -395,6 +395,13 @@ model PostTarget {
   network          String
   titleOverride    String?
   captionOverride  String?
+  // Réglages propres à CE réseau pour cette publication (ex. YouTube :
+  // confidentialité, "fait pour les enfants", catégorie, tags, playlist,
+  // notifier les abonnés — voir composer-types.ts → YoutubeOptions). JSON
+  // libre pour pouvoir ajouter d'autres réseaux plus tard sans migration.
+  // Toujours optionnel : absent, le réseau applique ses valeurs par défaut
+  // (voir src/lib/social/*.ts).
+  metadata         Json?
   status           String            @default("PENDING")
   externalPostId   String?
   externalUrl      String?

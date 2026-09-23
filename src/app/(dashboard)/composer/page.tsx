@@ -16,7 +16,8 @@ import { RepurposePanel } from "@/components/composer/repurpose-panel";
 import { ComposerPreview } from "@/components/composer/composer-preview";
 import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
 import { ComposerTips } from "@/components/composer/composer-tips";
-import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode } from "@/components/composer/composer-types";
+import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
+import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/composer/composer-types";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,28 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+// Convertit les "Préréglages YouTube" du formulaire (tous des chaînes, pour
+// se lier simplement à des <select>/<input>) vers la forme JSON envoyée à
+// l'API (voir src/lib/social/base.ts → YoutubeOptions). Un champ laissé à sa
+// valeur par défaut / vide est OMIS plutôt qu'envoyé explicitement, pour que
+// src/lib/social/youtube.ts applique son propre défaut (notamment
+// privacyStatus et notifySubscribers, dont "false"/"non coché" est une vraie
+// valeur à distinguer de "non précisé").
+function buildYoutubeMetadata(opts: YoutubeComposerOptions) {
+  const tags = opts.tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return {
+    privacyStatus: opts.privacyStatus,
+    madeForKids: opts.madeForKids,
+    notifySubscribers: opts.notifySubscribers,
+    ...(opts.categoryId ? { categoryId: opts.categoryId } : {}),
+    ...(tags.length ? { tags } : {}),
+    ...(opts.playlistId.trim() ? { playlistId: opts.playlistId.trim() } : {})
+  };
+}
+
 // useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
 // sinon Next.js refuse de pré-générer la page au build (même erreur que
 // celle rencontrée sur /register — voir ce fichier pour le détail).
@@ -254,6 +277,11 @@ function ComposerPageInner() {
   const [hashtagCounts, setHashtagCounts] = useState<Record<string, number>>({});
   const [selectedNetworks, setSelectedNetworks] = useState<Network[]>([]);
   const [overrides, setOverrides] = useState<Partial<Record<Network, NetworkOverride>>>({});
+  // "Préréglages YouTube" (voir panneau dans "4. Réseaux cibles" ci-dessous) —
+  // un seul jeu de réglages par publication (pas par réseau comme `overrides`
+  // ci-dessus) puisqu'un seul compte YouTube peut être ciblé à la fois.
+  const [youtubeOptions, setYoutubeOptions] = useState<YoutubeComposerOptions>(DEFAULT_YOUTUBE_OPTIONS);
+  const [youtubeOptionsOpen, setYoutubeOptionsOpen] = useState(false);
   const [mode, setMode] = useState<ScheduleMode>(prefilledDate ? "date" : "now");
   const [scheduleDate, setScheduleDate] = useState(() =>
     prefilledDate ? `${prefilledDate}T${prefilledTime ?? "12:00"}` : ""
@@ -843,7 +871,12 @@ function ComposerPageInner() {
           connectionId: connection.id,
           network,
           titleOverride: ov?.open && ov.title ? ov.title : undefined,
-          captionOverride: ov?.open && ov.caption ? ov.caption : undefined
+          captionOverride: ov?.open && ov.caption ? ov.caption : undefined,
+          // "Préréglages YouTube" (voir panneau plus bas) : uniquement pour la
+          // cible YouTube, converti de la forme "formulaire" (chaînes) vers la
+          // forme envoyée à l'API (tags en tableau, champs vides omis pour
+          // laisser youtube.ts appliquer ses valeurs par défaut).
+          metadata: network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : undefined
         };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
@@ -898,6 +931,7 @@ function ComposerPageInner() {
     selectedConnectionByNetwork,
     connections,
     overrides,
+    youtubeOptions,
     mode,
     scheduleDate,
     timezone,
@@ -1331,6 +1365,114 @@ function ComposerPageInner() {
                               </button>
                             )}
                           </div>
+                        </div>
+                      )}
+
+                      {n === "YOUTUBE" && (
+                        <div className="mt-3 border-t border-white/[0.06] pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setYoutubeOptionsOpen((v) => !v)}
+                            className="flex w-full items-center justify-between text-left text-xs text-slate-400"
+                          >
+                            <span>Préréglages YouTube</span>
+                            <span>{youtubeOptionsOpen ? "▲ réduire" : "▼ configurer"}</span>
+                          </button>
+                          {youtubeOptionsOpen && (
+                            <div className="mt-3 space-y-3">
+                              <div>
+                                <label className="mb-1 block text-[11px] text-slate-500">Configuration de l&apos;audience</label>
+                                <select
+                                  value={youtubeOptions.madeForKids ? "kids" : "not-kids"}
+                                  onChange={(e) =>
+                                    setYoutubeOptions((o) => ({ ...o, madeForKids: e.target.value === "kids" }))
+                                  }
+                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
+                                >
+                                  <option value="not-kids" className="bg-void-900">
+                                    Non, cette vidéo n&apos;est pas destinée aux enfants
+                                  </option>
+                                  <option value="kids" className="bg-void-900">
+                                    Oui, cette vidéo est destinée aux enfants
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-[11px] text-slate-500">Confidentialité</label>
+                                <select
+                                  value={youtubeOptions.privacyStatus}
+                                  onChange={(e) =>
+                                    setYoutubeOptions((o) => ({
+                                      ...o,
+                                      privacyStatus: e.target.value as YoutubeComposerOptions["privacyStatus"]
+                                    }))
+                                  }
+                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
+                                >
+                                  <option value="public" className="bg-void-900">
+                                    Publique
+                                  </option>
+                                  <option value="unlisted" className="bg-void-900">
+                                    Non répertoriée
+                                  </option>
+                                  <option value="private" className="bg-void-900">
+                                    Privée
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-[11px] text-slate-500">Catégorie</label>
+                                <select
+                                  value={youtubeOptions.categoryId}
+                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, categoryId: e.target.value }))}
+                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
+                                >
+                                  <option value="" className="bg-void-900">
+                                    Non précisée
+                                  </option>
+                                  {YOUTUBE_CATEGORIES.map((c) => (
+                                    <option key={c.id} value={c.id} className="bg-void-900">
+                                      {c.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-[11px] text-slate-500">Tags (séparés par des virgules)</label>
+                                <input
+                                  value={youtubeOptions.tags}
+                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, tags: e.target.value }))}
+                                  placeholder="ex : vlog, tutoriel, gaming"
+                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-[11px] text-slate-500">Ajouter à la playlist (optionnel)</label>
+                                <input
+                                  value={youtubeOptions.playlistId}
+                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, playlistId: e.target.value }))}
+                                  placeholder="Identifiant de la playlist YouTube"
+                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
+                                />
+                              </div>
+
+                              <label className="flex items-center gap-2 text-xs text-slate-400">
+                                <input
+                                  type="checkbox"
+                                  checked={youtubeOptions.notifySubscribers}
+                                  onChange={(e) =>
+                                    setYoutubeOptions((o) => ({ ...o, notifySubscribers: e.target.checked }))
+                                  }
+                                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/[0.03]"
+                                />
+                                Notifier les abonnés
+                              </label>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

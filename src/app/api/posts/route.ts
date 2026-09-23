@@ -11,7 +11,13 @@ const targetSchema = z.object({
   connectionId: z.string(),
   network: z.string(),
   titleOverride: z.string().optional(),
-  captionOverride: z.string().optional()
+  captionOverride: z.string().optional(),
+  // Préréglages propres à ce réseau (ex. YoutubeOptions du composer) —
+  // stockés tels quels en JSON (voir schema.prisma → PostTarget.metadata),
+  // aucune validation de forme ici : chaque client (youtube.ts, etc.)
+  // n'applique que les clés qu'il connaît et retombe sur ses valeurs par
+  // défaut pour le reste.
+  metadata: z.record(z.any()).optional()
 });
 const bodySchema = z.object({
   brandId: z.string(),
@@ -112,6 +118,7 @@ export async function POST(req: NextRequest) {
           network: t.network,
           titleOverride: t.titleOverride,
           captionOverride: t.captionOverride,
+          metadata: t.metadata,
           status: scheduledDate ? "SCHEDULED" : "PENDING"
         }))
       }

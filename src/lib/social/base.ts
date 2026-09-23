@@ -19,11 +19,25 @@ export interface ConnectionLike {
   tokenExpiresAt: Date | null;
 }
 
+// Réglages propres à YouTube pour une publication donnée — voir
+// composer-types.ts (même forme côté client) et src/lib/social/youtube.ts
+// qui les applique. Tous optionnels : absents, youtube.ts retombe sur des
+// valeurs par défaut sûres (public, pas destiné aux enfants).
+export interface YoutubeOptions {
+  privacyStatus?: "public" | "unlisted" | "private";
+  madeForKids?: boolean;
+  categoryId?: string;
+  tags?: string[];
+  notifySubscribers?: boolean;
+  playlistId?: string;
+}
+
 export interface PublishInput {
   title?: string; // utilisé notamment par YouTube comme titre de la vidéo
   caption: string;
   mediaUrls: string[]; // URLs publiquement accessibles (http/https) des médias à publier
   mediaType: "VIDEO" | "IMAGE";
+  youtube?: YoutubeOptions;
 }
 
 /**

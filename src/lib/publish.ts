@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendPublishFailureEmail } from "@/lib/email";
 import { getSocialClient } from "@/lib/social";
+import type { YoutubeOptions } from "@/lib/social/base";
 import type { Network } from "@/lib/types";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
 
@@ -101,7 +102,13 @@ export async function publishPost(postId: string) {
         title: target.titleOverride || post.title,
         caption: target.captionOverride || post.caption,
         mediaUrls,
-        mediaType
+        mediaType,
+        // Préréglages propres à ce réseau (ex. YouTube : confidentialité,
+        // "fait pour les enfants", catégorie, tags, playlist, notifier les
+        // abonnés — voir composer-types.ts → YoutubeOptions). target.metadata
+        // est un JSON libre en base (voir schema.prisma) ; chaque client
+        // (youtube.ts, etc.) ignore ce qu'il ne connaît pas.
+        ...(target.network === "YOUTUBE" && target.metadata ? { youtube: target.metadata as YoutubeOptions } : {})
       });
 
       await prisma.postTarget.update({

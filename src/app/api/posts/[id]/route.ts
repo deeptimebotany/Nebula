@@ -92,6 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             network: t.network,
             titleOverride: t.titleOverride,
             captionOverride: t.captionOverride,
+            metadata: t.metadata ?? undefined,
             status: "PENDING"
           }))
         }
