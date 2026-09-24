@@ -4,6 +4,7 @@ import path from "path";
 import { authOptions } from "@/lib/auth";
 import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
+import { localUploadDir, localUploadPath } from "@/lib/storage";
 import { checkFfmpegAvailable, evenlySpacedTimestamps, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
 
 // POST /api/media/[id]/thumbnails — extrait 6 vraies frames de la vidéo
@@ -33,8 +34,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     );
   }
 
-  const filePath = path.join(process.cwd(), "public", asset.url);
-  const outDir = path.join(process.cwd(), "public", "uploads", "thumbs");
+  const filePath = localUploadPath(asset.url);
+  const outDir = path.join(localUploadDir(), "thumbs");
 
   try {
     const duration = await getVideoDurationSeconds(filePath);

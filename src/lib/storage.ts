@@ -3,6 +3,34 @@ import path from "path";
 import { randomUUID } from "crypto";
 
 /**
+ * Dossier des médias enregistrés en local (hors Vercel) : UPLOAD_DIR, ou
+ * ./public/uploads par défaut, résolu depuis le dossier de lancement.
+ *
+ * Important (24/09/2026) : ne jamais réécrire ceci en
+ * path.resolve(process.cwd(), variable) ni path.join(process.cwd(), …).
+ * Au build, Next.js analyse le code pour savoir quels fichiers embarquer
+ * dans chaque fonction serveur ; devant « process.cwd() + un chemin
+ * inconnu », il embarque TOUT le dépôt (hors node_modules/.next). Un gros
+ * fichier dans le dépôt rendait alors chaque fonction qui importe ce module
+ * trop lourde pour être regroupée avec les autres : Vercel en créait une par
+ * route et refusait le déploiement (« No more than 12 Serverless Functions
+ * … on the Hobby plan »). Écrit ainsi, le chemin n'est connu qu'à
+ * l'exécution et rien n'est embarqué.
+ */
+export function localUploadDir(): string {
+  return path.resolve(process.env.UPLOAD_DIR || "./public/uploads");
+}
+
+/**
+ * Chemin sur disque d'un média local à partir de son URL publique
+ * (« /uploads/abc.mp4 » → <dossier des médias>/abc.mp4). Même précaution
+ * que localUploadDir (voir ci-dessus).
+ */
+export function localUploadPath(url: string): string {
+  return path.join(localUploadDir(), url.replace(/^\/?uploads\//, ""));
+}
+
+/**
  * Stockage des médias uploadés (vidéos/images du composer).
  *
  * En local (ou tout hébergeur avec disque persistant) : écrit sur disque
@@ -54,8 +82,7 @@ export async function saveUploadedFile(file: File): Promise<{
     );
   }
 
-  const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-  const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+  const absoluteDir = localUploadDir();
   await mkdir(absoluteDir, { recursive: true });
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -86,8 +113,7 @@ export async function deleteUploadedFile(url: string): Promise<void> {
       return;
     }
     if (url.startsWith("/uploads/")) {
-      const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-      const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+      const absoluteDir = localUploadDir();
       const { unlink } = await import("fs/promises");
       await unlink(path.join(absoluteDir, path.basename(url)));
     }
@@ -141,8 +167,7 @@ export async function saveGeneratedImage(input: {
     );
   }
 
-  const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-  const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+  const absoluteDir = localUploadDir();
   await mkdir(absoluteDir, { recursive: true });
   await writeFile(path.join(absoluteDir, safeName), buffer);
 
@@ -181,8 +206,7 @@ export async function saveRemoteMedia(input: {
     );
   }
 
-  const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-  const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+  const absoluteDir = localUploadDir();
   await mkdir(absoluteDir, { recursive: true });
   const buffer = Buffer.from(await new Response(input.body).arrayBuffer());
   await writeFile(path.join(absoluteDir, safeName), buffer);

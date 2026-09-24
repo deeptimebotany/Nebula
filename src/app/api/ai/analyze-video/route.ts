@@ -5,6 +5,7 @@ import { readFile } from "fs/promises";
 import { authOptions } from "@/lib/auth";
 import { assertBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
+import { localUploadDir, localUploadPath } from "@/lib/storage";
 import { fetchRetention } from "@/lib/social/youtube";
 import { checkFfmpegAvailable, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
 import { isAiEnabled, analyzeVideoRetention, type RetentionPoint } from "@/lib/ai/gemini";
@@ -70,9 +71,9 @@ export async function POST(req: NextRequest) {
     const frames: { timeRatio: number; base64: string; mimeType: string }[] = [];
 
     if (videoAsset && !videoAsset.url.startsWith("http") && (await checkFfmpegAvailable())) {
-      const filePath = path.join(process.cwd(), "public", videoAsset.url);
+      const filePath = localUploadPath(videoAsset.url);
       const duration = videoAsset.durationSeconds ?? (await getVideoDurationSeconds(filePath));
-      const outDir = path.join(process.cwd(), "public", "uploads", "insights");
+      const outDir = path.join(localUploadDir(), "insights");
       const timestamps = drops.map((d) => d.timeRatio * duration);
       const files = await extractFrames(filePath, outDir, `${target.id}-insight`, timestamps);
       for (let i = 0; i < files.length; i++) {
