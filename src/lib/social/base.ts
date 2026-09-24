@@ -38,6 +38,25 @@ export interface PublishInput {
   mediaUrls: string[]; // URLs publiquement accessibles (http/https) des médias à publier
   mediaType: "VIDEO" | "IMAGE";
   youtube?: YoutubeOptions;
+  // Option « Contenu généré par l'IA » du Composer (un interrupteur par
+  // réseau, voir PostTarget.metadata.aiGenerated). Transmis au réseau quand
+  // son API le permet : YouTube (status.containsSyntheticMedia), TikTok
+  // (post_info.is_aigc). Instagram et Facebook n'ont pas de champ pour ça :
+  // publish.ts ajoute alors une mention visible à la fin de la légende.
+  aiGenerated?: boolean;
+  // Lieu choisi dans le Composer (voir components/composer/location-picker.tsx).
+  // id = identifiant de la Page Facebook du lieu (Instagram : location_id ;
+  // Facebook : place, photos uniquement) ; lat/lng quand la recherche les
+  // fournit (YouTube : recordingDetails.location). TikTok : non pris en
+  // charge par son API.
+  location?: PublishLocation;
+}
+
+export interface PublishLocation {
+  id: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 /**

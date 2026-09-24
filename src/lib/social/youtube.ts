@@ -110,8 +110,12 @@ export const youtubeClient: SocialClient = {
     // public, pas destiné aux enfants, abonnés notifiés.
     const yt = input.youtube ?? {};
     const notifySubscribers = yt.notifySubscribers ?? true;
+    // Lieu : coordonnées du lieu choisi (recordingDetails.location), quand
+    // la recherche de lieux les a fournies.
+    const loc = input.location;
+    const hasCoords = typeof loc?.latitude === "number" && typeof loc?.longitude === "number";
     const initRes = await fetch(
-      `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status&notifySubscribers=${notifySubscribers}`,
+      `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status${hasCoords ? ",recordingDetails" : ""}&notifySubscribers=${notifySubscribers}`,
       {
         method: "POST",
         headers: {
@@ -134,8 +138,11 @@ export const youtubeClient: SocialClient = {
           // pas destiné aux enfants.
           status: {
             privacyStatus: yt.privacyStatus ?? "public",
-            selfDeclaredMadeForKids: yt.madeForKids ?? false
-          }
+            selfDeclaredMadeForKids: yt.madeForKids ?? false,
+            // Déclaration « contenu modifié ou synthétique » (IA réaliste).
+            ...(input.aiGenerated ? { containsSyntheticMedia: true } : {})
+          },
+          ...(hasCoords ? { recordingDetails: { location: { latitude: loc!.latitude, longitude: loc!.longitude } } } : {})
         })
       }
     );

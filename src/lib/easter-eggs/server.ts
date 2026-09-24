@@ -3,7 +3,8 @@ import {
   isValidEasterEggKey,
   EASTER_EGGS,
   ORIGINAL_TWENTY_KEYS,
-  META_ACHIEVEMENT_KEYS
+  META_ACHIEVEMENT_KEYS,
+  AUDIENCE_ACHIEVEMENT_KEYS
 } from "@/lib/easter-eggs-registry";
 
 /**
@@ -70,7 +71,7 @@ async function checkMetaAchievements(userId: string): Promise<void> {
     foundKeys.add("original-20-found");
   }
 
-  const requiredKeys = EASTER_EGGS.map((e) => e.key).filter((k) => !META_ACHIEVEMENT_KEYS.includes(k));
+  const requiredKeys = EASTER_EGGS.map((e) => e.key).filter((k) => !META_ACHIEVEMENT_KEYS.includes(k) && !AUDIENCE_ACHIEVEMENT_KEYS.includes(k));
   if (!foundKeys.has("all-eggs-100pct") && requiredKeys.every((k) => foundKeys.has(k))) {
     await markEasterEggFound(userId, "all-eggs-100pct");
   }

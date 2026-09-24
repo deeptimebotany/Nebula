@@ -29,6 +29,7 @@ import { useCosmetics } from "@/components/cosmetics-provider";
 import { COSMETICS, type CosmeticCategory } from "@/lib/cosmetics";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { EASTER_EGG_KEYS } from "@/lib/easter-eggs-registry";
+import { isAchievementSoundOn, playAchievementArpeggio, setAchievementSoundOn } from "@/lib/cosmic-audio";
 import type { Plan } from "@/lib/plans";
 
 const COSMETIC_CATEGORIES: { key: CosmeticCategory; label: string }[] = [
@@ -108,6 +109,21 @@ export default function SettingsPage() {
   // seule fois au montage plutôt que via CosmeticsProvider.
   const [publishSound, setPublishSound] = useState({ enabled: false, unlocked: false, loaded: false });
   const [savingPublishSound, setSavingPublishSound] = useState(false);
+  // Son joué avec la célébration « Succès débloqué » (réglage de cet appareil).
+  const [achievementSound, setAchievementSound] = useState(true);
+  useEffect(() => setAchievementSound(isAchievementSoundOn()), []);
+  function onToggleAchievementSound() {
+    const next = !achievementSound;
+    setAchievementSound(next);
+    setAchievementSoundOn(next);
+    if (next) {
+      try {
+        playAchievementArpeggio();
+      } catch {
+        // audio indisponible
+      }
+    }
+  }
   // Easter eggs qui débloquent un FOND D'ÉCRAN plutôt qu'un cosmétique de la
   // liste Cosmétiques (voir requiresEgg dans src/lib/backgrounds.ts) : la clé
   // n'apparaît dans /api/easter-eggs QUE si trouvée (jamais dévoilée sinon),
@@ -578,7 +594,9 @@ export default function SettingsPage() {
           appareil et sur votre compte.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          {THEMES.filter((t) => !t.hidden || novaUnlocked).map((t) => (
+          {/* Thèmes easter egg (Nova) : visibles une fois trouvés — sur cet
+              appareil (mot tapé) ou d'après les succès du compte. */}
+          {THEMES.filter((t) => !t.hidden || (t.requiresEgg ? effectiveFoundEggKeys.has(t.requiresEgg) || (t.requiresEgg === "nova-theme" && novaUnlocked) : novaUnlocked)).map((t) => (
             <ThemeCard key={t.key} theme={t} selected={themeKey === t.key} locked={!canUseTheme(t, effectivePlan)} onPick={() => onPickTheme(t.key)} />
           ))}
         </div>
@@ -594,9 +612,9 @@ export default function SettingsPage() {
       <GlassCard>
         <h2 className="font-display text-base font-medium text-white">Fond d&apos;écran</h2>
         <p className="mt-1 text-sm text-slate-400">
-          34 fonds qui s&apos;accordent avec votre thème de couleurs, dont 4 fonds animés : deux réservés aux paliers
-          Pro, un gratuit pour tout le monde, et un dernier à débloquer en trouvant l&apos;easter egg correspondant.
-          Faites défiler avec les flèches ou en glissant à la souris.
+          15 fonds soigneusement choisis qui s&apos;accordent avec votre thème de couleurs, en mode sombre comme en
+          mode clair, dont 4 fonds animés : deux réservés aux paliers Pro, un gratuit pour tout le monde, et un
+          dernier à débloquer en trouvant l&apos;easter egg correspondant. Faites défiler avec les flèches ou en glissant à la souris.
         </p>
         <div className="mt-4">
           <BackgroundCarousel
@@ -718,6 +736,39 @@ export default function SettingsPage() {
           </Link>
           .
         </p>
+      </GlassCard>
+
+      <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Son des succès</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Un petit arpège joyeux accompagne l&apos;animation « Succès débloqué » (carte et confettis) quand vous trouvez un
+          easter egg. Réglage propre à cet appareil ; rien ne s&apos;affiche ni ne sonne en Mode focus.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleAchievementSound}
+            className={clsx(
+              "rounded-full border px-4 py-2 text-sm font-medium transition",
+              achievementSound ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300" : "border-white/10 text-slate-300 hover:border-white/25"
+            )}
+          >
+            Son des succès {achievementSound ? "activé" : "désactivé"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                playAchievementArpeggio();
+              } catch {
+                // audio indisponible
+              }
+            }}
+            className="rounded-full px-3 py-2 text-sm text-slate-400 transition hover:text-white"
+          >
+            ▶ Écouter
+          </button>
+        </div>
       </GlassCard>
 
       <GlassCard>

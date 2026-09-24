@@ -5,6 +5,7 @@ import { clsx } from "@/lib/clsx";
 import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
 import type { Plan } from "@/lib/plans";
 import { IconChevron, IconLock } from "@/components/dashboard/icons";
+import { useMode } from "@/components/mode-provider";
 
 const CARD_WIDTH = 108; // largeur d'une vignette + espace (voir gap-3 = 12px, w-24 = 96px)
 
@@ -39,6 +40,8 @@ export function BackgroundCarousel({
     pointerId: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  // Vignettes dans la déclinaison du mode actif (clair ou sombre).
+  const { mode } = useMode();
 
   function scrollByAmount(amount: number) {
     trackRef.current?.scrollBy({ left: amount, behavior: "smooth" });
@@ -136,7 +139,7 @@ export function BackgroundCarousel({
                   <IconLock className="h-2.5 w-2.5" />
                 </span>
               )}
-              <span className={clsx("h-16 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: bg.css }} />
+              <span className={clsx("h-16 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: mode === "light" ? bg.lightCss : bg.css }} />
               <span className="line-clamp-1 text-[10px] text-slate-400">{bg.label}</span>
               {locked && <span className="text-[9px] text-amber-400">{bg.requiresEgg ? "Easter egg" : `Palier ${bg.requiresPlan}`}</span>}
             </button>

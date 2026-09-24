@@ -27,6 +27,15 @@ export interface EasterEggDef {
   // dévoiler comment l'obtenir. Ces entrées sont affichées à part, sans
   // numéro, à la fin de la page /succes.
   reward?: string;
+  // Succès TOTALEMENT caché : même le nom de la récompense n'est révélé
+  // qu'une fois trouvé (voir /api/easter-eggs). Avant, il s'affiche comme
+  // n'importe quel easter egg numéroté, en « ? ».
+  secret?: boolean;
+  // Déclenché UNIQUEMENT par le serveur (seuils d'audience calculés depuis
+  // la base, voir src/lib/easter-eggs/audience.ts) : refusé par
+  // POST /api/easter-eggs/found, pour qu'on ne puisse pas se l'attribuer
+  // depuis le navigateur.
+  serverOnly?: boolean;
 }
 
 export const EASTER_EGGS: EasterEggDef[] = [
@@ -40,7 +49,7 @@ export const EASTER_EGGS: EasterEggDef[] = [
   { key: "lost-in-space", number: 8, emoji: "🛰️", title: "Perdu dans l'espace", hint: "Tombez sur une page qui n'existe pas." },
   { key: "ai-identity", number: 9, emoji: "🤖", title: "Qui es-tu ?", hint: "Demandez à l'assistant IA qui il est." },
   { key: "publish-milestone", number: 10, emoji: "🎉", title: "Jalon de publications", hint: "Soyez présent·e quand Nebula franchit un cap de publications envoyées." },
-  { key: "referral-crown", number: 11, emoji: "👑", title: "Couronne du parrainage", hint: "Prenez la 1ʳᵉ place du classement des parrainages." },
+  { key: "referral-crown", number: 11, emoji: "👑", title: "Couronne du parrainage", hint: "Prenez la 1ʳᵉ place du classement des parrainages.", reward: "Cadre « La couronne » (page bio)" },
   { key: "support-heartbeat", number: 12, emoji: "💓", title: "Cœur qui s'emballe", hint: "Cliquez 5 fois d'affilée sur le cœur de la page Soutenir Nebula." },
   { key: "followers-1000", number: 13, emoji: "🎖️", title: "Cap des 1000", hint: "Faites franchir les 1 000 abonnés à l'un de vos comptes connectés." },
   { key: "friday-13", number: 14, emoji: "🐈‍⬛", title: "Vendredi 13", hint: "Utilisez Nebula un vendredi 13." },
@@ -106,7 +115,23 @@ export const EASTER_EGGS: EasterEggDef[] = [
     title: "Poussière retrouvée",
     hint: "Ouvrez le menu latéral (☰) 7 fois de suite, en moins de 10 secondes.",
     reward: "Cosmétique « Poussière d'étoiles » (menu latéral)"
-  }
+  },
+
+  // --- Sixième vague (24/09/2026) — cadres animés de la page bio (voir
+  // src/lib/bio-frames.ts). Succès cachés, débloqués par des seuils
+  // d'audience calculés côté serveur (src/lib/easter-eggs/audience.ts) :
+  // j'aime cumulés sur toutes vos publications pour l'Or, abonnés cumulés
+  // de tous vos comptes pour l'Éclipse, et le million pour les deux cadres
+  // ultimes. Exclus du calcul de « Complétion totale » (voir
+  // AUDIENCE_ACHIEVEMENT_KEYS).
+  { key: "frame-or-comete", number: 49, emoji: "☄️", title: "Mille cœurs", hint: "Cumulez 1 000 j'aime sur l'ensemble de vos publications.", reward: "Cadre « Comète » dorée (page bio)", secret: true, serverOnly: true },
+  { key: "frame-or-orbites", number: 50, emoji: "💛", title: "Dix mille cœurs", hint: "Cumulez 10 000 j'aime sur l'ensemble de vos publications.", reward: "Cadre « Orbites » dorées (page bio)", secret: true, serverOnly: true },
+  { key: "frame-or-metal", number: 51, emoji: "🏵️", title: "Cent mille cœurs", hint: "Cumulez 100 000 j'aime sur l'ensemble de vos publications.", reward: "Cadre « Feuille d'or » (page bio)", secret: true, serverOnly: true },
+  { key: "frame-eclipse-comete", number: 52, emoji: "🌑", title: "Premier cercle", hint: "Cumulez 1 000 abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre « Comète » Éclipse (page bio)", secret: true, serverOnly: true },
+  { key: "frame-eclipse-orbites", number: 53, emoji: "🪐", title: "Gravitation", hint: "Cumulez 10 000 abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre « Orbites » Éclipse (page bio)", secret: true, serverOnly: true },
+  { key: "frame-eclipse-metal", number: 54, emoji: "⚫", title: "Masse critique", hint: "Cumulez 100 000 abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre « Acier noir » Éclipse (page bio)", secret: true, serverOnly: true },
+  { key: "frame-ultime-nacre", number: 55, emoji: "🦪", title: "Le million de cœurs", hint: "Cumulez 1 000 000 de j'aime sur l'ensemble de vos publications.", reward: "Cadre ultime « Nacre » (page bio)", secret: true, serverOnly: true },
+  { key: "frame-ultime-prisme", number: 56, emoji: "💎", title: "Le million", hint: "Cumulez 1 000 000 d'abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre ultime « Prisme » (page bio) et thème « Prisme »", secret: true, serverOnly: true }
 ];
 
 export const EASTER_EGG_KEYS = EASTER_EGGS.map((e) => e.key);
@@ -122,6 +147,20 @@ export const ORIGINAL_TWENTY_KEYS = EASTER_EGGS.slice(0, 20).map((e) => e.key);
 // les exclut du calcul de la "complétion à 100%" pour éviter un paradoxe
 // (il faudrait les avoir trouvés pour... les avoir trouvés).
 export const META_ACHIEVEMENT_KEYS = ["original-20-found", "all-eggs-100pct"];
+
+// Succès d'audience (sixième vague) : ils dépendent de la taille des
+// comptes, pas de la curiosité — exclus de « Complétion totale » pour que
+// ce succès reste atteignable par tout le monde.
+export const AUDIENCE_ACHIEVEMENT_KEYS = [
+  "frame-or-comete",
+  "frame-or-orbites",
+  "frame-or-metal",
+  "frame-eclipse-comete",
+  "frame-eclipse-orbites",
+  "frame-eclipse-metal",
+  "frame-ultime-nacre",
+  "frame-ultime-prisme"
+];
 
 export function isValidEasterEggKey(key: string): boolean {
   return EASTER_EGG_KEYS.includes(key);

@@ -40,6 +40,8 @@
      que le JS client n'ait lu la préférence) corresponde déjà à ce que verra
      un compte qui n'a jamais changé de fond. */
   --app-bg: radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), #0e0e10;
+  /* Déclinaison claire du fond par défaut (remplacée par background-provider). */
+  --app-bg-light: radial-gradient(ellipse 90% 45% at 50% -10%, rgb(var(--c-aurora-400) / 0.068), transparent 70%), var(--l-page);
 }
 
 * {
@@ -145,11 +147,11 @@ body {
   color: var(--l-text-1);
 }
 
-/* Le halo décoratif (fonds d'écran de Paramètres, voir backgrounds.ts) est
-   pensé pour un fond sombre : sur blanc plein, on le retire plutôt que de le
-   rendre à peine visible. */
+/* Fonds d'écran de Paramètres en mode clair (24/09/2026) : chaque fond a sa
+   déclinaison claire (--app-bg-light, voir backgrounds.ts → lightCss et
+   background-provider.tsx) — mêmes motifs, en pastel sur fond clair. */
 [data-mode="light"] .noise-grid::before {
-  display: none;
+  background: var(--app-bg-light, none);
 }
 
 /* --- Cartes / panneaux / modales --- */
@@ -1207,5 +1209,251 @@ body {
 @keyframes goldShimmer {
   to {
     background-position: 200% center;
+  }
+}
+
+/* ==========================================================================
+   Cadres de la page bio (24/09/2026) — voir src/lib/bio-frames.ts et
+   src/components/link-in-bio/bio-frame.tsx. Préfixe .bf-*.
+   Ordre d'empilement : couches derrière (z 0) → carte (z 1, avec ses
+   couches internes sous le contenu) → couches devant (z 2).
+   ========================================================================== */
+@property --bf-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes bf-spin { to { --bf-a: 360deg; } }
+@keyframes bf-rotate { to { transform: rotate(360deg); } }
+
+.bf-root { isolation: isolate; }
+.bf-card { z-index: 1; }
+.bf-on .bf-card > :not(.bf-layer) { position: relative; z-index: 1; }
+.bf-layer { position: absolute; pointer-events: none; }
+.bf-card > .bf-layer { z-index: 0; }
+.bf-root > .bf-layer { z-index: 0; }
+.bf-root > .bf-edge, .bf-root > .bf-rim, .bf-root > .bf-trace, .bf-root > .bf-glint { z-index: 2; }
+
+/* Couleurs par univers */
+.bf-or { --bf-1: #fff4cc; --bf-2: #f2cf6b; --bf-3: #c99a2e; --bf-4: #7a5a14; --bf-glow: rgba(242, 207, 107, 0.75); }
+.bf-eclipse { --bf-1: #ffffff; --bf-2: #c9c3ff; --bf-3: #6b5bd6; --bf-4: #1b1b22; --bf-glow: rgba(201, 195, 255, 0.8); }
+
+/* Liseré fin du contour (Comète, Orbites, Couronne) */
+.bf-edge { inset: 0; border-radius: var(--bf-r); display: none; }
+.bf-comete .bf-edge, .bf-orbites .bf-edge, .bf-couronne .bf-edge { display: block; }
+.bf-or .bf-edge { box-shadow: inset 0 0 0 1px rgba(242, 207, 107, 0.22); }
+.bf-eclipse .bf-edge { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.bf-couronne.bf-or .bf-edge { box-shadow: inset 0 0 0 1px rgba(242, 207, 107, 0.4); }
+
+/* Traînées lumineuses (tirets SVG) */
+.bf-trace { left: -1px; top: -1px; overflow: visible; filter: drop-shadow(0 0 3px var(--bf-glow)); }
+.bf-couronne .bf-trace { filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 16px rgba(185, 168, 255, 0.9)); }
+
+/* --- Halo qui respire (défaut Or Impérial / Éclipse totale) --- */
+.bf-halo.bf-or .bf-card { animation: bf-breathe-or 3.6s ease-in-out infinite; }
+@keyframes bf-breathe-or {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(242, 207, 107, 0.35), 0 0 18px 0 rgba(242, 207, 107, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(255, 236, 170, 0.75), 0 0 34px 4px rgba(242, 207, 107, 0.28); }
+}
+.bf-aura {
+  inset: -14px; border-radius: calc(var(--bf-r) + 12px); filter: blur(14px); opacity: 0.85;
+  background: conic-gradient(from var(--bf-a), #2b1a4a, #0a0a0f 25%, #3b3350 45%, #0a0a0f 65%, #4a1426 80%, #2b1a4a);
+  animation: bf-spin 7s linear infinite;
+}
+.bf-rim {
+  inset: 0; border-radius: var(--bf-r); padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.02) 70%, rgba(170, 150, 230, 0.35));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+
+/* --- Feuille de métal --- */
+.bf-foil {
+  inset: -1.5px; border-radius: calc(var(--bf-r) + 1.5px);
+  background: conic-gradient(from var(--bf-a), var(--bf-4), var(--bf-2), var(--bf-1), var(--bf-2), var(--bf-4), var(--bf-3), var(--bf-4));
+  animation: bf-spin 9s linear infinite;
+}
+.bf-eclipse .bf-foil { --bf-1: #f0f0f6; --bf-2: #8d8da0; --bf-3: #5b1f35; --bf-4: #1b1b22; }
+.bf-foil-glow { filter: blur(10px); opacity: 0.45; }
+.bf-sheen { inset: 0; overflow: hidden; border-radius: inherit; }
+.bf-sheen::after {
+  content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 244, 204, 0.14) 45%, rgba(255, 255, 255, 0.28) 50%, rgba(255, 244, 204, 0.14) 55%, transparent);
+  animation: bf-sweep 4.5s ease-in-out infinite;
+}
+.bf-eclipse .bf-sheen::after { filter: grayscale(1); }
+@keyframes bf-sweep { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+
+/* --- La couronne (version Or : poussière d'or qui monte) --- */
+.bf-dust { inset: 0; overflow: hidden; border-radius: inherit; }
+.bf-dust i {
+  position: absolute; bottom: -6px; width: 3px; height: 3px; border-radius: 50%;
+  background: #ffe7a0; box-shadow: 0 0 6px #f2cf6b; opacity: 0;
+  animation: bf-rise 6s linear infinite;
+}
+@keyframes bf-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translate(var(--bf-x, 10px), -420px); opacity: 0; }
+}
+
+/* --- Nacre (cadre ultime, 1 M de j'aime) : carte claire couleur perle --- */
+.bf-opal {
+  inset: -3px; border-radius: calc(var(--bf-r) + 3px);
+  background: conic-gradient(from var(--bf-a), #fde7f3, #e3f1ff, #e9fff4, #fff6de, #efe6ff, #fde7f3);
+  animation: bf-spin 10s linear infinite;
+}
+.bf-opal-glow { inset: -14px; filter: blur(22px); opacity: 0.45; }
+.bf-nacre .bf-card { background: linear-gradient(160deg, #fbfaff, #efeef6 60%, #f7f1f6) !important; color: #1c1b22; border-color: transparent !important; }
+.bf-pearl-sheen {
+  inset: 0; border-radius: inherit;
+  background: radial-gradient(60% 40% at 25% 18%, rgba(255, 210, 235, 0.7), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(200, 230, 255, 0.7), transparent 70%);
+  animation: bf-pearl 8s ease-in-out infinite alternate;
+}
+@keyframes bf-pearl { from { filter: hue-rotate(0deg); transform: translateX(-4%); } to { filter: hue-rotate(60deg); transform: translateX(4%); } }
+.bf-nacre .bf-card .text-white { color: #1c1b22 !important; }
+.bf-nacre .bf-card .text-white\/70 { color: #4a4958 !important; }
+.bf-nacre .bf-card .text-white\/40 { color: #8a8998 !important; }
+.bf-nacre .bf-card .bf-link {
+  background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(28, 27, 34, 0.1) !important;
+  color: #1c1b22 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* --- Prisme (cadre ultime, 1 M d'abonnés) : holographique --- */
+.bf-ring {
+  inset: -2px; border-radius: calc(var(--bf-r) + 2px);
+  background: conic-gradient(from var(--bf-a), #ff7ad9, #ffd36e, #7cffb2, #6ee7ff, #8a7dff, #ff7ad9);
+  animation: bf-spin 6s linear infinite;
+}
+.bf-ring-glow { inset: -6px; filter: blur(16px); opacity: 0.55; }
+.bf-prisme .bf-card { background: #0d0d12 !important; border-color: transparent !important; }
+.bf-holo {
+  inset: 0; border-radius: inherit; mix-blend-mode: screen; opacity: 0.22;
+  background: linear-gradient(115deg, transparent 20%, #ff7ad9 32%, #ffd36e 40%, #7cffb2 48%, #6ee7ff 56%, #8a7dff 64%, transparent 76%);
+  background-size: 250% 100%; animation: bf-holo 5s ease-in-out infinite alternate;
+}
+@keyframes bf-holo { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.bf-glint { width: 18px; height: 18px; animation: bf-twinkle 2.8s ease-in-out infinite; }
+.bf-glint::before, .bf-glint::after {
+  content: ""; position: absolute; left: 50%; top: 50%; background: #fff; border-radius: 2px;
+  transform: translate(-50%, -50%); box-shadow: 0 0 8px #fff;
+}
+.bf-glint::before { width: 2px; height: 18px; }
+.bf-glint::after { width: 18px; height: 2px; }
+@keyframes bf-twinkle { 0%, 100% { opacity: 0; transform: scale(0.3) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+
+/* --- Photo de profil --- */
+.bf-avatar > :not(.bf-layer) { position: relative; z-index: 1; }
+.bf-avatar > .bf-layer { z-index: 0; }
+.bf-avatar > .bf-av-sheen { z-index: 2; }
+.bf-or .bf-avatar { box-shadow: 0 0 0 2px rgba(242, 207, 107, 0.6); }
+.bf-eclipse .bf-avatar { box-shadow: 0 0 0 1.5px rgba(210, 210, 225, 0.4); }
+.bf-or .bf-av-halo { animation: bf-av-breathe 3.6s ease-in-out infinite; }
+@keyframes bf-av-breathe {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(242, 207, 107, 0.5), 0 0 6px rgba(242, 207, 107, 0.25); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 236, 170, 0.95), 0 0 20px 3px rgba(242, 207, 107, 0.6); }
+}
+.bf-eclipse .bf-av-halo { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55), 0 0 22px 2px rgba(120, 90, 220, 0.35); }
+.bf-av-sheen { inset: 0; border-radius: 50%; overflow: hidden; }
+.bf-av-sheen::after {
+  content: ""; position: absolute; top: -20%; bottom: -20%; width: 45%; left: -70%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55) 50%, transparent);
+  animation: bf-sweep 4.5s ease-in-out infinite;
+}
+.bf-av-orbit { inset: -7px; border-radius: 50%; animation: bf-rotate 3.2s linear infinite; }
+.bf-av-orbit i {
+  position: absolute; left: 50%; top: 0; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%;
+  background: var(--bf-1); box-shadow: 0 0 8px 2px var(--bf-glow);
+}
+.bf-av-foil {
+  inset: -3px; border-radius: 50%;
+  background: conic-gradient(from var(--bf-a), var(--bf-4), var(--bf-2), var(--bf-1), var(--bf-2), var(--bf-4), var(--bf-3), var(--bf-4));
+  animation: bf-spin 9s linear infinite;
+}
+.bf-av-foil, .bf-av-ring {
+  -webkit-mask: radial-gradient(circle, transparent calc(50% - 4px), #000 calc(50% - 3.5px));
+  mask: radial-gradient(circle, transparent calc(50% - 4px), #000 calc(50% - 3.5px));
+}
+.bf-eclipse .bf-av-foil { --bf-1: #f0f0f6; --bf-2: #8d8da0; --bf-3: #5b1f35; --bf-4: #1b1b22; }
+.bf-av-metal { box-shadow: none !important; }
+.bf-av-corona {
+  inset: -18px; border-radius: 50%;
+  background: repeating-conic-gradient(from var(--bf-a), rgba(255, 255, 255, 0) 0deg 7deg, rgba(210, 200, 255, 0.55) 8deg, rgba(255, 255, 255, 0) 10deg 17deg);
+  -webkit-mask: radial-gradient(circle, transparent 42%, #000 46%, transparent 72%);
+  mask: radial-gradient(circle, transparent 42%, #000 46%, transparent 72%);
+  animation: bf-spin 22s linear infinite; filter: blur(0.6px);
+}
+.bf-or .bf-av-corona {
+  background: repeating-conic-gradient(from var(--bf-a), rgba(255, 240, 190, 0) 0deg 9deg, rgba(242, 207, 107, 0.6) 10deg, rgba(255, 240, 190, 0) 12deg 20deg);
+  animation-duration: 30s;
+}
+.bf-av-corona-glow { inset: -4px; border-radius: 50%; }
+.bf-eclipse .bf-av-corona-glow { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85), 0 0 16px 3px rgba(190, 170, 255, 0.55), 0 0 40px 8px rgba(120, 90, 220, 0.25); }
+.bf-or .bf-av-corona-glow { box-shadow: 0 0 0 1.5px rgba(255, 236, 170, 0.8), 0 0 16px 3px rgba(242, 207, 107, 0.45); }
+.bf-av-couronne { box-shadow: none !important; }
+.bf-nacre .bf-avatar { box-shadow: 0 6px 18px rgba(80, 60, 120, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 4px rgba(200, 190, 230, 0.6); }
+.bf-av-ring {
+  inset: -3px; border-radius: 50%;
+  background: conic-gradient(from var(--bf-a), #ff7ad9, #ffd36e, #7cffb2, #6ee7ff, #8a7dff, #ff7ad9);
+  animation: bf-spin 6s linear infinite;
+}
+.bf-prisme .bf-avatar { box-shadow: 0 0 18px rgba(160, 200, 255, 0.45); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-root *, .bf-root *::before, .bf-root *::after, .bf-root .bf-card { animation: none !important; }
+  .bf-trace { display: none; }
+}
+
+/* Calendrier (vue mois) : publications d'un jour qui défilent dans la case,
+   avec une mini barre de défilement discrète (24/09/2026). */
+.cal-day-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.cal-day-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.cal-day-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cal-day-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.cal-day-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.32);
+}
+[data-mode="light"] .cal-day-scroll {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+[data-mode="light"] .cal-day-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+/* Fondu en bas quand il y a plus de publications que de place. */
+.cal-day-scroll-fade {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  padding-bottom: 10px;
+}
+
+/* Carte « Succès débloqué » (achievement-toast-listener.tsx) : surgit au
+   centre en rebondissant, puis s'efface. */
+.nebula-achievement-card {
+  animation: nebulaAchievementIn 3.6s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+}
+@keyframes nebulaAchievementIn {
+  0% { transform: scale(0); opacity: 1; }
+  14% { transform: scale(1); }
+  86% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nebula-achievement-card {
+    animation: nebulaAchievementFade 3.6s ease forwards;
+  }
+  @keyframes nebulaAchievementFade {
+    0% { opacity: 0; }
+    8%, 86% { opacity: 1; }
+    100% { opacity: 0; }
   }
 }

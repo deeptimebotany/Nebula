@@ -15,6 +15,9 @@ export interface ConnectionRow {
   id: string;
   network: Network;
   displayName: string;
+  // Identifiant (@…) et photo du compte, pour l'aperçu fidèle du Composer.
+  handle?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface NetworkOverride {

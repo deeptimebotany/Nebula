@@ -14,7 +14,9 @@ import { useCosmetics } from "@/components/cosmetics-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import type { Plan } from "@/lib/plans";
-import { IconAvatar, IconChevron, IconPlus } from "./icons";
+import { IconAvatar, IconChevron, IconPlus, IconLogout } from "./icons";
+import { useConfirm } from "@/components/dashboard/confirm";
+import type { BrandSummary } from "@/components/brand-context";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { UpgradeGem } from "./upgrade-gem";
 
@@ -27,7 +29,8 @@ const PLAN_BADGE_STYLE: Record<Plan, string> = {
 const PLAN_LABEL: Record<Plan, string> = { FREE: "Gratuit", PRO: "Pro", AGENCY: "Agence" };
 
 export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
-  const { brands, activeBrand, setActiveBrandId, createBrand } = useBrand();
+  const { brands, activeBrand, setActiveBrandId, createBrand, refresh: refreshBrands } = useBrand();
+  const confirmDialog = useConfirm();
   const upgrade = useUpgradeModal();
   const { data, refresh } = useBootstrap();
   const cosmetics = useCosmetics();
@@ -65,6 +68,48 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  // Retirer une marque de son espace (voir DELETE /api/brands/[id]) :
+  // propriétaire → suppression définitive, confirmée en retapant le nom ;
+  // simple membre → on quitte la marque, qui reste intacte pour les autres.
+  async function removeBrand(b: BrandSummary) {
+    if (brands.length <= 1) {
+      toast.error("C'est votre seule marque : créez-en une autre avant de retirer celle-ci.");
+      return;
+    }
+    const owner = b.role === "OWNER";
+    const ok = await confirmDialog(
+      owner
+        ? {
+            title: `Supprimer « ${b.name} » ?`,
+            message:
+              "La marque et tout son contenu seront supprimés définitivement : publications et programmations, comptes réseaux connectés, Page bio, rapports et médias envoyés. Vos autres marques ne sont pas touchées.",
+            confirmLabel: "Supprimer définitivement",
+            danger: true,
+            requireText: b.name
+          }
+        : {
+            title: `Quitter « ${b.name} » ?`,
+            message: "Vous n'aurez plus accès à cette marque. Son contenu reste intact pour les autres membres.",
+            confirmLabel: "Quitter la marque",
+            danger: true
+          }
+    );
+    if (!ok) return;
+    const res = await fetch(`/api/brands/${b.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(json.error ?? "Impossible de retirer cette marque.");
+      return;
+    }
+    if (activeBrand?.id === b.id) {
+      const next = brands.find((x) => x.id !== b.id);
+      if (next) setActiveBrandId(next.id);
+    }
+    await refreshBrands();
+    refresh();
+    toast.success(json.action === "deleted" ? `Marque « ${b.name} » supprimée.` : `Vous avez quitté « ${b.name} ».`);
+  }
 
   async function submitNewBrand() {
     if (!newName.trim()) return;
@@ -153,8 +198,8 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
             Vos marques · {brandsOwned}/{maxBrands}
           </p>
           {brands.map((b) => (
+            <div key={b.id} className="group/row relative">
             <button
-              key={b.id}
               role="menuitemradio"
               aria-checked={b.id === activeBrand?.id}
               onClick={() => {
@@ -163,7 +208,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
                 onNavigate?.();
               }}
               className={clsx(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm",
+                "flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-10 text-sm",
                 b.id === activeBrand?.id ? "bg-nebula-600/30 text-white" : "text-slate-300 hover:bg-white/5"
               )}
             >
@@ -175,6 +220,20 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
               </span>
               <span className="text-[11px] uppercase text-slate-500">{b.role === "OWNER" ? "Propriétaire" : b.role}</span>
             </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                void removeBrand(b);
+              }}
+              title={b.role === "OWNER" ? "Supprimer cette marque" : "Quitter cette marque"}
+              aria-label={b.role === "OWNER" ? `Supprimer la marque ${b.name}` : `Quitter la marque ${b.name}`}
+              className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100"
+            >
+              <IconLogout className="h-3.5 w-3.5" />
+            </button>
+            </div>
           ))}
           {brands.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">Aucune marque encore.</p>}
 

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
-import { isValidEasterEggKey } from "@/lib/easter-eggs-registry";
+import { isValidEasterEggKey, findEasterEgg } from "@/lib/easter-eggs-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  if (!isValidEasterEggKey(parsed.data.key)) {
+  if (!isValidEasterEggKey(parsed.data.key) || findEasterEgg(parsed.data.key)?.serverOnly) {
     return NextResponse.json({ error: "Easter egg inconnu." }, { status: 400 });
   }
 

@@ -93,7 +93,9 @@ export const tiktokClient: SocialClient = {
             privacy_level: "SELF_ONLY", // à ajuster : PUBLIC_TO_EVERYONE si l'app est auditée
             disable_duet: false,
             disable_comment: false,
-            disable_stitch: false
+            disable_stitch: false,
+            // Étiquette « Creator labeled as AI-generated » de TikTok.
+            ...(input.aiGenerated ? { is_aigc: true } : {})
           },
           source_info: {
             source: "PULL_FROM_URL",

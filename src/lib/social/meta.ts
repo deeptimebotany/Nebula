@@ -21,7 +21,7 @@ const ENGAGEMENT_COMMENTS_PER_POST = 25;
 // compte développeur que Facebook. Doc officielle :
 // https://developers.facebook.com/docs/instagram-platform/content-publishing
 const GRAPH_VERSION = "v19.0";
-const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -359,11 +359,27 @@ export const instagramClient: SocialClient = {
       params.set("image_url", input.mediaUrls[0]);
     }
 
-    const container = await fetchJson<{ id: string }>(
-      "INSTAGRAM",
-      `${GRAPH_BASE}/${connection.externalAccountId}/media?${params.toString()}`,
-      { method: "POST" }
-    );
+    // Lieu (location_id = Page Facebook du lieu). S'il est refusé (page
+    // sans adresse, identifiant invalide…), on republie sans le lieu plutôt
+    // que de faire échouer toute la publication.
+    if (input.location?.id) params.set("location_id", input.location.id);
+    let container: { id: string };
+    try {
+      container = await fetchJson<{ id: string }>(
+        "INSTAGRAM",
+        `${GRAPH_BASE}/${connection.externalAccountId}/media?${params.toString()}`,
+        { method: "POST" }
+      );
+    } catch (err) {
+      if (!params.has("location_id")) throw err;
+      console.error(`[instagram] lieu ${input.location?.id} refusé, publication sans lieu :`, err);
+      params.delete("location_id");
+      container = await fetchJson<{ id: string }>(
+        "INSTAGRAM",
+        `${GRAPH_BASE}/${connection.externalAccountId}/media?${params.toString()}`,
+        { method: "POST" }
+      );
+    }
 
     // Pour une vidéo/Reel, Instagram encode le fichier de façon asynchrone :
     // on interroge status_code jusqu'à FINISHED avant de publier.
@@ -447,11 +463,26 @@ export const facebookClient: SocialClient = {
       caption: input.caption,
       description: input.caption
     });
-    const result = await fetchJson<{ id: string; post_id?: string }>(
-      "FACEBOOK",
-      `${GRAPH_BASE}/${connection.externalAccountId}/${endpoint}?${params.toString()}`,
-      { method: "POST" }
-    );
+    // Lieu : paramètre « place » (Page Facebook du lieu), photos uniquement.
+    // Refusé → on republie sans le lieu.
+    if (input.location?.id && endpoint === "photos") params.set("place", input.location.id);
+    let result: { id: string; post_id?: string };
+    try {
+      result = await fetchJson<{ id: string; post_id?: string }>(
+        "FACEBOOK",
+        `${GRAPH_BASE}/${connection.externalAccountId}/${endpoint}?${params.toString()}`,
+        { method: "POST" }
+      );
+    } catch (err) {
+      if (!params.has("place")) throw err;
+      console.error(`[facebook] lieu ${input.location?.id} refusé, publication sans lieu :`, err);
+      params.delete("place");
+      result = await fetchJson<{ id: string; post_id?: string }>(
+        "FACEBOOK",
+        `${GRAPH_BASE}/${connection.externalAccountId}/${endpoint}?${params.toString()}`,
+        { method: "POST" }
+      );
+    }
     const id = result.post_id ?? result.id;
     return { externalPostId: id, externalUrl: `https://www.facebook.com/${id}` };
   },

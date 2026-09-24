@@ -72,8 +72,34 @@ function initials(name: string | null | undefined): string {
 }
 
 export function ProfilePanel() {
-  const { data: me } = useBootstrap();
+  const { data: me, patch: patchMe } = useBootstrap();
   const toast = useToast();
+  // Photo de profil : un clic sur la pastille pour en envoyer une nouvelle.
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  async function onPhotoChosen(file: File) {
+    if (!me) return;
+    setPhotoUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const up = await fetch("/api/media/thumbnails/upload", { method: "POST", body: form });
+      const upData = await up.json().catch(() => ({}));
+      if (!up.ok || !upData.url) throw new Error(upData.error ?? "Échec de l'envoi de la photo.");
+      const res = await fetch("/api/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ avatarUrl: upData.url }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Échec de l'enregistrement de la photo.");
+      // Mise à jour immédiate partout (panneau, sélecteur de compte, Communauté).
+      patchMe({ user: { ...me.user, avatarUrl: data.avatarUrl } });
+      toast.success("Photo de profil mise à jour.");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  }
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ProfileData | null>(null);
   const [pendingSection, setPendingSection] = useState<ProfileSection | null>(null);
@@ -170,13 +196,26 @@ export function ProfilePanel() {
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           {/* Identité */}
           <section className="flex items-center gap-3">
-            {user?.avatarUrl ? (
-              <RemoteImage src={user.avatarUrl} className="h-14 w-14 shrink-0 rounded-full" sizes="56px" />
-            ) : (
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nebula-600/70 to-accent-cyan/40 font-display text-lg font-semibold text-white">
-                {user ? initials(user.name) : <IconAvatar className="h-5 w-5" />}
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={!user || photoUploading}
+              title="Changer la photo de profil"
+              aria-label="Changer la photo de profil"
+              className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-full"
+            >
+              {user?.avatarUrl ? (
+                <RemoteImage key={user.avatarUrl} src={user.avatarUrl} className="h-14 w-14 rounded-full" sizes="56px" />
+              ) : (
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-nebula-600/70 to-accent-cyan/40 font-display text-lg font-semibold text-white">
+                  {user ? initials(user.name) : <IconAvatar className="h-5 w-5" />}
+                </span>
+              )}
+              <span className={clsx("absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-[10px] font-semibold text-white transition", photoUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100")}>
+                {photoUploading ? "Envoi…" : "Changer"}
               </span>
-            )}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onPhotoChosen(e.target.files[0])} />
             <div className="min-w-0">
               <p className="truncate font-display text-lg font-semibold text-white">{user?.name || "Mon compte"}</p>
               <p className="truncate text-xs text-slate-500">{user?.email}</p>

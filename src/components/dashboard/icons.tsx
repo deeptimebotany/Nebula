@@ -79,6 +79,14 @@ export const IconSparkle = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Cloche (option « Notifier les abonnés » du Composer).
+export const IconBell = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15Z" strokeLinejoin="round" />
+    <path d="M10 20.5a2 2 0 0 0 4 0" strokeLinecap="round" />
+  </svg>
+);
+
 export const IconCard = ({ className = base }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <rect x="3" y="5.5" width="18" height="13" rx="2" />

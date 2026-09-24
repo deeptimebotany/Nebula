@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
 import { IconAvatar, IconChevron, IconPlus, IconClose, IconTrophy } from "./icons";
 import { openProfilePanel } from "./profile-panel";
+import { useBootstrap } from "@/components/bootstrap-provider";
 
 interface LinkedAccount {
   uid: string;
@@ -32,6 +33,9 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  // Photo du compte actif : celle enregistrée dans Nebula (« Mon profil »),
+  // plutôt que celle figée dans le jeton de connexion.
+  const { data: me } = useBootstrap();
 
   function refresh() {
     fetch("/api/accounts/linked")
@@ -90,7 +94,8 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
     signIn("google", { callbackUrl: "/api/accounts/link" });
   }
 
-  const active = accounts.find((a) => a.active) ?? null;
+  const activeLinked = accounts.find((a) => a.active) ?? null;
+  const active = activeLinked && me?.user.avatarUrl ? { ...activeLinked, image: me.user.avatarUrl } : activeLinked;
   const canAddAccount = Boolean(oauth?.google);
 
   return (
@@ -155,8 +160,8 @@ export function AccountSwitcher({ oauth }: AccountSwitcherProps) {
                 switching === a.uid && "opacity-50"
               )}
             >
-              {a.image ? (
-                <RemoteImage src={a.image} className="h-7 w-7 shrink-0 rounded-full" sizes="28px" />
+              {(a.active ? active?.image : a.image) ? (
+                <RemoteImage src={(a.active ? active?.image : a.image) as string} className="h-7 w-7 shrink-0 rounded-full" sizes="28px" />
               ) : (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
                   <IconAvatar className="h-4 w-4" />

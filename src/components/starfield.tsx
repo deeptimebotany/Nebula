@@ -34,7 +34,11 @@ interface Constellation {
   createdAt: number;
 }
 
-const STAR_COUNT = 170;
+// Réglé le 24/09/2026 comme les fonds Nova/Prisme (theme-particles.tsx) :
+// moins d'étoiles, plus fines, plus discrètes et plus lentes.
+const STAR_COUNT = 120;
+// Vitesse globale du défilement et du scintillement.
+const SPEED = 0.45;
 const CONSTELLATION_FADE_MS = 2600;
 const CONSTELLATION_NEIGHBORS = 5;
 const CONSTELLATION_MAX_DISTANCE_PX = 260;
@@ -48,8 +52,8 @@ function makeStars(count: number): Star[] {
     return {
       x: Math.random(),
       y: Math.random(),
-      r: 0.5 + layer * 1.6,
-      baseAlpha: 0.35 + layer * 0.55,
+      r: Math.max(0.35, (0.5 + layer * 0.7) / 2),
+      baseAlpha: (0.35 + layer * 0.5) * 0.85,
       twinkleSpeed: 0.4 + Math.random() * 1.1,
       twinklePhase: Math.random() * Math.PI * 2,
       vx: -0.006 - layer * 0.014,
@@ -76,9 +80,11 @@ export function Starfield() {
     const root = document.documentElement;
     function restore() {
       root.style.setProperty("--app-bg", findBackground(backgroundKey).css);
+      root.style.setProperty("--app-bg-light", findBackground(backgroundKey).lightCss);
     }
     if (active) {
       root.style.setProperty("--app-bg", "transparent");
+      root.style.setProperty("--app-bg-light", "transparent");
     } else {
       restore();
     }
@@ -146,7 +152,7 @@ export function Starfield() {
     let lastTime = performance.now();
 
     function tick(now: number) {
-      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      const dt = Math.min((now - lastTime) / 1000, 0.05) * SPEED;
       lastTime = now;
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -162,7 +168,7 @@ export function Starfield() {
         if (star.y < -0.02) star.y = 1.02;
         if (star.y > 1.02) star.y = -0.02;
 
-        const twinkle = 0.5 + 0.5 * Math.sin((now / 1000) * star.twinkleSpeed + star.twinklePhase);
+        const twinkle = 0.5 + 0.5 * Math.sin((now / 1000) * SPEED * star.twinkleSpeed + star.twinklePhase);
         const alpha = star.baseAlpha * (0.55 + 0.45 * twinkle);
 
         ctx.beginPath();

@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
+import { NetworkLogo } from "@/components/ui/network-badge";
+import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
 import { PublicConversionBlock } from "@/components/marketing/public-conversion-block";
@@ -109,9 +111,9 @@ export function CalendrierClient({ token }: { token: string }) {
                       {group.posts.map((post) => (
                         <GlassCard key={post.id} hover={false} className="flex items-center gap-3">
                           {post.thumbnailUrl ? (
-                            <RemoteImage src={post.thumbnailUrl} className="h-12 w-12 shrink-0 rounded-lg" sizes="48px" />
+                            <RemoteImage src={post.thumbnailUrl} className="h-12 w-12 shrink-0 rounded-lg" sizes="48px" fallback={<NetworkTile network={post.networks[0]} />} />
                           ) : (
-                            <div className="h-12 w-12 shrink-0 rounded-lg bg-white/5" />
+                            <span className="relative block h-12 w-12 shrink-0 overflow-hidden rounded-lg"><NetworkTile network={post.networks[0]} /></span>
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-white">{post.title}</p>
@@ -135,5 +137,17 @@ export function CalendrierClient({ token }: { token: string }) {
         )}
       </div>
     </main>
+  );
+}
+
+// Vignette de repli (vidéo sans miniature, image introuvable) : logo du
+// premier réseau ciblé sur sa couleur, plutôt qu'une image cassée.
+function NetworkTile({ network }: { network?: string }) {
+  const n = network && (NETWORKS as readonly string[]).includes(network) ? (network as Network) : null;
+  if (!n) return <span className="block h-full w-full bg-white/5" />;
+  return (
+    <span className="flex h-full w-full items-center justify-center text-white" style={{ background: NETWORK_META[n].color }}>
+      <NetworkLogo network={n} className="h-1/2 w-1/2" />
+    </span>
   );
 }

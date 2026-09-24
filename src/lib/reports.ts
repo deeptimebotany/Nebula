@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendReportEmail } from "@/lib/email";
+import { getBrandPlan } from "@/lib/billing/plan";
 
 // Rapports clients automatiques (produit n°6 de la feuille de route) — voir
 // BrandReport dans prisma/schema.prisma. Une marque n'a jamais plus d'un
@@ -162,11 +163,17 @@ export async function runDueReports(): Promise<{ sent: number; failed: number }>
     },
     include: { brand: { select: { id: true, name: true, slug: true } } }
   });
+  // Plus d'envoi automatique si le palier du propriétaire ne comprend plus
+  // les rapports (abonnement terminé) — le réglage reste enregistré.
+  const allowedDue: typeof due = [];
+  for (const r of due) {
+    if ((await getBrandPlan(r.brandId)).limits.reportsEnabled) allowedDue.push(r);
+  }
 
   let sent = 0;
   let failed = 0;
 
-  for (const report of due) {
+  for (const report of allowedDue) {
     try {
       const data = await computeReportData(report.brandId, report.periodDays);
       const baseUrl = process.env.NEXTAUTH_URL || "";

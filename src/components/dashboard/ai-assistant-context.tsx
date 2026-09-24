@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
 import { resolveAssistantContext, type AssistantContextKey } from "@/lib/ai/assistant-contexts";
+import type { FramePickCard } from "@/lib/ai/thumbnail-brief-bridge";
 
 export interface PendingPrompt {
   text: string;
@@ -25,6 +26,20 @@ export interface PendingPrompt {
   submit: boolean;
   /** Change à chaque demande, pour qu'un même texte demandé deux fois de
    *  suite soit bien traité deux fois. */
+  nonce: number;
+}
+
+/** Message ajouté au fil par une page (sans passer par Gemini) — ex. les
+ *  3 miniatures proposées par « Générer des miniatures » du composer. */
+export interface InjectedMessage {
+  role: "user" | "model";
+  text: string;
+  framePicks?: FramePickCard[];
+  error?: boolean;
+}
+
+export interface PendingInjection {
+  messages: InjectedMessage[];
   nonce: number;
 }
 
@@ -42,6 +57,14 @@ interface AiAssistantContextValue {
   ask: (text: string, options?: { submit?: boolean; contextKey?: AssistantContextKey }) => void;
   pendingPrompt: PendingPrompt | null;
   consumePendingPrompt: () => void;
+  /** Ajoute des messages au fil et ouvre le tiroir. */
+  inject: (messages: InjectedMessage[], options?: { contextKey?: AssistantContextKey }) => void;
+  pendingInjection: PendingInjection | null;
+  consumePendingInjection: () => void;
+  /** Une page travaille pour l'assistant (ex. analyse des images) : affiche
+   *  l'indicateur « en train d'écrire ». */
+  externalThinking: boolean;
+  setExternalThinking: (v: boolean) => void;
 }
 
 const AiAssistantContext = createContext<AiAssistantContextValue | null>(null);
@@ -54,6 +77,8 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [override, setOverride] = useState<AssistantContextKey | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
+  const [pendingInjection, setPendingInjection] = useState<PendingInjection | null>(null);
+  const [externalThinking, setExternalThinking] = useState(false);
 
   // Changement de page → l'override de la page précédente n'a plus de sens.
   useEffect(() => {
@@ -73,6 +98,15 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
 
   const consumePendingPrompt = useCallback(() => setPendingPrompt(null), []);
 
+  const inject = useCallback((messages: InjectedMessage[], options?: { contextKey?: AssistantContextKey }) => {
+    if (options?.contextKey) setOverride(options.contextKey);
+    // Ajout à la file (et non remplacement) : deux injections rapprochées
+    // (question puis réponse) ne doivent pas s'écraser.
+    setPendingInjection((prev) => ({ messages: [...(prev?.messages ?? []), ...messages], nonce: Date.now() }));
+    setOpen(true);
+  }, []);
+  const consumePendingInjection = useCallback(() => setPendingInjection(null), []);
+
   const value = useMemo<AiAssistantContextValue>(
     () => ({
       enabled: Boolean(aiStatus?.enabled),
@@ -83,9 +117,14 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       setContextOverride: setOverride,
       ask,
       pendingPrompt,
-      consumePendingPrompt
+      consumePendingPrompt,
+      inject,
+      pendingInjection,
+      consumePendingInjection,
+      externalThinking,
+      setExternalThinking
     }),
-    [aiStatus?.enabled, open, toggle, contextKey, ask, pendingPrompt, consumePendingPrompt]
+    [aiStatus?.enabled, open, toggle, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking]
   );
 
   return <AiAssistantContext.Provider value={value}>{children}</AiAssistantContext.Provider>;

@@ -59,7 +59,9 @@ export async function computeUpcomingPosts(brandId: string, windowDays: number):
       media: { mediaAsset: { thumbnailUrl: string | null; url: string; type: string } }[];
     }) => {
       const firstMedia = p.media[0]?.mediaAsset;
-      const thumbnailUrl = firstMedia ? firstMedia.thumbnailUrl || firstMedia.url : null;
+      // Vidéo sans miniature : pas d'image (l'adresse de la vidéo n'en est
+      // pas une) — la page affiche alors le logo du réseau.
+      const thumbnailUrl = firstMedia ? firstMedia.thumbnailUrl || (firstMedia.type === "IMAGE" ? firstMedia.url : null) : null;
       const networks = Array.from(new Set(p.targets.map((t) => t.network)));
       return {
         id: p.id,

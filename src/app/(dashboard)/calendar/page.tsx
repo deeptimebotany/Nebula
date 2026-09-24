@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { NetworkDot } from "@/components/ui/network-badge";
+import { NetworkDot, NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { motion } from "framer-motion";
@@ -20,6 +20,7 @@ import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconChevron, IconPlus } from "@/components/dashboard/icons";
 import { Tabs } from "@/components/ui/tabs";
+import { useToast } from "@/components/dashboard/toast";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DEFAULT_TIMEZONE, dayKeyAndTime, timeZoneLabel, wallClockToUtc } from "@/lib/timezone";
 
@@ -87,6 +88,7 @@ function CalendarPageInner() {
   // jour — la vue par défaut sur téléphone, où une grille de 7 colonnes est
   // illisible). Le choix est mémorisé sur l'appareil.
   const [view, setView] = useState<CalendarView>("month");
+  const toast = useToast();
   useEffect(() => {
     try {
       const stored = localStorage.getItem(VIEW_KEY) as CalendarView | null;
@@ -166,11 +168,21 @@ function CalendarPageInner() {
     const [h, m] = time.split(":").map(Number);
     // Même heure murale, autre jour — dans le fuseau de la marque.
     const newDate = wallClockToUtc({ year: newDay.getFullYear(), month: newDay.getMonth() + 1, day: newDay.getDate(), hour: h, minute: m }, timezone);
-    await fetch(`/api/posts/${entryId}`, {
+    // Déplacement vers un horaire déjà passé : refusé (le serveur refuse
+    // aussi, voir src/lib/schedule-guard.ts).
+    if (newDate.getTime() <= Date.now()) {
+      toast.error(`Impossible de déplacer la publication à ${time} ce jour-là : cet horaire est déjà passé.`);
+      return;
+    }
+    const res = await fetch(`/api/posts/${entryId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scheduledAt: newDate.toISOString() })
-    }).catch(() => undefined);
+    }).catch(() => null);
+    if (res && !res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Impossible de déplacer cette publication.");
+    }
     refreshPosts();
   }
 
@@ -228,7 +240,10 @@ function CalendarPageInner() {
           title: p.title || p.caption || "(sans titre)",
           networks: visibleTargets.map((t) => t.network),
           status: p.status,
-          thumbnailUrl: p.media[0]?.mediaAsset.thumbnailUrl || p.media[0]?.mediaAsset.url,
+          // Miniature de la vidéo, ou l'image elle-même — jamais l'adresse
+          // du fichier vidéo (ce qui donnait une icône d'image cassée).
+          thumbnailUrl:
+            p.media[0]?.mediaAsset.thumbnailUrl || (p.media[0]?.mediaAsset.type === "IMAGE" ? p.media[0]?.mediaAsset.url : undefined),
           time
         });
       }
@@ -459,11 +474,7 @@ function CalendarPageInner() {
                           className="flex w-full items-center gap-3 rounded-xl bg-nebula-700/30 px-3 py-2.5 text-left text-sm text-slate-100 transition hover:bg-nebula-700/60"
                         >
                           <span className="w-12 shrink-0 font-mono text-xs text-slate-400">{e.time}</span>
-                          {e.thumbnailUrl ? (
-                            <RemoteImage src={e.thumbnailUrl} className="h-9 w-9 shrink-0 rounded-lg" sizes="36px" />
-                          ) : (
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-[10px] text-slate-500">—</span>
-                          )}
+                          <PostThumb entry={e} className="h-9 w-9 rounded-lg" sizes="36px" />
                           <span className="min-w-0 flex-1 truncate">{e.title}</span>
                           <span className="flex shrink-0 gap-0.5">
                             {e.networks.slice(0, 4).map((n, i) => (
@@ -495,7 +506,9 @@ function CalendarPageInner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-white/[0.06]">
+          {/* minmax(0,1fr) : une colonne ne s'élargit jamais sous l'effet d'un
+              titre long — le contenu reste dans sa case. */}
+          <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-px overflow-hidden rounded-xl border border-white/[0.06]">
             {WEEKDAYS.map((d) => (
               <div key={d} className="bg-white/[0.02] px-2 py-2 text-center text-xs font-medium text-slate-500">
                 {d}
@@ -528,7 +541,9 @@ function CalendarPageInner() {
                     }
                   }}
                   className={clsx(
-                    "group/cell relative min-h-[112px] p-2 align-top transition",
+                    // Hauteur fixe : toutes les cases d'une semaine restent
+                    // alignées ; les publications défilent DANS la case.
+                    "group/cell relative flex h-[152px] min-w-0 flex-col overflow-hidden p-2 align-top transition",
                     // Jours hors du mois : fond transparent et numéro plus discret,
                     // sans opacité (l'opacité rendait le numéro illisible, 2:1).
                     inMonth ? "bg-void-900/60" : "bg-transparent",
@@ -545,6 +560,11 @@ function CalendarPageInner() {
                       {day.getDate()}
                     </span>
                     <div className="flex items-center gap-1">
+                      {entries.length > 3 && (
+                        <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-400" title={`${entries.length} publications ce jour-là — faites défiler la case`}>
+                          {entries.length}
+                        </span>
+                      )}
                       {activeBrand && (
                         <Link
                           href={`/composer?date=${key}`}
@@ -556,8 +576,14 @@ function CalendarPageInner() {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    {entries.slice(0, 3).map((e) => (
+                  {/* Toutes les publications du jour, dans une zone qui défile
+                      avec sa propre mini barre (au-delà de 3, un fondu en bas
+                      et le compteur de l'en-tête signalent la suite). */}
+                  <motion.div
+                    layoutScroll
+                    className={clsx("cal-day-scroll -mr-1 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1", entries.length > 3 && "cal-day-scroll-fade")}
+                  >
+                    {entries.map((e) => (
                       // Le layoutId sur le conteneur (et non le <button> natif
                       // lui-même) anime la position lors d'un déplacement par
                       // glisser-déposer, sans entrer en conflit avec les
@@ -578,17 +604,11 @@ function CalendarPageInner() {
                           title={`${e.title} — glissez vers un autre jour pour reprogrammer`}
                           style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
                           className={clsx(
-                            "flex w-full cursor-grab items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:z-10 hover:scale-[1.04] hover:bg-nebula-700/70 hover:shadow-glow active:cursor-grabbing",
+                            "flex w-full min-w-0 cursor-grab items-center gap-1.5 overflow-hidden rounded-md bg-nebula-700/40 py-1 pl-1 pr-1.5 text-left text-[11px] text-slate-100 transition hover:bg-nebula-700/70 active:cursor-grabbing",
                             draggingId === e.id && "opacity-40"
                           )}
                         >
-                          {e.thumbnailUrl ? (
-                            <RemoteImage src={e.thumbnailUrl} className="h-6 w-6 shrink-0 rounded" sizes="24px" />
-                          ) : (
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/5 text-[9px] text-slate-500">
-                              {e.networks[0] ? "" : "—"}
-                            </span>
-                          )}
+                          <PostThumb entry={e} className="h-6 w-6 rounded" sizes="24px" />
                           <span className="flex shrink-0 gap-0.5">
                             {e.networks.slice(0, 3).map((n, i) => (
                               <NetworkDot key={i} network={n} />
@@ -599,8 +619,7 @@ function CalendarPageInner() {
                         </button>
                       </motion.div>
                     ))}
-                    {entries.length > 3 && <p className="text-[11px] text-slate-500">+{entries.length - 3} autre(s)</p>}
-                  </div>
+                  </motion.div>
                 </div>
               );
             })}
@@ -637,7 +656,7 @@ function CalendarPageInner() {
                         style={e.networks[0] ? { borderLeft: `3px solid ${NETWORK_META[e.networks[0]].color}` } : undefined}
                         className="flex items-center gap-1.5 rounded-md bg-nebula-700/40 py-1 pl-1 pr-2 text-left text-[11px] text-slate-100 transition hover:scale-[1.03] hover:bg-nebula-700/70"
                       >
-                        {e.thumbnailUrl && <RemoteImage src={e.thumbnailUrl} className="h-6 w-6 rounded" sizes="24px" />}
+                        <PostThumb entry={e} className="h-6 w-6 rounded" sizes="24px" />
                         <span className="flex gap-0.5">
                           {e.networks.slice(0, 3).map((n, i) => (
                             <NetworkDot key={i} network={n} />
@@ -687,4 +706,20 @@ function CalendarPageInner() {
       )}
     </div>
   );
+}
+
+// Vignette d'une publication dans le calendrier : miniature de la vidéo ou
+// image publiée ; à défaut (vidéo sans miniature, image introuvable), le
+// logo du premier réseau ciblé sur sa couleur — jamais d'image cassée.
+function PostThumb({ entry, className, sizes }: { entry: DayEntry; className: string; sizes: string }) {
+  const network = entry.networks[0];
+  const fallback = network ? (
+    <span className="flex h-full w-full items-center justify-center text-white" style={{ background: NETWORK_META[network].color }}>
+      <NetworkLogo network={network} className="h-1/2 w-1/2" />
+    </span>
+  ) : (
+    <span className="block h-full w-full bg-white/[0.06]" />
+  );
+  if (!entry.thumbnailUrl) return <span className={clsx("relative block shrink-0 overflow-hidden", className)}>{fallback}</span>;
+  return <RemoteImage src={entry.thumbnailUrl} className={clsx("shrink-0", className)} sizes={sizes} fallback={fallback} />;
 }

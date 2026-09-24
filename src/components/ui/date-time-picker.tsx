@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "@/lib/clsx";
 import { IconCalendar, IconChevron } from "@/components/dashboard/icons";
+import { utcToLocalInput } from "@/lib/timezone";
 
 const WEEKDAYS = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 const MONTHS = [
@@ -20,6 +21,34 @@ function pad(n: number) {
 
 function toValue(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const MINUTE_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+/** Délai minimal avant le premier créneau proposé (le temps de valider). */
+const MIN_LEAD_MINUTES = 2;
+
+/** « Maintenant », en heure murale du fuseau voulu (ou de l'appareil). */
+export function nowWallClock(timeZone?: string): string {
+  return timeZone ? utcToLocalInput(new Date(), timeZone) : toValue(new Date());
+}
+
+/** Premier créneau de 5 minutes à venir (au moins MIN_LEAD_MINUTES après « maintenant »). */
+export function firstAvailableSlot(timeZone?: string): string {
+  const d = parseValue(nowWallClock(timeZone));
+  d.setMinutes(d.getMinutes() + MIN_LEAD_MINUTES);
+  const rest = d.getMinutes() % 5;
+  if (rest || d.getSeconds()) d.setMinutes(d.getMinutes() + (5 - rest), 0, 0);
+  return toValue(d);
+}
+
+/** true si cette valeur « YYYY-MM-DDTHH:mm » est déjà passée (même fuseau). */
+export function isPastWallClock(value: string, timeZone?: string): boolean {
+  return Boolean(value) && value <= nowWallClock(timeZone);
+}
+
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function parseValue(value: string): Date {
@@ -49,8 +78,30 @@ function parseValue(value: string): Date {
  * s'affiche toujours par-dessus tout, avec un repli automatique vers le haut
  * si la place manque en bas de l'écran.
  */
-export function DateTimePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function DateTimePicker({
+  value,
+  onChange,
+  timeZone
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  /** Fuseau des heures saisies (celui de la marque) : sert à savoir quelle
+   *  heure il est « maintenant » pour griser le passé. Absent : l'appareil. */
+  timeZone?: string;
+}) {
   const selected = useMemo(() => parseValue(value), [value]);
+  // Plus tôt créneau autorisé (« YYYY-MM-DDTHH:mm »), recalculé toutes les
+  // 30 s : un horaire devient grisé dès qu'il est dépassé, même panneau
+  // ouvert. Tout ce qui est avant est grisé et non sélectionnable.
+  const [minValue, setMinValue] = useState(() => firstAvailableSlot(timeZone));
+  useEffect(() => {
+    setMinValue(firstAvailableSlot(timeZone));
+    const id = window.setInterval(() => setMinValue(firstAvailableSlot(timeZone)), 30_000);
+    return () => window.clearInterval(id);
+  }, [timeZone]);
+  const minDay = minValue.slice(0, 10);
+  const minHour = Number(minValue.slice(11, 13));
+  const minMinute = Number(minValue.slice(14, 16));
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
   const [hour, setHour] = useState(selected.getHours());
@@ -109,27 +160,44 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
     });
   }, [cursor]);
 
-  const todayKey = new Date().toDateString();
-  const selectedKey = value ? selected.toDateString() : null;
-  const todayStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  const todayKey = nowWallClock(timeZone).slice(0, 10);
+  const selectedKey = value ? dayKey(selected) : null;
+  const valueIsPast = Boolean(value) && value < minValue;
+
+  // Toute valeur produite passe par ici : si elle tombe dans le passé, on la
+  // recale sur le premier créneau disponible (jamais de date dépassée).
+  function commit(next: Date) {
+    let v = toValue(next);
+    if (v < minValue) v = minValue;
+    const d = parseValue(v);
+    setHour(d.getHours());
+    setMinute(d.getMinutes());
+    onChange(v);
+  }
 
   function pickDay(d: Date) {
     const next = new Date(d);
     next.setHours(hour, minute, 0, 0);
-    onChange(toValue(next));
+    commit(next);
   }
 
   function applyTime(h: number, m: number) {
-    setHour(h);
-    setMinute(m);
-    const next = new Date(selectedKey ? selected : new Date());
+    const next = new Date(selectedKey ? selected : parseValue(minValue));
     next.setHours(h, m, 0, 0);
-    onChange(toValue(next));
+    commit(next);
   }
+
+  // Ouverture sur une valeur vide ou dépassée : on se place directement sur
+  // le premier créneau disponible.
+  useEffect(() => {
+    if (!open) return;
+    if (!value || value < minValue) commit(parseValue(minValue));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, minValue]);
+
+  const onMinDay = selectedKey === minDay;
+  const hourDisabled = (h: number) => onMinDay && h < minHour;
+  const minuteDisabled = (m: number) => onMinDay && (hour < minHour || (hour === minHour && m < minMinute));
 
   const label = value
     ? `${pad(selected.getDate())}/${pad(selected.getMonth() + 1)}/${selected.getFullYear()} à ${pad(selected.getHours())}:${pad(selected.getMinutes())}`
@@ -144,8 +212,13 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
         className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-left text-sm text-white outline-none transition focus:border-aurora-400/60"
       >
         <IconCalendar className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className={clsx(!value && "text-slate-500")}>{label}</span>
+        <span className={clsx(!value && "text-slate-500", valueIsPast && "text-red-300")}>{label}</span>
       </button>
+      {valueIsPast && (
+        <p className="mt-1.5 text-xs text-red-300" role="alert">
+          Cet horaire est déjà passé : choisissez une date et une heure à venir.
+        </p>
+      )}
 
       {open &&
         pos &&
@@ -192,13 +265,13 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
               ))}
               {grid.map((d) => {
                 const inMonth = d.getMonth() === cursor.getMonth();
-                const isToday = d.toDateString() === todayKey;
-                const isSelected = selectedKey && d.toDateString() === selectedKey;
-                // Jours déjà passés (avant aujourd'hui) : grisés et non
-                // cliquables — on ne programme pas une publication dans le
-                // passé. Le jour même reste sélectionnable (heure encore à
-                // choisir peut être dans le futur).
-                const isPast = d < todayStart && d.toDateString() !== todayKey;
+                const key = dayKey(d);
+                const isToday = key === todayKey;
+                const isSelected = selectedKey && key === selectedKey;
+                // Jours sans aucun créneau à venir (avant le premier créneau
+                // disponible) : grisés et non cliquables. Aujourd'hui reste
+                // sélectionnable tant qu'il lui reste des horaires.
+                const isPast = key < minDay;
                 return (
                   <button
                     type="button"
@@ -229,7 +302,7 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h} className="bg-void-900 text-white">{pad(h)}</option>
+                  <option key={h} value={h} disabled={hourDisabled(h)} className="bg-void-900 text-white disabled:text-slate-600">{pad(h)}</option>
                 ))}
               </select>
               <span className="text-slate-500">:</span>
@@ -239,8 +312,8 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
                 style={{ colorScheme: "dark" }}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
-                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
-                  <option key={m} value={m} className="bg-void-900 text-white">{pad(m)}</option>
+                {MINUTE_STEPS.map((m) => (
+                  <option key={m} value={m} disabled={minuteDisabled(m)} className="bg-void-900 text-white disabled:text-slate-600">{pad(m)}</option>
                 ))}
               </select>
               <button
@@ -251,6 +324,7 @@ export function DateTimePicker({ value, onChange }: { value: string; onChange: (
                 OK
               </button>
             </div>
+            <p className="mt-2 text-[11px] text-slate-500">Les dates et heures déjà passées sont grisées.</p>
           </div>,
           document.body
         )}

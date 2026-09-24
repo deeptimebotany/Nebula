@@ -9,6 +9,8 @@ export interface MeResponse {
   brandsOwned: number;
   billingEnabled: boolean;
   isOwner: boolean;
+  /** Progression des easter eggs (compteur « Succès » du menu). */
+  eggs: { found: number; total: number };
   previewPlan: Plan | null;
   theme: string;
   background: string;

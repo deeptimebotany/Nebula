@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { NetworkLogo } from "@/components/ui/network-badge";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { localInputToUtc } from "@/lib/timezone";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { uploadMediaFile } from "@/lib/upload-client";
 import { clsx } from "@/lib/clsx";
@@ -137,6 +138,12 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
 
   async function onSubmit() {
     if (!activeBrand || !asset) return;
+    // Heure saisie = heure du fuseau de la marque (comme la page Publier).
+    const scheduledUtc = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, activeBrand.timezone) : null;
+    if (scheduledUtc && scheduledUtc.getTime() <= Date.now()) {
+      toast.error("Cet horaire est déjà passé : choisissez une date et une heure à venir.");
+      return;
+    }
     setSubmitting(true);
 
     const targets = selectedNetworks
@@ -147,7 +154,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
-    const scheduledAt = mode === "date" && scheduleDate ? new Date(scheduleDate).toISOString() : undefined;
+    const scheduledAt = scheduledUtc ? scheduledUtc.toISOString() : undefined;
 
     const res = await fetch("/api/posts", {
       method: "POST",
@@ -341,7 +348,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
               Planifier
             </button>
           </div>
-          {mode === "date" && <DateTimePicker value={scheduleDate} onChange={setScheduleDate} />}
+          {mode === "date" && <DateTimePicker value={scheduleDate} onChange={setScheduleDate} timeZone={activeBrand?.timezone} />}
 
           <div className="flex items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
             <button type="button" onClick={onAdvanced} className="text-sm text-slate-400 hover:text-white">

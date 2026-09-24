@@ -7,7 +7,7 @@ import { useMode } from "@/components/mode-provider";
 import { useBrand } from "@/components/brand-context";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import { NAV_GROUPS, OWNER_NAV_ITEMS, SUCCESS_NAV_ITEM, type NavIcon } from "./navigation";
+import { NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun } from "./icons";
 
 interface Command {
@@ -78,8 +78,8 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
         run: () => {
           setFocusMode(!focusMode);
         }
-      },
-      { id: SUCCESS_NAV_ITEM.href, label: SUCCESS_NAV_ITEM.label, hint: SUCCESS_NAV_ITEM.description, icon: SUCCESS_NAV_ITEM.icon, keywords: SUCCESS_NAV_ITEM.keywords, run: () => router.push(SUCCESS_NAV_ITEM.href) }
+      }
+      // « Succès » fait maintenant partie de NAV_GROUPS (menu, section Compte).
     ];
     return [...actions.slice(0, 1), ...nav, ...actions.slice(1)];
   }, [router, mode, setMode, brands, activeBrand?.id, setActiveBrandId, focusMode, setFocusMode, isOwner]);

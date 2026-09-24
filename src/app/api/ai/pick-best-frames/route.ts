@@ -8,7 +8,7 @@ import { z } from "zod";
 
 const bodySchema = z.object({
   brandId: z.string(),
-  count: z.number().int().min(1).max(12).default(6),
+  count: z.number().int().min(1).max(12).default(3),
   frames: z
     .array(
       z.object({
@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const bestIndexes = await pickBestFrames({ frames, count });
-    return NextResponse.json({ bestIndexes });
+    const picks = await pickBestFrames({ frames, count });
+    // bestIndexes conservé pour compatibilité ; picks porte le « pourquoi ».
+    return NextResponse.json({ bestIndexes: picks.map((p) => p.index), picks });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

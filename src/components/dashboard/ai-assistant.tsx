@@ -30,7 +30,7 @@ import {
   suggestionBatchCount,
   type AssistantContextKey
 } from "@/lib/ai/assistant-contexts";
-import { sendThumbnailBrief, type ThumbnailBrief } from "@/lib/ai/thumbnail-brief-bridge";
+import { sendThumbnailBrief, sendThumbnailPick, type FramePickCard, type ThumbnailBrief } from "@/lib/ai/thumbnail-brief-bridge";
 import { MarkdownLite } from "@/components/ui/markdown-lite";
 import { IconChevronRight, IconClose, IconRefresh, IconSend, IconSparkle } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
@@ -50,6 +50,9 @@ interface Message {
   /** Brief structuré renvoyé par le serveur en contexte miniature — affiche
    *  le bouton « Générer cette miniature ». */
   thumbnail?: ThumbnailBrief | null;
+  /** Les 3 miniatures proposées par « Générer des miniatures » (composer),
+   *  avec le pourquoi de chaque choix et un bouton « Choisir celle-ci ». */
+  framePicks?: FramePickCard[];
 }
 
 const STORAGE_PREFIX = "nebula:assistant:conversation:";
@@ -89,7 +92,9 @@ function firstNameOf(name: string | null | undefined): string | null {
 export function AiAssistant() {
   const { activeBrand } = useBrand();
   const { data: bootstrap } = useBootstrap();
-  const { enabled, open, setOpen, contextKey, pendingPrompt, consumePendingPrompt } = useAiAssistant();
+  const { enabled, open, setOpen, contextKey, pendingPrompt, consumePendingPrompt, pendingInjection, consumePendingInjection, externalThinking } = useAiAssistant();
+  // Miniature choisie depuis le chat (affiche « ✓ Choisie » sur sa carte).
+  const [chosenPick, setChosenPick] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const upgrade = useUpgradeModal();
@@ -173,7 +178,13 @@ export function AiAssistant() {
       const userMessage: Message = { id: newId(), role: "user", text, contextKey };
       // Historique envoyé : sans les messages d'erreur (jamais utiles à Gemini,
       // et « ⚠️ » à la place d'une vraie réponse fausserait le fil).
-      const history = [...messages, userMessage].filter((m) => !m.error).map((m) => ({ role: m.role, text: m.text }));
+      const history = [...messages, userMessage].filter((m) => !m.error)
+        .map((m) => ({
+          role: m.role,
+          // Propositions de miniatures : le « pourquoi » de chaque option
+          // accompagne le texte, pour pouvoir en reparler (« et la 2 ? »).
+          text: m.framePicks?.length ? `${m.text}\n${m.framePicks.map((p, k) => `Option ${k + 1} : ${p.reason || "image extraite de la vidéo"}`).join("\n")}` : m.text
+        }));
 
       setMessages((prev) => [...prev, userMessage]);
       setInput("");
@@ -244,6 +255,21 @@ export function AiAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPrompt, open]);
 
+  // --- Messages déposés par une page (ex. les 3 miniatures du composer) ---
+  useEffect(() => {
+    if (!pendingInjection) return;
+    consumePendingInjection();
+    setMessages((prev) => [...prev, ...pendingInjection.messages.map((m) => ({ id: newId(), contextKey, ...m }))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInjection]);
+
+  function onChoosePick(url: string) {
+    sendThumbnailPick(url);
+    setChosenPick(url);
+    // Sur téléphone, le tiroir couvre la page : on le ferme pour voir le résultat.
+    if (window.innerWidth < 1024) setOpen(false);
+  }
+
   function resetConversation() {
     setMessages([]);
     setBatch(0);
@@ -267,7 +293,7 @@ export function AiAssistant() {
   if (!enabled) return null;
 
   const lastMessage = messages[messages.length - 1];
-  const showFollowups = messages.length > 0 && !sending && lastMessage?.role === "model" && !lastMessage.error;
+  const showFollowups = messages.length > 0 && !sending && !externalThinking && lastMessage?.role === "model" && !lastMessage.error;
 
   return (
     <>
@@ -389,6 +415,44 @@ export function AiAssistant() {
                           ) : (
                             <MarkdownLite text={m.text} className="text-sm text-slate-200" />
                           )}
+                          {m.framePicks && m.framePicks.length > 0 && !m.error && (
+                            <div className="mt-3 space-y-2.5">
+                              {m.framePicks.map((p, idx) => (
+                                <div key={p.url} className={clsx("overflow-hidden rounded-xl border bg-nebula-900/40", chosenPick === p.url ? "border-aurora-400/60" : "border-white/10")}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.url} alt={`Proposition de miniature ${idx + 1}`} loading="lazy" className="aspect-video w-full object-cover" />
+                                  <div className="p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-aurora-300">
+                                      Option {idx + 1}
+                                      {idx === 0 ? " · recommandée" : ""}
+                                    </p>
+                                    {p.reason && <p className="mt-1 text-xs leading-relaxed text-slate-300">{p.reason}</p>}
+                                    {p.sharpness > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-slate-400">
+                                      <span className="rounded-full border border-white/10 px-2 py-0.5">Netteté {p.sharpness}/5</span>
+                                      <span className="rounded-full border border-white/10 px-2 py-0.5">Cadrage {p.framing}/5</span>
+                                      <span className="rounded-full border border-white/10 px-2 py-0.5">Potentiel de clic {p.clickPotential}/5</span>
+                                    </div>
+                                    )}
+                                    {pathname === "/composer" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => onChoosePick(p.url)}
+                                        className={clsx(
+                                          "mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                                          chosenPick === p.url ? "bg-aurora-400/15 text-aurora-200" : "btn-glow text-white"
+                                        )}
+                                      >
+                                        {chosenPick === p.url ? "✓ Choisie comme miniature" : "Choisir celle-ci"}
+                                      </button>
+                                    ) : (
+                                      <p className="mt-2 text-[11px] text-slate-500">Revenez sur la page Publier pour choisir une miniature.</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {m.thumbnail && !m.error && (
                             <div className="mt-3 rounded-xl border border-aurora-400/25 bg-nebula-900/40 p-3">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-aurora-300">Prêt à générer</p>
@@ -416,7 +480,7 @@ export function AiAssistant() {
                 );
               })}
 
-              {sending && (
+              {(sending || externalThinking) && (
                 <div className="flex items-center gap-2.5" aria-live="polite" aria-label="L'assistant rédige sa réponse">
                   <NebulaIcon size={20} className="shrink-0" />
                   <span className="flex items-center gap-1 rounded-xl bg-white/[0.04] px-3 py-2.5">

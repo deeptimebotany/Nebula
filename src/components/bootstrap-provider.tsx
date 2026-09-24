@@ -64,6 +64,17 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
     setData((prev) => (prev ? { ...prev, ...partial } : prev));
   }, []);
 
+  // Nouvel easter egg trouvé (événement « nebula:achievement », émis une
+  // seule fois par découverte — voir report-easter-egg.ts) : le compteur
+  // « Succès » du menu avance tout de suite, sans recharger /api/me.
+  useEffect(() => {
+    function onAchievement() {
+      setData((prev) => (prev?.eggs ? { ...prev, eggs: { ...prev.eggs, found: Math.min(prev.eggs.total, prev.eggs.found + 1) } } : prev));
+    }
+    window.addEventListener("nebula:achievement", onAchievement);
+    return () => window.removeEventListener("nebula:achievement", onAchievement);
+  }, []);
+
   const setFocusMode = useCallback(
     async (value: boolean) => {
       const res = await fetch("/api/settings/focus", {

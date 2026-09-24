@@ -5,6 +5,7 @@ import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
+import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 
 // Interroge les vraies API de chaque réseau connecté pour rafraîchir les
 // stats (abonnés, portée, impressions...) et enregistre un instantané.
@@ -49,6 +50,10 @@ export async function POST(req: NextRequest) {
       results.push({ connectionId: connection.id, ok: false, error: (err as Error).message });
     }
   }
+
+  // Cadres de la page bio débloqués par les abonnés cumulés (voir
+  // src/lib/easter-eggs/audience.ts).
+  await checkAudienceMilestones((session.user as { id: string }).id);
 
   return NextResponse.json({ results });
 }

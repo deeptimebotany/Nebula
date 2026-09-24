@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EASTER_EGGS } from "@/lib/easter-eggs-registry";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
+import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { isOwnerEmail } from "@/lib/dev-preview";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function GET() {
       total: EASTER_EGGS.length,
       foundCount: 0,
       isOwner: false,
-      eggs: EASTER_EGGS.map((e) => ({ number: e.number, found: false, reward: e.reward }))
+      eggs: EASTER_EGGS.map((e) => ({ number: e.number, found: false, reward: e.secret ? undefined : e.reward }))
     });
   }
 
@@ -87,6 +88,9 @@ export async function GET() {
     }
   }
 
+  // Succès d'audience (cadres de la page bio) : revérifiés à chaque visite.
+  await checkAudienceMilestones(userId);
+
   // Types explicites : le client Prisma généré dans ce sandbox n'a pas accès
   // au réseau (voir schema.prisma), donc `findMany` ne renvoie pas de type
   // concret ici — sans cette annotation, `f` et `foundAt` tombent sur `{}`.
@@ -98,7 +102,9 @@ export async function GET() {
 
   const eggs = EASTER_EGGS.map((e) => {
     const foundAt = foundByKey.get(e.key);
-    if (!foundAt) return { number: e.number, found: false, reward: e.reward };
+    // Succès « secret » : rien de sa récompense ne fuit tant qu'il n'est
+    // pas trouvé — il s'affiche comme un easter egg numéroté ordinaire.
+    if (!foundAt) return { number: e.number, found: false, reward: e.secret ? undefined : e.reward };
     return {
       number: e.number,
       found: true,

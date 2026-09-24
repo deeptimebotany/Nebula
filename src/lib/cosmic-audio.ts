@@ -57,3 +57,52 @@ export function playLaunchWhoosh() {
   osc.stop(now + 1.2);
   window.setTimeout(() => ctx.close().catch(() => undefined), 1600);
 }
+
+/**
+ * Arpège « succès débloqué » (choisi le 24/09/2026, proposition n° 3) :
+ * quatre notes montantes (do, mi, sol, do) puis une petite cloche — joué
+ * avec l'animation de achievement-toast-listener.tsx. Désactivable dans
+ * Paramètres → Apparence & Succès (voir isAchievementSoundOn).
+ */
+export function playAchievementArpeggio() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const note = (freq: number, start: number, dur: number, gainValue: number, type: OscillatorType) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now + start);
+    gain.gain.setValueAtTime(0.0001, now + start);
+    gain.gain.exponentialRampToValueAtTime(gainValue, now + start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + start);
+    osc.stop(now + start + dur + 0.05);
+  };
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(f, i * 0.09, 0.35, 0.12, "triangle"));
+  // Cloche finale (fondamentale + deux harmoniques).
+  note(1318.5, 0.38, 0.9, 0.1, "sine");
+  note(1318.5 * 2.01, 0.38, 0.54, 0.035, "sine");
+  note(1318.5 * 3.02, 0.38, 0.32, 0.015, "sine");
+  window.setTimeout(() => ctx.close().catch(() => undefined), 1800);
+}
+
+const ACHIEVEMENT_SOUND_KEY = "nebula:achievement-sound";
+
+/** Son des succès : activé sauf si coupé dans Paramètres (réglage de cet appareil). */
+export function isAchievementSoundOn(): boolean {
+  try {
+    return localStorage.getItem(ACHIEVEMENT_SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setAchievementSoundOn(on: boolean): void {
+  try {
+    localStorage.setItem(ACHIEVEMENT_SOUND_KEY, on ? "on" : "off");
+  } catch {
+    // stockage indisponible : le son reste au réglage par défaut
+  }
+}

@@ -47,6 +47,12 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+/** Page Succès (easter eggs) : dans le menu, section Compte, sous
+ *  Communauté, avec un compteur de progression (voir sidebar-nav.tsx) —
+ *  depuis le 24/09/2026 ; elle n'était avant accessible que depuis
+ *  Paramètres, « Mon profil » et la palette, et passait inaperçue. */
+export const SUCCESS_NAV_ITEM: NavItem = { href: "/succes", label: "Succès", icon: IconTrophy, description: "Les easter eggs que vous avez trouvés", keywords: ["easter eggs", "trophées", "récompenses"] };
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: "work",
@@ -87,6 +93,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Compte",
     items: [
       { href: "/community", label: "Communauté", icon: IconUsers, description: "Entraide, guides et partages", keywords: ["forum", "guides"] },
+      SUCCESS_NAV_ITEM,
       { href: "/billing", label: "Facturation", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "plan", "stripe", "prix", "tarif"] },
       { href: "/settings", label: "Paramètres", icon: IconSettings, description: "Marque, apparence, compte", keywords: ["réglages", "préférences", "thème", "mode focus"] },
       { href: "/support", label: "Soutenir Nebula", icon: IconHeart, description: "Donner un coup de pouce au projet", keywords: ["don", "soutien"] }
@@ -103,13 +110,11 @@ export const OWNER_NAV_ITEMS: NavItem[] = [
   { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] }
 ];
 
-/** Page Succès : hors menu (accessible depuis Paramètres → Apparence & Succès et la palette), mais connue pour le fil d'Ariane et la palette. */
-export const SUCCESS_NAV_ITEM: NavItem = { href: "/succes", label: "Succès", icon: IconTrophy, description: "Les easter eggs que vous avez trouvés", keywords: ["easter eggs", "trophées"] };
 
 /** Onglets de la barre du bas sur téléphone (4 + le bouton Menu). */
 export const MOBILE_TAB_HREFS = ["/dashboard", "/calendar", "/composer", "/analytics"] as const;
 
-export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SUCCESS_NAV_ITEM, ...OWNER_NAV_ITEMS];
+export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), ...OWNER_NAV_ITEMS];
 
 /** Pages secondaires (sans entrée de menu) rattachées à une entrée parente pour le fil d'Ariane. */
 const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] = [

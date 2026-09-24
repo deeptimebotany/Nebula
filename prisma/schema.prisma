@@ -320,6 +320,9 @@ model LinkPage {
   bio       String     @default("")
   avatarUrl String?
   theme     String     @default("nebula")
+  // Cadre animé autour de la carte (voir src/lib/bio-frames.ts) : null =
+  // automatique (halo sur Or Impérial / Éclipse totale), "none" = aucun.
+  frame     String?
   published Boolean    @default(false)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

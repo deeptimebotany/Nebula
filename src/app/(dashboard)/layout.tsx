@@ -13,6 +13,7 @@ import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { Starfield } from "@/components/starfield";
+import { AppThemeParticles } from "@/components/theme-particles";
 import { MilestoneCelebrationProvider } from "@/components/milestone-celebration";
 import { CosmeticsEffects } from "@/components/cosmetics-effects";
 import { FocusGate } from "@/components/focus-gate";
@@ -47,6 +48,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 Aller au contenu
               </a>
               <Starfield />
+              {/* Particules des thèmes Nova et Prisme (voir theme-particles.tsx). */}
+              <AppThemeParticles />
               {/* Assistant « Demander à Nebula » : le provider enveloppe le
                   shell pour que le bouton de l'en-tête, le bouton flottant et
                   les pages (ex. section Miniature) pilotent le même tiroir. */}

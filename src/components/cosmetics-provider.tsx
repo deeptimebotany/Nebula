@@ -52,7 +52,9 @@ export function CosmeticsProvider({ children }: { children: React.ReactNode }) {
     [patch, enabledList, allowedList]
   );
 
-  const has = useCallback((key: string) => enabled.has(key), [enabled]);
+  // Actif = activé ET encore autorisé par le palier actuel (ou un easter
+  // egg) : double sécurité avec le filtrage déjà fait par /api/me.
+  const has = useCallback((key: string) => enabled.has(key) && allowedKeys.has(key), [enabled, allowedKeys]);
   const doRefresh = useCallback(() => {
     refresh();
   }, [refresh]);

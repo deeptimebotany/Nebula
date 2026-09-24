@@ -46,3 +46,23 @@ export function clearPendingThumbnailBrief(): void {
     // rien à faire
   }
 }
+
+// --- Choix d'une des 3 miniatures proposées dans le chat ------------------
+// « Générer des miniatures » (composer) extrait des images de la vidéo, en
+// fait choisir 3 à l'IA et les présente dans le chat avec le « pourquoi ».
+// Le bouton « Choisir celle-ci » du chat renvoie l'image retenue au composer
+// par cet événement (le composer vérifie qu'elle appartient bien à la vidéo
+// en cours avant de l'appliquer).
+export interface FramePickCard {
+  url: string;
+  reason: string;
+  sharpness: number;
+  framing: number;
+  clickPotential: number;
+}
+
+export const THUMBNAIL_PICK_EVENT = "nebula:thumbnail-pick";
+
+export function sendThumbnailPick(url: string): void {
+  window.dispatchEvent(new CustomEvent<string>(THUMBNAIL_PICK_EVENT, { detail: url }));
+}

@@ -26,6 +26,11 @@ import { LinktreeImportDialog } from "@/components/link-in-bio/linktree-import-d
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { ThemeCard } from "@/components/settings/theme-card";
 import { isUnlimitedBioLinks, type Plan } from "@/lib/plans";
+import { BIO_FRAMES, FRAME_NONE, frameFitsTheme, resolveBioFrame, themeFlavor, type ResolvedFrame } from "@/lib/bio-frames";
+import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
+import { ParticleCanvas, particleVariantForTheme } from "@/components/theme-particles";
+import { IconLock, IconLink } from "@/components/dashboard/icons";
+import { CampaignLinkBuilder } from "@/components/composer/campaign-link-builder";
 
 interface LinkRow {
   id: string;
@@ -42,6 +47,7 @@ interface LinkPageData {
   bio: string;
   avatarUrl: string | null;
   theme: string;
+  frame: string | null;
   published: boolean;
   links: LinkRow[];
 }
@@ -58,6 +64,7 @@ export default function LinkInBioPage() {
   const [slug, setSlug] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<Plan>("FREE");
+  const [planLoaded, setPlanLoaded] = useState(false);
   const [maxBioLinks, setMaxBioLinks] = useState(3);
 
   const [title, setTitle] = useState("");
@@ -68,7 +75,13 @@ export default function LinkInBioPage() {
   const [newLabel, setNewLabel] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
+  // Générateur de lien de campagne (UTM) pour l'URL du nouveau lien.
+  const [campaignLinkOpen, setCampaignLinkOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Cadres débloqués par ce compte (voir src/lib/bio-frames.ts).
+  const [unlockedFrames, setUnlockedFrames] = useState<string[]>([]);
+  // Thèmes easter egg déjà trouvés (Nova…).
+  const [unlockedThemes, setUnlockedThemes] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!activeBrand) return;
@@ -82,6 +95,8 @@ export default function LinkInBioPage() {
     }
     setPage(data.linkPage);
     setSlug(data.slug ?? activeBrand.slug);
+    setUnlockedFrames(data.unlockedFrames ?? []);
+    setUnlockedThemes(data.unlockedThemes ?? []);
     setTitle(data.linkPage.title ?? "");
     setBio(data.linkPage.bio ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,13 +112,14 @@ export default function LinkInBioPage() {
       .then((r) => r.json())
       .then((d) => {
         setPlan(d.plan ?? "FREE");
+        setPlanLoaded(true);
         setMaxBioLinks(d.limits?.maxBioLinks ?? 3);
       })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrand?.id]);
 
-  async function patchPage(data: Partial<{ title: string; bio: string; avatarUrl: string | null; theme: string; published: boolean }>) {
+  async function patchPage(data: Partial<{ title: string; bio: string; avatarUrl: string | null; theme: string; frame: string | null; published: boolean }>) {
     if (!activeBrand) return;
     const res = await fetch("/api/link-in-bio", {
       method: "PATCH",
@@ -142,6 +158,10 @@ export default function LinkInBioPage() {
       return;
     }
     patchPage({ theme: key });
+  }
+
+  function onPickFrame(key: string | null) {
+    patchPage({ frame: key });
   }
 
   async function togglePublished() {
@@ -230,7 +250,14 @@ export default function LinkInBioPage() {
     });
   }
 
-  const activeTheme = THEMES.find((t) => t.key === page?.theme) ?? THEMES[0];
+  // Thème réellement affiché sur la page publique : un thème de palier que
+  // le palier actuel ne couvre plus retombe sur le thème par défaut (voir
+  // link-in-bio-public.ts) — l'aperçu montre la même chose.
+  const savedTheme = THEMES.find((t) => t.key === page?.theme);
+  const activeTheme = savedTheme && (!planLoaded || canUseTheme(savedTheme, plan)) ? savedTheme : THEMES[0];
+  const activeFrame = resolveBioFrame(activeTheme.key, page?.frame);
+  const pageFlavor = themeFlavor(activeTheme.key);
+  const miniBackground = `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-700"]}))`;
 
   if (!activeBrand) {
     return (
@@ -457,6 +484,18 @@ export default function LinkInBioPage() {
                   inputMode="url"
                   wrapperClassName="min-w-[160px] flex-1"
                 />
+                <Button variant="ghost" onClick={() => setCampaignLinkOpen(true)} title="Ajouter un suivi de campagne (UTM) à ce lien">
+                  <IconLink className="h-4 w-4" /> Suivi
+                </Button>
+                <CampaignLinkBuilder
+                  open={campaignLinkOpen}
+                  onClose={() => setCampaignLinkOpen(false)}
+                  brandId={activeBrand?.id}
+                  defaultSource="linkinbio"
+                  defaultMedium="bio"
+                  initialUrl={newUrl}
+                  actions={[{ label: "Utiliser ce lien", primary: true, onApply: (url) => setNewUrl(url) }]}
+                />
                 <Button onClick={submitNewLink} disabled={addingLink || !newLabel.trim() || !newUrl.trim()}>
                   <IconPlus className="h-4 w-4" /> {addingLink ? "Ajout..." : "Ajouter"}
                 </Button>
@@ -468,9 +507,45 @@ export default function LinkInBioPage() {
             <h2 className="font-display text-base font-medium text-white">Thème de la page</h2>
             <p className="mt-1 text-sm text-slate-400">Indépendant du thème de votre tableau de bord.</p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-              {THEMES.filter((t) => !t.hidden || page?.theme === t.key).map((t) => (
+              {THEMES.filter((t) => !t.hidden || page?.theme === t.key || unlockedThemes.includes(t.key)).map((t) => (
                 <ThemeCard key={t.key} theme={t} selected={page?.theme === t.key} locked={!canUseTheme(t, plan)} onPick={() => onPickTheme(t.key)} />
               ))}
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <h2 className="font-display text-base font-medium text-white">Cadre de la carte</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Une animation autour de votre carte et de votre photo. Les thèmes Or Impérial et Éclipse totale ont un halo par défaut ; d&apos;autres cadres se débloquent en chemin…
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              <FrameOption
+                label="Automatique"
+                sub={pageFlavor ? "Halo du thème" : "Aucun sur ce thème"}
+                preview={resolveBioFrame(activeTheme.key, null)}
+                background={miniBackground}
+                selected={!page?.frame}
+                onPick={() => onPickFrame(null)}
+              />
+              <FrameOption label="Aucun" preview={null} background={miniBackground} selected={page?.frame === FRAME_NONE} onPick={() => onPickFrame(FRAME_NONE)} />
+              {BIO_FRAMES.filter((f) => !f.secret || unlockedFrames.includes(f.key)).map((f) => {
+                const unlocked = unlockedFrames.includes(f.key);
+                const fits = frameFitsTheme(f, activeTheme.key);
+                const preview: ResolvedFrame = { style: f.style, flavor: f.flavor ?? pageFlavor ?? "eclipse" };
+                return (
+                  <FrameOption
+                    key={f.key}
+                    label={f.label}
+                    sub={!unlocked ? "Easter egg" : !fits ? (f.flavor === "or" ? "Thème Or Impérial requis" : "Thème Éclipse totale requis") : undefined}
+                    preview={preview}
+                    background={miniBackground}
+                    selected={page?.frame === f.key}
+                    locked={!unlocked}
+                    disabled={!unlocked || !fits}
+                    onPick={() => onPickFrame(f.key)}
+                  />
+                );
+              })}
             </div>
           </GlassCard>
         </div>
@@ -480,15 +555,27 @@ export default function LinkInBioPage() {
         <div>
           <div className="sticky top-20">
             <p className="mb-2 text-center text-xs uppercase tracking-wide text-slate-500">Aperçu</p>
-            <div
-              className="mx-auto flex w-full max-w-[280px] flex-col items-center gap-3 rounded-[2rem] border border-white/10 p-6 shadow-2xl"
-              style={{
+            <BioFrame
+              frame={activeFrame}
+              radius={32}
+              className="mx-auto w-full max-w-[280px]"
+              cardClassName="isolate flex w-full flex-col items-center gap-3 border border-white/10 p-6 shadow-2xl"
+              cardStyle={{
                 background: `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-800"]}) 60%, rgb(${activeTheme.vars["--c-nebula-700"]}))`
               }}
             >
-              <div className="mt-4 h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                {page?.avatarUrl && <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="96px" />}
-              </div>
+              {particleVariantForTheme(activeTheme.key) && (
+                <ParticleCanvas
+                  variant={particleVariantForTheme(activeTheme.key)!}
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  style={{ zIndex: -1, borderRadius: "inherit" }}
+                />
+              )}
+              <BioAvatarFrame frame={activeFrame} className="mt-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
+                  {page?.avatarUrl && <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="96px" />}
+                </div>
+              </BioAvatarFrame>
               <p className="text-center text-sm font-semibold text-white">{title.trim() || activeBrand.name}</p>
               {bio.trim() && <p className="text-center text-xs text-white/70">{bio}</p>}
               <div className="mt-2 w-full space-y-2">
@@ -500,7 +587,7 @@ export default function LinkInBioPage() {
                     .map((l) => (
                       <div
                         key={l.id}
-                        className="w-full truncate rounded-full px-4 py-2.5 text-center text-xs font-medium text-white shadow-inner"
+                        className="bf-link w-full truncate rounded-full px-4 py-2.5 text-center text-xs font-medium text-white shadow-inner"
                         style={{
                           background: `rgba(255,255,255,0.08)`,
                           border: `1px solid rgb(${activeTheme.vars["--c-aurora-400"]} / 0.5)`
@@ -511,7 +598,7 @@ export default function LinkInBioPage() {
                     ))
                 )}
               </div>
-            </div>
+            </BioFrame>
           </div>
         </div>
       </div>
@@ -524,5 +611,55 @@ export default function LinkInBioPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Vignette de choix d'un cadre : mini-carte animée avec sa pastille.
+function FrameOption({
+  label,
+  sub,
+  preview,
+  background,
+  selected,
+  locked,
+  disabled,
+  onPick
+}: {
+  label: string;
+  sub?: string;
+  preview: ResolvedFrame | null;
+  background: string;
+  selected: boolean;
+  locked?: boolean;
+  disabled?: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      disabled={disabled}
+      aria-pressed={selected}
+      className={clsx(
+        "relative flex flex-col gap-2 rounded-xl border-2 p-3 text-left transition",
+        selected ? "border-aurora-400 bg-white/[0.04]" : "border-white/10 hover:border-white/25",
+        disabled && "cursor-not-allowed opacity-60 hover:border-white/10"
+      )}
+    >
+      {locked && (
+        <span className="absolute right-1.5 top-1.5 z-[3] flex h-5 w-5 items-center justify-center rounded-full bg-void-950/90 text-slate-300">
+          <IconLock className="h-3 w-3" />
+        </span>
+      )}
+      <div className="px-2 pt-2">
+        <BioFrame frame={preview} radius={14} cardClassName="flex h-16 w-full items-start justify-center border border-white/10 pt-3" cardStyle={{ background }}>
+          <BioAvatarFrame frame={preview}>
+            <span className="block h-6 w-6 rounded-full border border-white/20 bg-white/10" />
+          </BioAvatarFrame>
+        </BioFrame>
+      </div>
+      <span className="mt-1 text-xs font-medium text-white">{label}</span>
+      {sub && <span className="-mt-1.5 text-[11px] text-slate-500">{sub}</span>}
+    </button>
   );
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { publishPost } from "@/lib/publish";
 import { ownedBy, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { deleteUploadedFile } from "@/lib/storage";
+import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 
 // Toutes les actions ci-dessous commencent par retrouver le post PARMI LES
 // MARQUES DE L'UTILISATEUR (`brand: ownedBy(userId)`) : un identifiant de
@@ -128,6 +129,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (typeof body.scheduledAt === "string") {
     const when = new Date(body.scheduledAt);
     if (Number.isNaN(when.getTime())) return NextResponse.json({ error: "Date invalide" }, { status: 400 });
+    if (isPastSchedule(when)) return NextResponse.json({ error: PAST_SCHEDULE_ERROR, reason: "past_schedule" }, { status: 400 });
     data.scheduledAt = when;
     data.status = "SCHEDULED";
   }

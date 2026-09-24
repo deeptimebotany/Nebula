@@ -26,10 +26,24 @@ function slugifyBrand(input: string) {
 // Crée le compte Nebula + sa marque par défaut au premier login Google/Apple
 // (mêmes étapes que /api/auth/register, sans mot de passe — voir passwordHash
 // nullable sur User). Idempotent : ne fait rien si le compte existe déjà.
+// Photo fournie par Google/Apple/Facebook (et non envoyée à la main dans
+// « Mon profil ») : celle-là suit le compte social à chaque connexion.
+function isProviderAvatar(url: string): boolean {
+  return /googleusercontent\.com|appleid\.apple\.com|fbcdn\.net|fbsbx\.com|facebook\.com/i.test(url);
+}
+
 async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: string | null) {
   const normalizedEmail = email.toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (existing) return existing;
+  if (existing) {
+    // Compte déjà existant (souvent créé par email/mot de passe) : sa photo
+    // n'était jamais remplie ni mise à jour. On reprend celle du compte
+    // social, sauf si une photo a été choisie à la main dans Nebula.
+    if (avatarUrl && avatarUrl !== existing.avatarUrl && (!existing.avatarUrl || isProviderAvatar(existing.avatarUrl))) {
+      return prisma.user.update({ where: { id: existing.id }, data: { avatarUrl } });
+    }
+    return existing;
+  }
 
   const brandName = name || normalizedEmail.split("@")[0];
   let slug = slugifyBrand(brandName);

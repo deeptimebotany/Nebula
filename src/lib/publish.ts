@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { sendPublishFailureEmail } from "@/lib/email";
 import { getSocialClient } from "@/lib/social";
-import type { YoutubeOptions } from "@/lib/social/base";
+import type { PublishLocation, YoutubeOptions } from "@/lib/social/base";
 import type { Network } from "@/lib/types";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
+
+// Mention ajoutée à la légende Instagram/Facebook quand « Contenu généré par
+// l'IA » est coché : Meta n'offre pas de champ d'API pour l'étiquette IA.
+export const AI_CAPTION_MENTION = "✨ Contenu créé avec l'aide de l'IA";
 
 // Paliers de publications GLOBAUX (tous comptes/marques confondus, pas par
 // marque : une seule marque n'atteindra jamais 100 000 ou 1 000 000 posts) —
@@ -98,9 +102,21 @@ export async function publishPost(postId: string) {
       await prisma.postTarget.update({ where: { id: target.id }, data: { status: "PUBLISHING" } });
 
       const client = getSocialClient(target.network as Network);
+      // Option « Contenu généré par l'IA » (voir PublishInput.aiGenerated).
+      const aiGenerated = Boolean((target.metadata as { aiGenerated?: boolean } | null)?.aiGenerated);
+      // Lieu choisi dans le Composer (voir PublishInput.location).
+      const rawLocation = (target.metadata as { location?: PublishLocation } | null)?.location;
+      const location = rawLocation && typeof rawLocation.id === "string" && rawLocation.id ? rawLocation : undefined;
+      const baseCaption = target.captionOverride || post.caption;
+      const caption =
+        aiGenerated && (target.network === "INSTAGRAM" || target.network === "FACEBOOK") && !baseCaption.includes(AI_CAPTION_MENTION)
+          ? `${baseCaption}${baseCaption.trim() ? "\n\n" : ""}${AI_CAPTION_MENTION}`
+          : baseCaption;
       const result = await client.publishPost(target.connection, {
         title: target.titleOverride || post.title,
-        caption: target.captionOverride || post.caption,
+        caption,
+        aiGenerated,
+        ...(location ? { location } : {}),
         mediaUrls,
         mediaType,
         // Préréglages propres à ce réseau (ex. YouTube : confidentialité,

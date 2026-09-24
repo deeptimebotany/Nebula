@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import { computeUpcomingPosts } from "@/lib/calendar-share";
+import { getBrandPlan } from "@/lib/billing/plan";
 
 // GET /api/public/calendar/[token] — consultée par la page publique
 // /calendrier/[token] (aucune authentification, comme /api/public/reports/[token]
@@ -17,7 +18,9 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   if (!share) {
     return NextResponse.json({ error: "Ce calendrier n'existe pas ou n'est plus disponible." }, { status: 404 });
   }
-  if (!share.enabled) {
+  // Dépublié, ou palier du propriétaire qui ne comprend plus le calendrier
+  // client (abonnement terminé).
+  if (!share.enabled || !(await getBrandPlan(share.brandId)).limits.calendarShareEnabled) {
     return NextResponse.json({ error: "Ce calendrier n'est plus partagé.", unpublished: true }, { status: 410 });
   }
 

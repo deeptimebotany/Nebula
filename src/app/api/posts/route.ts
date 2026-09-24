@@ -7,6 +7,7 @@ import { assertPostQuota } from "@/lib/billing/plan";
 import { assertBrandWritable } from "@/lib/billing/trial-expiry";
 import { requireBrandMembership, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { z } from "zod";
+import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 
 const targetSchema = z.object({
   connectionId: z.string(),
@@ -106,6 +107,10 @@ export async function POST(req: NextRequest) {
   }
 
   const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;
+  // Jamais de programmation dans le passé (voir src/lib/schedule-guard.ts).
+  if (scheduledDate && isPastSchedule(scheduledDate)) {
+    return NextResponse.json({ error: PAST_SCHEDULE_ERROR, reason: "past_schedule" }, { status: 400 });
+  }
   const status = scheduledDate ? "SCHEDULED" : publishNow ? "PUBLISHING" : "DRAFT";
 
   const post = await prisma.post.create({

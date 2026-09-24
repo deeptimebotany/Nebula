@@ -12,6 +12,8 @@ import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import {
   THUMBNAIL_BRIEF_EVENT,
+  THUMBNAIL_PICK_EVENT,
+  type FramePickCard,
   clearPendingThumbnailBrief,
   readPendingThumbnailBrief,
   type ThumbnailBrief
@@ -21,19 +23,23 @@ import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { RepurposePanel } from "@/components/composer/repurpose-panel";
-import { ComposerPreview } from "@/components/composer/composer-preview";
+import { ComposerPreview, type PreviewAccount } from "@/components/composer/composer-preview";
 import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
 import { ComposerTips } from "@/components/composer/composer-tips";
 import { PublishOverlay } from "@/components/composer/publish-overlay";
 import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
 import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/composer/composer-types";
+import { InfoTip } from "@/components/ui/info-tip";
+import { CampaignLinkBuilder } from "@/components/composer/campaign-link-builder";
+import { LocationPicker, type PickedLocation } from "@/components/composer/location-picker";
+import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge, NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash } from "@/components/dashboard/icons";
+import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink } from "@/components/dashboard/icons";
 import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { uploadMediaFile } from "@/lib/upload-client";
@@ -227,6 +233,22 @@ function buildYoutubeMetadata(opts: YoutubeComposerOptions) {
   };
 }
 
+// Bulles d'aide de l'option « Contenu généré par l'IA », par réseau : ce que
+// chaque réseau en fait réellement (voir PublishInput.aiGenerated).
+const AI_CONTENT_HELP: Record<Network, string> = {
+  YOUTUBE:
+    "À activer si la vidéo montre des images, des voix ou des scènes réalistes créées ou modifiées par l'IA (une personne qui semble réelle, un lieu ou un événement inventé…). YouTube affiche alors la mention « Contenu modifié ou synthétique ». Pas besoin de l'activer si l'IA a seulement aidé à écrire le titre ou la description.",
+  TIKTOK:
+    "À activer si la vidéo contient des images, des voix ou des scènes réalistes créées par l'IA. TikTok ajoute l'étiquette « Contenu généré par l'IA » sous la vidéo, comme l'exigent ses règles. Pas besoin de l'activer si l'IA a seulement aidé à écrire la légende.",
+  INSTAGRAM:
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Instagram ne permet pas encore de poser son étiquette « Info IA » depuis une application : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la légende.",
+  FACEBOOK:
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Facebook ne permet pas encore de poser son étiquette « Info IA » depuis une application : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la légende."
+};
+
+const NOTIFY_SUBSCRIBERS_HELP =
+  "Activé : les abonnés qui ont activé la cloche reçoivent une notification, et la vidéo apparaît dans leur fil « Abonnements ». Désactivez-le pour une vidéo mineure, un nouvel envoi ou une série de mises en ligne, pour ne pas lasser vos abonnés.";
+
 // useSearchParams() impose un <Suspense> autour du composant qui l'appelle,
 // sinon Next.js refuse de pré-générer la page au build (même erreur que
 // celle rencontrée sur /register — voir ce fichier pour le détail).
@@ -282,6 +304,12 @@ function ComposerPageInner() {
   // optionnel posté automatiquement juste après la publication.
   const [firstComment, setFirstComment] = useState("");
   const [firstCommentOpen, setFirstCommentOpen] = useState(false);
+  // Générateur de liens de campagne (UTM), bouton « lien » de la carte
+  // « 3. Description ».
+  const [campaignLinkOpen, setCampaignLinkOpen] = useState(false);
+  // Lieu de la publication (Instagram, Facebook photo, YouTube), carte
+  // « 4. Réseaux cibles ».
+  const [location, setLocation] = useState<PickedLocation | null>(null);
 
   // Compteur de popularité des hashtags (voir carte "3. Description") :
   // combien de fois CETTE marque a déjà utilisé chaque hashtag tapé, tiré
@@ -294,6 +322,17 @@ function ComposerPageInner() {
   // ci-dessus) puisqu'un seul compte YouTube peut être ciblé à la fois.
   const [youtubeOptions, setYoutubeOptions] = useState<YoutubeComposerOptions>(DEFAULT_YOUTUBE_OPTIONS);
   const [youtubeOptionsOpen, setYoutubeOptionsOpen] = useState(false);
+  // Option « Contenu généré par l'IA » : un interrupteur général (carte
+  // « 1. Média », en haut de page, pour y penser avant de descendre aux
+  // réseaux) qui s'applique à tous les réseaux, plus une exception possible
+  // par réseau. Valeur effective d'un réseau = son exception ?? le général.
+  const [aiContentAll, setAiContentAll] = useState(false);
+  const [aiContentOverrides, setAiContentOverrides] = useState<Partial<Record<Network, boolean>>>({});
+  const aiContentFor = (n: Network) => aiContentOverrides[n] ?? aiContentAll;
+  function setAiContentEverywhere(next: boolean) {
+    setAiContentAll(next);
+    setAiContentOverrides({});
+  }
   const [mode, setMode] = useState<ScheduleMode>(prefilledDate ? "date" : "now");
   const [scheduleDate, setScheduleDate] = useState(() =>
     prefilledDate ? `${prefilledDate}T${prefilledTime ?? "12:00"}` : ""
@@ -313,6 +352,10 @@ function ComposerPageInner() {
   }
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumbOptions, setThumbOptions] = useState<string[]>([]);
+  // « Pourquoi » de chaque proposition (bulle au survol dans la grille).
+  const [thumbReasons, setThumbReasons] = useState<Record<string, string>>({});
+  // Miniature choisie depuis le chat IA (« Choisir celle-ci »).
+  const [chatPickUrl, setChatPickUrl] = useState<string | null>(null);
   const [aiThumbLoading, setAiThumbLoading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
@@ -342,7 +385,6 @@ function ComposerPageInner() {
   // dimensions du fichier importé, et simulateur d'interface TikTok (voir
   // rendu de la carte "Aperçu" plus bas).
   const [previewAspectClass, setPreviewAspectClass] = useState("aspect-square");
-  const [showTiktokUi, setShowTiktokUi] = useState(false);
 
   // Simulateur de Feed Instagram : les vraies vignettes des derniers posts
   // déjà ciblés sur Instagram pour cette marque (voir /api/posts/instagram-grid).
@@ -625,6 +667,30 @@ function ComposerPageInner() {
     return () => window.removeEventListener(THUMBNAIL_BRIEF_EVENT, onBrief);
   }, []);
 
+  // « Choisir celle-ci » dans le chat → on applique, seulement si l'image
+  // fait bien partie des propositions de la vidéo en cours.
+  useEffect(() => {
+    function onPick(e: Event) {
+      const url = (e as CustomEvent<string>).detail;
+      if (typeof url === "string") setChatPickUrl(url);
+    }
+    window.addEventListener(THUMBNAIL_PICK_EVENT, onPick);
+    return () => window.removeEventListener(THUMBNAIL_PICK_EVENT, onPick);
+  }, []);
+
+  useEffect(() => {
+    if (!chatPickUrl) return;
+    setChatPickUrl(null);
+    if (!videoAsset || !thumbOptions.includes(chatPickUrl)) {
+      toast.error("Cette proposition ne correspond plus à la vidéo en cours : relancez « Générer des miniatures ».");
+      return;
+    }
+    void pickThumbnail(chatPickUrl);
+    toast.success("Miniature appliquée.");
+    // pickThumbnail est recréée à chaque rendu : on ne réagit qu'au choix.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatPickUrl]);
+
   useEffect(() => {
     if (!briefAutoRunRef.current || !assistantBrief) return;
     briefAutoRunRef.current = false;
@@ -632,7 +698,7 @@ function ComposerPageInner() {
       thumbSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       void onGenerateThumbnailWithAi(assistantBrief);
     } else {
-      toast.info("Brief de l'assistant reçu : ajoutez votre vidéo, puis « Générer avec l'IA ».");
+      toast.info("Brief de l'assistant reçu : ajoutez votre vidéo, puis « Générer » sur le brief, dans la section Miniature.");
     }
     // onGenerateThumbnailWithAi est une fonction du composant, recréée à
     // chaque rendu : on ne réagit qu'à l'arrivée du brief.
@@ -686,7 +752,6 @@ function ComposerPageInner() {
         setAssets(newAssets);
         setThumbOptions([]);
         setPreviewAspectClass("aspect-square");
-        setShowTiktokUi(false);
       }
     },
     [activeBrand, toast]
@@ -808,22 +873,33 @@ function ComposerPageInner() {
     setGeneratingAll(false);
   }
 
-  async function onGenerateThumbnails() {
+  // « Générer des miniatures » : extrait 12 images de la vidéo, en fait
+  // choisir exactement 3 à l'IA (netteté, cadrage, potentiel de clic) et —
+  // quand l'appel vient du bouton — ouvre le chat IA pour présenter ces 3
+  // propositions avec le pourquoi de chaque choix et un bouton « Choisir
+  // celle-ci ». Sans IA : 3 images prises à intervalles réguliers, sans chat.
+  // `viaChat: false` : appel interne (ex. avant la génération d'un brief), sans
+  // ouvrir le chat.
+  async function onGenerateThumbnails(options: { viaChat?: boolean } = {}) {
     if (!videoAsset) return;
+    const CANDIDATE_COUNT = 12;
+    const TARGET_COUNT = 3;
+    const useAi = Boolean(aiStatus?.enabled && activeBrand);
+    const useChat = Boolean(options.viaChat && useAi && assistant.enabled);
     setThumbLoading(true);
+    if (useChat) {
+      assistant.inject(
+        [{ role: "user", text: `Propose-moi les 3 meilleures miniatures pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""}.` }],
+        { contextKey: "thumbnails" }
+      );
+      assistant.setExternalThinking(true);
+    }
     try {
-      // On extrait plus de frames candidates que ce qu'on affiche (12 au lieu
-      // de 6) pour donner à l'IA une vraie marge de choix, puis — si l'IA est
-      // disponible — on lui demande de sélectionner les plus nettes/les mieux
-      // cadrées plutôt que de garder un échantillonnage purement temporel
-      // (qui tombe parfois en plein flou de mouvement ou en transition).
-      const CANDIDATE_COUNT = 12;
-      const TARGET_COUNT = 6;
       const blobs = await captureVideoFrames(videoAsset.previewUrl, CANDIDATE_COUNT);
       if (!blobs.length) throw new Error("Aucune image n'a pu être extraite de cette vidéo.");
 
-      let chosen = blobs;
-      if (aiStatus?.enabled && activeBrand) {
+      let picks: { blob: Blob; reason: string; sharpness: number; framing: number; clickPotential: number }[] = [];
+      if (useAi && activeBrand) {
         try {
           const encoded = await Promise.all(blobs.map(blobToBase64));
           const res = await fetch("/api/ai/pick-best-frames", {
@@ -836,31 +912,67 @@ function ComposerPageInner() {
             })
           });
           const data = await res.json();
-          if (res.ok && Array.isArray(data.bestIndexes) && data.bestIndexes.length > 0) {
-            const picked = data.bestIndexes.map((i: number) => blobs[i]).filter(Boolean) as Blob[];
-            if (picked.length) chosen = picked;
+          if (res.ok && Array.isArray(data.picks)) {
+            picks = (data.picks as { index: number; reason: string; sharpness: number; framing: number; clickPotential: number }[])
+              .filter((p) => blobs[p.index])
+              .map((p) => ({ blob: blobs[p.index], reason: p.reason, sharpness: p.sharpness, framing: p.framing, clickPotential: p.clickPotential }));
           }
         } catch {
           // L'IA a échoué ou n'a pas répondu à temps — on retombe simplement
-          // sur l'échantillonnage classique ci-dessous plutôt que d'échouer.
+          // sur l'échantillonnage régulier ci-dessous plutôt que d'échouer.
         }
       }
-      if (chosen.length > TARGET_COUNT) chosen = chosen.slice(0, TARGET_COUNT);
+      const aiAnalysed = picks.length > 0;
+      if (!aiAnalysed) {
+        // Trois images réparties dans la vidéo (début, milieu, fin).
+        const step = blobs.length / TARGET_COUNT;
+        picks = Array.from({ length: Math.min(TARGET_COUNT, blobs.length) }, (_, k) => ({
+          blob: blobs[Math.min(blobs.length - 1, Math.floor(step * k + step / 2))],
+          reason: "",
+          sharpness: 0,
+          framing: 0,
+          clickPotential: 0
+        }));
+      }
+      picks = picks.slice(0, TARGET_COUNT);
 
-      lastCapturedFrame.current = chosen[0];
-      const urls = await Promise.all(chosen.map(uploadThumbnailBlob));
+      lastCapturedFrame.current = picks[0].blob;
+      const urls = await Promise.all(picks.map((p) => uploadThumbnailBlob(p.blob)));
       setThumbOptions(urls);
+      setThumbReasons(Object.fromEntries(urls.map((u, k) => [u, picks[k].reason]).filter(([, r]) => r)));
+
+      if (useChat) {
+        const cards: FramePickCard[] = urls.map((url, k) => ({
+          url,
+          reason: picks[k].reason,
+          sharpness: picks[k].sharpness,
+          framing: picks[k].framing,
+          clickPotential: picks[k].clickPotential
+        }));
+        assistant.inject([
+          {
+            role: "model",
+            text: aiAnalysed
+              ? `J'ai analysé ${blobs.length} images prises tout au long de votre vidéo et gardé les 3 qui feraient les meilleures miniatures, de la plus forte à la moins forte. Mes critères : la **netteté** (pas de flou de mouvement), le **cadrage** (sujet bien visible, lisible même en petit) et le **potentiel de clic** (expression, geste, contraste qui arrêtent le défilement). Choisissez celle qui vous plaît, ou demandez-moi d'en améliorer une.`
+              : "Je n'ai pas pu analyser les images cette fois-ci. Voici 3 images prises au début, au milieu et à la fin de votre vidéo : choisissez celle qui donne le plus envie de cliquer, ou réessayez dans un instant.",
+            framePicks: cards
+          }
+        ]);
+      }
     } catch (err) {
-      toast.error((err as Error).message ?? "Échec de l'extraction de miniatures.");
+      const message = (err as Error).message ?? "Échec de l'extraction de miniatures.";
+      toast.error(message);
+      if (useChat) assistant.inject([{ role: "model", text: message, error: true }]);
     } finally {
       setThumbLoading(false);
+      if (useChat) assistant.setExternalThinking(false);
     }
   }
 
   async function onGenerateThumbnailWithAi(briefOverride?: ThumbnailBrief | null) {
     if (!videoAsset) return;
     if (!lastCapturedFrame.current) {
-      await onGenerateThumbnails();
+      await onGenerateThumbnails({ viaChat: false });
     }
     if (!lastCapturedFrame.current) return;
     const brief = briefOverride === undefined ? assistantBrief : briefOverride;
@@ -995,13 +1107,32 @@ function ComposerPageInner() {
           // cible YouTube, converti de la forme "formulaire" (chaînes) vers la
           // forme envoyée à l'API (tags en tableau, champs vides omis pour
           // laisser youtube.ts appliquer ses valeurs par défaut).
-          metadata: network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : undefined
+          // + option « Contenu généré par l'IA » (tous réseaux, voir
+          // publish.ts → aiGenerated).
+          // + lieu (Instagram, Facebook, YouTube — voir LocationPicker).
+          metadata:
+            network === "YOUTUBE" || (aiContentOverrides[network] ?? aiContentAll) || (location && network !== "TIKTOK")
+              ? {
+                  ...(network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : {}),
+                  ...((aiContentOverrides[network] ?? aiContentAll) ? { aiGenerated: true } : {}),
+                  ...(location && network !== "TIKTOK"
+                    ? { location: { id: location.id, name: location.name, latitude: location.latitude, longitude: location.longitude } }
+                    : {})
+                }
+              : undefined
         };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
     // L'heure saisie est celle du fuseau de la marque, pas de l'appareil.
     const scheduledAt = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone)?.toISOString() : undefined;
+    // Horaire dépassé pendant que la page était ouverte : on bloque ici
+    // (le serveur refuse aussi, voir src/lib/schedule-guard.ts).
+    if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
+      setSubmitting(false);
+      toast.error("Cet horaire est déjà passé : choisissez une date et une heure à venir.");
+      return;
+    }
 
     const res = await fetch("/api/posts", {
       method: "POST",
@@ -1058,6 +1189,9 @@ function ComposerPageInner() {
     connections,
     overrides,
     youtubeOptions,
+    aiContentAll,
+    aiContentOverrides,
+    location,
     mode,
     scheduleDate,
     timezone,
@@ -1084,12 +1218,27 @@ function ComposerPageInner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [submitting, canSubmit, onSubmit]);
 
-  // Aperçu en temps réel (carte "Aperçu", colonne de droite) : retombe sur le
-  // premier réseau sélectionné si celui choisi manuellement n'est plus dans
-  // la sélection (ex : décoché), et utilise le texte personnalisé de ce
-  // réseau quand il est ouvert, sinon le titre/légende commun.
-  const effectivePreviewNetwork: Network | null =
-    previewNetwork && selectedNetworks.includes(previewNetwork) ? previewNetwork : selectedNetworks[0] ?? null;
+  // Aperçu en temps réel (carte "Aperçu", colonne de droite) : le réseau
+  // choisi dans la barre de l'aperçu (les 4 réseaux y sont toujours
+  // proposés, même non cochés), sinon le premier réseau sélectionné, sinon
+  // Instagram. Utilise le texte personnalisé de ce réseau quand il est
+  // ouvert, sinon le titre/légende commun.
+  const effectivePreviewNetwork: Network = previewNetwork ?? selectedNetworks[0] ?? "INSTAGRAM";
+  // Compte affiché dans l'aperçu : le compte connecté choisi pour ce réseau
+  // (nom, @identifiant), avec la photo de la marque (sinon celle du compte).
+  const previewAccountFor = (n: Network): PreviewAccount => {
+    const conn = connections.find((c) => c.id === selectedConnectionByNetwork[n]) ?? connections.find((c) => c.network === n);
+    const name = conn?.displayName || activeBrand?.name || "Votre marque";
+    const handle =
+      conn?.handle?.replace(/^@/, "") ||
+      name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9._]+/g, "") ||
+      "votremarque";
+    return { name, handle, avatarUrl: activeBrand?.logoUrl ?? conn?.avatarUrl ?? null };
+  };
   const previewOverride = effectivePreviewNetwork ? overrides[effectivePreviewNetwork] : undefined;
   const previewTitle = previewOverride?.open && previewOverride.title ? previewOverride.title : title;
   const previewCaption = previewOverride?.open && previewOverride.caption ? previewOverride.caption : caption;
@@ -1249,15 +1398,20 @@ function ComposerPageInner() {
                         Demander à l&apos;assistant
                       </Button>
                     )}
-                    <Button variant="outline" onClick={onGenerateThumbnails} disabled={thumbLoading}>
-                      {thumbLoading ? "Extraction..." : "Générer des miniatures"}
+                    <Button
+                      variant="outline"
+                      onClick={() => void onGenerateThumbnails({ viaChat: true })}
+                      disabled={thumbLoading || aiThumbLoading}
+                      title={aiStatus?.enabled ? "3 propositions choisies par l'IA, expliquées dans le chat" : "3 images extraites de votre vidéo"}
+                    >
+                      {/* Un seul bouton de génération (le 24/09/2026, l'ancien
+                          « Générer avec l'IA » séparé a été fusionné ici) :
+                          l'étoile signale que l'IA choisit et explique. La
+                          version « plus accrocheuse » se demande dans le chat,
+                          qui renvoie un brief → « Générer » sur le brief. */}
+                      {aiStatus?.enabled && <IconSparkle className={clsx("h-4 w-4 text-aurora-300", thumbLoading && "animate-pulse")} />}
+                      {thumbLoading ? (aiStatus?.enabled ? "Analyse..." : "Extraction...") : "Générer des miniatures"}
                     </Button>
-                    {aiStatus?.enabled && (
-                      <Button variant="outline" onClick={() => void onGenerateThumbnailWithAi()} disabled={aiThumbLoading || thumbLoading}>
-                        <IconSparkle className="h-4 w-4" />
-                        {aiThumbLoading ? "Génération IA..." : assistantBrief ? "Générer avec l'IA (brief)" : "Générer avec l'IA"}
-                      </Button>
-                    )}
                     <Button variant="outline" onClick={() => thumbFileInputRef.current?.click()} disabled={thumbUploading}>
                       {thumbUploading ? "Envoi..." : "Depuis mon ordinateur"}
                     </Button>
@@ -1272,8 +1426,8 @@ function ComposerPageInner() {
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
                   {aiStatus?.enabled
-                    ? "L'IA présélectionne les frames les plus nettes et les mieux cadrées parmi votre vidéo — choisissez celle qui donne le plus envie de cliquer, ou laissez l'IA en créer une version plus accrocheuse."
-                    : "Images extraites directement de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
+                    ? "L'IA choisit 3 images de votre vidéo (netteté, cadrage, potentiel de clic) et vous explique ses choix dans le chat — choisissez celle qui donne le plus envie de cliquer, ou demandez-lui dans le chat d'en créer une version plus accrocheuse."
+                    : "3 images extraites de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
                 </p>
                 {assistantBrief && (
                   <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-aurora-400/25 bg-nebula-900/40 px-3 py-2 text-xs">
@@ -1287,6 +1441,16 @@ function ComposerPageInner() {
                       )}
                     </span>
                     <span className="flex-1" />
+                    {/* Remplace l'ancien bouton « Générer avec l'IA (brief) ». */}
+                    <button
+                      type="button"
+                      onClick={() => void onGenerateThumbnailWithAi()}
+                      disabled={aiThumbLoading || thumbLoading}
+                      className="inline-flex items-center gap-1 rounded-lg bg-aurora-400/15 px-2.5 py-1 font-medium text-aurora-200 transition hover:bg-aurora-400/25 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <IconSparkle className={clsx("h-3 w-3", aiThumbLoading && "animate-pulse")} />
+                      {aiThumbLoading ? "Génération…" : "Générer"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -1302,23 +1466,35 @@ function ComposerPageInner() {
                   </div>
                 )}
                 {thumbOptions.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  <div className="grid grid-cols-3 gap-2">
                     {thumbOptions.map((url) => (
                       <button
                         key={url}
                         onClick={() => pickThumbnail(url)}
+                        title={thumbReasons[url] || undefined}
                         className={clsx(
                           "overflow-hidden rounded-lg border-2 transition",
                           videoAsset.thumbnailUrl === url ? "border-aurora-400" : "border-white/10 hover:border-white/30"
                         )}
                       >
-                        <img loading="lazy" decoding="async" src={url} alt="Miniature" className="h-16 w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={url} alt="Miniature" className="aspect-video w-full object-cover" />
                       </button>
                     ))}
                   </div>
                 )}
               </div>
             )}
+
+            {/* Étiquette IA : interrupteur général, placé ici (juste après le
+                choix du média, en haut de page) pour qu'on y pense avant de
+                descendre jusqu'aux réseaux. Il active/désactive l'option sur
+                TOUS les réseaux ; chaque réseau garde son propre interrupteur
+                pour une exception (section « 4. Réseaux cibles »). */}
+            <AiContentMaster
+              checked={aiContentAll}
+              onChange={setAiContentEverywhere}
+              exceptions={selectedNetworks.filter((n) => aiContentFor(n) !== aiContentAll)}
+            />
           </GlassCard>
 
           <GlassCard>
@@ -1379,6 +1555,14 @@ function ComposerPageInner() {
                 >
                   <IconEmoji className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  onClick={() => setCampaignLinkOpen(true)}
+                  title="Lien de campagne (UTM) : suivez les visites et les ventes venues de cette publication"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
+                >
+                  <IconLink className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lien suivi</span>
+                </button>
                 {aiStatus?.enabled && (
                   <button
                     onClick={() => onGenerateOne("description")}
@@ -1399,6 +1583,36 @@ function ComposerPageInner() {
               rows={4}
               placeholder="Légende / description commune à tous les réseaux sélectionnés..."
               className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
+            />
+            <CampaignLinkBuilder
+              open={campaignLinkOpen}
+              onClose={() => setCampaignLinkOpen(false)}
+              brandId={activeBrand?.id}
+              defaultSource={selectedNetworks.length === 1 ? selectedNetworks[0].toLowerCase() : undefined}
+              defaultMedium="social"
+              tip={
+                selectedNetworks.includes("INSTAGRAM")
+                  ? "Instagram ne rend pas les liens cliquables dans les légendes : placez ce lien dans votre Page bio, ou en premier commentaire sur Facebook."
+                  : undefined
+              }
+              actions={[
+                {
+                  label: "Ajouter en premier commentaire",
+                  onApply: (url) => {
+                    setFirstComment((prev) => (prev.trim() ? `${prev.trimEnd()} ${url}` : url));
+                    setFirstCommentOpen(true);
+                    toast.success("Lien ajouté au premier commentaire.");
+                  }
+                },
+                {
+                  label: "Insérer dans la description",
+                  primary: true,
+                  onApply: (url) => {
+                    setCaption((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${url}` : url));
+                    toast.success("Lien ajouté à la fin de la description.");
+                  }
+                }
+              ]}
             />
             <div className="mt-1.5 flex items-center justify-between text-xs">
               <span className={clsx(tightestLimit && caption.length > tightestLimit ? "text-red-400" : "text-slate-500")}>
@@ -1459,6 +1673,16 @@ function ComposerPageInner() {
                     );
                   })}
                 </div>
+
+                {!noConnections && selectedNetworks.length > 0 && (
+                  <LocationPicker
+                    brandId={activeBrand?.id}
+                    value={location}
+                    onChange={setLocation}
+                    networks={selectedNetworks}
+                    mediaType={assets[0]?.type ?? null}
+                  />
+                )}
 
                 {noConnections ? (
                   <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>
@@ -1535,6 +1759,39 @@ function ComposerPageInner() {
                           </div>
                         </div>
                       )}
+
+                      {/* Options de diffusion communes, présentées pareil pour
+                          chaque réseau : interrupteur + bulle d'aide. */}
+                      <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <IconSparkle className="h-3.5 w-3.5 text-aurora-300" />
+                            Contenu généré par l&apos;IA
+                            <InfoTip label={`À quoi sert « Contenu généré par l'IA » sur ${NETWORK_META[n].label} ?`}>{AI_CONTENT_HELP[n]}</InfoTip>
+                          </span>
+                          <Toggle
+                            size="sm"
+                            checked={aiContentFor(n)}
+                            onChange={(next) => setAiContentOverrides((prev) => ({ ...prev, [n]: next }))}
+                            aria-label={`Contenu généré par l'IA sur ${NETWORK_META[n].label}`}
+                          />
+                        </div>
+                        {n === "YOUTUBE" && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                              <IconBell className="h-3.5 w-3.5 text-aurora-300" />
+                              Notifier les abonnés
+                              <InfoTip label="À quoi sert « Notifier les abonnés » ?">{NOTIFY_SUBSCRIBERS_HELP}</InfoTip>
+                            </span>
+                            <Toggle
+                              size="sm"
+                              checked={youtubeOptions.notifySubscribers}
+                              onChange={(next) => setYoutubeOptions((o) => ({ ...o, notifySubscribers: next }))}
+                              aria-label="Notifier les abonnés YouTube"
+                            />
+                          </div>
+                        )}
+                      </div>
 
                       {n === "YOUTUBE" && (
                         <div className="mt-3 border-t border-white/[0.06] pt-3">
@@ -1628,17 +1885,6 @@ function ComposerPageInner() {
                                 />
                               </div>
 
-                              <label className="flex items-center gap-2 text-xs text-slate-400">
-                                <input
-                                  type="checkbox"
-                                  checked={youtubeOptions.notifySubscribers}
-                                  onChange={(e) =>
-                                    setYoutubeOptions((o) => ({ ...o, notifySubscribers: e.target.checked }))
-                                  }
-                                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/[0.03]"
-                                />
-                                Notifier les abonnés
-                              </label>
                             </div>
                           )}
                         </div>
@@ -1685,8 +1931,8 @@ function ComposerPageInner() {
           <PublishCard mode={mode} onModeChange={setMode} scheduleDate={scheduleDate} onScheduleDateChange={setScheduleDate} timezone={timezone} shortcutLabel={shortcutLabel} />
 
           <ComposerPreview
-            brandName={activeBrand?.name ?? ""}
             network={effectivePreviewNetwork}
+            accountFor={previewAccountFor}
             selectedNetworks={selectedNetworks}
             onPickNetwork={setPreviewNetwork}
             asset={previewAsset}
@@ -1694,8 +1940,6 @@ function ComposerPageInner() {
             caption={previewCaption}
             aspectClass={previewAspectClass}
             onAspectClass={setPreviewAspectClass}
-            showTiktokUi={showTiktokUi}
-            onToggleTiktokUi={() => setShowTiktokUi((v) => !v)}
             showInstagramGrid={showInstagramGrid}
             onToggleInstagramGrid={onToggleInstagramGrid}
             instagramGridTiles={instagramGridTiles}
@@ -1731,6 +1975,40 @@ function ComposerPageInner() {
             document.body
           )
         : null}
+    </div>
+  );
+}
+
+// Interrupteur général « Contenu généré par l'IA » (carte « 1. Média »).
+function AiContentMaster({ checked, onChange, exceptions }: { checked: boolean; onChange: (next: boolean) => void; exceptions: Network[] }) {
+  return (
+    <div
+      className={clsx(
+        "mt-4 rounded-xl border px-3.5 py-3 transition",
+        checked ? "border-aurora-400/40 bg-aurora-400/[0.06]" : "border-white/10 bg-white/[0.02]"
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+            <IconSparkle className="h-4 w-4 shrink-0 text-aurora-300" />
+            Contenu généré par l&apos;IA
+            <InfoTip label="À quoi sert « Contenu généré par l'IA » ?">
+              À activer si ce média contient des images, des voix ou des scènes réalistes créées ou modifiées par l&apos;IA. Un seul clic l&apos;active sur tous vos réseaux : YouTube et TikTok affichent leur propre étiquette IA, et pour Instagram et Facebook (qui ne le permettent pas depuis une application) Nebula ajoute une courte mention à la fin de la légende. Pas besoin de l&apos;activer si l&apos;IA a seulement aidé à écrire le texte. Vous pouvez faire une exception réseau par réseau, plus bas dans « 4. Réseaux cibles ».
+            </InfoTip>
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {checked ? "Activé sur tous les réseaux sélectionnés" : "S'applique d'un coup à tous les réseaux sélectionnés"}
+            {exceptions.length > 0 && (
+              <span className="text-amber-300/90">
+                {" "}
+                · sauf {exceptions.map((n) => NETWORK_META[n].label).join(", ")}
+              </span>
+            )}
+          </p>
+        </div>
+        <Toggle checked={checked} onChange={onChange} aria-label="Contenu généré par l'IA, sur tous les réseaux" />
+      </div>
     </div>
   );
 }

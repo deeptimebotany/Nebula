@@ -4,7 +4,30 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getOrCreateLinkPage, assertBrandMembership } from "@/lib/link-in-bio";
-import { THEMES } from "@/lib/themes";
+import { THEMES, canUseTheme } from "@/lib/themes";
+import { getBrandPlan } from "@/lib/billing/plan";
+import { FRAME_NONE, findBioFrame, unlockedFrameKeys } from "@/lib/bio-frames";
+import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
+import { isOwnerEmail } from "@/lib/dev-preview";
+
+// Cadres de page bio débloqués par CE compte (easter eggs trouvés). Le
+// compte propriétaire les a tous, pour pouvoir les tester.
+async function eggThemesUnlockedFor(userId: string, email: string | null | undefined): Promise<string[]> {
+  const eggThemes = THEMES.filter((t) => t.requiresEgg);
+  if (isOwnerEmail(email)) return eggThemes.map((t) => t.key);
+  const found: { key: string }[] = await prisma.easterEggFound.findMany({
+    where: { userId, key: { in: eggThemes.map((t) => t.requiresEgg as string) } },
+    select: { key: true }
+  });
+  const keys = new Set(found.map((f) => f.key));
+  return eggThemes.filter((t) => keys.has(t.requiresEgg as string)).map((t) => t.key);
+}
+
+async function framesUnlockedFor(userId: string, email: string | null | undefined): Promise<string[]> {
+  if (isOwnerEmail(email)) return unlockedFrameKeys([], true);
+  const found: { key: string }[] = await prisma.easterEggFound.findMany({ where: { userId }, select: { key: true } });
+  return unlockedFrameKeys(found.map((f) => f.key));
+}
 
 // GET/PATCH /api/link-in-bio?brandId=... — page "link in bio" de la marque
 // active, éditée depuis /link-in-bio (voir ce dossier pour l'UI). Créée à la
@@ -30,7 +53,13 @@ export async function GET(req: NextRequest) {
   // Une page sans titre ni photo hérite du nom et du logo de la marque
   // (même valeur que celle affichée sur /l/[slug]).
   const merged = { ...linkPage, title: linkPage.title || brand?.name || "", avatarUrl: linkPage.avatarUrl ?? brand?.logoUrl ?? null };
-  return NextResponse.json({ linkPage: merged, slug: brand?.slug });
+  // Seuils d'audience revérifiés à chaque ouverture de la Page bio, pour
+  // qu'un cadre fraîchement mérité apparaisse tout de suite.
+  await checkAudienceMilestones(userId);
+  const unlockedFrames = await framesUnlockedFor(userId, session.user.email);
+  // Thèmes easter egg (Nova…) déjà trouvés : proposés dans le choix du thème.
+  const unlockedThemes = await eggThemesUnlockedFor(userId, session.user.email);
+  return NextResponse.json({ linkPage: merged, slug: brand?.slug, unlockedFrames, unlockedThemes });
 }
 
 const bodySchema = z.object({
@@ -39,6 +68,7 @@ const bodySchema = z.object({
   bio: z.string().max(280).optional(),
   avatarUrl: z.string().url().nullable().optional(),
   theme: z.string().optional(),
+  frame: z.string().nullable().optional(),
   published: z.boolean().optional()
 });
 
@@ -55,8 +85,29 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Marque introuvable." }, { status: 404 });
   }
 
-  if (data.theme && !THEMES.some((t) => t.key === data.theme)) {
+  const pickedTheme = data.theme ? THEMES.find((t) => t.key === data.theme) : undefined;
+  if (data.theme && !pickedTheme) {
     return NextResponse.json({ error: "Thème inconnu." }, { status: 400 });
+  }
+  // Thème de palier : revérifié ici (l'éditeur le grise déjà), d'après le
+  // palier de la marque. Le compte propriétaire garde tout déverrouillé.
+  if (pickedTheme?.requiresEgg && !(await eggThemesUnlockedFor(userId, session.user.email)).includes(pickedTheme.key)) {
+    return NextResponse.json({ error: `Le thème « ${pickedTheme.label} » se débloque en trouvant son easter egg.` }, { status: 403 });
+  }
+  if (pickedTheme?.requiresPlan && !isOwnerEmail(session.user.email)) {
+    const { plan } = await getBrandPlan(brandId);
+    if (!canUseTheme(pickedTheme, plan)) {
+      return NextResponse.json({ error: `Le thème « ${pickedTheme.label} » nécessite le palier ${pickedTheme.requiresPlan}.` }, { status: 403 });
+    }
+  }
+
+  if (data.frame !== undefined && data.frame !== null && data.frame !== FRAME_NONE) {
+    const def = findBioFrame(data.frame);
+    if (!def) return NextResponse.json({ error: "Cadre inconnu." }, { status: 400 });
+    const unlocked = await framesUnlockedFor(userId, session.user.email);
+    if (!unlocked.includes(def.key)) {
+      return NextResponse.json({ error: "Ce cadre n'est pas encore débloqué." }, { status: 403 });
+    }
   }
 
   await getOrCreateLinkPage(brandId);
@@ -77,6 +128,7 @@ export async function PATCH(req: NextRequest) {
       ...(data.bio !== undefined ? { bio: data.bio } : {}),
       ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl } : {}),
       ...(data.theme !== undefined ? { theme: data.theme } : {}),
+      ...(data.frame !== undefined ? { frame: data.frame } : {}),
       ...(data.published !== undefined ? { published: data.published } : {})
     },
     include: { links: { orderBy: { order: "asc" } } }

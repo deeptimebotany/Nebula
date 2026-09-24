@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeReportData } from "@/lib/reports";
+import { getBrandPlan } from "@/lib/billing/plan";
 
 // GET /api/public/reports/[token] — consultée par la page publique
 // /rapport/[token] (aucune authentification, comme /api/public/approvals/[token]
@@ -19,7 +20,9 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   }
   // Rapport dépublié (par l'agence, ou automatiquement à la fin de l'essai
   // Pro — brief growth, lot G2) : message clair plutôt qu'une page d'erreur.
-  if (!report.enabled) {
+  // Dépublié, ou palier du propriétaire qui ne comprend plus les rapports
+  // (abonnement terminé) : même message, sans rien effacer.
+  if (!report.enabled || !(await getBrandPlan(report.brandId)).limits.reportsEnabled) {
     return NextResponse.json({ error: "Ce rapport n'est plus partagé.", unpublished: true }, { status: 410 });
   }
 

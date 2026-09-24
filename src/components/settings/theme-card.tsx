@@ -13,7 +13,7 @@ import { IconLock } from "@/components/dashboard/icons";
 import type { ThemeDefinition } from "@/lib/themes";
 
 const PREMIUM: Record<string, { texture: string; frame: string; badge: string }> = {
-  "or-imperial": { texture: "nebula-theme-swatch-gold", frame: "nebula-theme-card-gold", badge: "Agence" },
+  "or-imperial": { texture: "nebula-theme-swatch-gold", frame: "nebula-theme-card-gold", badge: "Pro" },
   "eclipse-totale": { texture: "nebula-theme-swatch-eclipse", frame: "nebula-theme-card-eclipse", badge: "Agence" },
   aube: { texture: "nebula-theme-swatch-dawn", frame: "nebula-theme-card-dawn", badge: "Pro" }
 };

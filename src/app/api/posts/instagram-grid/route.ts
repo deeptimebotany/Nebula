@@ -38,7 +38,9 @@ export async function GET(req: NextRequest) {
   const tiles = targets
     .map((t: { post: { media: { mediaAsset: MediaRow }[] } }) => t.post.media[0]?.mediaAsset)
     .filter((m: MediaRow | undefined): m is MediaRow => Boolean(m))
-    .map((m: MediaRow) => ({ imageUrl: m.type === "VIDEO" ? m.thumbnailUrl ?? m.url : m.url }));
+    // Vidéo sans miniature : imageUrl null (tuile « vidéo » côté aperçu),
+    // jamais l'adresse du fichier vidéo affichée comme une image.
+    .map((m: MediaRow) => ({ imageUrl: m.type === "VIDEO" ? m.thumbnailUrl ?? null : m.url }));
 
   return NextResponse.json({ tiles });
 }

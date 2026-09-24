@@ -22,6 +22,10 @@ export interface ThemeDefinition {
   // caché tapé sur la page pour le révéler) — gratuit pour tout le monde
   // une fois trouvé, jamais de requiresPlan associé.
   hidden?: boolean;
+  // Thème réservé à qui a trouvé cet easter egg (voir easter-eggs-registry.ts)
+  // — revérifié côté serveur (Paramètres, Page bio, /api/me), jamais sur la
+  // seule parole du navigateur.
+  requiresEgg?: string;
 }
 
 function v(rgb: number[]): string {
@@ -347,9 +351,11 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
   {
+    // Palier Pro depuis le 24/09/2026 (décision de Lucas) : l'Or pour Pro,
+    // l'Éclipse pour Agence.
     key: "or-imperial",
-    label: "Or Impérial (Agence)",
-    requiresPlan: "AGENCY",
+    label: "Or Impérial (Pro)",
+    requiresPlan: "PRO",
     vars: {
       "--c-nebula-900": v([20, 16, 8]),
       "--c-nebula-800": v([33, 26, 11]),
@@ -422,30 +428,59 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
   {
-    // Thème easter egg — voir hidden ci-dessus et settings/page.tsx pour le
-    // mot-clé caché qui le révèle. Palette "supernova" : or et blanc
-    // incandescent, sans rapport avec un palier payant (gratuit une fois
-    // trouvé, pour tout le monde).
+    // Thème easter egg (mot-clé « nova » tapé dans Paramètres). Refait le
+    // 24/09/2026 : noir chaud, accents orange et or, avec un fond de fines
+    // particules qui clignotent vers le bas de l'écran (proposition B7
+    // « Horizon », voir src/components/theme-particles.tsx).
     key: "nova",
     label: "Nova",
     hidden: true,
+    requiresEgg: "nova-theme",
     vars: {
-      "--c-nebula-900": v([22, 18, 10]),
-      "--c-nebula-800": v([37, 30, 15]),
-      "--c-nebula-700": v([56, 46, 20]),
-      "--c-nebula-600": v([84, 68, 28]),
-      "--c-nebula-500": v([214, 178, 90]),
-      "--c-nebula-400": v([230, 200, 130]),
-      "--c-nebula-300": v([240, 220, 165]),
-      "--c-nebula-200": v([247, 235, 200]),
-      "--c-nebula-100": v([252, 247, 230]),
-      "--c-aurora-500": v([255, 255, 255]),
-      "--c-aurora-400": v([255, 250, 235]),
-      "--c-aurora-300": v([255, 244, 214]),
-      "--c-aurora-glow": v([255, 248, 224]),
-      "--c-accent-violet": v([200, 210, 255]),
-      "--c-accent-cyan": v([190, 240, 255]),
-      "--c-accent-magenta": v([255, 210, 150]),
+      "--c-nebula-900": v([14, 11, 9]),
+      "--c-nebula-800": v([22, 17, 13]),
+      "--c-nebula-700": v([33, 25, 19]),
+      "--c-nebula-600": v([50, 37, 27]),
+      "--c-nebula-500": v([255, 138, 61]),
+      "--c-nebula-400": v([255, 162, 94]),
+      "--c-nebula-300": v([255, 196, 107]),
+      "--c-nebula-200": v([255, 222, 170]),
+      "--c-nebula-100": v([255, 243, 208]),
+      "--c-aurora-500": v([255, 107, 45]),
+      "--c-aurora-400": v([255, 155, 79]),
+      "--c-aurora-300": v([255, 196, 107]),
+      "--c-aurora-glow": v([255, 214, 150]),
+      "--c-accent-violet": v([255, 155, 79]),
+      "--c-accent-cyan": v([255, 196, 107]),
+      "--c-accent-magenta": v([224, 83, 31]),
+    }
+  },
+  {
+    // Thème easter egg du million d'abonnés (même succès que le cadre ultime
+    // « Prisme », voir bio-frames.ts). Noir profond, accents rose et cyan, avec
+    // une neige de fines étoiles arc-en-ciel (proposition A4, voir
+    // src/components/theme-particles.tsx).
+    key: "prisme",
+    label: "Prisme",
+    hidden: true,
+    requiresEgg: "frame-ultime-prisme",
+    vars: {
+      "--c-nebula-900": v([10, 10, 14]),
+      "--c-nebula-800": v([17, 16, 23]),
+      "--c-nebula-700": v([26, 24, 35]),
+      "--c-nebula-600": v([40, 37, 54]),
+      "--c-nebula-500": v([192, 132, 252]),
+      "--c-nebula-400": v([206, 160, 253]),
+      "--c-nebula-300": v([221, 190, 254]),
+      "--c-nebula-200": v([236, 220, 255]),
+      "--c-nebula-100": v([246, 240, 255]),
+      "--c-aurora-500": v([255, 122, 217]),
+      "--c-aurora-400": v([192, 132, 252]),
+      "--c-aurora-300": v([110, 231, 255]),
+      "--c-aurora-glow": v([200, 180, 255]),
+      "--c-accent-violet": v([192, 132, 252]),
+      "--c-accent-cyan": v([110, 231, 255]),
+      "--c-accent-magenta": v([255, 122, 217]),
     }
   },
 ];

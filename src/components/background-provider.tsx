@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { DEFAULT_BACKGROUND_KEY, findBackground } from "@/lib/backgrounds";
+import { DEFAULT_BACKGROUND_KEY, findBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import { useBootstrap } from "@/components/bootstrap-provider";
 
 const STORAGE_KEY = "nebula:background";
@@ -9,6 +9,8 @@ const STORAGE_KEY = "nebula:background";
 function applyBackground(key: string) {
   const bg = findBackground(key);
   document.documentElement.style.setProperty("--app-bg", bg.css);
+  // Déclinaison claire, utilisée par globals.css en mode clair.
+  document.documentElement.style.setProperty("--app-bg-light", bg.lightCss);
   document.documentElement.dataset.background = bg.key;
   // Fonds animés de palier (voir src/lib/backgrounds.ts) : on pose le nom de
   // la classe d'animation dans un attribut dédié, lu par globals.css, plutôt
@@ -43,20 +45,24 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
   const serverBackground = data?.background;
 
   useEffect(() => {
-    const local = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    // Ancienne clé (fond retiré le 24/09/2026) → son remplaçant.
+    const local = stored ? resolveBackgroundKey(stored) : null;
     if (local) {
       setBackgroundKeyState(local);
       applyBackground(local);
+      if (local !== stored) localStorage.setItem(STORAGE_KEY, local);
     }
   }, []);
 
   useEffect(() => {
     if (!serverBackground) return;
+    const resolved = resolveBackgroundKey(serverBackground);
     const local = localStorage.getItem(STORAGE_KEY);
-    if (serverBackground !== local) {
-      setBackgroundKeyState(serverBackground);
-      applyBackground(serverBackground);
-      localStorage.setItem(STORAGE_KEY, serverBackground);
+    if (resolved !== local) {
+      setBackgroundKeyState(resolved);
+      applyBackground(resolved);
+      localStorage.setItem(STORAGE_KEY, resolved);
     }
   }, [serverBackground]);
 

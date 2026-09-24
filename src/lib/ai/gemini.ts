@@ -262,21 +262,34 @@ export interface FrameCandidate {
   mimeType: string;
 }
 
+/** Une frame retenue comme miniature, avec le « pourquoi » (notes 1 à 5). */
+export interface FramePick {
+  index: number;
+  reason: string;
+  sharpness: number;
+  framing: number;
+  clickPotential: number;
+}
+
 /**
  * Fait choisir à Gemini les meilleures frames parmi plusieurs candidates
  * extraites d'une même vidéo, pour la génération de miniatures (voir
  * "Générer des miniatures" dans composer/page.tsx) — évite de proposer des
  * frames de transition, floues ou sans intérêt visuel qui sortiraient d'un
- * simple échantillonnage à intervalles fixes.
+ * simple échantillonnage à intervalles fixes. Depuis le 24/09/2026, chaque
+ * choix est accompagné d'une courte explication et de trois notes
+ * (netteté, cadrage, potentiel de clic), présentées dans le chat IA.
  */
-export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<number[]> {
+export async function pickBestFrames(input: { frames: FrameCandidate[]; count: number }): Promise<FramePick[]> {
   const { frames, count } = input;
   const promptText = [
     "Tu es un directeur artistique qui choisit la meilleure image de couverture (miniature) parmi plusieurs frames extraites de la même vidéo, numérotées dans l'ordre chronologique (index 0 à " +
       (frames.length - 1) +
       ").",
-    "Choisis celles qui feraient les meilleures miniatures : nettes (pas de flou de mouvement), bien cadrées, sujet principal clairement visible et reconnaissable, moment ou expression engageant. Évite les frames de transition, noires, floues, ou sans intérêt visuel.",
-    `Réponds STRICTEMENT en JSON avec ce format : {"bestIndexes": [index1, index2, ...]}, en donnant jusqu'à ${count} indices, du meilleur au moins bon.`
+    "Choisis celles qui feraient les meilleures miniatures : nettes (pas de flou de mouvement), bien cadrées, sujet principal clairement visible et reconnaissable, moment ou expression engageant. Évite les frames de transition, noires, floues, ou sans intérêt visuel. Choisis des images différentes les unes des autres (pas trois fois le même plan).",
+    `Réponds STRICTEMENT en JSON avec ce format : {"picks": [{"index": 0, "reason": "…", "sharpness": 1-5, "framing": 1-5, "clickPotential": 1-5}, …]}, avec exactement ${count} choix (moins seulement s'il n'y a pas assez de frames exploitables), du meilleur au moins bon.`,
+    "« reason » : une ou deux phrases en français, concrètes et adressées à l'utilisateur (vouvoiement), qui expliquent pourquoi CETTE image donne envie de cliquer — ce qu'on y voit, ce qui accroche l'œil (expression, geste, contraste, lisibilité en petit format). Pas de généralités.",
+    "sharpness = netteté, framing = cadrage et composition, clickPotential = potentiel de clic ; notes entières de 1 à 5."
   ].join("\n");
 
   const parts: GenerateContentPart[] = [{ text: promptText }];
@@ -286,12 +299,27 @@ export async function pickBestFrames(input: { frames: FrameCandidate[]; count: n
   }
 
   const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
+  const clampNote = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math.min(5, Math.max(1, Math.round(n))) : 3);
   try {
     const parsed = JSON.parse(raw);
-    const indexes: number[] = Array.isArray(parsed.bestIndexes)
-      ? parsed.bestIndexes.filter((n: unknown): n is number => typeof n === "number")
-      : [];
-    return indexes.slice(0, count);
+    const valid = new Set(frames.map((f) => f.index));
+    const seen = new Set<number>();
+    const picks: FramePick[] = [];
+    const list: unknown[] = Array.isArray(parsed.picks) ? parsed.picks : Array.isArray(parsed.bestIndexes) ? parsed.bestIndexes.map((index: unknown) => ({ index })) : [];
+    for (const item of list) {
+      const p = item as Record<string, unknown>;
+      const index = typeof p.index === "number" ? p.index : NaN;
+      if (!valid.has(index) || seen.has(index)) continue;
+      seen.add(index);
+      picks.push({
+        index,
+        reason: typeof p.reason === "string" ? p.reason.trim().slice(0, 400) : "",
+        sharpness: clampNote(p.sharpness),
+        framing: clampNote(p.framing),
+        clickPotential: clampNote(p.clickPotential)
+      });
+    }
+    return picks.slice(0, count);
   } catch {
     return [];
   }

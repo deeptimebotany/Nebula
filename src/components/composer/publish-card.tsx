@@ -50,7 +50,7 @@ export function PublishCard({ mode, onModeChange, scheduleDate, onScheduleDateCh
 
       {mode === "date" && (
         <div className="mt-3 space-y-2">
-          <DateTimePicker value={scheduleDate} onChange={onScheduleDateChange} />
+          <DateTimePicker value={scheduleDate} onChange={onScheduleDateChange} timeZone={timezone} />
           <p className="text-[11px] text-slate-500">
             Heure de <span className="text-slate-300">{timezone.replace(/_/g, " ")}</span> ({timeZoneLabel(timezone, scheduledUtc ?? new Date())})
             {differentTz && (

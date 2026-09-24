@@ -5,6 +5,7 @@ import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
+import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 
 // « Actualiser » de la page /engagements : interroge l'API de chaque réseau
 // (SocialClient.fetchPostMetrics) pour les comptes d'une marque, ou pour un
@@ -79,6 +80,9 @@ export async function POST(req: NextRequest) {
       results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: 0, error: (err as Error).message });
     }
   }
+
+  // Cadres de la page bio débloqués par les j'aime cumulés.
+  await checkAudienceMilestones(userId);
 
   return NextResponse.json({ ok: true, results, count: results.reduce((sum, r) => sum + r.count, 0) });
 }

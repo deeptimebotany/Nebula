@@ -53,6 +53,12 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Thème easter egg (Nova) : seulement si l'egg a vraiment été trouvé.
+  if (theme.requiresEgg && !skipChecks) {
+    const found = await prisma.easterEggFound.findUnique({ where: { userId_key: { userId, key: theme.requiresEgg } }, select: { id: true } });
+    if (!found) return NextResponse.json({ error: `Le thème "${theme.label}" se débloque en trouvant son easter egg.` }, { status: 403 });
+  }
+
   await prisma.user.update({ where: { id: userId }, data: { themePreference: parsed.data.theme } });
   return NextResponse.json({ ok: true });
 }

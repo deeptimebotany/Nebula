@@ -7,9 +7,12 @@
 // et /(dashboard)/link-in-bio pour l'éditeur.
 //
 import { findTheme } from "@/lib/themes";
+import { ParticleCanvas, particleVariantForTheme } from "@/components/theme-particles";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
 import type { PublicLinkPageData } from "@/lib/link-in-bio-public";
+import { resolveBioFrame } from "@/lib/bio-frames";
+import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
 
 // Les données arrivent déjà rendues par le serveur (voir page.tsx) : ce
 // composant ne fait plus aucun appel réseau au chargement — il ne garde de
@@ -27,16 +30,27 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
   }
 
   const theme = findTheme(data.theme);
+  // Cadre animé (voir src/lib/bio-frames.ts) : quand il y en a un, le
+  // contenu passe dans une carte encadrée ; sinon, rendu d'origine.
+  const frame = resolveBioFrame(data.theme, data.frame);
+  const particles = particleVariantForTheme(theme.key);
 
   return (
     <div
-      className="flex min-h-screen justify-center px-4 py-14"
+      className="relative isolate flex min-h-screen justify-center px-4 py-14"
       style={{
         background: `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-900"]}), rgb(${theme.vars["--c-nebula-800"]}) 55%, rgb(${theme.vars["--c-nebula-700"]}))`
       }}
     >
+      {particles && <ParticleCanvas variant={particles} className="pointer-events-none fixed inset-0 h-full w-full" style={{ zIndex: -1 }} />}
       <div className="w-full max-w-md">
-        <div className="flex flex-col items-center gap-4">
+        <BioFrame
+          frame={frame}
+          radius={frame ? 32 : 0}
+          cardClassName={frame ? "flex flex-col items-center gap-4 border border-white/10 px-5 py-8 shadow-2xl sm:px-8" : "flex flex-col items-center gap-4"}
+          cardStyle={frame ? { background: `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-800"]}), rgb(${theme.vars["--c-nebula-900"]}))` } : undefined}
+        >
+          <BioAvatarFrame frame={frame}>
           <div
             className="h-24 w-24 overflow-hidden rounded-full border-2 shadow-lg"
             style={{
@@ -52,6 +66,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
               </div>
             )}
           </div>
+          </BioAvatarFrame>
 
           <h1 className="text-center text-lg font-semibold text-white">{data.brandName}</h1>
           {data.bio && <p className="whitespace-pre-line text-center text-sm text-white/70">{data.bio}</p>}
@@ -67,7 +82,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => onLinkClick(link.id)}
-                  className="block w-full rounded-2xl px-5 py-4 text-center text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:scale-[1.02] hover:brightness-110 active:scale-[0.99]"
+                  className="bf-link block w-full rounded-2xl px-5 py-4 text-center text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:scale-[1.02] hover:brightness-110 active:scale-[0.99]"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     border: `1.5px solid rgb(${theme.vars["--c-aurora-400"]} / 0.55)`
@@ -78,7 +93,9 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
               ))
             )}
           </div>
+        </BioFrame>
 
+        <div className="flex justify-center">
           <PoweredByNebula tone="light" className="pt-10" surface="bio" via={slug} />
         </div>
       </div>

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { BACKGROUNDS, DEFAULT_BACKGROUND_KEY, canUseBackground } from "@/lib/backgrounds";
+import { BACKGROUNDS, DEFAULT_BACKGROUND_KEY, canUseBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import { getUserPlan } from "@/lib/billing/plan";
 import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
 
@@ -16,7 +16,7 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ background: null }, { status: 200 });
   const userId = (session.user as { id: string }).id;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { backgroundPreference: true } });
-  return NextResponse.json({ background: user?.backgroundPreference ?? DEFAULT_BACKGROUND_KEY });
+  return NextResponse.json({ background: resolveBackgroundKey(user?.backgroundPreference ?? DEFAULT_BACKGROUND_KEY) });
 }
 
 const bodySchema = z.object({ background: z.string() });

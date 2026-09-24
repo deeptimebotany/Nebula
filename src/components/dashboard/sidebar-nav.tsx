@@ -14,6 +14,7 @@ import { useMode } from "@/components/mode-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { useBootstrap } from "@/components/bootstrap-provider";
 import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
 import { NAV_GROUPS, OWNER_NAV_ITEMS, isNavActive, type NavItem } from "./navigation";
 import { BrandSwitcher } from "./brand-switcher";
@@ -43,6 +44,10 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
   const pathname = usePathname();
   const { mode, setMode } = useMode();
   const toast = useToast();
+  // Progression des easter eggs (bootstrap /api/me, tenue à jour en direct
+  // par bootstrap-provider.tsx à chaque nouvelle découverte).
+  const { data: bootstrap } = useBootstrap();
+  const eggs = bootstrap?.eggs ?? null;
   const cosmetics = useCosmetics();
 
   // --- Easter egg : appui long (3 s) sur le logo ---------------------------
@@ -131,13 +136,15 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
   function renderItem(item: NavItem) {
     const active = isNavActive(item.href, pathname);
     const Icon = item.icon;
+    // Compteur de progression sur « Succès » (ex. « 10/48 »).
+    const eggBadge = item.href === "/succes" && eggs ? `${eggs.found}/${eggs.total}` : null;
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? (eggBadge ? `${item.label} — ${eggBadge} trouvés` : item.label) : undefined}
         className={clsx(
           "group flex items-center gap-3 rounded-xl text-sm font-medium transition",
           collapsed ? "justify-center px-0 py-2" : "px-3 py-1.5",
@@ -146,6 +153,17 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
       >
         <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-aurora-300" : "text-slate-500 group-hover:text-slate-300")} />
         {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && eggBadge && (
+          <span
+            className={clsx(
+              "ml-auto shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold tabular-nums",
+              eggs && eggs.found >= eggs.total ? "border-amber-400/50 bg-amber-400/15 text-amber-200" : "border-amber-400/30 bg-amber-400/[0.08] text-amber-300"
+            )}
+            aria-label={`${eggBadge} easter eggs trouvés`}
+          >
+            {eggBadge}
+          </span>
+        )}
       </Link>
     );
   }

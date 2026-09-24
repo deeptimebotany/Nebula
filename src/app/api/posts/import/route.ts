@@ -8,6 +8,7 @@ import { assertBrandWritable } from "@/lib/billing/trial-expiry";
 import { localInputToUtc } from "@/lib/timezone";
 import { trackGrowth } from "@/lib/growth";
 import { NETWORKS } from "@/lib/types";
+import { isPastSchedule } from "@/lib/schedule-guard";
 
 // POST /api/posts/import — import CSV de publications (brief growth, lot
 // G6.a). Le CSV est analysé dans le navigateur (src/lib/import/csv.ts) ;
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
       const d = localInputToUtc(row.wallClock, brand.timezone);
       if (!d) {
         skipped.push({ index: row.index, reason: "date illisible" });
+        continue;
+      }
+      if (isPastSchedule(d)) {
+        skipped.push({ index: row.index, reason: "date déjà passée" });
         continue;
       }
       scheduledAt = d;

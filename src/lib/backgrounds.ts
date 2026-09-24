@@ -24,120 +24,177 @@ export interface BackgroundDefinition {
   // en plus du dégradé `css` — voir background-provider.tsx, qui pose
   // data-background-animated sur <html> pour ces fonds-là uniquement.
   animationClass?: string;
+  // Déclinaison pour le mode clair (même motif, pastel sur fond clair).
+  lightCss: string;
 }
 
-const NEBULA = "var(--c-nebula-500)";
-const NEBULA_D = "var(--c-nebula-700)";
-const AURORA = "var(--c-aurora-400)";
-const AURORA_S = "var(--c-aurora-300)";
-const CYAN = "var(--c-accent-cyan)";
-const MAGENTA = "var(--c-accent-magenta)";
-const VIOLET = "var(--c-accent-violet)";
+// --- Deux déclinaisons de chaque fond (24/09/2026) ---------------------------
+// Chaque fond est décrit une seule fois (fonction de « l'encre » ci-dessous)
+// puis rendu deux fois : `css` pour le mode sombre, `lightCss` pour le mode
+// clair. En clair, le fond de page devient --l-page (gris très clair), les
+// teintes sombres (nebula-700) sont remplacées par des violets doux et les
+// opacités ajustées : mêmes motifs, mais pastel sur blanc au lieu de
+// lumineux sur noir. Voir background-provider.tsx (--app-bg / --app-bg-light)
+// et globals.css (.noise-grid::before).
+interface Ink {
+  NEBULA: string;
+  NEBULA_D: string;
+  AURORA: string;
+  AURORA_S: string;
+  CYAN: string;
+  MAGENTA: string;
+  VIOLET: string;
+  BASE: string;
+  /** Multiplicateur d'opacité (le clair supporte moins de couleur). */
+  k: number;
+}
 
-function blob(x: string, y: string, color: string, size: string, alpha = 0.22) {
-  return `radial-gradient(circle at ${x} ${y}, rgb(${color} / ${alpha}), transparent ${size})`;
-}
-function dots(color: string, gap: string, alpha = 0.16) {
-  return `radial-gradient(circle at 1px 1px, rgb(${color} / ${alpha}) 1px, transparent 0)`;
-}
-function stripes(angle: string, color: string, width: string, gap: string, alpha = 0.08) {
-  return `repeating-linear-gradient(${angle}, rgb(${color} / ${alpha}) 0 ${width}, transparent ${width} ${gap})`;
-}
-function grid(color: string, size: string, alpha = 0.07) {
-  return `repeating-linear-gradient(90deg, rgb(${color} / ${alpha}) 0 1px, transparent 1px ${size}), repeating-linear-gradient(0deg, rgb(${color} / ${alpha}) 0 1px, transparent 1px ${size})`;
-}
-function rays(x: string, y: string, color: string, alpha = 0.1) {
-  return `repeating-conic-gradient(from 0deg at ${x} ${y}, rgb(${color} / ${alpha}) 0deg 4deg, transparent 4deg 16deg)`;
-}
-function rings(x: string, y: string, color: string, gap: string, alpha = 0.12) {
-  return `repeating-radial-gradient(circle at ${x} ${y}, rgb(${color} / ${alpha}) 0 2px, transparent 2px ${gap})`;
-}
 // Couleur de fond sous chaque dégradé : noir neutre (Dark UI, 24/09/2026),
 // identique au fond de page (body) — plus de teinte bleu nuit.
 const BASE = "#0e0e10";
 
-export const BACKGROUNDS: BackgroundDefinition[] = [
-  // Fond par défaut « Dark UI » : un noir neutre uni, à peine éclairé en haut.
-  { key: "mesh", label: "Uni (défaut)", css: `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), ${BASE}` },
-  { key: "nebuleuse", label: "Nébuleuse", css: `${blob("15%", "10%", NEBULA, "55%")}, ${blob("85%", "90%", AURORA, "60%", 0.16)}, ${dots(AURORA, "28px")}, ${BASE}` },
-  { key: "aurora-polaire", label: "Aurore polaire", css: `${blob("20%", "0%", AURORA, "70%", 0.2)}, ${blob("80%", "20%", CYAN, "60%", 0.14)}, ${blob("50%", "100%", VIOLET, "65%", 0.12)}, ${BASE}` },
-  { key: "maree-nocturne", label: "Marée nocturne", css: `${stripes("100deg", AURORA, "2px", "22px", 0.07)}, ${blob("50%", "110%", NEBULA, "80%", 0.25)}, ${BASE}` },
-  { key: "poussiere-etoiles", label: "Poussière d'étoiles", css: `${dots(AURORA_S, "18px", 0.14)}, ${dots(CYAN, "46px", 0.1)}, ${blob("50%", "0%", NEBULA, "70%", 0.18)}, ${BASE}` },
-  { key: "prisme", label: "Prisme", css: `${stripes("35deg", CYAN, "1px", "34px", 0.07)}, ${stripes("-35deg", MAGENTA, "1px", "34px", 0.05)}, ${BASE}` },
-  { key: "dunes", label: "Dunes", css: `${blob("10%", "100%", NEBULA, "60%", 0.22)}, ${blob("60%", "100%", AURORA, "55%", 0.16)}, ${blob("100%", "100%", VIOLET, "50%", 0.12)}, ${BASE}` },
-  { key: "origami", label: "Origami", css: `${grid(AURORA, "42px", 0.06)}, ${blob("30%", "20%", NEBULA, "60%", 0.14)}, ${BASE}` },
-  { key: "comete", label: "Comète", css: `${blob("90%", "-10%", CYAN, "45%", 0.22)}, ${stripes("115deg", AURORA_S, "1px", "60px", 0.05)}, ${BASE}` },
-  { key: "abysse", label: "Abysse", css: `${blob("50%", "50%", NEBULA_D, "90%", 0.5)}, ${dots(AURORA, "34px", 0.08)}, ${BASE}` },
-  { key: "vitrail", label: "Vitrail", css: `${rays("50%", "0%", AURORA, 0.06)}, ${blob("50%", "100%", MAGENTA, "70%", 0.12)}, ${BASE}` },
-  { key: "geode", label: "Géode", css: `${rings("50%", "40%", CYAN, "26px", 0.09)}, ${blob("50%", "40%", VIOLET, "70%", 0.15)}, ${BASE}` },
-  { key: "brume-violette", label: "Brume violette", css: `${blob("0%", "30%", VIOLET, "65%", 0.2)}, ${blob("100%", "70%", MAGENTA, "60%", 0.14)}, ${BASE}` },
-  { key: "constellation", label: "Constellation", css: `${dots(AURORA, "60px", 0.18)}, ${dots(CYAN, "23px", 0.08)}, ${BASE}` },
-  { key: "horizon", label: "Horizon", css: `linear-gradient(180deg, transparent 0%, rgb(${NEBULA} / 0.18) 70%, rgb(${AURORA} / 0.1) 100%), ${BASE}` },
-  { key: "cristaux", label: "Cristaux", css: `${stripes("60deg", AURORA_S, "1px", "40px", 0.06)}, ${stripes("-60deg", AURORA_S, "1px", "40px", 0.06)}, ${BASE}` },
-  { key: "marais-cyan", label: "Marais cyan", css: `${blob("20%", "80%", CYAN, "60%", 0.2)}, ${blob("70%", "20%", NEBULA, "65%", 0.18)}, ${dots(CYAN, "30px", 0.06)}, ${BASE}` },
-  { key: "eclipse", label: "Éclipse", css: `${blob("50%", "45%", AURORA, "35%", 0.28)}, ${rings("50%", "45%", AURORA_S, "18px", 0.06)}, ${BASE}` },
-  { key: "onde-magenta", label: "Onde magenta", css: `${stripes("100deg", MAGENTA, "3px", "48px", 0.06)}, ${blob("80%", "0%", VIOLET, "55%", 0.14)}, ${BASE}` },
-  { key: "toile", label: "Toile", css: `${grid(CYAN, "24px", 0.05)}, ${blob("50%", "50%", NEBULA, "80%", 0.16)}, ${BASE}` },
-  { key: "supernova", label: "Supernova", css: `${blob("50%", "20%", CYAN, "18%", 0.35)}, ${blob("50%", "20%", AURORA, "50%", 0.14)}, ${BASE}` },
-  { key: "foret-boreale", label: "Forêt boréale", css: `${stripes("90deg", AURORA, "10px", "30px", 0.05)}, ${blob("50%", "-20%", CYAN, "60%", 0.16)}, ${BASE}` },
-  { key: "mineral", label: "Minéral", css: `${rays("0%", "100%", VIOLET, 0.05)}, ${blob("0%", "100%", NEBULA, "70%", 0.24)}, ${BASE}` },
-  { key: "lagune", label: "Lagune", css: `${blob("40%", "60%", CYAN, "55%", 0.2)}, ${blob("70%", "30%", AURORA_S, "45%", 0.15)}, ${dots(CYAN, "50px", 0.06)}, ${BASE}` },
-  { key: "flux", label: "Flux", css: `${stripes("20deg", NEBULA, "2px", "18px", 0.09)}, ${BASE}` },
-  { key: "opale", label: "Opale", css: `${blob("25%", "25%", VIOLET, "50%", 0.14)}, ${blob("75%", "25%", CYAN, "50%", 0.14)}, ${blob("50%", "80%", MAGENTA, "50%", 0.1)}, ${BASE}` },
-  { key: "graphite", label: "Graphite", css: `${grid(AURORA_S, "56px", 0.045)}, ${BASE}` },
-  { key: "solstice", label: "Solstice", css: `${blob("100%", "0%", CYAN, "60%", 0.22)}, ${blob("0%", "100%", MAGENTA, "60%", 0.16)}, ${BASE}` },
-  { key: "spirale", label: "Spirale", css: `${rays("50%", "50%", AURORA, 0.05)}, ${rings("50%", "50%", AURORA_S, "34px", 0.05)}, ${BASE}` },
-  { key: "glacier", label: "Glacier", css: `${blob("50%", "0%", CYAN, "80%", 0.18)}, ${dots(CYAN, "20px", 0.07)}, ${BASE}` },
-  { key: "obsidienne", label: "Obsidienne (minimal)", css: `${blob("50%", "50%", NEBULA_D, "100%", 0.35)}, ${BASE}` },
+const DARK_INK: Ink = {
+  NEBULA: "var(--c-nebula-500)",
+  NEBULA_D: "var(--c-nebula-700)",
+  AURORA: "var(--c-aurora-400)",
+  AURORA_S: "var(--c-aurora-300)",
+  CYAN: "var(--c-accent-cyan)",
+  MAGENTA: "var(--c-accent-magenta)",
+  VIOLET: "var(--c-accent-violet)",
+  BASE,
+  k: 1
+};
 
-  // --- Fonds animés de palier (voir src/lib/cosmetics.ts pour le reste du
-  // catalogue de cosmétiques) : seuls fonds ANIMÉS de la liste
-  // (animationClass), et seuls fonds réservés — par palier (requiresPlan)
-  // ou par easter egg (requiresEgg, voir plus bas) — les 30 tout en haut
-  // restent gratuits et statiques comme avant.
-  {
-    key: "aurore-boreale-animee",
-    label: "Aurore boréale (Pro)",
-    requiresPlan: "PRO",
-    animationClass: "nebula-bg-anim-aurora",
-    css: `${blob("20%", "0%", AURORA, "70%", 0.22)}, ${blob("80%", "10%", CYAN, "60%", 0.16)}, ${blob("50%", "100%", VIOLET, "65%", 0.14)}, ${BASE}`
-  },
-  {
-    key: "nebuleuse-violette-animee",
-    label: "Nébuleuse violette (Pro)",
-    requiresPlan: "PRO",
-    animationClass: "nebula-bg-anim-drift",
-    css: `${blob("15%", "30%", VIOLET, "65%", 0.24)}, ${blob("85%", "70%", MAGENTA, "60%", 0.16)}, ${dots(VIOLET, "26px", 0.08)}, ${BASE}`
-  },
-  // Fond animé GRATUIT (aucun requiresPlan/requiresEgg) — ajouté en même
-  // temps que la conversion de "Pluie de météores" en easter egg ci-dessous,
-  // pour qu'un fond animé reste accessible à tout le monde, pas seulement
-  // aux paliers payants ou à qui a trouvé un egg. Même technique d'animation
-  // (voir globals.css, nebula-bg-anim-shimmer) que les fonds ci-dessus.
-  {
-    key: "nebuleuse-scintillante-animee",
-    label: "Nébuleuse scintillante (gratuit)",
-    animationClass: "nebula-bg-anim-shimmer",
-    css: `${dots(AURORA_S, "22px", 0.16)}, ${blob("30%", "20%", NEBULA, "60%", 0.2)}, ${blob("75%", "80%", AURORA, "55%", 0.14)}, ${BASE}`
-  },
-  // Easter egg "Pluie d'étincelles" (voir easter-eggs-registry.ts et
-  // publish.ts) : plus réservé par palier — débloqué en trouvant l'egg, pas
-  // en payant. requiresEgg référence la clé de l'egg à trouver (voir
-  // canUseBackground ci-dessous — pour requiresEgg, c'est /api/settings/background
-  // et la page Paramètres qui vérifient, pas cette fonction).
-  {
-    key: "pluie-meteores-animee",
-    label: "Pluie de météores",
-    requiresEgg: "meteor-shower-unlock",
-    animationClass: "nebula-bg-anim-meteors",
-    css: `${stripes("115deg", AURORA_S, "2px", "70px", 0.09)}, ${stripes("115deg", CYAN, "1px", "140px", 0.06)}, ${BASE}`
-  }
+const LIGHT_INK: Ink = {
+  NEBULA: "var(--c-nebula-500)",
+  NEBULA_D: "var(--c-aurora-300)",
+  AURORA: "var(--c-aurora-400)",
+  AURORA_S: "var(--c-aurora-500)",
+  CYAN: "var(--c-accent-cyan)",
+  MAGENTA: "var(--c-accent-magenta)",
+  VIOLET: "var(--c-accent-violet)",
+  BASE: "var(--l-page)",
+  k: 0.85
+};
+
+function makeHelpers(i: Ink) {
+  const a = (alpha: number) => +(alpha * i.k).toFixed(3);
+  return {
+    i,
+    blob: (x: string, y: string, color: string, size: string, alpha = 0.22) => `radial-gradient(circle at ${x} ${y}, rgb(${color} / ${a(alpha)}), transparent ${size})`,
+    // Semis de points répété tous les `gap` (taille de calque dans le
+    // raccourci « image position / taille »).
+    dots: (color: string, gap: string, alpha = 0.16) => `radial-gradient(circle at 1px 1px, rgb(${color} / ${a(alpha)}) 1px, transparent 0) 0 0 / ${gap} ${gap}`,
+    stripes: (angle: string, color: string, width: string, gap: string, alpha = 0.08) =>
+      `repeating-linear-gradient(${angle}, rgb(${color} / ${a(alpha)}) 0 ${width}, transparent ${width} ${gap})`,
+    grid: (color: string, size: string, alpha = 0.07) =>
+      `repeating-linear-gradient(90deg, rgb(${color} / ${a(alpha)}) 0 1px, transparent 1px ${size}), repeating-linear-gradient(0deg, rgb(${color} / ${a(alpha)}) 0 1px, transparent 1px ${size})`,
+    rays: (x: string, y: string, color: string, alpha = 0.1) => `repeating-conic-gradient(from 0deg at ${x} ${y}, rgb(${color} / ${a(alpha)}) 0deg 4deg, transparent 4deg 16deg)`,
+    rings: (x: string, y: string, color: string, gap: string, alpha = 0.12) => `repeating-radial-gradient(circle at ${x} ${y}, rgb(${color} / ${a(alpha)}) 0 2px, transparent 2px ${gap})`,
+    alpha: a
+  };
+}
+type H = ReturnType<typeof makeHelpers>;
+
+function def(
+  key: string,
+  label: string,
+  paint: (h: H) => string,
+  extra: Pick<BackgroundDefinition, "requiresPlan" | "requiresEgg" | "animationClass"> = {}
+): BackgroundDefinition {
+  return { key, label, css: paint(makeHelpers(DARK_INK)), lightCss: paint(makeHelpers(LIGHT_INK)), ...extra };
+}
+
+// Grand ménage du 24/09/2026 : 35 fonds → 15. On garde les plus distincts
+// et les plus marquants (11 fixes + les 4 animés, dont deux récompenses
+// Pro / easter egg déjà promises). Les 20 fonds retirés sont redirigés vers
+// le plus proche (LEGACY_BACKGROUNDS plus bas) : un compte qui en avait
+// choisi un voit automatiquement son remplaçant, sans rien perdre.
+export const BACKGROUNDS: BackgroundDefinition[] = [
+  // Fond par défaut « Dark UI » : un noir neutre uni, à peine éclairé en haut
+  // (en clair : un gris très clair, à peine teinté en haut).
+  def("mesh", "Uni (défaut)", ({ i, alpha }) =>
+    i === DARK_INK
+      ? `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), ${i.BASE}`
+      : `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(${i.AURORA} / ${alpha(0.08)}), transparent 70%), ${i.BASE}`
+  ),
+  def("nebuleuse", "Nébuleuse", ({ i, blob, dots }) => `${blob("15%", "10%", i.NEBULA, "55%")}, ${blob("85%", "90%", i.AURORA, "60%", 0.16)}, ${dots(i.AURORA, "28px")}, ${i.BASE}`),
+  def("aurora-polaire", "Aurore polaire", ({ i, blob }) => `${blob("20%", "0%", i.AURORA, "70%", 0.2)}, ${blob("80%", "20%", i.CYAN, "60%", 0.14)}, ${blob("50%", "100%", i.VIOLET, "65%", 0.12)}, ${i.BASE}`),
+  def("horizon", "Horizon", ({ i, alpha }) => `linear-gradient(180deg, transparent 0%, rgb(${i.NEBULA} / ${alpha(0.18)}) 70%, rgb(${i.AURORA} / ${alpha(0.1)}) 100%), ${i.BASE}`),
+  def("graphite", "Graphite", ({ i, grid }) => `${grid(i.AURORA_S, "56px", 0.06)}, ${i.BASE}`),
+  def("prisme", "Prisme", ({ i, stripes }) => `${stripes("35deg", i.CYAN, "1px", "34px", 0.09)}, ${stripes("-35deg", i.MAGENTA, "1px", "34px", 0.07)}, ${i.BASE}`),
+  def("geode", "Géode", ({ i, rings, blob }) => `${rings("50%", "40%", i.CYAN, "26px", 0.1)}, ${blob("50%", "40%", i.VIOLET, "70%", 0.15)}, ${i.BASE}`),
+  def("eclipse", "Éclipse", ({ i, blob, rings }) => `${blob("50%", "45%", i.AURORA, "35%", 0.28)}, ${rings("50%", "45%", i.AURORA_S, "18px", 0.07)}, ${i.BASE}`),
+  def("vitrail", "Vitrail", ({ i, rays, blob }) => `${rays("50%", "0%", i.AURORA, 0.07)}, ${blob("50%", "100%", i.MAGENTA, "70%", 0.14)}, ${i.BASE}`),
+  def("supernova", "Supernova", ({ i, blob }) => `${blob("50%", "20%", i.CYAN, "18%", 0.35)}, ${blob("50%", "20%", i.AURORA, "50%", 0.16)}, ${i.BASE}`),
+  def("solstice", "Solstice", ({ i, blob }) => `${blob("100%", "0%", i.CYAN, "60%", 0.22)}, ${blob("0%", "100%", i.MAGENTA, "60%", 0.18)}, ${i.BASE}`),
+
+  // --- Fonds animés (voir globals.css, [data-background-animated]) : deux
+  // de palier, un gratuit, un débloqué par easter egg.
+  def(
+    "aurore-boreale-animee",
+    "Aurore boréale (Pro)",
+    ({ i, blob }) => `${blob("20%", "0%", i.AURORA, "70%", 0.22)}, ${blob("80%", "10%", i.CYAN, "60%", 0.16)}, ${blob("50%", "100%", i.VIOLET, "65%", 0.14)}, ${i.BASE}`,
+    { requiresPlan: "PRO", animationClass: "nebula-bg-anim-aurora" }
+  ),
+  def(
+    "nebuleuse-violette-animee",
+    "Nébuleuse violette (Pro)",
+    ({ i, blob, dots }) => `${blob("15%", "30%", i.VIOLET, "65%", 0.24)}, ${blob("85%", "70%", i.MAGENTA, "60%", 0.16)}, ${dots(i.VIOLET, "26px", 0.08)}, ${i.BASE}`,
+    { requiresPlan: "PRO", animationClass: "nebula-bg-anim-drift" }
+  ),
+  // Fond animé GRATUIT : un fond animé reste accessible à tout le monde.
+  def(
+    "nebuleuse-scintillante-animee",
+    "Nébuleuse scintillante",
+    ({ i, blob, dots }) => `${dots(i.AURORA_S, "22px", 0.16)}, ${blob("30%", "20%", i.NEBULA, "60%", 0.2)}, ${blob("75%", "80%", i.AURORA, "55%", 0.14)}, ${i.BASE}`,
+    { animationClass: "nebula-bg-anim-shimmer" }
+  ),
+  // Easter egg « Pluie d'étincelles » (voir easter-eggs-registry.ts).
+  def(
+    "pluie-meteores-animee",
+    "Pluie de météores",
+    ({ i, stripes }) => `${stripes("115deg", i.AURORA_S, "2px", "70px", 0.09)}, ${stripes("115deg", i.CYAN, "1px", "140px", 0.06)}, ${i.BASE}`,
+    { requiresEgg: "meteor-shower-unlock", animationClass: "nebula-bg-anim-meteors" }
+  )
 ];
+
+/** Fonds retirés le 24/09/2026 → fond conservé le plus proche. */
+export const LEGACY_BACKGROUNDS: Record<string, string> = {
+  "maree-nocturne": "horizon",
+  "poussiere-etoiles": "nebuleuse-scintillante-animee",
+  dunes: "horizon",
+  origami: "graphite",
+  comete: "supernova",
+  abysse: "mesh",
+  "brume-violette": "solstice",
+  constellation: "nebuleuse-scintillante-animee",
+  cristaux: "prisme",
+  "marais-cyan": "aurora-polaire",
+  "onde-magenta": "vitrail",
+  toile: "graphite",
+  "foret-boreale": "aurora-polaire",
+  mineral: "vitrail",
+  lagune: "aurora-polaire",
+  flux: "prisme",
+  opale: "solstice",
+  spirale: "geode",
+  glacier: "aurora-polaire",
+  obsidienne: "mesh"
+};
+
+/** Clé d'un fond existant : redirige les anciennes clés, sinon le défaut. */
+export function resolveBackgroundKey(key: string | null | undefined): string {
+  if (!key) return "mesh";
+  if (BACKGROUNDS.some((b) => b.key === key)) return key;
+  return LEGACY_BACKGROUNDS[key] ?? "mesh";
+}
 
 export const DEFAULT_BACKGROUND_KEY = "mesh";
 
 export function findBackground(key: string): BackgroundDefinition {
-  return BACKGROUNDS.find((b) => b.key === key) ?? BACKGROUNDS[0];
+  const resolved = resolveBackgroundKey(key);
+  return BACKGROUNDS.find((b) => b.key === resolved) ?? BACKGROUNDS[0];
 }
 
 /** true si ce compte (selon son palier) peut sélectionner ce fond. */

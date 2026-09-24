@@ -12,6 +12,53 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 // Coffee, PayPal.me ou un lien de paiement Stripe une fois que vous en avez un.
 const DONATE_URL = process.env.NEXT_PUBLIC_DONATE_URL;
 
+// Encadré « Bientôt disponible » : ce que les abonnements et les soutiens
+// permettront de financer.
+const SOON_GROUPS: { title: string; items: { title: string; text: string }[] }[] = [
+  {
+    title: "Nouvelles fonctionnalités",
+    items: [
+      {
+        title: "Connexion X (Twitter)",
+        text: "Publier et lire les statistiques via l'API X nécessite un plan développeur payant depuis la fin de son tier gratuit d'écriture."
+      },
+      {
+        title: "Hashtag Tracker",
+        text: "Suivre la tendance d'un hashtag en temps réel (façon Metricool) suppose d'interroger l'API de recherche X, elle-même payante — voir juste au-dessus. Reviendra en même temps que la connexion X."
+      },
+      {
+        title: "Palier IA avancé (Gemini)",
+        text: "Nebula utilise aujourd'hui la version gratuite de Google Gemini. Un palier payant donnera accès aux modèles Gemini les plus puissants : réponses plus rapides, pas de limite quotidienne, et des agents IA dédiés pour peaufiner titres, légendes et miniatures."
+      },
+      {
+        title: "Sous-titres automatiques des vidéos",
+        text: "L'IA écoute vos vidéos et génère leurs sous-titres, prêts à publier. Chaque minute de vidéo analysée a un coût côté fournisseur."
+      }
+    ]
+  },
+  {
+    title: "Vitesse et fiabilité",
+    items: [
+      {
+        title: "Un site plus rapide partout dans le monde",
+        text: "Avec Cloudflare Pro : pages mises en cache au plus près de chaque visiteur, images optimisées automatiquement et protection contre les attaques."
+      },
+      {
+        title: "Des serveurs plus puissants",
+        text: "Un hébergement Vercel Pro, une base de données payante et un cache en mémoire : des pages qui s'affichent instantanément, même avec beaucoup d'utilisateurs en même temps."
+      },
+      {
+        title: "Plus d'espace pour vos vidéos",
+        text: "Un stockage agrandi pour envoyer des vidéos plus lourdes."
+      },
+      {
+        title: "Moins de bugs",
+        text: "Un outil de surveillance des erreurs (comme Sentry) : chaque erreur est signalée automatiquement et corrigée avant que vous ne tombiez dessus."
+      }
+    ]
+  }
+];
+
 export default function SupportPage() {
   // Easter egg : 5 clics rapprochés sur le cœur du haut le font battre plus
   // vite pendant ~2s avant de revenir à la normale — purement décoratif, ne
@@ -93,35 +140,27 @@ export default function SupportPage() {
       <GlassCard>
         <h2 className="font-display text-sm font-medium text-white">Bientôt disponible</h2>
         <p className="mt-1.5 text-sm text-slate-400">
-          Certaines fonctionnalités demandent des API payantes côté fournisseur. Elles ne sont pas incluses
+          Certaines améliorations demandent des services payants (API, hébergement, outils). Elles ne sont pas incluses
           aujourd&apos;hui pour ne pas répercuter leur coût sur vous sans que le site ne génère de revenu — elles
           arriveront dès que les abonnements Nebula permettront de les financer sereinement :
         </p>
-        <ul className="mt-3 space-y-3 text-sm">
-          <li className="rounded-lg bg-white/[0.02] p-3">
-            <p className="font-medium text-slate-200">Connexion X (Twitter)</p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Publier et lire les statistiques via l&apos;API X nécessite un plan développeur payant depuis la fin de
-              son tier gratuit d&apos;écriture.
-            </p>
-          </li>
-          <li className="rounded-lg bg-white/[0.02] p-3">
-            <p className="font-medium text-slate-200">Palier IA avancé (Claude + Gemini)</p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Nebula utilise aujourd&apos;hui Google Gemini, qui propose un vrai palier gratuit. Un palier payant plus
-              rapide et plus puissant combinera Claude (Anthropic) et Gemini, avec des agents IA dédiés pour peaufiner
-              automatiquement titres, légendes et miniatures — une qualité de rendu au-dessus de l&apos;assistant
-              gratuit actuel, dès que les abonnements permettent d&apos;en financer le coût.
-            </p>
-          </li>
-          <li className="rounded-lg bg-white/[0.02] p-3">
-            <p className="font-medium text-slate-200">Hashtag Tracker</p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Suivre la tendance d&apos;un hashtag en temps réel (façon Metricool) suppose d&apos;interroger l&apos;API
-              de recherche X, elle-même payante — voir juste au-dessus. Reviendra en même temps que la connexion X.
-            </p>
-          </li>
-        </ul>
+        {/* Liste validée par Lucas le 24/09/2026 : uniquement ce qui change
+            quelque chose pour les utilisateurs. Les idées « business »
+            (SEO, publicité, newsletters, dons, régies) sont gardées pour
+            plus tard, hors de cette page. */}
+        {SOON_GROUPS.map((group) => (
+          <div key={group.title} className="mt-4">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{group.title}</h3>
+            <ul className="mt-2 space-y-3 text-sm">
+              {group.items.map((item) => (
+                <li key={item.title} className="rounded-lg bg-white/[0.02] p-3">
+                  <p className="font-medium text-slate-200">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{item.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </GlassCard>
 
       <style jsx>{`

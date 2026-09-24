@@ -117,6 +117,11 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
   async function save() {
     setSaving(true);
     const rescheduled = post?.status === "SCHEDULED" && scheduleInput && scheduleInput !== initialScheduleInput ? localInputToUtc(scheduleInput, timezone) : null;
+    if (rescheduled && rescheduled.getTime() <= Date.now()) {
+      setSaving(false);
+      toast.error("Cet horaire est déjà passé : choisissez une date et une heure à venir.");
+      return;
+    }
     const res = await fetch(`/api/posts/${postId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -247,7 +252,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
             {post.status === "SCHEDULED" && (
               <div>
                 <p className="mb-1.5 text-xs font-medium text-slate-400">Date et heure de publication</p>
-                <DateTimePicker value={scheduleInput} onChange={setScheduleInput} />
+                <DateTimePicker value={scheduleInput} onChange={setScheduleInput} timeZone={timezone} />
                 <p className="mt-1.5 text-[11px] text-slate-500">
                   Heure de {timezone.replace(/_/g, " ")} ({timeZoneLabel(timezone)}) — le fuseau de la marque, modifiable dans Paramètres → Marque.
                 </p>
