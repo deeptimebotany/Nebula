@@ -7,11 +7,12 @@
 // et /(dashboard)/link-in-bio pour l'éditeur.
 //
 import { findTheme } from "@/lib/themes";
+import { clsx } from "@/lib/clsx";
 import { ParticleCanvas, particleVariantForTheme } from "@/components/theme-particles";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
 import type { PublicLinkPageData } from "@/lib/link-in-bio-public";
-import { resolveBioFrame } from "@/lib/bio-frames";
+import { BIO_CARD_SIZES, resolveBioFrame } from "@/lib/bio-frames";
 import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
 
 // Les données arrivent déjà rendues par le serveur (voir page.tsx) : ce
@@ -34,6 +35,10 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
   // contenu passe dans une carte encadrée ; sinon, rendu d'origine.
   const frame = resolveBioFrame(data.theme, data.frame);
   const particles = particleVariantForTheme(theme.key);
+  // Taille de la carte selon le statut (voir BIO_CARD_SIZES) : Pro un peu
+  // plus grande, Agence encore plus, « Le million » la plus grande.
+  const size = BIO_CARD_SIZES[data.cardSize ?? "base"];
+  const legend = data.cardSize === "legend";
 
   return (
     <div
@@ -43,7 +48,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
       }}
     >
       {particles && <ParticleCanvas variant={particles} className="pointer-events-none fixed inset-0 h-full w-full" style={{ zIndex: -1 }} />}
-      <div className="w-full max-w-md">
+      <div className="w-full" style={{ maxWidth: size.maxWidth }}>
         <BioFrame
           frame={frame}
           radius={frame ? 32 : 0}
@@ -52,8 +57,10 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
         >
           <BioAvatarFrame frame={frame}>
           <div
-            className="h-24 w-24 overflow-hidden rounded-full border-2 shadow-lg"
+            className="overflow-hidden rounded-full border-2 shadow-lg"
             style={{
+              width: size.avatar,
+              height: size.avatar,
               borderColor: `rgb(${theme.vars["--c-aurora-400"]} / 0.6)`,
               background: "rgba(255,255,255,0.08)"
             }}
@@ -68,7 +75,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
           </div>
           </BioAvatarFrame>
 
-          <h1 className="text-center text-lg font-semibold text-white">{data.brandName}</h1>
+          <h1 className={clsx("text-center font-semibold text-white", legend ? "text-2xl" : data.cardSize === "agency" ? "text-xl" : "text-lg")}>{data.brandName}</h1>
           {data.bio && <p className="whitespace-pre-line text-center text-sm text-white/70">{data.bio}</p>}
 
           <div className="mt-4 w-full space-y-3">

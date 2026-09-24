@@ -32,12 +32,17 @@ function v(rgb: number[]): string {
   return rgb.join(" ");
 }
 
-export const THEMES: ThemeDefinition[] = [
+const BASE_THEMES: ThemeDefinition[] = [
   {
     // Thème par défaut « Dark UI » (décision du 24/09/2026) : surfaces en
     // gris-noir NEUTRES (nebula-900 → 600, sans teinte bleue) et un seul
     // accent violet, celui du logo. L'ancien bleu nuit reste disponible
     // juste en dessous (« Nébuleuse bleue »).
+    // Nouvelle identité (logo R4, 24/09/2026, direction A « violet du
+    // logo ») : boutons #8646ff (texte blanc 4,9:1), accents #a066ff, et les
+    // quatre couleurs exactes du logo (cyan #5fe0f0, bleu #7a95ff, violet
+    // #a066ff, rose #f062d0). Encre du mode clair : #6a2fe0 (étoile de la
+    // favicon en thème clair). Mêmes valeurs dans :root (globals.css).
     key: "nebula",
     label: "Noir neutre (défaut)",
     vars: {
@@ -45,18 +50,20 @@ export const THEMES: ThemeDefinition[] = [
       "--c-nebula-800": v([30, 30, 35]),
       "--c-nebula-700": v([40, 40, 46]),
       "--c-nebula-600": v([54, 54, 62]),
-      "--c-nebula-500": v([124, 98, 240]),
-      "--c-nebula-400": v([148, 128, 244]),
-      "--c-nebula-300": v([176, 162, 248]),
-      "--c-nebula-200": v([206, 199, 251]),
-      "--c-nebula-100": v([234, 231, 253]),
-      "--c-aurora-500": v([124, 98, 240]),
-      "--c-aurora-400": v([150, 131, 246]),
-      "--c-aurora-300": v([178, 165, 250]),
-      "--c-aurora-glow": v([198, 188, 252]),
-      "--c-accent-violet": v([124, 98, 240]),
-      "--c-accent-cyan": v([83, 234, 219]),
-      "--c-accent-magenta": v([233, 73, 174]),
+      "--c-nebula-500": v([134, 70, 255]),
+      "--c-nebula-400": v([160, 102, 255]),
+      "--c-nebula-300": v([187, 143, 255]),
+      "--c-nebula-200": v([214, 190, 255]),
+      "--c-nebula-100": v([238, 228, 255]),
+      "--c-aurora-500": v([134, 70, 255]),
+      "--c-aurora-400": v([160, 102, 255]),
+      "--c-aurora-300": v([187, 143, 255]),
+      "--c-aurora-glow": v([212, 188, 255]),
+      "--c-accent-violet": v([160, 102, 255]),
+      "--c-accent-cyan": v([95, 224, 240]),
+      "--c-accent-magenta": v([240, 98, 208]),
+      "--c-accent-blue": v([122, 149, 255]),
+      "--c-accent-ink": v([106, 47, 224]),
     }
   },
   {
@@ -484,6 +491,35 @@ export const THEMES: ThemeDefinition[] = [
     }
   },
 ];
+
+function rgbOf(value: string | undefined): number[] | null {
+  if (!value) return null;
+  const parts = value.split(" ").map(Number);
+  return parts.length === 3 && parts.every((n) => Number.isFinite(n)) ? parts : null;
+}
+
+/**
+ * Nouvelle identité (24/09/2026) : deux variables de plus que les thèmes
+ * historiques ne définissaient pas, complétées ici pour chaque thème (le
+ * thème par défaut a ses valeurs exactes ci-dessus) — sinon un thème
+ * garderait celles du précédent, puisque theme-provider ne réécrit que les
+ * variables présentes.
+ * - --c-accent-blue : 2ᵉ couleur du dégradé du logo, entre cyan et violet.
+ * - --c-accent-ink : couleur d'accent lisible sur fond clair (liens, étoile
+ *   du logo en mode clair) ; nebula-700 du thème, comme avant.
+ */
+function withIdentityVars(theme: ThemeDefinition): ThemeDefinition {
+  const vars = { ...theme.vars };
+  if (!vars["--c-accent-blue"]) {
+    const cyan = rgbOf(vars["--c-accent-cyan"]);
+    const violet = rgbOf(vars["--c-accent-violet"]);
+    if (cyan && violet) vars["--c-accent-blue"] = v(cyan.map((c, i) => Math.round(c * 0.4 + violet[i] * 0.6)));
+  }
+  if (!vars["--c-accent-ink"] && vars["--c-nebula-700"]) vars["--c-accent-ink"] = vars["--c-nebula-700"];
+  return { ...theme, vars };
+}
+
+export const THEMES: ThemeDefinition[] = BASE_THEMES.map(withIdentityVars);
 
 export const DEFAULT_THEME_KEY = "nebula";
 

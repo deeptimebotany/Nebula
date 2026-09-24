@@ -32,20 +32,22 @@ export function networkInkStyle(network: Network): CSSProperties {
   return { "--nb": meta.color, "--nb-ink": meta.ink } as CSSProperties;
 }
 
+// Pastille de réseau (refonte du 24/09/2026, « badges qui font brouillon ») :
+// une pastille neutre, identique partout (Commentaires, Engagements, comptes,
+// publications…), avec le logo officiel sur sa couleur de marque — au lieu
+// d'un fond et d'un contour teintés à la couleur du réseau (le rouge YouTube
+// criait à côté du reste). `muted` : option non retenue, logo en gris.
 export function NetworkBadge({ network, size = "md", muted = false }: { network: Network; size?: "sm" | "md"; muted?: boolean }) {
   const meta = NETWORK_META[network];
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium transition",
-        size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
-        // `muted` : option non retenue (ex. réseaux cibles de Publier) — gris
-        // neutre au lieu d'une opacité réduite, pour rester lisible.
-        muted ? "border-white/10 bg-white/[0.03] text-slate-400" : "network-ink"
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium transition",
+        size === "sm" ? "py-0.5 pl-0.5 pr-2 text-[11px]" : "py-0.5 pl-0.5 pr-2.5 text-xs",
+        muted ? "border-white/10 bg-white/[0.02] text-slate-400" : "border-white/10 bg-white/[0.04] text-slate-200"
       )}
-      style={muted ? undefined : { ...networkInkStyle(network), borderColor: `${meta.color}55`, background: `${meta.color}14` }}
     >
-      <NetworkLogo network={network} className={size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      <NetworkTile network={network} size={size === "sm" ? 16 : 20} className={muted ? "opacity-50 grayscale" : undefined} />
       {meta.label}
     </span>
   );

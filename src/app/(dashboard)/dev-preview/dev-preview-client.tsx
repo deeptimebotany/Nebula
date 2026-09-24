@@ -6,9 +6,13 @@
 // explication et, pour les deux premières, un bouton pour l'activer/la
 // sélectionner directement depuis cette page.
 //
-// Deux modes, pilotés par /api/dev-preview/plan (voir dev-preview.ts) :
-// - "Tout déverrouillé" (par défaut) : chaque cosmétique/fond est
-//   sélectionnable sans condition, pour vérifier son RENDU une fois activé.
+// Modes, pilotés par /api/dev-preview/plan (voir dev-preview.ts) :
+// - "Mon compte réel" (par défaut depuis le 24/09/2026) : ce compte est
+//   traité comme n'importe quel compte (palier, easter eggs et réussites
+//   réellement obtenus). Le bandeau « Mode test » (test-mode-bar.tsx) y
+//   ramène en un clic depuis n'importe quelle page.
+// - "Tout déverrouillé" : chaque cosmétique/fond est sélectionnable sans
+//   condition, pour vérifier son RENDU une fois activé.
 // - "Aperçu Gratuit/Pro/Agence" : le site se comporte EXACTEMENT comme pour
 //   un vrai compte sur ce palier — cadenas, boutons désactivés, tout ce qui
 //   serait verrouillé le reste vraiment ici aussi (côté serveur, pas
@@ -46,8 +50,11 @@ const COSMETIC_LOCATION: Record<string, string> = {
   "anneau-stellaire-avatar": "Pastille de marque (en haut), photo de « Mon profil » et avatar dans la Communauté (animé)."
 };
 
-const PLAN_OPTIONS: { value: Plan | null; label: string }[] = [
-  { value: null, label: "Tout déverrouillé" },
+type ModeValue = Plan | "ALL" | null;
+
+const PLAN_OPTIONS: { value: ModeValue; label: string }[] = [
+  { value: null, label: "Mon compte réel" },
+  { value: "ALL", label: "Tout déverrouillé" },
   { value: "FREE", label: "Aperçu Gratuit" },
   { value: "PRO", label: "Aperçu Pro" },
   { value: "AGENCY", label: "Aperçu Agence" }
@@ -65,6 +72,7 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
   const [eggFound, setEggFound] = useState<Map<string, string>>(new Map());
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [planPreview, setPlanPreview] = useState<Plan | null>(null);
+  const [mode, setMode] = useState<ModeValue>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
   const [switchingPlan, setSwitchingPlan] = useState(false);
   const [cleaning, setCleaning] = useState(false);
@@ -84,12 +92,16 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
       .catch(() => undefined);
     fetch("/api/dev-preview/plan", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setPlanPreview((d?.plan as Plan | null) ?? null))
+      .then((d) => {
+        setPlanPreview((d?.plan as Plan | null) ?? null);
+        const m = d?.mode as string | null | undefined;
+        setMode(m === "ALL" ? "ALL" : m === "FREE" || m === "PRO" || m === "AGENCY" ? (m as Plan) : null);
+      })
       .finally(() => setPlanLoaded(true))
       .catch(() => undefined);
   }, []);
 
-  async function choosePlanPreview(next: Plan | null) {
+  async function choosePlanPreview(next: ModeValue) {
     setSwitchingPlan(true);
     const res = await fetch("/api/dev-preview/plan", {
       method: "PATCH",
@@ -135,7 +147,12 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
   }
 
   function backgroundLocked(bg: BackgroundDefinition): boolean {
-    if (!planPreview) return false; // mode "tout déverrouillé"
+    if (mode === "ALL") return false; // mode "tout déverrouillé"
+    if (!planPreview) {
+      // Mon compte réel : fonds d'œufs selon les easter eggs trouvés ; les
+      // fonds de palier sont revérifiés par le serveur à la sélection.
+      return Boolean(bg.requiresEgg && !eggFound.has(bg.requiresEgg));
+    }
     if (bg.requiresPlan) return !canUseBackground(bg, planPreview);
     if (bg.requiresEgg) return !eggFound.has(bg.requiresEgg);
     return false;
@@ -155,8 +172,12 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
       </div>
 
       <GlassCard>
-        <h2 className="font-display text-base font-medium text-white">Aperçu de palier</h2>
+        <h2 className="font-display text-base font-medium text-white">Mode de test</h2>
         <p className="mt-1 text-sm text-slate-400">
+          « Mon compte réel » : vous voyez exactement ce que votre compte a vraiment débloqué. « Tout déverrouillé »
+          ouvre tout pour tester le rendu. Les aperçus Gratuit/Pro/Agence simulent un palier.
+        </p>
+        <p className="mt-2 text-sm text-slate-400">
           S&apos;applique à tout le site pendant que c&apos;est actif (Cosmétiques, Fonds d&apos;écran, Thèmes,
           Thème étoilé, ici comme dans Paramètres) : en aperçu, les items réservés à un palier supérieur sont
           vraiment verrouillés — cadenas, sélection refusée — comme pour un vrai compte sur ce palier. Les easter
@@ -171,7 +192,7 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
               onClick={() => choosePlanPreview(opt.value)}
               className={clsx(
                 "rounded-full border px-3.5 py-2 text-sm font-medium transition disabled:opacity-50",
-                planPreview === opt.value
+                mode === opt.value
                   ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300"
                   : "border-white/10 text-slate-300 hover:border-white/25"
               )}
@@ -180,7 +201,12 @@ export function DevPreviewClient({ cosmetics, backgrounds, eggs }: DevPreviewCli
             </button>
           ))}
         </div>
-        {switchingPlan && <p className="mt-2 text-xs text-slate-500">Changement d&apos;aperçu, rechargement...</p>}
+        {mode !== null && planLoaded && (
+          <Button className="mt-4" onClick={() => choosePlanPreview(null)} disabled={switchingPlan}>
+            Quitter le mode test — remettre mon compte normal
+          </Button>
+        )}
+        {switchingPlan && <p className="mt-2 text-xs text-slate-500">Changement de mode, rechargement...</p>}
       </GlassCard>
 
       <GlassCard>

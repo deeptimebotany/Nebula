@@ -15,10 +15,10 @@ import { motion } from "framer-motion";
 import { QuotaBar } from "@/components/dashboard/quota-bar";
 import { PostEditModal } from "@/components/dashboard/post-edit-modal";
 import { ApprovalLinkModal } from "@/components/dashboard/approval-link-modal";
-import { WeekScrubber } from "@/components/dashboard/week-scrubber";
+import { WeekScrubber, monthOfWeek } from "@/components/dashboard/week-scrubber";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { useAiStatus } from "@/components/use-ai-status";
-import { IconChevron, IconPlus } from "@/components/dashboard/icons";
+import { IconChevron, IconList, IconPlus } from "@/components/dashboard/icons";
 import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/dashboard/toast";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -284,9 +284,25 @@ function CalendarPageInner() {
     return map;
   }, [entriesByDay]);
 
+  // Scrubber : une semaine ouvre le mois de son jeudi (celui qui contient la
+  // majorité de ses jours, voir monthOfWeek) ; en vue Heures, elle ouvre
+  // aussi son lundi, ou aujourd'hui si c'est la semaine en cours.
   function onSelectWeek(monday: Date) {
-    setCursor(new Date(monday.getFullYear(), monday.getMonth(), 1));
-    if (view === "hours") setAgendaDay(monday);
+    setCursor(monthOfWeek(monday));
+    if (view === "hours") {
+      const today = new Date();
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 7);
+      setAgendaDay(today >= monday && today < sunday ? today : monday);
+    }
+  }
+
+  function onSelectMonth(firstOfMonth: Date) {
+    setCursor(firstOfMonth);
+    if (view === "hours") {
+      const today = new Date();
+      setAgendaDay(today.getFullYear() === firstOfMonth.getFullYear() && today.getMonth() === firstOfMonth.getMonth() ? today : firstOfMonth);
+    }
   }
 
   function toggleBrand(id: string) {
@@ -314,8 +330,8 @@ function CalendarPageInner() {
                 Lien d&apos;approbation client
               </Button>
             )}
-            <ButtonLink href="/publications" variant="outline">
-              Liste des publications
+            <ButtonLink href="/publications" variant="outline" className="inline-flex items-center gap-2">
+              <IconList className="h-4 w-4" /> Publications
             </ButtonLink>
             <ButtonLink href="/composer" className="inline-flex items-center gap-2">
               <IconPlus className="h-4 w-4" /> Nouvelle publication
@@ -340,8 +356,10 @@ function CalendarPageInner() {
 
       <WeekScrubber
         entryCountByDay={entryCountByDay}
+        mode={view === "hours" ? "week" : "month"}
         activeDate={view === "hours" ? agendaDay : cursor}
         onSelectWeek={onSelectWeek}
+        onSelectMonth={onSelectMonth}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -519,10 +537,16 @@ function CalendarPageInner() {
               const inMonth = day.getMonth() === cursor.getMonth();
               const entries = entriesByDay.get(key) ?? [];
               const isToday = key === todayKey;
+              // Jour passé (24/09/2026) : grisé, pas de « + », et ce n'est
+              // plus une cible de glisser-déposer (le serveur refuse de toute
+              // façon un horaire passé, voir schedule-guard.ts).
+              const isPastDay = key < todayKey;
               return (
                 <div
                   key={key}
+                  aria-disabled={isPastDay || undefined}
                   onDragOver={(ev) => {
+                    if (isPastDay) return;
                     ev.preventDefault();
                     setDragOverKey(key);
                   }}
@@ -531,6 +555,7 @@ function CalendarPageInner() {
                     ev.preventDefault();
                     setDragOverKey(null);
                     setDraggingId(null);
+                    if (isPastDay) return;
                     const raw = ev.dataTransfer.getData("text/plain");
                     if (!raw) return;
                     try {
@@ -547,6 +572,8 @@ function CalendarPageInner() {
                     // Jours hors du mois : fond transparent et numéro plus discret,
                     // sans opacité (l'opacité rendait le numéro illisible, 2:1).
                     inMonth ? "bg-void-900/60" : "bg-transparent",
+                    isPastDay && "cal-day-past",
+                    draggingId && isPastDay && "cursor-not-allowed",
                     dragOverKey === key && "ring-2 ring-inset ring-aurora-400/60 bg-aurora-400/[0.06]"
                   )}
                 >
@@ -565,7 +592,7 @@ function CalendarPageInner() {
                           {entries.length}
                         </span>
                       )}
-                      {activeBrand && (
+                      {activeBrand && !isPastDay && (
                         <Link
                           href={`/composer?date=${key}`}
                           title="Créer un post à cette date"

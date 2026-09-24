@@ -1,5 +1,7 @@
+import { prisma } from "@/lib/prisma";
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
 import {
+  SocialApiError,
   fetchJson,
   type ConnectionLike,
   type EngagementItemInput,
@@ -21,6 +23,75 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} manquant. Voir console.cloud.google.com et .env.example.`);
   return value;
+}
+
+const EXPIRED_MESSAGE = "Connexion YouTube expirée : reconnectez la chaîne depuis la page Comptes.";
+
+/**
+ * Jeton d'accès valide pour les appels à YouTube (24/09/2026).
+ *
+ * Google ne délivre des jetons d'accès que pour 1 heure : sans
+ * renouvellement, une chaîne connectée cessait de fonctionner une heure
+ * après sa connexion (« Request had invalid authentication credentials »).
+ * On le renouvelle ici avec le jeton de rafraîchissement enregistré à la
+ * connexion, 5 minutes avant l'échéance, et on enregistre le nouveau.
+ * Mute `connection` pour que les appels suivants l'utilisent.
+ *
+ * Si Google refuse (invalid_grant : accès retiré par l'utilisateur, mot de
+ * passe changé, ou application Google encore en mode « Test », dont les
+ * autorisations ne durent que 7 jours), la connexion est vraiment à refaire :
+ * on efface le jeton de rafraîchissement pour que la page Comptes et les
+ * notifications le signalent.
+ */
+export async function freshYoutubeToken(connection: ConnectionLike): Promise<string> {
+  const expires = connection.tokenExpiresAt ? new Date(connection.tokenExpiresAt).getTime() : null;
+  if (expires !== null && expires - Date.now() > 5 * 60_000) return connection.accessToken;
+  if (!connection.refreshToken) {
+    if (expires === null) return connection.accessToken;
+    throw new SocialApiError("YOUTUBE", EXPIRED_MESSAGE, 401);
+  }
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: requireEnv("YOUTUBE_CLIENT_ID"),
+      client_secret: requireEnv("YOUTUBE_CLIENT_SECRET"),
+      refresh_token: connection.refreshToken,
+      grant_type: "refresh_token"
+    }),
+    cache: "no-store"
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    expires_in?: number;
+    refresh_token?: string;
+    error?: string;
+    error_description?: string;
+  };
+  if (!res.ok || !json.access_token) {
+    if (json.error === "invalid_grant") {
+      await prisma.socialConnection
+        .update({ where: { id: connection.id }, data: { refreshToken: null, tokenExpiresAt: new Date() } })
+        .catch(() => undefined);
+      connection.refreshToken = null;
+      throw new SocialApiError("YOUTUBE", EXPIRED_MESSAGE, 401, json);
+    }
+    throw new SocialApiError(
+      "YOUTUBE",
+      `Google n'a pas pu renouveler la connexion YouTube (${json.error_description || json.error || res.status}). Réessayez dans quelques minutes.`,
+      res.status,
+      json
+    );
+  }
+  const tokenExpiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000);
+  await prisma.socialConnection.update({
+    where: { id: connection.id },
+    data: { accessToken: json.access_token, tokenExpiresAt, ...(json.refresh_token ? { refreshToken: json.refresh_token } : {}) }
+  });
+  connection.accessToken = json.access_token;
+  connection.tokenExpiresAt = tokenExpiresAt;
+  if (json.refresh_token) connection.refreshToken = json.refresh_token;
+  return json.access_token;
 }
 
 export const youtubeClient: SocialClient = {
@@ -94,6 +165,7 @@ export const youtubeClient: SocialClient = {
     if (input.mediaType !== "VIDEO") {
       throw new Error("YouTube ne publie que des vidéos.");
     }
+    await freshYoutubeToken(connection);
 
     // On récupère le fichier depuis son URL publique (ex : /public/uploads/xxx.mp4
     // servi par Next.js, ou une URL S3 en production) puis on l'upload en
@@ -198,6 +270,7 @@ export const youtubeClient: SocialClient = {
    * que de faire échouer tout le rafraîchissement.
    */
   async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
+    await freshYoutubeToken(connection);
     const videos = await fetchRecentVideos(connection, 15);
 
     const perVideo = await Promise.all(
@@ -260,6 +333,7 @@ export const youtubeClient: SocialClient = {
    * ni les partages ni les enregistrements via l'API Data : laissés à null.
    */
   async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+    await freshYoutubeToken(connection);
     const videos = await fetchRecentVideos(connection, 15);
     if (videos.length === 0) return [];
     const ids = videos.map((v) => v.videoId).join(",");
@@ -288,6 +362,7 @@ export const youtubeClient: SocialClient = {
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {
+    await freshYoutubeToken(connection);
     const channel = await fetchJson<{
       items: { statistics: { subscriberCount: string; viewCount: string; videoCount: string } }[];
     }>("YOUTUBE", `${API_BASE}/channels?part=statistics&mine=true`, {
@@ -319,6 +394,7 @@ export async function fetchRetention(
   connection: ConnectionLike,
   videoId: string
 ): Promise<{ timeRatio: number; watchRatio: number }[]> {
+  await freshYoutubeToken(connection);
   const endDate = new Date().toISOString().slice(0, 10);
   // Fenêtre volontairement très large plutôt que "les N derniers jours" :
   // pour une vidéo qui a quelques années, l'essentiel de ses vues (donc de
@@ -369,6 +445,7 @@ export interface YoutubeVideoSummary {
  * depuis le Composer.
  */
 export async function fetchRecentVideos(connection: ConnectionLike, maxResults = 12): Promise<YoutubeVideoSummary[]> {
+  await freshYoutubeToken(connection);
   const data = await fetchJson<{
     items: { id: { videoId: string }; snippet: { title: string; publishedAt: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
   }>(
@@ -395,6 +472,7 @@ export interface YoutubeVideoMetadata {
 
 /** Métadonnées publiques d'une vidéo précise (titre, description, miniature). */
 export async function fetchVideoMetadata(connection: ConnectionLike, videoId: string): Promise<YoutubeVideoMetadata> {
+  await freshYoutubeToken(connection);
   const data = await fetchJson<{
     items: { snippet: { title: string; description: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
   }>("YOUTUBE", `${API_BASE}/videos?part=snippet&id=${videoId}`, {

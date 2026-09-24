@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
+import { SaveStatus, useSaveStatus } from "@/components/ui/save-status";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,8 @@ export default function ReportsPage() {
   const chartTheme = useChartTheme();
   const { activeBrand } = useBrand();
   const toast = useToast();
+  // Enregistrement visible (voir save-status.tsx).
+  const save = useSaveStatus();
   const upgrade = useUpgradeModal();
 
   const [loading, setLoading] = useState(true);
@@ -97,21 +100,24 @@ export default function ReportsPage() {
 
   async function patch(data: Partial<{ enabled: boolean; periodDays: number; recipientEmail: string | null; frequency: string }>) {
     if (!activeBrand) return;
-    const res = await fetch("/api/reports", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId: activeBrand.id, ...data })
+    await save.track(async () => {
+      const res = await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: activeBrand.id, ...data })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erreur lors de l'enregistrement.");
+        return false;
+      }
+      setReport(json.report);
+      // Les chiffres eux-mêmes ne changent pas quand on modifie la config
+      // (seule la période affichée peut changer le calcul) : on ne recharge le
+      // preview que si periodDays a bougé.
+      if (data.periodDays !== undefined) load();
+      return true;
     });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.error ?? "Erreur lors de l'enregistrement.");
-      return;
-    }
-    setReport(json.report);
-    // Les chiffres eux-mêmes ne changent pas quand on modifie la config
-    // (seule la période affichée peut changer le calcul) : on ne recharge le
-    // preview que si periodDays a bougé.
-    if (data.periodDays !== undefined) load();
   }
 
   async function togglePublished() {
@@ -185,6 +191,7 @@ export default function ReportsPage() {
         icon={<IconReport className="h-5 w-5" />}
         title="Rapports clients"
         description="Une page publique de reporting pour cette marque, toujours à jour, que vous pouvez partager avec votre client ou lui envoyer automatiquement par email."
+        actions={<SaveStatus state={save.state} />}
       />
 
       {reportSent && <ReferralPrompt trigger="first_report_sent" />}

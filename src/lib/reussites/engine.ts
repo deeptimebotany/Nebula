@@ -538,7 +538,9 @@ async function sendNotifications(
         kind: "achievement",
         title: "Accomplissement débloqué",
         body: `${t.series.emoji} ${t.title} : ${t.description.charAt(0).toLowerCase()}${t.description.slice(1)}.${reward ? ` Récompense : ${reward}.` : ""} +${t.xp} XP.`,
-        href: "/reussites",
+        // Lien ciblé (24/09/2026) : la page défile jusqu'à ce succès et le
+        // met en surbrillance quelques secondes.
+        href: `/reussites?focus=${encodeURIComponent(t.key)}`,
         actionLabel: reward ? "Voir la récompense" : null,
         dedupeKey: `ach:${t.key}`
       });
@@ -553,7 +555,7 @@ async function sendNotifications(
         kind: "achievement",
         title: `Niveau ${n} atteint : ${def.name}`,
         body: def.reward ? `Vous gagnez : ${def.reward}.` : def.tagline,
-        href: "/reussites",
+        href: "/reussites?focus=level",
         actionLabel: "Voir mes réussites",
         dedupeKey: `level:${n}`
       });
@@ -569,7 +571,7 @@ async function sendNotifications(
         body: monthly
           ? `${def.description} : +${def.xp} XP et le badge « ${monthLabel(period)} » dans votre profil.`
           : `${def.title} : +${def.xp} XP.${toNext !== null && toNext > 0 ? ` Plus que ${toNext} XP avant le niveau ${level.level + 1}.` : ""}`,
-        href: "/reussites",
+        href: "/reussites?focus=defis",
         actionLabel: null,
         dedupeKey: `challenge:${c.key}`
       });
@@ -593,7 +595,7 @@ async function sendNotifications(
         kind: "achievement",
         title: "Vous y êtes presque",
         body: `${almost.series.emoji} ${almost.title} : ${formatValue(value)} / ${formatValue(almost.target)} ${almost.series.unit}.${reward ? ` À la clé : ${reward}.` : " Encore un petit effort !"}`,
-        href: "/reussites",
+        href: `/reussites?focus=${encodeURIComponent(almost.key)}`,
         actionLabel: null,
         dedupeKey: `almost:${almost.key}`
       });

@@ -17,7 +17,8 @@ import { AppThemeParticles } from "@/components/theme-particles";
 import { MilestoneCelebrationProvider } from "@/components/milestone-celebration";
 import { CosmeticsEffects } from "@/components/cosmetics-effects";
 import { FocusGate } from "@/components/focus-gate";
-import { isOwnerEmail } from "@/lib/dev-preview";
+import { isOwnerEmail, readOwnerModeCookie } from "@/lib/dev-preview";
+import { TestModeBar } from "@/components/dashboard/test-mode-bar";
 import { Providers } from "@/components/providers";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Lien privé « Test / QA » (voir /dev-preview et navigation.ts) : réservé
   // au seul compte propriétaire du site, jamais visible pour les autres.
   const isOwner = isOwnerEmail(session.user?.email);
+  // Mode de test actif (voir dev-preview.ts) : bandeau « Quitter le mode test ».
+  const ownerMode = isOwner ? readOwnerModeCookie() : null;
 
   // Le compte actif est mémorisé dans le sélecteur multi-compte (voir
   // multi-account.ts) côté client, au chargement de AccountSwitcher — PAS
@@ -68,6 +71,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <TrialEndedNotice />
               </UpgradeModalProvider>
               <CommandPalette isOwner={isOwner} />
+              <TestModeBar mode={ownerMode} />
               <CosmeticsEffects />
               {/* Easter eggs ambiants et toasts « succès débloqué » : montés
                   seulement hors Mode focus (voir focus-gate.tsx). */}

@@ -92,6 +92,7 @@ export async function takeCelebrations(userId: string): Promise<CelebrationDTO[]
     out.push({
       id: c.id,
       kind: "challenge",
+      focus: "defis",
       emoji: def.kind === "MONTHLY" ? "🌙" : "⚡",
       label: def.kind === "MONTHLY" ? "Défi du mois réussi" : "Défi réussi",
       title: def.kind === "MONTHLY" ? `${monthLabel(c.period)} : ${def.title}` : def.title,
@@ -103,12 +104,12 @@ export async function takeCelebrations(userId: string): Promise<CelebrationDTO[]
       const n = Number(u.key.slice(6));
       const def = LEVELS.find((l) => l.level === n);
       if (!def) continue;
-      out.push({ id: u.id, kind: "level", emoji: "⭐", label: `Niveau ${n} atteint`, title: def.name, reward: def.reward });
+      out.push({ id: u.id, kind: "level", emoji: "⭐", label: `Niveau ${n} atteint`, title: def.name, reward: def.reward, focus: "level" });
       continue;
     }
     const tier = findTier(u.key);
     if (!tier) continue;
-    out.push({ id: u.id, kind: "accomplishment", emoji: tier.series.emoji, label: "Accomplissement débloqué", title: tier.title, reward: tierRewardText(tier) ?? `+${tier.xp} XP` });
+    out.push({ id: u.id, kind: "accomplishment", emoji: tier.series.emoji, label: "Accomplissement débloqué", title: tier.title, reward: tierRewardText(tier) ?? `+${tier.xp} XP`, focus: tier.key });
   }
   return out;
 }

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { BACKGROUNDS, DEFAULT_BACKGROUND_KEY, canUseBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import { getUserPlan } from "@/lib/billing/plan";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 
 // GET/PATCH /api/settings/background — même logique que /api/settings/theme
 // (voir ce fichier), pour le fond d'écran choisi dans Paramètres. Depuis
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
   // Voir /api/settings/cosmetics pour le même raisonnement : bypass complet
   // seulement en mode "tout déverrouillé" (aucun aperçu de palier choisi).
   const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
-  const skipChecks = isOwner && !previewPlan;
+  const skipChecks = ownerUnlocksAll(session.user.email);
 
   if (skipChecks) {
     await prisma.user.update({ where: { id: userId }, data: { backgroundPreference: parsed.data.background } });

@@ -1,5 +1,6 @@
+import { prisma } from "@/lib/prisma";
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
-import { fetchJson, type ConnectionLike, type OAuthTokenResult, type PostMetricInput, type PublishInput, type SocialClient } from "./base";
+import { SocialApiError, fetchJson, type ConnectionLike, type OAuthTokenResult, type PostMetricInput, type PublishInput, type SocialClient } from "./base";
 
 // Doc officielle : https://developers.tiktok.com/doc/content-posting-api-get-started
 // Le scope video.publish est en accès audité : sans audit TikTok, la
@@ -12,6 +13,68 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} manquant. Voir developers.tiktok.com et .env.example.`);
   return value;
+}
+
+const EXPIRED_MESSAGE = "Connexion TikTok expirée : reconnectez le compte depuis la page Comptes.";
+
+/**
+ * Jeton d'accès valide pour les appels à TikTok (24/09/2026). TikTok ne
+ * délivre des jetons d'accès que pour 24 h (jeton de rafraîchissement : 1 an)
+ * : sans renouvellement, un compte cessait de fonctionner le lendemain de sa
+ * connexion. Renouvelé 10 minutes avant l'échéance et enregistré ; mute
+ * `connection`. Refus définitif (invalid_grant) : jeton de rafraîchissement
+ * effacé pour que la page Comptes et les notifications demandent de
+ * reconnecter.
+ */
+export async function freshTiktokToken(connection: ConnectionLike): Promise<string> {
+  const expires = connection.tokenExpiresAt ? new Date(connection.tokenExpiresAt).getTime() : null;
+  if (expires !== null && expires - Date.now() > 10 * 60_000) return connection.accessToken;
+  if (!connection.refreshToken) {
+    if (expires === null) return connection.accessToken;
+    throw new SocialApiError("TIKTOK", EXPIRED_MESSAGE, 401);
+  }
+  const res = await fetch(`${API_BASE}/oauth/token/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_key: requireEnv("TIKTOK_CLIENT_KEY"),
+      client_secret: requireEnv("TIKTOK_CLIENT_SECRET"),
+      grant_type: "refresh_token",
+      refresh_token: connection.refreshToken
+    }),
+    cache: "no-store"
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    expires_in?: number;
+    refresh_token?: string;
+    error?: string;
+    error_description?: string;
+  };
+  if (!res.ok || !json.access_token) {
+    if (json.error === "invalid_grant") {
+      await prisma.socialConnection
+        .update({ where: { id: connection.id }, data: { refreshToken: null, tokenExpiresAt: new Date() } })
+        .catch(() => undefined);
+      connection.refreshToken = null;
+      throw new SocialApiError("TIKTOK", EXPIRED_MESSAGE, 401, json);
+    }
+    throw new SocialApiError(
+      "TIKTOK",
+      `TikTok n'a pas pu renouveler la connexion (${json.error_description || json.error || res.status}). Réessayez dans quelques minutes.`,
+      res.status,
+      json
+    );
+  }
+  const tokenExpiresAt = new Date(Date.now() + (json.expires_in ?? 86_400) * 1000);
+  await prisma.socialConnection.update({
+    where: { id: connection.id },
+    data: { accessToken: json.access_token, tokenExpiresAt, ...(json.refresh_token ? { refreshToken: json.refresh_token } : {}) }
+  });
+  connection.accessToken = json.access_token;
+  connection.tokenExpiresAt = tokenExpiresAt;
+  if (json.refresh_token) connection.refreshToken = json.refresh_token;
+  return json.access_token;
 }
 
 export const tiktokClient: SocialClient = {
@@ -74,6 +137,7 @@ export const tiktokClient: SocialClient = {
     if (input.mediaType !== "VIDEO") {
       throw new Error("Ce client ne gère que la publication vidéo (Direct Post). Pour les photos, utilisez /v2/post/publish/content/init/ (photo post).");
     }
+    await freshTiktokToken(connection);
 
     // "PULL_FROM_URL" : TikTok télécharge lui-même la vidéo depuis l'URL fournie
     // (doit être publiquement accessible en HTTPS et le domaine doit être
@@ -131,6 +195,7 @@ export const tiktokClient: SocialClient = {
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {
+    await freshTiktokToken(connection);
     const profile = await fetchJson<{
       data: { user: { follower_count: number; likes_count: number; video_count: number } };
     }>(
@@ -156,6 +221,7 @@ export const tiktokClient: SocialClient = {
    * Doc : https://developers.tiktok.com/doc/display-api-get-user-videos
    */
   async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
+    await freshTiktokToken(connection);
     const data = await fetchJson<{
       data: {
         videos: {

@@ -16,23 +16,29 @@
      l'appli n'a besoin de changer : toutes les classes bg-aurora-400,
      text-nebula-300, etc. suivent automatiquement. */
   /* Dark UI (24/09/2026) : mêmes valeurs que le thème « Noir neutre
-     (défaut) » de themes.ts — surfaces neutres, accent violet du logo. */
+     (défaut) » de themes.ts — surfaces neutres, accent violet du logo.
+     Nouvelle identité (logo R4, 24/09/2026) : violet #8646ff pour les
+     boutons, #a066ff pour les accents, et les quatre couleurs exactes du
+     logo (cyan, bleu, violet, rose). --c-accent-ink : accent lisible sur
+     fond clair (liens, étoile du logo en mode clair). */
   --c-nebula-900: 22 22 26;
   --c-nebula-800: 30 30 35;
   --c-nebula-700: 40 40 46;
   --c-nebula-600: 54 54 62;
-  --c-nebula-500: 124 98 240;
-  --c-nebula-400: 148 128 244;
-  --c-nebula-300: 176 162 248;
-  --c-nebula-200: 206 199 251;
-  --c-nebula-100: 234 231 253;
-  --c-aurora-500: 124 98 240;
-  --c-aurora-400: 150 131 246;
-  --c-aurora-300: 178 165 250;
-  --c-aurora-glow: 198 188 252;
-  --c-accent-violet: 124 98 240;
-  --c-accent-cyan: 83 234 219;
-  --c-accent-magenta: 233 73 174;
+  --c-nebula-500: 134 70 255;
+  --c-nebula-400: 160 102 255;
+  --c-nebula-300: 187 143 255;
+  --c-nebula-200: 214 190 255;
+  --c-nebula-100: 238 228 255;
+  --c-aurora-500: 134 70 255;
+  --c-aurora-400: 160 102 255;
+  --c-aurora-300: 187 143 255;
+  --c-aurora-glow: 212 188 255;
+  --c-accent-violet: 160 102 255;
+  --c-accent-cyan: 95 224 240;
+  --c-accent-magenta: 240 98 208;
+  --c-accent-blue: 122 149 255;
+  --c-accent-ink: 106 47 224;
 
   /* Fond d'écran sélectionné dans Paramètres (voir src/lib/backgrounds.ts +
      background-provider.tsx, qui réécrit cette variable sur <html>). Valeur
@@ -123,17 +129,19 @@ body {
   --l-surface-9: #dadde1;
   --l-surface-10: #ccd0d5;
 
-  --l-selection: rgba(24, 119, 242, 0.25);
+  --l-selection: rgb(var(--c-aurora-500) / 0.22);
   --l-scrollbar: rgba(5, 5, 5, 0.14);
   --l-scrollbar-hover: rgba(5, 5, 5, 0.24);
 
   /* Couleurs sémantiques : les teintes 200–400 de Tailwind sont pensées pour
      un fond sombre (elles sont claires) ; sur blanc on descend en 700, où le
-     contraste dépasse 4,5:1. L'accent suit le thème actif (nebula-700). */
+     contraste dépasse 4,5:1. L'accent suit le thème actif : --c-accent-ink
+     (violet #6a2fe0 de la marque pour le thème par défaut — 6,8:1 sur blanc —,
+     nebula-700 pour les autres thèmes, voir themes.ts). */
   --l-success: #047857; /* emerald-700 — 5,5:1 sur blanc */
   --l-warning: #b45309; /* amber-700 — 5,0:1 */
   --l-danger: #b91c1c; /* red-700 — 6,1:1 */
-  --l-accent: rgb(var(--c-nebula-700));
+  --l-accent: rgb(var(--c-accent-ink));
 }
 
 [data-mode="light"] body {
@@ -616,21 +624,21 @@ body {
     top: -70%;
     width: 150%;
     height: 120%;
-    background: radial-gradient(ellipse at 50% 100%, rgba(124, 108, 240, 0.55) 0%, rgba(124, 108, 240, 0.2) 40%, transparent 68%);
+    background: radial-gradient(ellipse at 50% 100%, rgba(160, 102, 255, 0.55) 0%, rgba(160, 102, 255, 0.2) 40%, transparent 68%);
     animation: nebulaVaultBreath 11s ease-in-out infinite;
   }
   .nebula-vault-arc-2 {
     top: -95%;
     width: 130%;
     height: 130%;
-    background: radial-gradient(ellipse at 50% 100%, rgba(83, 234, 219, 0.45) 0%, rgba(83, 234, 219, 0.14) 45%, transparent 70%);
+    background: radial-gradient(ellipse at 50% 100%, rgba(95, 224, 240, 0.45) 0%, rgba(95, 224, 240, 0.14) 45%, transparent 70%);
     animation: nebulaVaultBreath 14s ease-in-out infinite reverse;
   }
   .nebula-vault-arc-3 {
     top: -125%;
     width: 120%;
     height: 150%;
-    background: radial-gradient(ellipse at 50% 100%, rgba(233, 73, 174, 0.42) 0%, rgba(233, 73, 174, 0.12) 45%, transparent 70%);
+    background: radial-gradient(ellipse at 50% 100%, rgba(240, 98, 208, 0.42) 0%, rgba(240, 98, 208, 0.12) 45%, transparent 70%);
     animation: nebulaVaultBreath 17s ease-in-out infinite;
   }
   @keyframes nebulaVaultBreath {
@@ -899,6 +907,12 @@ body {
       rgb(var(--c-accent-magenta) / 0.95),
       rgb(var(--c-accent-violet) / 0.95)
     );
+    /* Seul l'anneau extérieur (3 px) reste visible : sans ce masque, le
+       disque conique couvrait tout le fond sombre du bouton (un calque en
+       z-index négatif passe au-dessus du fond de son propre contexte
+       d'empilement), et le nouveau logo aux mêmes couleurs s'y fondait. */
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
     animation: borderSpin 5s linear infinite;
   }
   .nebula-chat-launcher::after {
@@ -1537,9 +1551,9 @@ body {
 .nb-ring-argent { background: conic-gradient(from 200deg, #6f7480, #d9dde6, #ffffff, #a3a9b6, #6f7480); }
 .nb-ring-or { background: conic-gradient(from 200deg, #7a5a14, #f2cf6b, #fff4cc, #c99a2e, #7a5a14); box-shadow: 0 0 10px rgba(242, 207, 107, 0.25); }
 .nb-ring-stellaire {
-  background: conic-gradient(from var(--nb-ring-angle, 0deg), #7c62f0, #53eadb, #e949ae, #f2cf6b, #7c62f0);
+  background: conic-gradient(from var(--nb-ring-angle, 0deg), #a066ff, #5fe0f0, #f062d0, #f2cf6b, #a066ff);
   animation: nb-ring-turn 9s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(124, 98, 240, 0.55));
+  filter: drop-shadow(0 0 4px rgba(160, 102, 255, 0.55));
 }
 @property --nb-ring-angle {
   syntax: "<angle>";
@@ -1619,3 +1633,150 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
 .nb-thin-scroll::-webkit-scrollbar { width: 4px; }
 .nb-thin-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
 [data-mode="light"] .nb-thin-scroll { scrollbar-color: rgba(15, 23, 42, 0.2) transparent; }
+
+
+/* ---------------------------------------------------------------------------
+   Logo Nebula R4 (nouvelle identité, 24/09/2026) — voir nebula-brandmark.tsx.
+   Les couleurs du dégradé sont déclarées sur le logo lui-même (et non sur
+   :root) pour suivre aussi un thème posé sur un conteneur (page bio).
+   --------------------------------------------------------------------------- */
+.nb-logo,
+.nb-word {
+  --nb-logo-1: rgb(var(--c-accent-cyan));
+  --nb-logo-2: rgb(var(--c-accent-blue));
+  --nb-logo-3: rgb(var(--c-accent-violet));
+  --nb-logo-4: rgb(var(--c-accent-magenta));
+}
+.nb-logo-rings {
+  transform-origin: 16px 16px;
+  animation: nb-logo-spin 48s linear infinite;
+}
+.nb-logo-star {
+  fill: #ffffff;
+  animation: nb-logo-twinkle 3.2s ease-in-out infinite;
+}
+@keyframes nb-logo-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes nb-logo-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+.nb-word {
+  filter: drop-shadow(0 0 12px rgb(var(--c-accent-violet) / 0.45));
+}
+.nb-word-spark { fill: #ffffff; }
+.nb-word-star {
+  fill: #ffffff;
+  opacity: 0.2;
+  animation-name: nb-word-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes nb-word-twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+
+/* Mode clair : étoile à l'encre violette (comme la favicon en thème clair),
+   mot assombri pour rester lisible sur blanc (le cyan pur y fait 1,4:1),
+   sans halo ni étoiles scintillantes. tone="onDark" garde la version sombre
+   pour un logo posé sur un fond qui reste sombre. */
+[data-mode="light"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star,
+[data-mode="light"] .nb-word:not(.nb-logo--on-dark) .nb-word-spark {
+  fill: rgb(var(--c-accent-ink));
+}
+[data-mode="light"] .nb-word:not(.nb-logo--on-dark) {
+  --nb-logo-1: color-mix(in oklab, rgb(var(--c-accent-cyan)) 55%, #141030);
+  --nb-logo-2: color-mix(in oklab, rgb(var(--c-accent-blue)) 70%, #141030);
+  --nb-logo-3: color-mix(in oklab, rgb(var(--c-accent-violet)) 75%, #141030);
+  --nb-logo-4: color-mix(in oklab, rgb(var(--c-accent-magenta)) 75%, #141030);
+  filter: none;
+}
+[data-mode="light"] .nb-word:not(.nb-logo--on-dark) .nb-word-stars {
+  display: none;
+}
+
+/* Titres en dégradé en mode clair (nouvelle identité, 24/09/2026) : les
+   versions sombres passent par du blanc et du lavande, illisibles sur fond
+   clair. Même reflet, dans les violets foncés de la marque (encre #6a2fe0 →
+   bouton #8646ff). */
+[data-mode="light"] .text-gradient {
+  background: linear-gradient(180deg, #111118 25%, rgb(var(--c-accent-ink)));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+[data-mode="light"] .text-gradient-live {
+  background: linear-gradient(90deg, rgb(var(--c-accent-ink)), rgb(var(--c-aurora-500)) 30%, color-mix(in oklab, rgb(var(--c-accent-magenta)) 70%, #141030) 60%, rgb(var(--c-accent-ink)));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Aperçu de Publier, vue Ordinateur dans la colonne (24/09/2026) : seulement
+   l'écran du lecteur et ses éléments associés — les menus et colonnes
+   latérales des sites (toutes des <aside>) sont masqués. En plein écran, la
+   page complète reste affichée. */
+.nb-preview-focus aside { display: none !important; }
+
+/* Calendrier : jours passés grisés (24/09/2026) — plus de programmation ni
+   de glisser-déposer possible, les publications passées restent lisibles. */
+.cal-day-past {
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 6px, transparent 6px 12px);
+}
+.cal-day-past > :first-child span:first-child { opacity: 0.55; }
+[data-mode="light"] .cal-day-past {
+  background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.035) 0 6px, transparent 6px 12px);
+}
+
+/* Accueil de l'assistant IA (24/09/2026) : aura lumineuse aux couleurs du
+   logo derrière le message de bienvenue, et la question « Comment puis-je
+   vous aider ? » en dégradé de la charte. */
+.nb-assistant-aura {
+  background: rgb(255 255 255 / 0.02);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.nb-assistant-aura::before {
+  content: "";
+  position: absolute;
+  inset: -18px -10px;
+  z-index: -1;
+  border-radius: 36px;
+  background:
+    radial-gradient(60% 55% at 18% 20%, rgb(var(--c-accent-cyan) / 0.28), transparent 70%),
+    radial-gradient(55% 60% at 85% 30%, rgb(var(--c-accent-magenta) / 0.24), transparent 70%),
+    radial-gradient(70% 60% at 50% 95%, rgb(var(--c-accent-violet) / 0.32), transparent 70%);
+  filter: blur(18px);
+  animation: nb-aura-breathe 7s ease-in-out infinite;
+}
+@keyframes nb-aura-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+.nb-assistant-question {
+  margin-top: 0.15em;
+  background: linear-gradient(90deg, rgb(var(--c-accent-cyan)), rgb(var(--c-accent-blue)) 35%, rgb(var(--c-accent-violet)) 65%, rgb(var(--c-accent-magenta)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-mode="light"] .nb-assistant-aura { background: rgb(255 255 255 / 0.7); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.06); }
+[data-mode="light"] .nb-assistant-aura::before { opacity: 0.6; }
+[data-mode="light"] .nb-assistant-question {
+  background: linear-gradient(90deg, color-mix(in oklab, rgb(var(--c-accent-cyan)) 55%, #141030), rgb(var(--c-accent-ink)) 55%, color-mix(in oklab, rgb(var(--c-accent-magenta)) 75%, #141030));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Surbrillance temporaire d'un élément ciblé (Réussites ?focus=…,
+   24/09/2026) : léger encadré lumineux qui s'estompe en ~3 s. */
+.nb-focus-flash {
+  animation: nb-focus-flash 3s ease-out 1;
+  border-radius: 1rem;
+}
+@keyframes nb-focus-flash {
+  0% { box-shadow: 0 0 0 0 rgb(var(--c-aurora-400) / 0); }
+  12% { box-shadow: 0 0 0 3px rgb(var(--c-aurora-400) / 0.9), 0 0 32px 4px rgb(var(--c-aurora-400) / 0.45); }
+  70% { box-shadow: 0 0 0 3px rgb(var(--c-aurora-400) / 0.6), 0 0 22px 2px rgb(var(--c-aurora-400) / 0.25); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--c-aurora-400) / 0); }
+}

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic, findCosmetic } from "@/lib/cosmetics";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import { getAppearanceAccess } from "@/lib/appearance-access";
 
 // Toujours réévalué à la demande — même raison que /api/settings/starfield :
@@ -61,7 +61,7 @@ export async function PATCH(req: NextRequest) {
   // ci-dessus) — dès qu'un aperçu de palier est choisi, ce compte est
   // revérifié comme n'importe quel autre pour les cosmétiques de palier.
   const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
-  const skipChecks = isOwner && !previewPlan;
+  const skipChecks = ownerUnlocksAll(session.user.email);
 
   if (enabled && !skipChecks) {
     // Ne jamais faire confiance au client : le palier requis (ou l'easter

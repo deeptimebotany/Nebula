@@ -1,11 +1,14 @@
 // Google Ads (lot 5) — API officielle, gratuite, via requêtes GAQL.
 //
-// Prérequis (côté Lucas) : un compte administrateur Google Ads (MCC) pour
-// obtenir un « jeton de développeur » (Centre API), puis demander l'accès
-// « Basic » (sans lui, seuls les comptes de test répondent). Client OAuth :
-// celui de la connexion Google peut servir (GOOGLE_ADS_CLIENT_ID sinon),
-// avec l'URL de retour <site>/api/ads/callback/google et l'API « Google Ads »
-// activée dans le projet Google Cloud. Scope demandé : adwords (lecture et
+// Accès (nouveau parcours depuis le 10/09/2026) : plus de compte
+// administrateur ni de « jeton de développeur » — le Centre API de Google
+// Ads ne délivre plus de jetons. L'accès est porté par le projet Google
+// Cloud qui a émis le client OAuth (celui de la connexion Google, sinon
+// GOOGLE_ADS_CLIENT_ID) : console.cloud.google.com/google/ads-apis/overview
+// → activer l'API (niveau Test), puis « Apply for access » → Explorer
+// (comptes réels, 2 880 opérations/jour, largement assez pour lire des
+// statistiques), puis Basic après la validation de la marque du projet.
+// URL de retour <site>/api/ads/callback/google ; scope adwords (lecture et
 // gestion des campagnes — Nebula ne fait que lire).
 import { adsRedirectUri, googleAdsClientId, googleAdsClientSecret } from "./config";
 import { AdsError, isoDay, num, type AdAccountChoice, type AdAccountRef, type AdReport, type AdTokens } from "./types";
@@ -47,7 +50,10 @@ export const refreshGoogleAdsToken = (refreshToken: string) => tokenRequest({ gr
 function headers(token: string, loginCustomerId?: string | null): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
-    "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
+    // Facultatif et ignoré par Google depuis septembre 2026 (et refusé dans
+    // une future version de l'API) : envoyé seulement s'il est encore
+    // renseigné, pour les projets qui en avaient un.
+    ...(process.env.GOOGLE_ADS_DEVELOPER_TOKEN ? { "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN } : {}),
     "Content-Type": "application/json",
     ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {})
   };
@@ -63,18 +69,39 @@ async function search<T>(token: string, customerId: string, query: string, login
       body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }),
       cache: "no-store"
     });
-    const json = (await res.json().catch(() => ({}))) as { results?: T[]; nextPageToken?: string; error?: { message?: string; status?: string } };
-    if (!res.ok) {
-      const msg = json.error?.message || `Google Ads a répondu ${res.status}.`;
-      if (res.status === 401) throw new AdsError("Connexion Google Ads expirée : reconnectez le compte.", 401);
-      if (/DEVELOPER_TOKEN_NOT_APPROVED|not approved/i.test(msg)) throw new AdsError("Le jeton de développeur Google Ads n'a pas encore l'accès « Basic » : seuls les comptes de test répondent.", 403);
-      throw new AdsError(msg, res.status);
-    }
+    const json = (await res.json().catch(() => ({}))) as { results?: T[]; nextPageToken?: string; error?: GoogleApiError };
+    if (!res.ok) throw googleAdsError(res.status, json.error);
     out.push(...(json.results ?? []));
     if (!json.nextPageToken) break;
     pageToken = json.nextPageToken;
   }
   return out;
+}
+
+interface GoogleApiError {
+  message?: string;
+  status?: string;
+  details?: unknown[];
+}
+
+/**
+ * Traduit les refus de l'API en message clair. Les codes précis (ex.
+ * CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION) sont dans error.details : on
+ * cherche dans toute la réponse.
+ */
+function googleAdsError(status: number, error: GoogleApiError | undefined): AdsError {
+  const raw = JSON.stringify(error ?? {});
+  if (status === 401) return new AdsError("Connexion Google Ads expirée : reconnectez le compte.", 401);
+  if (/CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION|DEVELOPER_TOKEN_NOT_APPROVED|not approved/i.test(raw)) {
+    return new AdsError(
+      "Le projet Google Cloud de Nebula n'a encore que l'accès « Test » à l'API Google Ads : seuls les comptes de test répondent. Demandez l'accès Explorer (console Google Cloud → Google Ads API → Apply for access).",
+      403
+    );
+  }
+  if (/SERVICE_DISABLED|has not been used in project|is disabled/i.test(raw)) {
+    return new AdsError("L'API Google Ads n'est pas activée dans le projet Google Cloud de Nebula.", 403);
+  }
+  return new AdsError(error?.message || `Google Ads a répondu ${status}.`, status);
 }
 
 interface CustomerRow {
@@ -87,8 +114,8 @@ interface ClientRow {
 /** Comptes accessibles : comptes directs + clients des comptes administrateurs. */
 export async function listGoogleAdsAccounts(tokens: AdTokens): Promise<AdAccountChoice[]> {
   const res = await fetch(`${API()}/customers:listAccessibleCustomers`, { headers: headers(tokens.accessToken), cache: "no-store" });
-  const json = (await res.json().catch(() => ({}))) as { resourceNames?: string[]; error?: { message?: string } };
-  if (!res.ok) throw new AdsError(json.error?.message || "Impossible de lister vos comptes Google Ads.", res.status);
+  const json = (await res.json().catch(() => ({}))) as { resourceNames?: string[]; error?: GoogleApiError };
+  if (!res.ok) throw googleAdsError(res.status, json.error ?? { message: "Impossible de lister vos comptes Google Ads." });
   const ids = (json.resourceNames ?? []).map((r) => r.split("/")[1]).filter(Boolean).slice(0, 20);
   const out = new Map<string, AdAccountChoice>();
   for (const id of ids) {

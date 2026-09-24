@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import { getAppearanceAccess } from "@/lib/appearance-access";
 
 // Toujours réévalué à la demande, jamais mis en cache (statiquement au build
@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   const userId = (session.user as { id: string }).id;
   const isOwner = isOwnerEmail(session.user.email);
   const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
-  const skipChecks = isOwner && !previewPlan;
+  const skipChecks = ownerUnlocksAll(session.user.email);
 
   if (parsed.data.enabled && !skipChecks) {
     // Ne jamais faire confiance au client : le thème étoilé reste réservé

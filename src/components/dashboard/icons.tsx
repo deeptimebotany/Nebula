@@ -160,14 +160,13 @@ export const IconDiamond = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Roue crantée redessinée (24/09/2026) : 8 dents régulières calculées
+// géométriquement — l'ancien tracé, recopié avec des erreurs, s'affichait
+// comme une forme ondulée déformée.
 export const IconSettings = ({ className = base }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
-    <circle cx="12" cy="12" r="3.2" />
-    <path
-      d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2.06 2.06 0 1 1-2.92 2.92l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V19.6a2.06 2.06 0 1 1-4.12 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2.06 2.06 0 1 1-2.92-2.92l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H4.4a2.06 2.06 0 1 1 0-4.12h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06A2.06 2.06 0 1 1 8.57 4.1l.06.06a1.7 1.7 0 0 0 1.87.34H10.6a1.7 1.7 0 0 0 1.03-1.56V4.4a2.06 2.06 0 1 1 4.12 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2.06 2.06 0 1 1 2.92 2.92l-.06.06a1.7 1.7 0 0 0-.34 1.87v.1a1.7 1.7 0 0 0 1.56 1.03h.09a2.06 2.06 0 1 1 0 4.12h-.09a1.7 1.7 0 0 0-1.56 1.03Z"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" className={className}>
+    <path d="M10.44 4.77L10.80 2.48L13.20 2.48L13.56 4.77A7.4 7.4 0 0 1 16.01 5.78L17.88 4.41L19.59 6.12L18.22 7.99A7.4 7.4 0 0 1 19.23 10.44L21.52 10.80L21.52 13.20L19.23 13.56A7.4 7.4 0 0 1 18.22 16.01L19.59 17.88L17.88 19.59L16.01 18.22A7.4 7.4 0 0 1 13.56 19.23L13.20 21.52L10.80 21.52L10.44 19.23A7.4 7.4 0 0 1 7.99 18.22L6.12 19.59L4.41 17.88L5.78 16.01A7.4 7.4 0 0 1 4.77 13.56L2.48 13.20L2.48 10.80L4.77 10.44A7.4 7.4 0 0 1 5.78 7.99L4.41 6.12L6.12 4.41L7.99 5.78A7.4 7.4 0 0 1 10.44 4.77Z" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 

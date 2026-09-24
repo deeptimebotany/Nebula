@@ -25,7 +25,7 @@ interface EggStatus {
 
 const COLLAPSED_KEY = "nebula:reussites-succes-collapsed";
 
-export function SuccesSection() {
+export function SuccesSection({ forceOpen = false }: { forceOpen?: boolean }) {
   const [eggs, setEggs] = useState<EggStatus[] | null>(null);
   const [foundCount, setFoundCount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -48,6 +48,11 @@ export function SuccesSection() {
       .catch(() => setEggs([]));
   }, []);
 
+  // Lien « Voir mes succès » (?focus=succes) : section dépliée d'office.
+  useEffect(() => {
+    if (forceOpen) setCollapsed(false);
+  }, [forceOpen]);
+
   function toggle() {
     setCollapsed((v) => {
       try {
@@ -64,7 +69,7 @@ export function SuccesSection() {
   const rewardEggs = eggs?.filter((e) => e.reward) ?? [];
 
   return (
-    <section id="succes" className="scroll-mt-6 space-y-4" aria-labelledby="succes-title">
+    <section id="succes" className="scroll-mt-24 space-y-4 rounded-2xl" aria-labelledby="succes-title">
       <button
         type="button"
         onClick={toggle}

@@ -6,12 +6,13 @@
 //
 // Règle commune : le droit reflète le PALIER ACTUEL (revérifié à chaque
 // appel), jamais seulement la préférence enregistrée. Le compte propriétaire
-// (voir dev-preview.ts) voit tout déverrouillé, sauf s'il a choisi un aperçu
-// de palier précis — auquel cas il est traité exactement comme ce palier.
+// (voir dev-preview.ts) voit son état réel par défaut ; tout déverrouillé
+// seulement en mode « Tout déverrouillé », ou exactement comme un palier en
+// mode aperçu.
 import { unlockKeysFor } from "@/lib/reussites/unlocks";
 import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic } from "@/lib/cosmetics";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import type { Plan } from "@/lib/plans";
 
 export interface AppearanceAccess {
@@ -39,7 +40,7 @@ export async function getAppearanceAccess(userId: string, email: string | null |
   const previewPlan = isOwner ? resolvePreviewPlan(email) : null;
   const [{ plan }, eggKeys] = await Promise.all([getUserPlan(userId), eggAllowedKeys(userId)]);
 
-  const effectivePlan: Plan | "ALL" = isOwner && !previewPlan ? "ALL" : (previewPlan ?? plan);
+  const effectivePlan: Plan | "ALL" = ownerUnlocksAll(email) ? "ALL" : (previewPlan ?? plan);
   const starfieldAllowed = effectivePlan === "ALL" || effectivePlan === "PRO" || effectivePlan === "AGENCY";
   const cosmeticsAllowedKeys =
     effectivePlan === "ALL"

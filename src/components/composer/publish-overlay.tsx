@@ -174,7 +174,7 @@ export function PublishOverlay({ active, networks, mode, mediaType = "VIDEO" }: 
                 className="absolute inset-0 rounded-full bg-gradient-to-br from-nebula-500 to-accent-cyan opacity-40 blur-xl animate-pulse-slow"
               />
               <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-nebula-600 to-nebula-900 shadow-glow animate-float">
-                <NebulaIcon size={40} />
+                <NebulaIcon size={40} tone="onDark" />
               </div>
             </div>
           </div>

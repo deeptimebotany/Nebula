@@ -21,13 +21,14 @@ import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { Input, Textarea } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
+import { SaveStatus, useSaveStatus, useUnsavedChangesWarning } from "@/components/ui/save-status";
 import { IconBioLink, IconPlus, IconClose, IconChevron, IconUpload } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { LinktreeImportDialog } from "@/components/link-in-bio/linktree-import-dialog";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { ThemeCard } from "@/components/settings/theme-card";
 import { isUnlimitedBioLinks, type Plan } from "@/lib/plans";
-import { BIO_FRAMES, FRAME_NONE, frameFitsTheme, resolveBioFrame, themeFlavor, type ResolvedFrame } from "@/lib/bio-frames";
+import { BIO_CARD_SIZES, BIO_FRAMES, FRAME_NONE, frameFitsTheme, frameThemeHint, resolveBioFrame, themeFlavor, type BioCardSize, type ResolvedFrame } from "@/lib/bio-frames";
 import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
 import { ParticleCanvas, particleVariantForTheme } from "@/components/theme-particles";
 import { IconLock, IconLink } from "@/components/dashboard/icons";
@@ -60,6 +61,9 @@ export default function LinkInBioPage() {
   // Import Linktree (brief growth, lot G6.b)
   const [linktreeOpen, setLinktreeOpen] = useState(false);
   const confirmDialog = useConfirm();
+  // Enregistrement visible (voir save-status.tsx) : chaque modification
+  // affiche son état en haut de la page.
+  const save = useSaveStatus();
 
   const [page, setPage] = useState<LinkPageData | null>(null);
   const [slug, setSlug] = useState<string>("");
@@ -83,6 +87,8 @@ export default function LinkInBioPage() {
   const [unlockedFrames, setUnlockedFrames] = useState<string[]>([]);
   // Thèmes easter egg déjà trouvés (Nova…).
   const [unlockedThemes, setUnlockedThemes] = useState<string[]>([]);
+  // Taille de la carte selon le statut (Pro, Agence, « Le million »).
+  const [cardSize, setCardSize] = useState<BioCardSize>("base");
 
   const load = useCallback(async () => {
     if (!activeBrand) return;
@@ -98,6 +104,7 @@ export default function LinkInBioPage() {
     setSlug(data.slug ?? activeBrand.slug);
     setUnlockedFrames(data.unlockedFrames ?? []);
     setUnlockedThemes(data.unlockedThemes ?? []);
+    if (data.cardSize && data.cardSize in BIO_CARD_SIZES) setCardSize(data.cardSize as BioCardSize);
     setTitle(data.linkPage.title ?? "");
     setBio(data.linkPage.bio ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,20 +129,38 @@ export default function LinkInBioPage() {
 
   async function patchPage(data: Partial<{ title: string; bio: string; avatarUrl: string | null; theme: string; frame: string | null; published: boolean }>) {
     if (!activeBrand) return;
-    const res = await fetch("/api/link-in-bio", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId: activeBrand.id, ...data })
+    await save.track(async () => {
+      const res = await fetch("/api/link-in-bio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: activeBrand.id, ...data })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erreur lors de l'enregistrement.");
+        return false;
+      }
+      setPage(json.linkPage);
+      // Thème qui ne va pas avec le cadre enregistré : le serveur a remis le
+      // cadre sur « Automatique » (cadres et thèmes liés).
+      if (json.frameReset) toast.info(`Cadre « ${json.frameReset} » remis sur Automatique : il ne va pas avec ce thème.`);
+      // Titre ou photo modifiés → le sélecteur de marque (nom + pastille)
+      // se met à jour immédiatement (voir PATCH /api/link-in-bio).
+      if (json.brand) await refreshBrands();
+      return true;
     });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.error ?? "Erreur lors de l'enregistrement.");
-      return;
-    }
-    setPage(json.linkPage);
-    // Titre ou photo modifiés → le sélecteur de marque (nom + pastille)
-    // se met à jour immédiatement (voir PATCH /api/link-in-bio).
-    if (json.brand) await refreshBrands();
+  }
+
+  // Nom et bio : enregistrés en quittant le champ, ou avec le bouton
+  // « Enregistrer » en haut de la page (un seul appel pour les deux).
+  const profileDirty = Boolean(page) && (title.trim() !== (page?.title ?? "") || bio.trim() !== (page?.bio ?? ""));
+  useUnsavedChangesWarning(profileDirty);
+  function saveProfile() {
+    if (!page) return;
+    const patch: { title?: string; bio?: string } = {};
+    if (title.trim() !== (page.title ?? "")) patch.title = title.trim();
+    if (bio.trim() !== (page.bio ?? "")) patch.bio = bio.trim();
+    if (Object.keys(patch).length) patchPage(patch);
   }
 
   async function onAvatarChosen(file: File) {
@@ -205,17 +230,20 @@ export default function LinkInBioPage() {
   }
 
   async function editLink(id: string, data: Partial<{ label: string; url: string; enabled: boolean }>) {
-    const res = await fetch(`/api/link-in-bio/links/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
+    await save.track(async () => {
+      const res = await fetch(`/api/link-in-bio/links/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erreur lors de la modification.");
+        return false;
+      }
+      setPage((p) => (p ? { ...p, links: p.links.map((l) => (l.id === id ? json.link : l)) } : p));
+      return true;
     });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.error ?? "Erreur lors de la modification.");
-      return;
-    }
-    setPage((p) => (p ? { ...p, links: p.links.map((l) => (l.id === id ? json.link : l)) } : p));
   }
 
   async function deleteLink(id: string) {
@@ -244,10 +272,13 @@ export default function LinkInBioPage() {
     const reordered = [...page.links];
     [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
     setPage({ ...page, links: reordered });
-    await fetch("/api/link-in-bio/links/reorder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId: activeBrand.id, orderedIds: reordered.map((l) => l.id) })
+    await save.track(async () => {
+      const res = await fetch("/api/link-in-bio/links/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: activeBrand.id, orderedIds: reordered.map((l) => l.id) })
+      }).catch(() => null);
+      return Boolean(res?.ok);
     });
   }
 
@@ -279,6 +310,7 @@ export default function LinkInBioPage() {
             Instagram/TikTok/YouTube, avec tous vos liens importants au même endroit.
           </>
         }
+        actions={<SaveStatus state={save.state} dirty={profileDirty} onSave={saveProfile} />}
       />
 
       <GlassCard>
@@ -353,7 +385,7 @@ export default function LinkInBioPage() {
               placeholder={activeBrand.name}
               maxLength={60}
               wrapperClassName="mt-4"
-              hint="Enregistré automatiquement quand vous quittez le champ — c'est aussi le nom de la marque dans toute l'application."
+              hint="Enregistré quand vous quittez le champ ou avec « Enregistrer » en haut — c'est aussi le nom de la marque dans toute l'application."
             />
 
             <Textarea
@@ -532,12 +564,13 @@ export default function LinkInBioPage() {
               {BIO_FRAMES.filter((f) => !f.secret || unlockedFrames.includes(f.key)).map((f) => {
                 const unlocked = unlockedFrames.includes(f.key);
                 const fits = frameFitsTheme(f, activeTheme.key);
+                const hint = frameThemeHint(f, activeTheme.key);
                 const preview: ResolvedFrame = { style: f.style, flavor: f.flavor ?? pageFlavor ?? "eclipse" };
                 return (
                   <FrameOption
                     key={f.key}
                     label={f.label}
-                    sub={!unlocked ? (isReussiteRewardKey(f.requiresEgg) ? "Réussite" : "Easter egg") : !fits ? (f.flavor === "or" ? "Thème Or Impérial requis" : "Thème Éclipse totale requis") : undefined}
+                    sub={!unlocked ? (isReussiteRewardKey(f.requiresEgg) ? "Réussite" : "Easter egg") : hint ?? undefined}
                     preview={preview}
                     background={miniBackground}
                     selected={page?.frame === f.key}
@@ -559,21 +592,29 @@ export default function LinkInBioPage() {
             <BioFrame
               frame={activeFrame}
               radius={32}
-              className="mx-auto w-full max-w-[280px]"
+              className="mx-auto w-full"
+              style={{ maxWidth: BIO_CARD_SIZES[cardSize].preview }}
               cardClassName="isolate flex w-full flex-col items-center gap-3 border border-white/10 p-6 shadow-2xl"
               cardStyle={{
                 background: `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-800"]}) 60%, rgb(${activeTheme.vars["--c-nebula-700"]}))`
               }}
             >
               {particleVariantForTheme(activeTheme.key) && (
+                // bf-layer : reste un calque de fond. Sans cette classe, un
+                // cadre actif le repassait dans le flux (règle .bf-on .bf-card >
+                // :not(.bf-layer)) et la carte grandissait de ~140 px (thème
+                // Prisme ou Nova + un cadre).
                 <ParticleCanvas
                   variant={particleVariantForTheme(activeTheme.key)!}
-                  className="pointer-events-none absolute inset-0 h-full w-full"
-                  style={{ zIndex: -1, borderRadius: "inherit" }}
+                  className="bf-layer pointer-events-none absolute inset-0 h-full w-full"
+                  style={{ borderRadius: "inherit" }}
                 />
               )}
               <BioAvatarFrame frame={activeFrame} className="mt-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
+                <div
+                  className="shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10"
+                  style={{ width: BIO_CARD_SIZES[cardSize].previewAvatar, height: BIO_CARD_SIZES[cardSize].previewAvatar }}
+                >
                   {page?.avatarUrl && <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="96px" />}
                 </div>
               </BioAvatarFrame>
@@ -600,6 +641,7 @@ export default function LinkInBioPage() {
                 )}
               </div>
             </BioFrame>
+            <p className="mt-3 text-center text-[11px] text-slate-500">{BIO_CARD_SIZES[cardSize].label}</p>
           </div>
         </div>
       </div>

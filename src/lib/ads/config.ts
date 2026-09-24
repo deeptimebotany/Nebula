@@ -5,7 +5,11 @@ import type { AdPlatform } from "./types";
 export function isAdPlatformConfigured(p: AdPlatform): boolean {
   switch (p) {
     case "GOOGLE_ADS":
-      return Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN && googleAdsClientId() && googleAdsClientSecret());
+      // Depuis le 10/09/2026, Google ne délivre plus de jeton de
+      // développeur : l'accès dépend du projet Google Cloud du client OAuth
+      // (niveau Explorer ou Basic). Activation explicite, comme Meta ; un
+      // ancien jeton renseigné vaut aussi activation.
+      return (process.env.GOOGLE_ADS_ENABLED === "true" || Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN)) && Boolean(googleAdsClientId() && googleAdsClientSecret());
     case "META_ADS":
       // Même application Meta qu'Instagram/Facebook, mais la permission
       // ads_read doit être validée à part : activation explicite.

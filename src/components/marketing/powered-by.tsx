@@ -56,7 +56,9 @@ export function PoweredByNebula({
             : "border-white/20 bg-white/10 text-white/80 hover:bg-white/15 hover:text-white"
         )}
       >
-        <NebulaIcon size={16} />
+        {/* tone "light" = badge posé sur le fond coloré d'une page bio : étoile
+            blanche forcée ; tone "dark" suit le mode clair/sombre du site. */}
+        <NebulaIcon size={16} tone={tone === "dark" ? "auto" : "onDark"} />
         Propulsé par <span className="font-semibold">Nebula</span>
       </Link>
     </p>

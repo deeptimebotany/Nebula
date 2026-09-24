@@ -5,7 +5,7 @@
 // propriétaire de Nebula a toujours accès (ou le palier qu'il simule).
 import { prisma } from "@/lib/prisma";
 import { getBrandPlan } from "@/lib/billing/plan";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import type { Plan } from "@/lib/plans";
 import { maxAdAccounts } from "./config";
 
@@ -22,14 +22,13 @@ export async function adsAccessFor(userId: string, brandId: string): Promise<Ads
   if (!membership) return null;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   let plan: Plan;
-  if (isOwnerEmail(user?.email)) {
-    let preview: Plan | null = null;
-    try {
-      preview = resolvePreviewPlan(user?.email);
-    } catch {
-      preview = null; // Hors requête (pas de cookies) : accès complet.
-    }
-    plan = preview ?? "AGENCY";
+  // Compte propriétaire : « Tout déverrouillé » = Agence, aperçu = palier
+  // simulé, mode réel (défaut) = son vrai palier (voir dev-preview.ts).
+  const preview = resolvePreviewPlan(user?.email);
+  if (ownerUnlocksAll(user?.email)) {
+    plan = "AGENCY";
+  } else if (preview) {
+    plan = preview;
   } else {
     plan = (await getBrandPlan(brandId)).plan;
   }

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       <p><strong>Nouveau message depuis le formulaire de contact ${escapeHtml(SITE_NAME)}</strong></p>
       <p><strong>De :</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;<br/>
          <strong>Sujet :</strong> ${escapeHtml(SUBJECT_LABELS[subject])}</p>
-      <p style="white-space:pre-wrap;border-left:3px solid #7c6cf0;padding-left:12px">${escapeHtml(message)}</p>
+      <p style="white-space:pre-wrap;border-left:3px solid #8646ff;padding-left:12px">${escapeHtml(message)}</p>
     </div>`;
 
   const result = await sendEmail({

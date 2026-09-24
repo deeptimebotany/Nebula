@@ -49,6 +49,9 @@ import { MediaImportBar } from "@/components/composer/media-import/media-import-
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 
+// Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
+const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
+
 // Large sélection d'émojis organisée par catégorie pour l'insertion rapide
 // dans le titre / la description (voir insertIntoField ci-dessous). Curatée
 // à la main plutôt que le catalogue Unicode complet (~3700 émojis) qui
@@ -507,7 +510,25 @@ function ComposerPageInner() {
   // Réseau affiché dans l'aperçu à droite (voir carte "Aperçu" ci-dessous) —
   // se recale automatiquement sur le premier réseau sélectionné tant que la
   // personne n'a pas cliqué sur un autre onglet réseau dans l'aperçu.
-  const [previewNetwork, setPreviewNetwork] = useState<Network | null>(null);
+  const [previewNetwork, setPreviewNetworkState] = useState<Network | null>(null);
+  // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur (24/09/2026) :
+  // on le retrouve en revenant sur Publier.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PREVIEW_NETWORK_KEY);
+      if (saved && (NETWORKS as readonly string[]).includes(saved)) setPreviewNetworkState(saved as Network);
+    } catch {
+      // stockage indisponible : premier réseau sélectionné
+    }
+  }, []);
+  const setPreviewNetwork = useCallback((n: Network) => {
+    setPreviewNetworkState(n);
+    try {
+      localStorage.setItem(PREVIEW_NETWORK_KEY, n);
+    } catch {
+      // sans gravité
+    }
+  }, []);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const draftRestored = useRef(false);
@@ -1269,7 +1290,7 @@ function ComposerPageInner() {
   // proposés, même non cochés), sinon le premier réseau sélectionné, sinon
   // Instagram. Utilise le texte personnalisé de ce réseau quand il est
   // ouvert, sinon le titre/légende commun.
-  const effectivePreviewNetwork: Network = previewNetwork ?? selectedNetworks[0] ?? "INSTAGRAM";
+  const effectivePreviewNetwork: Network = previewNetwork ?? selectedNetworks[0] ?? "TIKTOK";
   // Compte affiché dans l'aperçu : le compte connecté choisi pour ce réseau
   // (nom, @identifiant), avec la photo de la marque (sinon celle du compte).
   const previewAccountFor = (n: Network): PreviewAccount => {
@@ -1403,7 +1424,7 @@ function ComposerPageInner() {
                   aria-live="polite"
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-void-950/70 backdrop-blur-sm"
                 >
-                  <NebulaIcon size={44} />
+                  <NebulaIcon size={44} tone="onDark" />
                   <p className="text-sm font-medium text-aurora-300">Envoi en cours...</p>
                 </div>
               )}

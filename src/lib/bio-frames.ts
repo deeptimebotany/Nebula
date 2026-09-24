@@ -68,21 +68,75 @@ export interface ResolvedFrame {
   flavor: FrameFlavor;
 }
 
-/** Cadre réellement affiché pour ce thème de page et ce choix enregistré. */
-export function resolveBioFrame(themeKey: string | null | undefined, frameKey: string | null | undefined): ResolvedFrame | null {
+// Cadres et thèmes liés (24/09/2026, choix de Lucas « liés, avec repli
+// auto ») : les thèmes « univers » ont leurs propres cadres et n'acceptent
+// qu'eux ; les thèmes classiques acceptent tous les cadres sans univers
+// (Nacre, Prisme, Couronne, Carrefour, Astre). Choisir un thème qui ne va
+// pas avec le cadre enregistré remet le cadre sur « Automatique » (voir
+// PATCH /api/link-in-bio) ; les cadres incompatibles sont grisés.
+const THEME_OWN_FRAMES: Record<string, readonly string[]> = {
+  "or-imperial": ["or-halo", "or-comete", "or-orbites", "or-metal", "couronne"],
+  "eclipse-totale": ["eclipse-halo", "eclipse-comete", "eclipse-orbites", "eclipse-metal", "couronne"],
+  prisme: ["prisme", "couronne"]
+};
+
+/** Cadre « Automatique » d'un thème : son halo, ou le Prisme pour le thème Prisme. */
+function themeDefaultFrame(themeKey: string | null | undefined): ResolvedFrame | null {
   const flavor = themeFlavor(themeKey);
-  const fallback: ResolvedFrame | null = flavor ? { style: "halo", flavor } : null;
-  if (frameKey === FRAME_NONE) return null;
-  const def = findBioFrame(frameKey);
-  if (!def) return fallback;
-  // Cadre Or/Éclipse sur un autre thème : on retombe sur le défaut.
-  if (def.flavor && def.flavor !== flavor) return fallback;
-  return { style: def.style, flavor: def.flavor ?? flavor ?? "eclipse" };
+  if (flavor) return { style: "halo", flavor };
+  if (themeKey === "prisme") return { style: "prisme", flavor: "eclipse" };
+  return null;
 }
 
 /** true si ce cadre peut être choisi avec ce thème (hors déblocage). */
 export function frameFitsTheme(def: BioFrameDef, themeKey: string | null | undefined): boolean {
-  return !def.flavor || def.flavor === themeFlavor(themeKey);
+  const own = THEME_OWN_FRAMES[themeKey ?? ""];
+  if (own) return own.includes(def.key);
+  return !def.flavor;
+}
+
+/** Pourquoi ce cadre est grisé avec ce thème (libellé court), ou null. */
+export function frameThemeHint(def: BioFrameDef, themeKey: string | null | undefined): string | null {
+  if (frameFitsTheme(def, themeKey)) return null;
+  if (def.flavor === "or") return "Thème Or Impérial requis";
+  if (def.flavor === "eclipse") return "Thème Éclipse totale requis";
+  return "Pas avec ce thème";
+}
+
+/** Cadre réellement affiché pour ce thème de page et ce choix enregistré. */
+export function resolveBioFrame(themeKey: string | null | undefined, frameKey: string | null | undefined): ResolvedFrame | null {
+  const flavor = themeFlavor(themeKey);
+  const fallback = themeDefaultFrame(themeKey);
+  if (frameKey === FRAME_NONE) return null;
+  const def = findBioFrame(frameKey);
+  if (!def) return fallback;
+  // Cadre qui ne va pas avec ce thème : on retombe sur le défaut du thème.
+  if (!frameFitsTheme(def, themeKey)) return fallback;
+  return { style: def.style, flavor: def.flavor ?? flavor ?? "eclipse" };
+}
+
+// ---------------------------------------------------------------------------
+// Taille de la carte de la Page bio selon le statut (24/09/2026) : un peu
+// plus grande en Pro, encore un peu plus en Agence, très grande pour le
+// palier du million d'abonnés (easter egg « Le million »).
+// ---------------------------------------------------------------------------
+export type BioCardSize = "base" | "pro" | "agency" | "legend";
+
+export const BIO_CARD_SIZES: Record<BioCardSize, { maxWidth: number; avatar: number; preview: number; previewAvatar: number; label: string }> = {
+  base: { maxWidth: 448, avatar: 96, preview: 280, previewAvatar: 64, label: "Carte standard" },
+  pro: { maxWidth: 488, avatar: 108, preview: 300, previewAvatar: 70, label: "Carte Pro, un peu plus grande" },
+  agency: { maxWidth: 528, avatar: 120, preview: 320, previewAvatar: 76, label: "Carte Agence, plus grande" },
+  legend: { maxWidth: 640, avatar: 148, preview: 360, previewAvatar: 88, label: "Carte « Le million », la plus grande" }
+};
+
+/** Clé de l'easter egg du million d'abonnés (voir easter-eggs/audience.ts). */
+export const MILLION_FOLLOWERS_EGG = "frame-ultime-prisme";
+
+export function bioCardSize(plan: string, millionFollowers: boolean): BioCardSize {
+  if (millionFollowers) return "legend";
+  if (plan === "AGENCY") return "agency";
+  if (plan === "PRO") return "pro";
+  return "base";
 }
 
 /** Clés de cadres débloquées, à partir des easter eggs trouvés. */

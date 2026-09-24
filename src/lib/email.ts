@@ -15,6 +15,8 @@
  * Tant que RESEND_API_KEY est absent, les emails ne partent pas : on le
  * signale clairement plutôt que d'échouer silencieusement.
  */
+import { EMAIL_COLORS, emailButton, emailFrame, emailLink } from "@/lib/emails/brand";
+
 export async function sendEmail(params: {
   to: string;
   subject: string;
@@ -68,19 +70,13 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   return sendEmail({
     to,
     subject: "Réinitialisez votre mot de passe Nebula",
-    html: `
-      <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h2 style="margin-bottom: 4px;">Réinitialisation de mot de passe</h2>
-        <p>Vous avez demandé à réinitialiser votre mot de passe Nebula. Cliquez sur le bouton ci-dessous — ce lien expire dans 1 heure.</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetUrl}" style="background: #2955c4; color: #fff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">
-            Choisir un nouveau mot de passe
-          </a>
-        </p>
-        <p style="color: #666; font-size: 13px;">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email — votre mot de passe ne changera pas.</p>
-        <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${resetUrl}</p>
-      </div>
-    `
+    html: emailFrame(`
+      <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827">Réinitialisation de mot de passe</h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">Vous avez demandé à réinitialiser votre mot de passe Nebula. Cliquez sur le bouton ci-dessous — ce lien expire dans 1 heure.</p>
+      <p style="margin:22px 0">${emailButton("Choisir un nouveau mot de passe", resetUrl)}</p>
+      <p style="margin:0 0 8px;color:${EMAIL_COLORS.muted};font-size:13px;line-height:1.5">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email — votre mot de passe ne changera pas.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;word-break:break-all">Lien direct : ${resetUrl}</p>
+    `)
   });
 }
 
@@ -124,21 +120,15 @@ export async function sendReportEmail(params: {
     to: params.to,
     subject: `Rapport ${params.periodLabel} — ${params.brandName}`,
     text,
-    html: `
-      <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h2 style="margin-bottom: 4px;">Rapport ${escapeHtml(params.periodLabel)} — ${escapeHtml(params.brandName)}</h2>
-        <p>Abonnés actuels : <strong>${params.followers.toLocaleString("fr-FR")}</strong> (${sign}${params.followersDelta.toLocaleString("fr-FR")} sur la période)</p>
-        <p style="margin: 24px 0;">
-          <a href="${params.reportUrl}" style="background: #2955c4; color: #fff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">
-            Voir le rapport complet
-          </a>
-        </p>
-        <p style="color: #999; font-size: 12px; word-break: break-all;">Lien direct : ${params.reportUrl}</p>
-        <p style="margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px;">
-          Rapport généré par Nebula — <a href="${discoverUrl}" style="color: #2955c4;">Créez le vôtre en 2 minutes</a>
-        </p>
-      </div>
-    `
+    html: emailFrame(`
+      <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827">Rapport ${escapeHtml(params.periodLabel)} — ${escapeHtml(params.brandName)}</h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">Abonnés actuels : <strong>${params.followers.toLocaleString("fr-FR")}</strong> (${sign}${params.followersDelta.toLocaleString("fr-FR")} sur la période)</p>
+      <p style="margin:22px 0">${emailButton("Voir le rapport complet", params.reportUrl)}</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;word-break:break-all">Lien direct : ${params.reportUrl}</p>
+      <p style="margin:26px 0 0;padding-top:14px;border-top:1px solid ${EMAIL_COLORS.border};color:${EMAIL_COLORS.muted};font-size:12px">
+        Rapport généré par Nebula — ${emailLink("Créez le vôtre en 2 minutes", discoverUrl)}
+      </p>
+    `)
   });
 }
 
@@ -169,19 +159,13 @@ export async function sendPublishFailureEmail(params: {
     subject: params.partial
       ? `Publication partiellement envoyée — ${params.brandName}`
       : `Échec d'une publication programmée — ${params.brandName}`,
-    html: `
-      <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h2 style="margin-bottom: 4px;">${params.partial ? "Publication partiellement envoyée" : "Une publication programmée a échoué"}</h2>
-        <p>Marque : <strong>${escapeHtml(params.brandName)}</strong><br>Publication : <strong>${escapeHtml(title)}</strong></p>
-        <p>${params.partial ? "Certains comptes n'ont pas pu recevoir la publication :" : "Aucun des comptes ciblés n'a pu recevoir la publication :"}</p>
-        <ul style="padding-left: 18px;">${rows}</ul>
-        <p style="margin: 24px 0;">
-          <a href="${params.postUrl}" style="background: #2955c4; color: #fff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">
-            Voir la publication et réessayer
-          </a>
-        </p>
-        <p style="color: #999; font-size: 12px;">Le plus souvent, il suffit de reconnecter le compte concerné depuis la page Comptes connectés, puis de relancer l'envoi. Vous pouvez désactiver ces emails dans Paramètres → Compte.</p>
-      </div>
-    `
+    html: emailFrame(`
+      <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827">${params.partial ? "Publication partiellement envoyée" : "Une publication programmée a échoué"}</h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">Marque : <strong>${escapeHtml(params.brandName)}</strong><br>Publication : <strong>${escapeHtml(title)}</strong></p>
+      <p style="margin:0 0 8px;font-size:15px;line-height:1.55">${params.partial ? "Certains comptes n'ont pas pu recevoir la publication :" : "Aucun des comptes ciblés n'a pu recevoir la publication :"}</p>
+      <ul style="padding-left:18px;margin:0 0 8px;font-size:14px;line-height:1.5">${rows}</ul>
+      <p style="margin:22px 0">${emailButton("Voir la publication et réessayer", params.postUrl)}</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">Le plus souvent, il suffit de reconnecter le compte concerné depuis la page Comptes connectés, puis de relancer l'envoi. Vous pouvez désactiver ces emails dans Paramètres → Compte.</p>
+    `)
   });
 }

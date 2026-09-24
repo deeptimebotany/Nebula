@@ -21,7 +21,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
-import { IconList, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
+import { IconCalendar, IconChevron, IconList, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 
 interface ApiPost {
@@ -151,6 +151,10 @@ function PublicationsPageInner() {
         description={activeBrand ? `Tout ce qui a été créé pour ${activeBrand.name} : programmé, publié, en échec ou en brouillon.` : "Toutes vos publications, en un seul endroit."}
         actions={
           <div className="flex flex-wrap gap-2">
+            {/* Accès direct au calendrier (et l'inverse depuis le calendrier). */}
+            <ButtonLink href="/calendar" variant="outline" className="inline-flex items-center gap-2">
+              <IconCalendar className="h-4 w-4" /> Calendrier
+            </ButtonLink>
             <Button variant="outline" onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2" disabled={!activeBrand}>
               <IconUpload className="h-4 w-4" /> Importer
             </Button>
@@ -244,7 +248,7 @@ function PublicationRow({ post }: { post: ApiPost }) {
     <li>
       <Link
         href={`/posts/${post.id}`}
-        className="glass-panel glass-panel-hover flex items-center gap-4 rounded-2xl p-3 pr-4 transition focus-visible:border-aurora-400/60"
+        className="group/row glass-panel glass-panel-hover flex items-center gap-4 rounded-2xl p-3 pr-3 transition focus-visible:border-aurora-400/60"
       >
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
           {thumb ? (
@@ -283,8 +287,13 @@ function PublicationRow({ post }: { post: ApiPost }) {
             )}
           </p>
         </div>
-        <span aria-hidden="true" className="hidden text-slate-500 sm:block">
-          →
+        {/* Flèche « ouvrir » bien visible (24/09/2026) : pastille ronde qui
+            s'allume au survol de la ligne, sur mobile aussi. */}
+        <span
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition group-hover/row:border-aurora-400/50 group-hover/row:bg-aurora-500/15 group-hover/row:text-white"
+        >
+          <IconChevron className="h-4 w-4 -rotate-90" />
         </span>
       </Link>
     </li>

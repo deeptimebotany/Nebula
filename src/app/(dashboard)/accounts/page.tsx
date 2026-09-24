@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge } from "@/components/ui/network-badge";
+import { NetworkBadge, NetworkTile } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 import { PROVIDERS } from "@/lib/providers";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
@@ -27,6 +27,9 @@ interface ConnectionRow {
   status: string;
   lastError?: string | null;
   tokenExpiresAt?: string | null;
+  // Renouvelée automatiquement par Nebula (YouTube, TikTok, Pinterest) :
+  // tokenExpiresAt n'est alors que l'échéance du jeton d'accès du moment.
+  autoRenew?: boolean;
 }
 
 const TOKEN_WARNING_DAYS = 7;
@@ -222,8 +225,12 @@ function AccountsPageInner() {
           const buttonDisabled = !activeBrand || atLimit || listLoading || starting;
           return (
             <GlassCard key={provider.id}>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-display text-base font-medium text-white">{provider.label}</h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                {/* Logo officiel en couleur (24/09/2026), au lieu du nom seul. */}
+                <h2 className="flex items-center gap-2.5 font-display text-base font-medium text-white">
+                  <NetworkTile network={provider.networks[0]} size={30} />
+                  {provider.label}
+                </h2>
                 <Button
                   variant="outline"
                   disabled={buttonDisabled}
@@ -270,7 +277,7 @@ function AccountsPageInner() {
               {!listLoading && linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
               <ul className="space-y-2">
                 {linked.map((c) => {
-                  const expiry = tokenStatus(c.tokenExpiresAt);
+                  const expiry = c.autoRenew ? { level: "ok" as const, daysLeft: Infinity } : tokenStatus(c.tokenExpiresAt);
                   const expanded = expandedId === c.id;
                   return (
                     <li key={c.id} className="rounded-lg bg-white/[0.02]">

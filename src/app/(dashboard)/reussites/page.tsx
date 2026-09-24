@@ -1,14 +1,21 @@
 "use client";
 
-// Page « Réussites » (25/09/2026, maquette validée par Lucas) : en haut le
-// niveau de créateur, puis les défis de la semaine et du mois, la section
-// principale « Accomplissements » (objectifs concrets, par catégorie), et
+// Page « Réussites » (25/09/2026, maquette validée par Lucas ; restructurée
+// le 24/09/2026) : en haut le niveau de créateur (un clic ouvre la fenêtre
+// des grades), puis la section principale « Accomplissements » avec les
+// objectifs « Pour bien démarrer », les défis de la semaine et du mois, et
 // les « Succès » (easter eggs) repliables tout en bas.
+//
+// ?focus=… (liens des notifications et des cartes de célébration) : la page
+// défile jusqu'à l'élément gagné et le met en surbrillance quelques
+// secondes — clé d'un palier, « level », « defis » ou « succes ».
 //
 // Tout est calculé côté serveur à partir de l'activité réelle (voir
 // src/lib/reussites/engine.ts) : ouvrir la page réévalue les réussites.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { LevelsModal } from "@/components/reussites/levels-modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { GlassCard } from "@/components/ui/glass-card";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -77,7 +84,7 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
   const title = multi ? `${s.name} · palier ${shown.rank}` : s.name;
   const doneCount = s.tiers.filter((t) => t.unlockedAt).length;
   return (
-    <div className={clsx("flex h-full flex-col rounded-2xl border p-4", unlocked ? "border-amber-400/40 bg-amber-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
+    <div id={`ach-${s.id}`} className={clsx("flex h-full scroll-mt-24 flex-col rounded-2xl border p-4", unlocked ? "border-amber-400/40 bg-amber-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
       <div className="flex items-start gap-3">
         <span className={clsx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl", unlocked ? "bg-amber-400/15" : "bg-white/[0.05]")} aria-hidden="true">
           {s.emoji}
@@ -131,11 +138,65 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
   );
 }
 
+// Objectifs « Pour bien démarrer » : les premiers pas, montrés en tête des
+// accomplissements tant qu'ils ne sont pas tous faits.
+const STARTER_SERIES = ["first-post", "bio-live", "first-thread", "posts", "envol"];
+
+function StarterGoal({ s, onOpen }: { s: SeriesDTO; onOpen: () => void }) {
+  const next = s.tiers.find((t) => !t.unlockedAt);
+  if (!next) return null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex min-w-0 items-center gap-3 rounded-2xl border border-aurora-400/20 bg-aurora-500/[0.06] p-3 text-left transition hover:border-aurora-400/45"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg" aria-hidden="true">
+        {s.emoji}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-white">{next.description}</span>
+        <Bar value={s.value} target={next.target} className="mt-1.5" />
+        <span className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
+          {fmt(Math.min(s.value, next.target))} / {fmt(next.target)} {s.unit}
+          <XpChip xp={next.xp} />
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** Lit ?focus=… (dans une frontière Suspense, exigée par useSearchParams). */
+function FocusParam({ onFocus }: { onFocus: (value: string | null) => void }) {
+  const params = useSearchParams();
+  const focus = params.get("focus");
+  useEffect(() => {
+    onFocus(focus);
+  }, [focus, onFocus]);
+  return null;
+}
+
+/** Fait défiler jusqu'à l'élément et le met en surbrillance ~3 s. */
+function flash(id: string) {
+  window.setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.classList.remove("nb-focus-flash");
+    void el.offsetWidth; // relance l'animation
+    el.classList.add("nb-focus-flash");
+    window.setTimeout(() => el.classList.remove("nb-focus-flash"), 3200);
+  }, 180);
+}
+
 export default function ReussitesPage() {
   const { refresh: refreshBootstrap } = useBootstrap();
   const [data, setData] = useState<ReussitesPageDTO | null>(null);
   const [failed, setFailed] = useState(false);
   const [category, setCategory] = useState<ReussiteCategory | "all">("all");
+  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
+  const [openSucces, setOpenSucces] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -154,6 +215,22 @@ export default function ReussitesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Surbrillance de l'élément ciblé par ?focus=…, une fois les données là.
+  useEffect(() => {
+    if (!focus || !data) return;
+    if (focus === "level") return flash("reussites-level");
+    if (focus === "defis") return flash("defis-section");
+    if (focus === "succes") {
+      setOpenSucces(true);
+      return flash("succes");
+    }
+    const target = data.series.find((x) => x.id === focus || x.tiers.some((t) => t.key === focus));
+    if (target) {
+      setCategory("all");
+      flash(`ach-${target.id}`);
+    }
+  }, [focus, data]);
 
   const series = useMemo(() => (data ? data.series.filter((s) => category === "all" || s.category === category) : []), [data, category]);
   const countByCategory = useMemo(() => {
@@ -197,11 +274,18 @@ export default function ReussitesPage() {
       ) : (
         <>
           {/* Niveau de créateur */}
-          <section aria-label="Niveau de créateur" className="reussites-banner relative overflow-hidden rounded-3xl border p-5 sm:p-6">
+          <section id="reussites-level" aria-label="Niveau de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden rounded-3xl border p-5 sm:p-6">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <LevelRing level={level.level} pct={level.pct} size={92} />
+              {/* Un clic sur le niveau ouvre la fenêtre des grades. */}
+              <button type="button" onClick={() => setLevelsOpen(true)} className="shrink-0 rounded-full transition hover:scale-[1.03]" aria-label="Voir tous les grades">
+                <LevelRing level={level.level} pct={level.pct} size={92} />
+              </button>
               <div className="min-w-0 flex-1">
-                <h2 className="font-display text-2xl font-semibold text-white">{level.name}</h2>
+                <h2 className="font-display text-2xl font-semibold text-white">
+                  <button type="button" onClick={() => setLevelsOpen(true)} className="text-left hover:underline hover:decoration-aurora-400/60 hover:underline-offset-4">
+                    {level.name}
+                  </button>
+                </h2>
                 <p className="mt-0.5 text-sm text-slate-300">{level.tagline}</p>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.08]">
                   <div className="h-full rounded-full bg-gradient-to-r from-nebula-500 via-aurora-400 to-accent-cyan transition-all duration-700" style={{ width: `${level.pct}%` }} />
@@ -223,11 +307,74 @@ export default function ReussitesPage() {
                 </div>
               )}
             </div>
-            {level.title && <p className="mt-4 text-xs text-aurora-200">Votre titre dans la Communauté : « {level.title} »</p>}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              {level.title ? <p className="text-xs text-aurora-200">Votre titre dans la Communauté : « {level.title} »</p> : <span />}
+              <button type="button" onClick={() => setLevelsOpen(true)} className="text-xs font-medium text-aurora-300 transition hover:text-white">
+                Voir tous les grades →
+              </button>
+            </div>
+          </section>
+          <LevelsModal open={levelsOpen} onClose={() => setLevelsOpen(false)} xp={level.xp} level={level.level} />
+
+          {/* Accomplissements (section principale) */}
+          <section aria-labelledby="accomplissements-title" className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="accomplissements-title" className="font-display text-lg font-semibold text-white">
+                <span aria-hidden="true">🎯 </span>Accomplissements
+              </h2>
+              <span className="text-xs tabular-nums text-slate-400">
+                {data.unlockedCount} / {data.total} débloqués
+              </span>
+            </div>
+            {(() => {
+              const starters = STARTER_SERIES.map((id) => data.series.find((x) => x.id === id)).filter(
+                (x): x is SeriesDTO => Boolean(x && x.tiers.some((t) => !t.unlockedAt))
+              );
+              if (starters.length === 0 || level.level > 4) return null;
+              return (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aurora-300">Pour bien démarrer</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {starters.slice(0, 3).map((x) => (
+                      <StarterGoal
+                        key={x.id}
+                        s={x}
+                        onOpen={() => {
+                          setCategory("all");
+                          flash(`ach-${x.id}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par catégorie">
+              <FilterChip active={category === "all"} onClick={() => setCategory("all")}>
+                Tout
+              </FilterChip>
+              {CATEGORIES.map((c) => (
+                <FilterChip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
+                  {c.label}
+                  <span className="text-[10px] tabular-nums text-slate-500">
+                    {countByCategory[c.id]?.done ?? 0}/{countByCategory[c.id]?.total ?? 0}
+                  </span>
+                </FilterChip>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {series.map((s) => (
+                <AccomplishmentCard key={s.id} s={s} />
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
+              d&apos;audience viennent de vos comptes connectés (Analytics et Engagements).
+            </p>
           </section>
 
           {/* Défis */}
-          <section aria-labelledby="defis-title" className="space-y-3">
+          <section id="defis-section" aria-labelledby="defis-title" className="scroll-mt-24 space-y-3 rounded-2xl">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="defis-title" className="font-display text-lg font-semibold text-white">
                 <span aria-hidden="true">⚡ </span>Défis de la semaine
@@ -266,45 +413,14 @@ export default function ReussitesPage() {
               </p>
             )}
           </section>
-
-          {/* Accomplissements (section principale) */}
-          <section aria-labelledby="accomplissements-title" className="space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="accomplissements-title" className="font-display text-lg font-semibold text-white">
-                <span aria-hidden="true">🎯 </span>Accomplissements
-              </h2>
-              <span className="text-xs tabular-nums text-slate-400">
-                {data.unlockedCount} / {data.total} débloqués
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par catégorie">
-              <FilterChip active={category === "all"} onClick={() => setCategory("all")}>
-                Tout
-              </FilterChip>
-              {CATEGORIES.map((c) => (
-                <FilterChip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
-                  {c.label}
-                  <span className="text-[10px] tabular-nums text-slate-500">
-                    {countByCategory[c.id]?.done ?? 0}/{countByCategory[c.id]?.total ?? 0}
-                  </span>
-                </FilterChip>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {series.map((s) => (
-                <AccomplishmentCard key={s.id} s={s} />
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
-              d&apos;audience viennent de vos comptes connectés (Analytics et Engagements).
-            </p>
-          </section>
         </>
       )}
 
       {/* Succès (easter eggs), repliables, sous les accomplissements */}
-      <SuccesSection />
+      <SuccesSection forceOpen={openSucces} />
+      <Suspense fallback={null}>
+        <FocusParam onFocus={setFocus} />
+      </Suspense>
     </div>
   );
 }

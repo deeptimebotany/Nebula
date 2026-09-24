@@ -62,8 +62,15 @@ const DEVICE_KEY = "nebula:composer-preview-device";
 // Dimensions « réelles » des cadres, avant réduction.
 const FRAME = {
   mobile: { width: 390, height: 820 },
-  desktop: { width: 1200, height: 760 }
+  desktop: { width: 1200, height: 760 },
+  // Vue Ordinateur dans la colonne (hors plein écran) : seulement l'écran du
+  // lecteur et ses éléments (titre, compte, actions), sans les menus et
+  // colonnes latérales du site — voir .nb-preview-focus dans globals.css.
+  desktopFocus: { width: 820, height: 760 }
 } as const;
+
+// Ordre des icônes de réseau de l'aperçu (24/09/2026) : TikTok en premier.
+const PREVIEW_ORDER: Network[] = ["TIKTOK", ...NETWORKS.filter((n) => n !== "TIKTOK")];
 
 /**
  * Dessine son contenu à sa taille réelle, puis le met à l'échelle pour tenir
@@ -235,10 +242,13 @@ export function ComposerPreview({
     };
   }, [expanded]);
 
-  const renderFrame = (fullscreen = false) => (
+  const renderFrame = (fullscreen = false) => {
+    const focus = device === "desktop" && !fullscreen;
+    const dims = focus ? FRAME.desktopFocus : FRAME[device];
+    return (
     <ScaledFrame
-      width={FRAME[device].width}
-      height={FRAME[device].height}
+      width={dims.width}
+      height={dims.height}
       reservedHeight={fullscreen ? 120 : sticky ? 200 : undefined}
       maxScale={fullscreen ? 1.35 : 1}
     >
@@ -250,18 +260,21 @@ export function ComposerPreview({
             </PhoneFrame>
           ) : (
             <BrowserFrame address={NETWORK_WEB_ADDRESS[network]}>
-              <NetworkPreviewUi post={post} device="desktop" />
+              <div className={clsx("h-full", focus && "nb-preview-focus")}>
+                <NetworkPreviewUi post={post} device="desktop" />
+              </div>
             </BrowserFrame>
           )}
         </motion.div>
       </AnimatePresence>
     </ScaledFrame>
-  );
+    );
+  };
 
   const toolbar = (
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 gap-1 overflow-x-auto" role="group" aria-label="Réseau affiché dans l'aperçu">
-        {NETWORKS.filter((n) => offeredNetworks.includes(n) || selectedNetworks.includes(n) || n === network).map((n) => {
+        {PREVIEW_ORDER.filter((n) => offeredNetworks.includes(n) || selectedNetworks.includes(n) || n === network).map((n) => {
           const active = n === network;
           const selected = selectedNetworks.includes(n);
           return (

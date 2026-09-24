@@ -11,7 +11,7 @@ import { reussiteRewardKeys } from "@/lib/reussites/unlocks";
 const EASTER_EGGS = ALL_EASTER_EGGS.filter((e) => !LINKED_EGG_KEYS.includes(e.key));
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
-import { isOwnerEmail } from "@/lib/dev-preview";
+import { ownerUnlocksAll } from "@/lib/dev-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -134,9 +134,9 @@ export async function GET() {
     // nécessaires à Paramètres et à la Page bio pour les déverrouiller.
     linkedFound: found.filter((f) => LINKED_EGG_KEYS.includes(f.key)).map((f) => f.key),
     // Voir dev-preview.ts : permet à Paramètres de laisser le compte
-    // propriétaire choisir n'importe quel fond d'écran réservé, sans avoir à
-    // revérifier ce même easter egg côté client pour chaque fond.
-    isOwner: isOwnerEmail(session.user.email),
+    // propriétaire choisir n'importe quel fond d'écran réservé — seulement
+    // en mode « Tout déverrouillé » (son état réel sinon).
+    isOwner: ownerUnlocksAll(session.user.email),
     eggs
   });
 }

@@ -352,40 +352,49 @@ export function AiAssistant() {
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="px-4 pb-6 pt-6 sm:px-5">
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-nebula-600/70 to-accent-cyan/40 text-white shadow-glow">
-                <IconSparkle className="h-5 w-5" />
+              {/* Accueil (24/09/2026) : aura lumineuse aux couleurs du logo
+                  autour du message, « Bonjour [marque] » puis la question en
+                  dégradé de la charte (voir .nb-assistant-aura). */}
+              <div className="nb-assistant-aura relative isolate rounded-3xl px-5 pb-5 pt-6">
+                <NebulaIcon size={38} />
+                <h2 className="mt-4 font-display text-2xl font-semibold leading-tight text-white">
+                  Bonjour {activeBrand?.name ?? firstName ?? ""}
+                  <span className="nb-assistant-question block text-xl">Comment puis-je vous aider ?</span>
+                </h2>
+                <p key={contextKey} className="mt-3 animate-fade-in text-sm leading-relaxed text-slate-400">
+                  {ctx.welcome}
+                </p>
               </div>
-              <h2 className="font-display text-2xl font-semibold leading-tight text-white">{firstName ? `Bonjour ${firstName}` : "Bonjour"}</h2>
-              <p key={contextKey} className="mt-2 animate-fade-in text-sm leading-relaxed text-slate-400">
-                {ctx.welcome}
-              </p>
 
-              <p className="mb-2 mt-7 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Suggestions</p>
-              <ul key={`${contextKey}-${batch}`} className="animate-fade-in-up space-y-1.5">
+              {/* Suggestions alignées à droite, en bulles, comme des messages
+                  prêts à envoyer — le centre de l'écran reste aéré. */}
+              <p className="mb-2 mt-7 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Suggestions</p>
+              <ul key={`${contextKey}-${batch}`} className="flex animate-fade-in-up flex-col items-end gap-2">
                 {suggestions.map((s) => (
-                  <li key={s}>
+                  <li key={s} className="flex max-w-[88%] justify-end">
                     <button
                       type="button"
                       onClick={() => void send(s)}
                       disabled={sending || Boolean(cooldownUntil)}
-                      className="group flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-left text-sm text-slate-200 transition hover:border-aurora-400/40 hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
+                      className="group flex items-center gap-2 rounded-2xl rounded-br-md border border-aurora-400/25 bg-aurora-500/[0.08] px-3.5 py-2 text-left text-sm text-slate-100 transition hover:border-aurora-400/55 hover:bg-aurora-500/15 hover:text-white disabled:opacity-50"
                     >
-                      <IconSparkle className="h-4 w-4 shrink-0 text-aurora-300/80" />
-                      <span className="flex-1 leading-snug">{s}</span>
-                      <IconChevronRight className="h-4 w-4 shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-300" />
+                      <span className="leading-snug">{s}</span>
+                      <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-aurora-300/70 transition group-hover:translate-x-0.5 group-hover:text-white" />
                     </button>
                   </li>
                 ))}
               </ul>
               {hasMoreSuggestions && (
-                <button
-                  type="button"
-                  onClick={() => setBatch((b) => b + 1)}
-                  className="mt-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-aurora-300 transition hover:bg-white/[0.04] hover:text-white"
-                >
-                  Autres suggestions
-                  <IconChevronRight className="h-3.5 w-3.5" />
-                </button>
+                <div className="mt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setBatch((b) => b + 1)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-aurora-300 transition hover:bg-white/[0.04] hover:text-white"
+                  >
+                    Autres suggestions
+                    <IconChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           ) : (
@@ -563,7 +572,7 @@ export function AiAssistant() {
         title="Demander à Nebula"
         tabIndex={open ? -1 : 0}
       >
-        <NebulaIcon size={30} />
+        <NebulaIcon size={30} tone="onDark" />
       </button>
     </>
   );

@@ -22,7 +22,8 @@ import { isAchievementSoundOn, playAchievementArpeggio } from "@/lib/cosmic-audi
 import type { CelebrationDTO } from "@/lib/reussites/types";
 
 const SHOW_MS = 3600;
-const CONFETTI_COLORS = ["#7c62f0", "#b2a5fa", "#f2cf6b", "#fff3c4", "#53eadb", "#e949ae"];
+// Couleurs de la marque (logo R4 : violet, lilas, cyan, rose) + or des récompenses.
+const CONFETTI_COLORS = ["#a066ff", "#d6beff", "#f2cf6b", "#fff3c4", "#5fe0f0", "#f062d0"];
 
 interface Shown extends EasterEggUnlockedDetail {
   id: number;
@@ -31,6 +32,8 @@ interface Shown extends EasterEggUnlockedDetail {
   label?: string;
   /** Réussites : pastille dorée (niveau) ou violette. */
   tone?: "egg" | "level" | "reussite";
+  /** Cible sur /reussites (?focus=…). */
+  focus?: string;
 }
 
 function prefersReducedMotion(): boolean {
@@ -59,7 +62,7 @@ export function AchievementToastListener() {
       if (!d) return;
       setQueue((q) => [
         ...q,
-        { key: d.id, title: d.title, emoji: d.emoji, reward: d.reward ?? undefined, label: d.label, tone: d.kind === "level" ? "level" : "reussite", id: Date.now() + Math.random() }
+        { key: d.id, title: d.title, emoji: d.emoji, reward: d.reward ?? undefined, label: d.label, tone: d.kind === "level" ? "level" : "reussite", focus: d.focus, id: Date.now() + Math.random() }
       ]);
     }
     window.addEventListener("nebula:achievement", onAchievement);
@@ -116,7 +119,7 @@ export function AchievementToastListener() {
           className={
             current.tone === "level"
               ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff3c4,#c99a2e)] text-2xl"
-              : "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#d9d0ff,#7c62f0)] text-2xl"
+              : "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#e2d2ff,#8646ff)] text-2xl"
           }
           aria-hidden="true"
         >
@@ -128,8 +131,12 @@ export function AchievementToastListener() {
             {current.tone && current.tone !== "egg" ? current.title : `${current.emoji} ${current.title}`}
           </span>
           {current.reward && <span className="block truncate text-xs text-slate-400">Récompense : {current.reward}</span>}
-          <Link href="/reussites" onClick={(e) => e.stopPropagation()} className="mt-0.5 inline-block text-[11px] text-aurora-300 hover:underline">
-            Voir mes réussites →
+          <Link
+            href={`/reussites?focus=${encodeURIComponent(current.tone === "egg" || !current.tone ? "succes" : current.focus ?? "")}`}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-0.5 inline-block text-[11px] text-aurora-300 hover:underline"
+          >
+            {current.tone === "egg" || !current.tone ? "Voir mes succès →" : "Voir ce succès →"}
           </Link>
         </span>
       </div>

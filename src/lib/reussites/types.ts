@@ -65,4 +65,6 @@ export interface CelebrationDTO {
   label: string;
   title: string;
   reward: string | null;
+  /** Élément à mettre en évidence sur /reussites (?focus=…) : clé du palier, « level » ou « defis ». */
+  focus?: string;
 }

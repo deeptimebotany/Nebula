@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { THEMES, canUseTheme } from "@/lib/themes";
 import { getUserPlan } from "@/lib/billing/plan";
-import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
+import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 
 // GET/PATCH /api/settings/theme — préférence de thème de couleurs, propre au
 // compte (pas à la marque), pour la retrouver en se connectant depuis un
@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   // les cosmétiques/fonds d'écran — tout déverrouillé par défaut, ou
   // revérifié contre le palier choisi si un aperçu est actif.
   const previewPlan = isOwner ? resolvePreviewPlan(session.user.email) : null;
-  const skipChecks = isOwner && !previewPlan;
+  const skipChecks = ownerUnlocksAll(session.user.email);
 
   // Ne jamais faire confiance au client pour les thèmes réservés à un palier
   // (voir requiresPlan dans src/lib/themes.ts) : on revérifie ici.

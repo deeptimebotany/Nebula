@@ -25,7 +25,7 @@ import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NetworkBadge, NetworkLogo } from "@/components/ui/network-badge";
+import { NetworkBadge, NetworkLogo, NetworkTile } from "@/components/ui/network-badge";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
@@ -258,8 +258,9 @@ function EngagementsPageInner() {
           </FilterChip>
           {connections.map((c) => (
             <FilterChip key={c.id} active={accountFilter === c.id} onClick={() => setAccountFilter(c.id)}>
-              <NetworkBadge network={c.network} size="sm" />
-              <span className="max-w-[140px] truncate">{c.displayName}</span>
+              {/* Filtre de compte : logo officiel + nom, sans pastille dans la pastille. */}
+              <NetworkTile network={c.network} size={18} />
+              <span className="max-w-[140px] truncate" title={NETWORK_META[c.network].label}>{c.displayName}</span>
             </FilterChip>
           ))}
         </div>

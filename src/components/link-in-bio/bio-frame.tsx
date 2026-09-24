@@ -138,6 +138,7 @@ export function BioFrame({
   frame,
   radius = 32,
   className,
+  style: rootStyle,
   cardClassName,
   cardStyle,
   children
@@ -145,6 +146,8 @@ export function BioFrame({
   frame: ResolvedFrame | null;
   radius?: number;
   className?: string;
+  /** Style de l'enveloppe (ex. largeur maximale selon la taille de carte). */
+  style?: CSSProperties;
   cardClassName?: string;
   cardStyle?: CSSProperties;
   children: ReactNode;
@@ -157,7 +160,7 @@ export function BioFrame({
   return (
     <div
       className={clsx("bf-root relative", frame && `bf-on bf-${style} bf-${flavor}`, className)}
-      style={{ "--bf-r": `${radius}px` } as CSSProperties}
+      style={{ "--bf-r": `${radius}px`, ...rootStyle } as CSSProperties}
     >
       {/* Couches DERRIÈRE la carte */}
       {style === "halo" && flavor === "eclipse" && <span className="bf-layer bf-aura" aria-hidden="true" />}
@@ -214,7 +217,9 @@ export function BioFrame({
 
 /** Habillage de la photo de profil, assorti au cadre de la carte. */
 export function BioAvatarFrame({ frame, className, children }: { frame: ResolvedFrame | null; className?: string; children: ReactNode }) {
-  if (!frame) return <>{children}</>;
+  // Sans cadre, on garde quand même la marge demandée (className) : sinon
+  // la carte changeait de hauteur de 16 px dès qu'un cadre était choisi.
+  if (!frame) return className ? <div className={className}>{children}</div> : <>{children}</>;
   const { style } = frame;
   return (
     <div className={clsx("bf-avatar relative shrink-0 rounded-full", `bf-av-${style}`, className)}>

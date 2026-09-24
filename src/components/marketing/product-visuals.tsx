@@ -117,7 +117,7 @@ export function DashboardVisual({ className }: { className?: string }) {
     <Frame label="Aperçu" className={className}>
       {/* Barre du haut de l'application */}
       <div className="flex items-center gap-3 border-b border-white/[0.06] px-3.5 py-2">
-        <NebulaIcon size={18} />
+        <NebulaIcon size={18} tone="onDark" />
         <div className="hidden items-center gap-0.5 sm:flex">
           {NAV_ITEMS.map((item) => (
             <span

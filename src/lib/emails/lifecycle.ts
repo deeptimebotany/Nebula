@@ -133,7 +133,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
             "Une seule chose à faire pour démarrer : connecter un premier compte (YouTube, Instagram, Facebook ou TikTok). Deux minutes, et vous pouvez programmer votre première publication."
           ],
           cta: { label: "Connecter mon premier compte", url: `${base}/accounts` },
-          footnotes: [`Nebula ne voit jamais vos mots de passe de réseaux : la connexion passe par l'autorisation officielle de chaque plateforme. <a href="${base}/securite" style="color:#2955c4">Comment vos données sont protégées</a>.`],
+          footnotes: [`Nebula ne voit jamais vos mots de passe de réseaux : la connexion passe par l'autorisation officielle de chaque plateforme. <a href="${base}/securite" style="color:#6a2fe0">Comment vos données sont protégées</a>.`],
           signature: sig
         }
       };
@@ -169,8 +169,8 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
         layout: {
           title: "Deux choses à essayer cette semaine",
           paragraphs: [
-            `<strong>Les rapports clients</strong> — une page de reporting pour ${brand}, toujours à jour, partageable par lien ou envoyée par email chaque semaine. <a href="${base}/reports" style="color:#2955c4">Ouvrir Rapports</a>.`,
-            `<strong>La page bio</strong> — vos liens importants sur une page élégante, à mettre dans vos profils. <a href="${base}/link-in-bio" style="color:#2955c4">Créer ma page bio</a>.`
+            `<strong>Les rapports clients</strong> — une page de reporting pour ${brand}, toujours à jour, partageable par lien ou envoyée par email chaque semaine. <a href="${base}/reports" style="color:#6a2fe0">Ouvrir Rapports</a>.`,
+            `<strong>La page bio</strong> — vos liens importants sur une page élégante, à mettre dans vos profils. <a href="${base}/link-in-bio" style="color:#6a2fe0">Créer ma page bio</a>.`
           ],
           cta: { label: "Ouvrir Nebula", url: `${base}/dashboard` },
           signature: sig

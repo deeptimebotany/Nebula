@@ -32,18 +32,51 @@ export function isOwnerEmail(email: string | null | undefined): boolean {
 // perturber. Cet aperçu ne s'applique donc qu'aux quatre endroits qui
 // affichent explicitement des paliers verrouillés dans Paramètres :
 // cosmétiques, fonds d'écran, thèmes de couleurs, thème étoilé.
+//
+// Mode « Mon compte réel » (24/09/2026, demande de Lucas : « pouvoir quitter
+// n'importe quel aperçu en un clic et retrouver l'état réel du compte ») :
+// c'est désormais le mode PAR DÉFAUT, sans cookie. Le compte propriétaire y
+// est traité comme n'importe quel compte (son palier réel, ses easter eggs
+// et réussites réellement obtenus) — avant, l'absence de cookie voulait dire
+// « tout déverrouillé », d'où un cadre et un thème Prisme qui semblaient
+// accessibles à tout le monde. « Tout déverrouillé » devient un choix
+// explicite (valeur ALL du cookie).
 const PLAN_PREVIEW_COOKIE = "nebula_dev_plan_preview";
 const PLAN_VALUES: readonly string[] = ["FREE", "PRO", "AGENCY"];
 
-export function readPlanPreviewCookie(): Plan | null {
+/** Mode de test du compte propriétaire : réel (défaut), tout déverrouillé, ou aperçu d'un palier. */
+export type OwnerMode = "REAL" | "ALL" | Plan;
+
+export function readOwnerModeCookie(): OwnerMode {
   const value = cookies().get(PLAN_PREVIEW_COOKIE)?.value;
-  return value && PLAN_VALUES.includes(value) ? (value as Plan) : null;
+  if (value === "ALL") return "ALL";
+  return value && PLAN_VALUES.includes(value) ? (value as Plan) : "REAL";
 }
 
-/** Palier à simuler pour CE compte, ou null (pas de compte propriétaire, ou aucun aperçu choisi — mode "tout déverrouillé"). */
-export function resolvePreviewPlan(email: string | null | undefined): Plan | null {
+export function readPlanPreviewCookie(): Plan | null {
+  const mode = readOwnerModeCookie();
+  return mode === "REAL" || mode === "ALL" ? null : mode;
+}
+
+/** Mode de test de CE compte : null pour tout compte autre que le propriétaire. */
+export function resolveOwnerMode(email: string | null | undefined): OwnerMode | null {
   if (!isOwnerEmail(email)) return null;
-  return readPlanPreviewCookie();
+  try {
+    return readOwnerModeCookie();
+  } catch {
+    return "REAL"; // hors requête HTTP (worker, scripts) : pas de cookie
+  }
+}
+
+/** Palier à simuler pour CE compte (aperçu Gratuit/Pro/Agence), ou null. */
+export function resolvePreviewPlan(email: string | null | undefined): Plan | null {
+  const mode = resolveOwnerMode(email);
+  return mode === null || mode === "REAL" || mode === "ALL" ? null : mode;
+}
+
+/** true seulement pour le compte propriétaire en mode « Tout déverrouillé ». */
+export function ownerUnlocksAll(email: string | null | undefined): boolean {
+  return resolveOwnerMode(email) === "ALL";
 }
 
 export { PLAN_PREVIEW_COOKIE };

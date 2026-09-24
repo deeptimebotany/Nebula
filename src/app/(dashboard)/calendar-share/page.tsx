@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
+import { SaveStatus, useSaveStatus } from "@/components/ui/save-status";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,8 @@ interface UpcomingPost {
 export default function CalendarSharePage() {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  // Enregistrement visible (voir save-status.tsx).
+  const save = useSaveStatus();
   const upgrade = useUpgradeModal();
 
   const [loading, setLoading] = useState(true);
@@ -82,18 +85,21 @@ export default function CalendarSharePage() {
 
   async function patch(data: Partial<{ enabled: boolean; windowDays: number }>) {
     if (!activeBrand) return;
-    const res = await fetch("/api/calendar-share", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId: activeBrand.id, ...data })
+    await save.track(async () => {
+      const res = await fetch("/api/calendar-share", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: activeBrand.id, ...data })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erreur lors de l'enregistrement.");
+        return false;
+      }
+      setShare(json.share);
+      if (data.windowDays !== undefined) load();
+      return true;
     });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.error ?? "Erreur lors de l'enregistrement.");
-      return;
-    }
-    setShare(json.share);
-    if (data.windowDays !== undefined) load();
   }
 
   async function togglePublished() {
@@ -137,6 +143,7 @@ export default function CalendarSharePage() {
         icon={<IconCalendarShare className="h-5 w-5" />}
         title="Calendrier client"
         description="Une page publique, en lecture seule, montrant à votre client les prochaines publications déjà programmées pour cette marque — sans aucun droit d'édition de son côté."
+        actions={<SaveStatus state={save.state} />}
       />
 
       {!allowed && (
