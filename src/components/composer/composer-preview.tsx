@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "@/lib/clsx";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
-import { Modal } from "@/components/ui/modal";
+import { createPortal } from "react-dom";
 import { NetworkLogo } from "@/components/ui/network-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
@@ -45,6 +45,8 @@ interface ComposerPreviewProps {
   onToggleInstagramGrid: () => void;
   instagramGridTiles: { imageUrl: string | null }[];
   gridLoading: boolean;
+  /** Aperçu collé en haut de la colonne : le cadre tient dans la hauteur de la fenêtre. */
+  sticky?: boolean;
 }
 
 function aspectFor(w: number, h: number): string {
@@ -63,21 +65,36 @@ const FRAME = {
   desktop: { width: 1200, height: 760 }
 } as const;
 
-/** Dessine son contenu à sa taille réelle, puis le réduit pour tenir dans la largeur disponible. */
-function ScaledFrame({ width, height, children }: { width: number; height: number; children: ReactNode }) {
+/**
+ * Dessine son contenu à sa taille réelle, puis le met à l'échelle pour tenir
+ * dans la largeur disponible — et, si `reservedHeight` est donné, dans la
+ * hauteur de la fenêtre moins cette réserve (aperçu collé en haut, plein
+ * écran). `maxScale` > 1 autorise l'agrandissement (plein écran).
+ */
+function ScaledFrame({ width, height, reservedHeight, maxScale = 1, children }: { width: number; height: number; reservedHeight?: number; maxScale?: number; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState<number | null>(null);
+  const [viewportH, setViewportH] = useState<number | null>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setAvailable(el.clientWidth);
+    const update = () => {
+      setAvailable(el.clientWidth);
+      setViewportH(window.innerHeight);
+    };
     update();
-    if (typeof ResizeObserver === "undefined") return;
+    window.addEventListener("resize", update);
+    if (typeof ResizeObserver === "undefined") return () => window.removeEventListener("resize", update);
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
-  const scale = available ? Math.min(1, available / width) : 0;
+  // Hauteur : jamais moins de 360 px, même sur un petit écran.
+  const heightLimit = reservedHeight !== undefined && viewportH ? Math.max(360, viewportH - reservedHeight) / height : Infinity;
+  const scale = available ? Math.min(maxScale, available / width, heightLimit) : 0;
   return (
     <div ref={ref} className="w-full">
       <div className="mx-auto" style={{ width: width * scale, height: height * scale, visibility: available ? "visible" : "hidden" }}>
@@ -167,7 +184,8 @@ export function ComposerPreview({
   showInstagramGrid,
   onToggleInstagramGrid,
   instagramGridTiles,
-  gridLoading
+  gridLoading,
+  sticky = false
 }: ComposerPreviewProps) {
   const offeredNetworks = useAvailableNetworks();
   const [device, setDevice] = useState<PreviewDevice>("mobile");
@@ -204,8 +222,26 @@ export function ComposerPreview({
     onMediaShape: (w, h) => onAspectClass(aspectFor(w, h))
   };
 
-  const renderFrame = () => (
-    <ScaledFrame width={FRAME[device].width} height={FRAME[device].height}>
+  // Plein écran : fermeture avec Échap, défilement de la page bloqué.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
+
+  const renderFrame = (fullscreen = false) => (
+    <ScaledFrame
+      width={FRAME[device].width}
+      height={FRAME[device].height}
+      reservedHeight={fullscreen ? 120 : sticky ? 200 : undefined}
+      maxScale={fullscreen ? 1.35 : 1}
+    >
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={`${network}-${device}`} className="h-full w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
           {device === "mobile" ? (
@@ -270,12 +306,12 @@ export function ComposerPreview({
         </div>
         <button
           type="button"
-          onClick={() => setExpanded(true)}
-          title="Agrandir l'aperçu"
+          onClick={() => setExpanded((v) => !v)}
+          title={expanded ? "Quitter le plein écran" : "Agrandir l'aperçu en plein écran"}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/[0.05] hover:text-white"
         >
           <ExpandIcon className="h-4 w-4" />
-          <span className="sr-only">Agrandir l&apos;aperçu</span>
+          <span className="sr-only">{expanded ? "Quitter le plein écran" : "Agrandir l'aperçu en plein écran"}</span>
         </button>
       </div>
     </div>
@@ -360,10 +396,27 @@ export function ComposerPreview({
 
       <p className="mt-3 text-center text-[11px] text-slate-500">Rendu indicatif (compteurs d&apos;exemple) — la mise en page réelle peut varier légèrement.</p>
 
-      <Modal open={expanded} onClose={() => setExpanded(false)} title="Aperçu" maxWidthClassName={device === "mobile" ? "max-w-md" : "max-w-6xl"}>
-        {toolbar}
-        <div className="mt-4">{expanded && renderFrame()}</div>
-      </Modal>
+      {/* Plein écran (24/09/2026) : le cadre occupe tout l'écran disponible,
+          agrandi jusqu'à 135 % si la place le permet. */}
+      {expanded &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0b0d]/95 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Aperçu en plein écran">
+            <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-6">
+              <span className="hidden font-display text-sm font-medium text-white sm:block">Aperçu · {NETWORK_META[network].label}</span>
+              <div className="min-w-0 flex-1">{toolbar}</div>
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                Fermer <span className="hidden text-xs text-slate-500 sm:inline">Échap</span>
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8">{renderFrame(true)}</div>
+          </div>,
+          document.body
+        )}
     </MotionGlassCard>
   );
 }

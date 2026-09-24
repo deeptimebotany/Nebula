@@ -19,6 +19,7 @@ import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
+import { PostStats } from "@/components/posts/post-stats";
 
 interface MediaAsset {
   id: string;
@@ -293,6 +294,15 @@ export default function PostDetailPage() {
             </div>
           </div>
         </GlassCard>
+
+        {/* Statistiques (24/09/2026) : mêmes chiffres que la fenêtre du
+            calendrier, dès que la publication est passée sur un réseau. */}
+        {(post.status === "PUBLISHED" || post.status === "PARTIAL") && (
+          <GlassCard>
+            <h2 className="mb-3 font-display text-base font-medium text-white">Statistiques</h2>
+            <PostStats postId={post.id} />
+          </GlassCard>
+        )}
 
         <GlassCard>
           <h2 className="mb-3 font-display text-base font-medium text-white">Statuts par réseau</h2>

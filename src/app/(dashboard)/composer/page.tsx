@@ -38,7 +38,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge, NetworkLogo } from "@/components/ui/network-badge";
+import { NetworkBadge, NetworkLogo, NetworkTargetChip, NetworkTile } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink } from "@/components/dashboard/icons";
@@ -1356,8 +1356,11 @@ function ComposerPageInner() {
         </Link>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+      {/* Aperçu agrandi (24/09/2026) : ~45 % de la largeur (moitié sur grand
+          écran) au lieu d'un tiers, et collé en haut pendant qu'on remplit
+          le formulaire. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] 2xl:grid-cols-2">
+        <div className="min-w-0 space-y-5">
           <GlassCard>
             <h2 className="mb-3 font-display text-base font-medium text-white">1. Média</h2>
             <div className="relative">
@@ -1378,7 +1381,17 @@ function ComposerPageInner() {
                   type="file"
                   accept="video/*,image/*"
                   className="hidden"
-                  onChange={(e) => onFilesChosen(e.target.files)}
+                  onChange={(e) => {
+                    // Copie de la liste avant de vider le champ : choisir à nouveau
+                    // le même fichier (après « Supprimer ») doit fonctionner.
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    e.target.value = "";
+                    if (files.length) {
+                      const dt = new DataTransfer();
+                      files.forEach((f) => dt.items.add(f));
+                      onFilesChosen(dt.files);
+                    }
+                  }}
                 />
               </div>
               {/* Voile flouté + logo animé pendant l'envoi : le logo Nebula
@@ -1423,12 +1436,38 @@ function ComposerPageInner() {
                       <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-28 w-full object-cover" />
                     )}
                     <button
+                      type="button"
                       onClick={() => removeAsset(a.id)}
-                      className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-1.5 py-0.5 text-xs text-white opacity-0 transition duration-150 hover:scale-125 group-hover:opacity-100"
+                      aria-label={`Retirer ${a.filename}`}
+                      title="Retirer ce fichier"
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white transition duration-150 hover:scale-110 hover:bg-red-500/90"
                     >
                       ✕
                     </button>
-                    <p className="truncate px-2 py-1 text-[11px] text-slate-400">{a.filename}</p>
+                    <p className="truncate px-2 pt-1 text-[11px] text-slate-400" title={a.filename}>
+                      {a.filename}
+                    </p>
+                    {/* Toujours visibles (24/09/2026) : avant, la croix n'apparaissait
+                        qu'au survol — introuvable sur téléphone — et il fallait
+                        redéposer un fichier pour remplacer celui-ci. */}
+                    <div className="flex gap-1 px-2 pb-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        disabled={uploading}
+                        className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
+                      >
+                        Remplacer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeAsset(a.id)}
+                        disabled={uploading}
+                        className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1708,11 +1747,9 @@ function ComposerPageInner() {
                           key={n}
                           href={activeBrand ? `/api/connections/${n.toLowerCase()}/start?brandId=${activeBrand.id}` : "/accounts"}
                           title={`Connecter ${NETWORK_META[n].label}`}
-                          className="flex items-center gap-1.5 rounded-full border border-dashed border-white/15 px-2.5 py-1 text-xs text-slate-500 transition hover:border-aurora-400/40 hover:text-white"
+                          className="rounded-full"
                         >
-                          <NetworkLogo network={n} className="h-3.5 w-3.5" />
-                          {NETWORK_META[n].label}
-                          <span className="text-[10px] text-aurora-300">connecter</span>
+                          <NetworkTargetChip network={n} state="connect" />
                         </a>
                       );
                     }
@@ -1722,9 +1759,10 @@ function ComposerPageInner() {
                         type="button"
                         onClick={() => toggleNetwork(n)}
                         aria-pressed={selectedNetworks.includes(n)}
-                        className={clsx("rounded-full transition", selectedNetworks.includes(n) ? "scale-105" : "hover:brightness-110")}
+                        aria-label={`${NETWORK_META[n].label}${selectedNetworks.includes(n) ? " (choisi)" : ""}`}
+                        className="rounded-full"
                       >
-                        <NetworkBadge network={n} muted={!selectedNetworks.includes(n)} />
+                        <NetworkTargetChip network={n} state={selectedNetworks.includes(n) ? "selected" : "idle"} />
                       </button>
                     );
                   })}
@@ -1788,7 +1826,11 @@ function ComposerPageInner() {
                         className="flex w-full items-center justify-between text-left text-xs text-slate-400"
                       >
                         <span>
-                          Personnaliser pour <NetworkBadge network={n} size="sm" />
+                          Personnaliser pour{" "}
+                          <span className="ml-1 inline-flex items-center gap-1.5 align-middle font-medium text-slate-200">
+                            <NetworkTile network={n} size={16} />
+                            {NETWORK_META[n].label}
+                          </span>
                         </span>
                         <span>{overrides[n]?.open ? "▲ réduire" : "▼ adapter le texte"}</span>
                       </button>
@@ -2007,11 +2049,14 @@ function ComposerPageInner() {
               </div>
             )}
           </GlassCard>
+
+          <ComposerTips />
         </div>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <PublishCard mode={mode} onModeChange={setMode} scheduleDate={scheduleDate} onScheduleDateChange={setScheduleDate} timezone={timezone} shortcutLabel={shortcutLabel} />
 
+          <div className="nb-thin-scroll lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <ComposerPreview
             network={effectivePreviewNetwork}
             accountFor={previewAccountFor}
@@ -2026,9 +2071,9 @@ function ComposerPageInner() {
             onToggleInstagramGrid={onToggleInstagramGrid}
             instagramGridTiles={instagramGridTiles}
             gridLoading={gridLoading}
+            sticky
           />
-
-          <ComposerTips />
+          </div>
         </div>
       </div>
 

@@ -1564,3 +1564,58 @@ body {
 }
 .reussites-reward-box { border-color: rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.2); }
 [data-mode="light"] .reussites-reward-box { border-color: rgba(15, 23, 42, 0.1); background: rgba(255, 255, 255, 0.75); }
+
+/* Réseaux cibles de Publier (24/09/2026, proposition A) : pastilles avec le
+   logo sur sa couleur de marque (voir NetworkTargetChip, network-badge.tsx). */
+.nt-tile-dark { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+[data-mode="light"] .nt-tile-dark { box-shadow: none; }
+.nt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 5px 12px 5px 6px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #ededef;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.nt-chip:hover { border-color: rgba(255, 255, 255, 0.25); }
+.nt-chip-cta { font-size: 12px; font-weight: 600; color: rgb(var(--c-aurora-300)); }
+.nt-chip.nt-chip-connect { border-style: dashed; color: #8b8b94; }
+.nt-chip-selected {
+  border-color: var(--nt-edge);
+  background: var(--nt-tint);
+  box-shadow: inset 0 0 0 1px var(--nt-edge);
+}
+.nt-chip-selected:hover { border-color: var(--nt-edge); }
+.nt-chip-check {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  margin-left: 2px;
+  background: var(--nt-edge);
+  color: var(--nt-check-ink, #fff);
+}
+[data-mode="light"] .nt-chip { border-color: #e5e7eb; background: #fff; color: #1f2937; }
+[data-mode="light"] .nt-chip:hover { border-color: #cbd0d8; }
+[data-mode="light"] .nt-chip.nt-chip-connect { border-color: #d1d5db; color: #6b7280; }
+[data-mode="light"] .nt-chip-cta { color: rgb(var(--c-aurora-500)); }
+[data-mode="light"] .nt-chip-selected {
+  border-color: var(--nt-edge-light);
+  background: var(--nt-tint-light);
+  box-shadow: inset 0 0 0 1px var(--nt-edge-light);
+}
+[data-mode="light"] .nt-chip-selected .nt-chip-check { background: var(--nt-edge-light); color: #fff; }
+button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid rgb(var(--c-aurora-400)); outline-offset: 2px; }
+
+/* Barre de défilement fine (aperçu collé de Publier quand il dépasse la hauteur). */
+.nb-thin-scroll { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+.nb-thin-scroll::-webkit-scrollbar { width: 4px; }
+.nb-thin-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+[data-mode="light"] .nb-thin-scroll { scrollbar-color: rgba(15, 23, 42, 0.2) transparent; }
