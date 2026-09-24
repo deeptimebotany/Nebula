@@ -11,7 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { COMPETITOR_SLUGS, UPCOMING_NETWORKS, formatEur, formatVerifiedAt, getCompetitor, nebulaEstimate, REFERENCE_SCENARIO, toEur } from "@/data/competitors";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { TRIAL_DAYS } from "@/lib/trial";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Page « Alternative à {X} » (brief growth, lot G5.a). Contenu généré depuis
 // plans.ts et src/data/competitors.ts : aucun prix en dur ici.
@@ -37,7 +37,7 @@ export default function AlternativePage({ params }: { params: { slug: string } }
   const ref = c.estimate(REFERENCE_SCENARIO);
   const refEur = toEur(ref.monthly, c.currency);
   const nebulaRef = nebulaEstimate(REFERENCE_SCENARIO);
-  const nebulaNetworks = NETWORKS.map((n) => NETWORK_META[n].label);
+  const nebulaNetworks = LAUNCHED_NETWORKS.map((n) => NETWORK_META[n].label);
 
   const faq = [
     { q: `Nebula remplace-t-il ${c.name} ?`, a: `Pour programmer et publier sur ${nebulaNetworks.join(", ")}, suivre vos statistiques et envoyer des rapports à vos clients : oui. ${c.name} couvre d'autres réseaux (${c.networks.filter((n) => !nebulaNetworks.some((m) => n.toLowerCase().startsWith(m.toLowerCase()))).slice(0, 4).join(", ") || "voir le tableau"}) que Nebula ne prend pas encore en charge — les listes d'attente par réseau vous préviennent dès l'ouverture.` },

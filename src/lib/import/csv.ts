@@ -77,7 +77,7 @@ export function parseCsv(text: string, maxRows = 2000): ParsedCsv {
 export type Field = "date" | "time" | "datetime" | "text" | "title" | "firstComment" | "mediaUrl" | "networks";
 export type Mapping = Partial<Record<Field, number>>;
 /** Colonnes booléennes « un réseau par colonne » (format Metricool). */
-export type NetworkColumns = Partial<Record<"YOUTUBE" | "INSTAGRAM" | "FACEBOOK" | "TIKTOK", number>>;
+export type NetworkColumns = Partial<Record<"YOUTUBE" | "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "BLUESKY" | "THREADS" | "PINTEREST" | "LINKEDIN", number>>;
 
 export interface DetectedFormat {
   source: "buffer" | "metricool" | "generic";
@@ -89,7 +89,11 @@ const NETWORK_HEADERS: Record<keyof NetworkColumns, string[]> = {
   YOUTUBE: ["youtube"],
   INSTAGRAM: ["instagram"],
   FACEBOOK: ["facebook"],
-  TIKTOK: ["tiktok"]
+  TIKTOK: ["tiktok"],
+  BLUESKY: ["bluesky", "bsky"],
+  THREADS: ["threads"],
+  PINTEREST: ["pinterest"],
+  LINKEDIN: ["linkedin"]
 };
 
 function norm(h: string): string {

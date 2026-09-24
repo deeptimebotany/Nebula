@@ -1,3 +1,5 @@
+import { refreshReussites } from "@/lib/reussites/engine";
+import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -15,13 +17,14 @@ export async function GET(req: NextRequest) {
   const threads = await prisma.forumThread.findMany({
     where: category ? { category } : undefined,
     include: {
-      author: { select: { id: true, name: true } },
+      author: { select: AUTHOR_SELECT },
       _count: { select: { replies: true } }
     },
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }]
   });
 
-  return NextResponse.json({ threads });
+  // Niveau de créateur et anneau d'avatar (Réussites), sans autre préférence.
+  return NextResponse.json({ threads: threads.map((t) => ({ ...t, author: publicAuthor(t.author) })) });
 }
 
 export async function POST(req: NextRequest) {
@@ -43,5 +46,6 @@ export async function POST(req: NextRequest) {
     }
   });
 
+  await refreshReussites(userId);
   return NextResponse.json({ ok: true, thread });
 }

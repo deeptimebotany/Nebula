@@ -18,6 +18,7 @@ import { useBootstrap } from "@/components/bootstrap-provider";
 import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
 import { NAV_GROUPS, OWNER_NAV_ITEMS, isNavActive, type NavItem } from "./navigation";
 import { BrandSwitcher } from "./brand-switcher";
+import { LevelRing } from "@/components/reussites/level-ring";
 import { NebulaIcon } from "./nebula-brandmark";
 import { IconChevronLeft, IconChevronRight, IconClose, IconLogout, IconMoon, IconSun } from "./icons";
 // Import JSON direct (resolveJsonModule dans tsconfig.json) : juste pour
@@ -47,7 +48,9 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
   // Progression des easter eggs (bootstrap /api/me, tenue à jour en direct
   // par bootstrap-provider.tsx à chaque nouvelle découverte).
   const { data: bootstrap } = useBootstrap();
-  const eggs = bootstrap?.eggs ?? null;
+  const reussites = bootstrap?.reussites ?? null;
+  // Mini-jauge de niveau (Réussites) : masquée en Mode focus, choix de Lucas.
+  const showLevelGauge = Boolean(reussites) && bootstrap?.focusMode === false;
   const cosmetics = useCosmetics();
 
   // --- Easter egg : appui long (3 s) sur le logo ---------------------------
@@ -136,15 +139,17 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
   function renderItem(item: NavItem) {
     const active = isNavActive(item.href, pathname);
     const Icon = item.icon;
-    // Compteur de progression sur « Succès » (ex. « 10/48 »).
-    const eggBadge = item.href === "/succes" && eggs ? `${eggs.found}/${eggs.total}` : null;
+    // Compteur « Réussites » : défis et accomplissements validés depuis la
+    // dernière visite de la page (rien quand tout a été vu).
+    const unseen = item.href === "/reussites" && reussites && reussites.unseen > 0 ? reussites.unseen : 0;
+    const eggBadge = unseen > 0 ? String(unseen > 99 ? "99+" : unseen) : null;
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        title={collapsed ? (eggBadge ? `${item.label} — ${eggBadge} trouvés` : item.label) : undefined}
+        title={collapsed ? (eggBadge ? `${item.label} — ${eggBadge} nouveauté(s)` : item.label) : undefined}
         className={clsx(
           "group flex items-center gap-3 rounded-xl text-sm font-medium transition",
           collapsed ? "justify-center px-0 py-2" : "px-3 py-1.5",
@@ -155,11 +160,8 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         {!collapsed && <span className="truncate">{item.label}</span>}
         {!collapsed && eggBadge && (
           <span
-            className={clsx(
-              "ml-auto shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold tabular-nums",
-              eggs && eggs.found >= eggs.total ? "border-amber-400/50 bg-amber-400/15 text-amber-200" : "border-amber-400/30 bg-amber-400/[0.08] text-amber-300"
-            )}
-            aria-label={`${eggBadge} easter eggs trouvés`}
+            className="ml-auto shrink-0 rounded-full border border-amber-400/40 bg-amber-400/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-amber-200"
+            aria-label={`${eggBadge} nouveauté(s) dans Réussites`}
           >
             {eggBadge}
           </span>
@@ -249,8 +251,35 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         ))}
       </nav>
 
-      {/* Pied : mode clair/sombre, déconnexion, version */}
+      {/* Pied : niveau de créateur, mode clair/sombre, déconnexion, version */}
       <div className={clsx("shrink-0 border-t border-white/[0.06] py-2", collapsed ? "px-2" : "px-3")}>
+        {showLevelGauge && reussites && (
+          <Link
+            href="/reussites"
+            onClick={onClose}
+            title={collapsed ? `Niveau ${reussites.level} · ${reussites.name} — ${reussites.pct} %` : "Voir mes réussites"}
+            className={clsx(
+              "mb-2 block rounded-xl border border-white/[0.07] bg-white/[0.02] transition hover:border-aurora-400/40",
+              collapsed ? "flex justify-center py-1.5" : "px-3 py-2"
+            )}
+          >
+            {collapsed ? (
+              <LevelRing level={reussites.level} pct={reussites.pct} size={30} stroke={3} label={false} />
+            ) : (
+              <>
+                <span className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="truncate text-slate-300">
+                    Niveau {reussites.level} · <span className="font-medium text-white">{reussites.name}</span>
+                  </span>
+                  <span className="tabular-nums text-slate-400">{reussites.pct} %</span>
+                </span>
+                <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-white/[0.07]">
+                  <span className="block h-full rounded-full bg-gradient-to-r from-nebula-500 to-aurora-400" style={{ width: `${reussites.pct}%` }} />
+                </span>
+              </>
+            )}
+          </Link>
+        )}
         {collapsed ? (
           <button
             type="button"

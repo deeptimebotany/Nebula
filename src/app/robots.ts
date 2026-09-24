@@ -33,6 +33,7 @@ const DISALLOW = [
         "/settings",
         "/support",
         "/succes",
+        "/reussites",
         "/reports",
         "/retention",
         "/interactions",

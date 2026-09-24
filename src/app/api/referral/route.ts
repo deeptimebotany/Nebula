@@ -3,6 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode, hasActiveReferralTrial } from "@/lib/referral";
+import {
+  AMBASSADOR_TIERS,
+  REWARD_CAP_MONTHS,
+  confirmedReferralCount,
+  grantedInWindow,
+  pendingRewardCount
+} from "@/lib/billing/rewards";
 
 // GET /api/referral — renvoie le code de parrainage du compte connecté, en
 // le générant à la volée pour les comptes créés avant l'ajout de cette
@@ -25,7 +32,26 @@ export async function GET() {
     user = { ...user, referralCode: code };
   }
 
+  // Règles du 25/09/2026 (voir src/lib/billing/rewards.ts) : filleuls
+  // confirmés, mois déjà offerts sur 12 mois glissants, palier ambassadeur.
+  const [confirmed, granted, pending] = await Promise.all([
+    confirmedReferralCount(userId).catch(() => 0),
+    grantedInWindow(userId).catch(() => 0),
+    pendingRewardCount(userId).catch(() => 0)
+  ]);
+  const reached = AMBASSADOR_TIERS.filter((t) => confirmed >= t.at);
+  const tier = reached[reached.length - 1] ?? null;
+  const nextTier = AMBASSADOR_TIERS.find((t) => confirmed < t.at) ?? null;
+
   return NextResponse.json({
+    rewards: {
+      confirmed,
+      pending,
+      grantedInWindow: granted,
+      cap: REWARD_CAP_MONTHS,
+      tier: tier ? { label: tier.label, emoji: tier.emoji } : null,
+      nextTier: nextTier ? { label: nextTier.label, emoji: nextTier.emoji, at: nextTier.at } : null
+    },
     code: user.referralCode,
     referredByCode: user.referredByCode,
     aiTrialActive: hasActiveReferralTrial(user.aiTrialUntil),

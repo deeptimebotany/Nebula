@@ -2,8 +2,8 @@
 
 // Carte « Aperçu » de la page Publier — refonte du 24/09/2026 : rendu
 // immersif et fidèle au réseau choisi.
-//   - En haut à gauche : les 4 réseaux (Instagram, Facebook, TikTok,
-//     YouTube), pour passer instantanément de l'un à l'autre — même ceux qui
+//   - En haut à gauche : tous les réseaux (Instagram, Facebook, TikTok,
+//     YouTube, Bluesky), pour passer instantanément de l'un à l'autre — même ceux qui
 //     ne sont pas cochés pour la publication (signalé sous la barre).
 //   - En haut à droite : bascule Mobile / Ordinateur, et « Agrandir ».
 //   - Dans le cadre : une imitation de l'interface native du réseau (voir
@@ -12,6 +12,7 @@
 //     tenir dans la colonne (ScaledFrame), comme une vraie capture d'écran.
 // Purement présentationnel : tout l'état de la publication vit dans la page.
 
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "@/lib/clsx";
@@ -168,6 +169,7 @@ export function ComposerPreview({
   instagramGridTiles,
   gridLoading
 }: ComposerPreviewProps) {
+  const offeredNetworks = useAvailableNetworks();
   const [device, setDevice] = useState<PreviewDevice>("mobile");
   const [expanded, setExpanded] = useState(false);
 
@@ -222,8 +224,8 @@ export function ComposerPreview({
 
   const toolbar = (
     <div className="flex items-center justify-between gap-2">
-      <div className="flex gap-1" role="group" aria-label="Réseau affiché dans l'aperçu">
-        {NETWORKS.map((n) => {
+      <div className="flex min-w-0 gap-1 overflow-x-auto" role="group" aria-label="Réseau affiché dans l'aperçu">
+        {NETWORKS.filter((n) => offeredNetworks.includes(n) || selectedNetworks.includes(n) || n === network).map((n) => {
           const active = n === network;
           const selected = selectedNetworks.includes(n);
           return (

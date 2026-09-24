@@ -8,6 +8,9 @@
 // un événement window (openProfilePanel), comme la palette Cmd/Ctrl+K, pour
 // que n'importe quel composant puisse l'appeler sans provider dédié.
 
+import { AvatarRing, useMyRing } from "@/components/reussites/avatar-ring";
+import { LevelPill } from "@/components/reussites/level-pill";
+import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RemoteImage } from "@/components/ui/remote-image";
@@ -40,9 +43,19 @@ interface ReferralInfo {
   referredByCode: string | null;
   aiTrialActive: boolean;
   aiTrialUntil: string | null;
+  // Règles du 25/09/2026 (voir /api/referral et src/lib/billing/rewards.ts).
+  rewards?: {
+    confirmed: number;
+    pending: number;
+    grantedInWindow: number;
+    cap: number;
+    tier: { label: string; emoji: string } | null;
+    nextTier: { label: string; emoji: string; at: number } | null;
+  };
 }
 
 interface ProfileData {
+  reussites: ReussitesSummaryDTO | null;
   badges: EarnedBadge[];
   eggs: { found: number; total: number } | null;
   referral: ReferralInfo | null;
@@ -73,6 +86,7 @@ function initials(name: string | null | undefined): string {
 
 export function ProfilePanel() {
   const { data: me, patch: patchMe } = useBootstrap();
+  const myRing = useMyRing();
   const toast = useToast();
   // Photo de profil : un clic sur la pastille pour en envoyer une nouvelle.
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -106,16 +120,18 @@ export function ProfilePanel() {
   const sectionRefs = useRef<Record<ProfileSection, HTMLElement | null>>({ activity: null, badges: null, eggs: null, referral: null });
 
   const load = useCallback(async () => {
-    const [badgesRes, eggsRes, referralRes, boardRes] = await Promise.all([
+    const [badgesRes, eggsRes, referralRes, boardRes, reussitesRes] = await Promise.all([
       fetch("/api/community/badges").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/easter-eggs", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/referral").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch("/api/referral/leaderboard").then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      fetch("/api/referral/leaderboard").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/reussites/summary", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
     ]);
     const leaderboard: LeaderboardRow[] = boardRes?.leaderboard ?? [];
     // Easter egg : trouver SA PROPRE couronne, pas seulement en voir une.
     if (leaderboard[0]?.isMe) reportEasterEggFound("referral-crown");
     setData({
+      reussites: (reussitesRes as ReussitesSummaryDTO | null) ?? null,
       badges: badgesRes?.badges ?? [],
       eggs: eggsRes ? { found: eggsRes.foundCount ?? 0, total: eggsRes.total ?? 20 } : null,
       referral: referralRes && referralRes.code ? referralRes : null,
@@ -196,6 +212,7 @@ export function ProfilePanel() {
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           {/* Identité */}
           <section className="flex items-center gap-3">
+            <AvatarRing ring={myRing} shapeClassName="rounded-full">
             <button
               type="button"
               onClick={() => photoInputRef.current?.click()}
@@ -215,12 +232,51 @@ export function ProfilePanel() {
                 {photoUploading ? "Envoi…" : "Changer"}
               </span>
             </button>
+            </AvatarRing>
             <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onPhotoChosen(e.target.files[0])} />
             <div className="min-w-0">
               <p className="truncate font-display text-lg font-semibold text-white">{user?.name || "Mon compte"}</p>
               <p className="truncate text-xs text-slate-500">{user?.email}</p>
-              {me?.plan && <span className="mt-1 inline-block rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">Palier {me.plan}</span>}
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {me?.plan && <span className="inline-block rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">Palier {me.plan}</span>}
+                {me?.reussites && <LevelPill level={me.reussites.level} name={me.reussites.name} />}
+              </div>
             </div>
+          </section>
+
+          {/* Niveau de créateur (Réussites) */}
+          <section>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Niveau de créateur</h3>
+            <Link href="/reussites" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
+              {!data ? (
+                <Skeleton className="h-10 w-full" />
+              ) : data.reussites ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-slate-200">
+                      Niveau {data.reussites.level.level} · <span className="font-medium text-white">{data.reussites.level.name}</span>
+                    </span>
+                    <span className="text-xs tabular-nums text-slate-400">{data.reussites.level.pct} %</span>
+                  </div>
+                  {data.reussites.level.title && <p className="mt-0.5 text-[11px] text-aurora-300">Titre : {data.reussites.level.title}</p>}
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-nebula-500 to-aurora-400" style={{ width: `${data.reussites.level.pct}%` }} />
+                  </div>
+                  {data.reussites.monthlyBadges.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Badges du mois">
+                      {data.reussites.monthlyBadges.map((b) => (
+                        <span key={b.period} className="rounded-full border border-amber-400/30 bg-amber-400/[0.08] px-2 py-0.5 text-[10px] font-medium text-amber-200">
+                          🌙 {b.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-2 text-[11px] text-slate-500">Défis, accomplissements et récompenses →</p>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">Voir mes réussites →</p>
+              )}
+            </Link>
           </section>
 
           {/* Activité */}
@@ -293,7 +349,7 @@ export function ProfilePanel() {
               sectionRefs.current.eggs = el;
             }} className="scroll-mt-4">
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Easter eggs</h3>
-            <Link href="/succes" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
+            <Link href="/reussites#succes" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm text-slate-200">
                   <span className="text-lg" aria-hidden="true">🥚</span> Trouvés
@@ -303,7 +359,7 @@ export function ProfilePanel() {
               <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
                 <div className="h-full rounded-full bg-amber-300" style={{ width: `${eggsPct}%` }} />
               </div>
-              <p className="mt-2 text-[11px] text-slate-500">Voir la page Succès — indices et récompenses débloquées →</p>
+              <p className="mt-2 text-[11px] text-slate-500">Voir la page Réussites — indices et récompenses débloquées →</p>
             </Link>
           </section>
 
@@ -333,8 +389,42 @@ export function ProfilePanel() {
                       {me!.bonusMonths} mois de Pro offert{me!.bonusMonths > 1 ? "s" : ""} en attente — déduit{me!.bonusMonths > 1 ? "s" : ""} automatiquement de votre prochaine souscription.
                     </p>
                   )}
+                  {data.referral.rewards && (
+                    <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-1.5 py-1.5">
+                        <p className="font-display text-sm font-semibold text-white">{data.referral.rewards.confirmed}</p>
+                        <p className="text-[10px] leading-tight text-slate-500">filleul{data.referral.rewards.confirmed > 1 ? "s" : ""} abonné{data.referral.rewards.confirmed > 1 ? "s" : ""}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-1.5 py-1.5">
+                        <p className="font-display text-sm font-semibold text-white">
+                          {data.referral.rewards.grantedInWindow}
+                          <span className="text-[11px] font-normal text-slate-500"> / {data.referral.rewards.cap}</span>
+                        </p>
+                        <p className="text-[10px] leading-tight text-slate-500">mois offerts (12 mois)</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-1.5 py-1.5">
+                        <p className="font-display text-sm font-semibold text-white">{data.referral.rewards.pending}</p>
+                        <p className="text-[10px] leading-tight text-slate-500">en attente</p>
+                      </div>
+                    </div>
+                  )}
+                  {data.referral.rewards && (data.referral.rewards.tier || data.referral.rewards.nextTier) && (
+                    <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-300">
+                      {data.referral.rewards.tier && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+                          <span aria-hidden>{data.referral.rewards.tier.emoji}</span>
+                          {data.referral.rewards.tier.label}
+                        </span>
+                      )}
+                      {data.referral.rewards.nextTier && (
+                        <span className="text-[11px] text-slate-500">
+                          Prochain palier : {data.referral.rewards.nextTier.emoji} {data.referral.rewards.nextTier.label} à {data.referral.rewards.nextTier.at} filleuls abonnés
+                        </span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                    Chaque compte créé avec votre lien reçoit 30 jours de Pro offerts, et vous gagnez un mois de Pro à sa première souscription. Le podium du classement reçoit en plus des mois Pro attribués par l&apos;équipe Nebula.
+                    Chaque compte créé avec votre lien reçoit 30 jours de Pro offerts. Vous gagnez 1 mois de Pro quand il a payé son premier mois et qu&apos;il est toujours abonné 30 jours plus tard, dans la limite de 12 mois offerts sur 12 mois glissants (parrainage et badge « Propulsé par Nebula » confondus). Au-delà, chaque nouvel abonné compte toujours pour le classement et vos paliers ambassadeur (5, 10, 25 et 50 filleuls abonnés). Les mois offerts ne sont pas échangeables contre de l&apos;argent et sont annulés en cas de fraude (faux comptes, parrainage de soi-même).
                     {data.referral.aiTrialActive && data.referral.aiTrialUntil && (
                       <> IA offerte via parrainage jusqu&apos;au {new Date(data.referral.aiTrialUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.</>
                     )}

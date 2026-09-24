@@ -8,7 +8,7 @@
 // appel), jamais seulement la préférence enregistrée. Le compte propriétaire
 // (voir dev-preview.ts) voit tout déverrouillé, sauf s'il a choisi un aperçu
 // de palier précis — auquel cas il est traité exactement comme ce palier.
-import { prisma } from "@/lib/prisma";
+import { unlockKeysFor } from "@/lib/reussites/unlocks";
 import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic } from "@/lib/cosmetics";
 import { isOwnerEmail, resolvePreviewPlan } from "@/lib/dev-preview";
@@ -29,11 +29,8 @@ export interface AppearanceAccess {
 async function eggAllowedKeys(userId: string): Promise<string[]> {
   const eggGated = COSMETICS.filter((c) => c.requiresEgg);
   if (eggGated.length === 0) return [];
-  const foundRows: { key: string }[] = await prisma.easterEggFound.findMany({
-    where: { userId, key: { in: eggGated.map((c) => c.requiresEgg as string) } },
-    select: { key: true }
-  });
-  const foundSet = new Set(foundRows.map((f) => f.key));
+  // Easter eggs trouvés + récompenses Réussites (anneaux d'avatar).
+  const foundSet = await unlockKeysFor(userId);
   return eggGated.filter((c) => foundSet.has(c.requiresEgg as string)).map((c) => c.key);
 }
 

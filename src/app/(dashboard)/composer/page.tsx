@@ -1,5 +1,6 @@
 "use client";
 
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/compos
 import { InfoTip } from "@/components/ui/info-tip";
 import { CampaignLinkBuilder } from "@/components/composer/campaign-link-builder";
 import { LocationPicker, type PickedLocation } from "@/components/composer/location-picker";
+import { PinterestOptions, DEFAULT_PINTEREST_OPTIONS, type PinterestComposerOptions } from "@/components/composer/pinterest-options";
 import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -42,7 +44,8 @@ import { clsx } from "@/lib/clsx";
 import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink } from "@/components/dashboard/icons";
 import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
-import { uploadMediaFile } from "@/lib/upload-client";
+import { uploadMediaFile, type UploadedAssetResult } from "@/lib/upload-client";
+import { MediaImportBar } from "@/components/composer/media-import/media-import-bar";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 
@@ -233,6 +236,9 @@ function buildYoutubeMetadata(opts: YoutubeComposerOptions) {
   };
 }
 
+// Réseaux qui acceptent un lieu (voir LocationPicker et publish.ts).
+const LOCATION_NETWORKS = new Set<Network>(["INSTAGRAM", "FACEBOOK", "YOUTUBE"]);
+
 // Bulles d'aide de l'option « Contenu généré par l'IA », par réseau : ce que
 // chaque réseau en fait réellement (voir PublishInput.aiGenerated).
 const AI_CONTENT_HELP: Record<Network, string> = {
@@ -243,7 +249,15 @@ const AI_CONTENT_HELP: Record<Network, string> = {
   INSTAGRAM:
     "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Instagram ne permet pas encore de poser son étiquette « Info IA » depuis une application : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la légende.",
   FACEBOOK:
-    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Facebook ne permet pas encore de poser son étiquette « Info IA » depuis une application : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la légende."
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Facebook ne permet pas encore de poser son étiquette « Info IA » depuis une application : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la légende.",
+  BLUESKY:
+    "Bluesky n'a pas d'étiquette officielle « contenu IA » : l'option est enregistrée pour votre suivi, mais rien n'est ajouté au post. Si vous voulez le signaler, écrivez-le dans le texte (300 caractères maximum sur Bluesky).",
+  THREADS:
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. L'API Threads ne permet pas encore de poser l'étiquette « Info IA » : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin du texte.",
+  PINTEREST:
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. Pinterest détecte et étiquette lui-même une partie de ces contenus ; Nebula ajoute en plus la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin de la description.",
+  LINKEDIN:
+    "À activer si l'image ou la vidéo a été créée ou fortement retouchée par l'IA. LinkedIn n'a pas de champ pour le signaler via son API : Nebula ajoute donc la mention « ✨ Contenu créé avec l'aide de l'IA » à la fin du texte."
 };
 
 const NOTIFY_SUBSCRIBERS_HELP =
@@ -261,6 +275,7 @@ export default function ComposerPage() {
 }
 
 function ComposerPageInner() {
+  const offeredNetworks = useAvailableNetworks();
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
@@ -322,6 +337,8 @@ function ComposerPageInner() {
   // ci-dessus) puisqu'un seul compte YouTube peut être ciblé à la fois.
   const [youtubeOptions, setYoutubeOptions] = useState<YoutubeComposerOptions>(DEFAULT_YOUTUBE_OPTIONS);
   const [youtubeOptionsOpen, setYoutubeOptionsOpen] = useState(false);
+  // Pinterest : tableau et lien de l'épingle (voir pinterest-options.tsx).
+  const [pinterestOptions, setPinterestOptions] = useState<PinterestComposerOptions>(DEFAULT_PINTEREST_OPTIONS);
   // Option « Contenu généré par l'IA » : un interrupteur général (carte
   // « 1. Média », en haut de page, pour y penser avant de descendre aux
   // réseaux) qui s'applique à tous les réseaux, plus une exception possible
@@ -704,6 +721,25 @@ function ComposerPageInner() {
     // chaque rendu : on ne réagit qu'à l'arrivée du brief.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantBrief, videoAsset]);
+
+  // Média importé depuis Google Drive, Dropbox, OneDrive, Unsplash ou Canva
+  // (lot 3, voir media-import-bar.tsx) : même effet qu'un envoi classique —
+  // il remplace le média en cours. Pour Unsplash, le crédit du photographe
+  // peut être ajouté à la fin de la légende.
+  const onMediaImported = useCallback(
+    (asset: UploadedAssetResult, extra?: { credit?: { name: string } | null; creditInCaption?: boolean }) => {
+      setUploadError(null);
+      setAssets([{ id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: asset.url }]);
+      setThumbOptions([]);
+      setPreviewAspectClass("aspect-square");
+      if (extra?.credit && extra.creditInCaption) {
+        const line = `📷 Photo : ${extra.credit.name} sur Unsplash`;
+        setCaption((prev) => (prev.includes(line) ? prev : `${prev.trimEnd()}${prev.trim() ? "\n\n" : ""}${line}`));
+      }
+      toast.success(`« ${asset.filename} » ajouté à la publication.`);
+    },
+    [toast]
+  );
 
   const onFilesChosen = useCallback(
     async (files: FileList | null) => {
@@ -1110,12 +1146,21 @@ function ComposerPageInner() {
           // + option « Contenu généré par l'IA » (tous réseaux, voir
           // publish.ts → aiGenerated).
           // + lieu (Instagram, Facebook, YouTube — voir LocationPicker).
+          // + Pinterest : tableau et lien de l'épingle.
           metadata:
-            network === "YOUTUBE" || (aiContentOverrides[network] ?? aiContentAll) || (location && network !== "TIKTOK")
+            network === "YOUTUBE" || network === "PINTEREST" || (aiContentOverrides[network] ?? aiContentAll) || (location && LOCATION_NETWORKS.has(network))
               ? {
                   ...(network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : {}),
+                  ...(network === "PINTEREST"
+                    ? {
+                        pinterest: {
+                          ...(pinterestOptions.boardId ? { boardId: pinterestOptions.boardId } : {}),
+                          ...(pinterestOptions.link.trim() ? { link: pinterestOptions.link.trim() } : {})
+                        }
+                      }
+                    : {}),
                   ...((aiContentOverrides[network] ?? aiContentAll) ? { aiGenerated: true } : {}),
-                  ...(location && network !== "TIKTOK"
+                  ...(location && LOCATION_NETWORKS.has(network)
                     ? { location: { id: location.id, name: location.name, latitude: location.latitude, longitude: location.longitude } }
                     : {})
                 }
@@ -1189,6 +1234,7 @@ function ComposerPageInner() {
     connections,
     overrides,
     youtubeOptions,
+    pinterestOptions,
     aiContentAll,
     aiContentOverrides,
     location,
@@ -1349,6 +1395,16 @@ function ComposerPageInner() {
                 </div>
               )}
             </div>
+            <MediaImportBar
+              brandId={activeBrand?.id}
+              disabled={uploading}
+              onImported={onMediaImported}
+              onError={(message) => {
+                setUploadError(message);
+                toast.error(message);
+              }}
+              onBusyChange={setUploading}
+            />
             {!focusMode && <LoadingMiniGame active={uploading} />}
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
@@ -1644,7 +1700,7 @@ function ComposerPageInner() {
               <h2 className="mb-3 font-display text-base font-medium text-white">4. Réseaux cibles</h2>
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  {NETWORKS.map((n) => {
+                  {NETWORKS.filter((n) => offeredNetworks.includes(n) || availableNetworks.includes(n)).map((n) => {
                     const connected = availableNetworks.includes(n);
                     if (!connected) {
                       return (
@@ -1683,6 +1739,24 @@ function ComposerPageInner() {
                     mediaType={assets[0]?.type ?? null}
                   />
                 )}
+
+                {/* Bluesky (25/09/2026) : 300 caractères et pas encore de vidéo —
+                    prévenir ici plutôt qu'à l'échec de la publication. */}
+                {selectedNetworks.includes("BLUESKY") &&
+                  (() => {
+                    const ov = overrides.BLUESKY;
+                    const blueskyText = ov?.open && ov.caption ? ov.caption : caption;
+                    const tooLong = blueskyText.trim().length > NETWORK_META.BLUESKY.maxCaption;
+                    const hasVideo = assets.some((a) => a.type === "VIDEO");
+                    if (!tooLong && !hasVideo) return null;
+                    return (
+                      <p className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-200">
+                        {hasVideo
+                          ? "Bluesky : la vidéo n'est pas encore prise en charge dans Nebula. Retirez Bluesky des cibles ou publiez une image."
+                          : `Bluesky : ${blueskyText.trim().length} caractères, 300 maximum. Utilisez « Personnaliser pour Bluesky » ci-dessous pour écrire une version plus courte.`}
+                      </p>
+                    );
+                  })()}
 
                 {noConnections ? (
                   <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>
@@ -1792,6 +1866,14 @@ function ComposerPageInner() {
                           </div>
                         )}
                       </div>
+
+                      {n === "PINTEREST" && (
+                        <PinterestOptions
+                          connectionId={selectedConnectionByNetwork.PINTEREST || networkConnections[0]?.id}
+                          value={pinterestOptions}
+                          onChange={setPinterestOptions}
+                        />
+                      )}
 
                       {n === "YOUTUBE" && (
                         <div className="mt-3 border-t border-white/[0.06] pt-3">
@@ -1911,9 +1993,9 @@ function ComposerPageInner() {
             {firstCommentOpen && (
               <div className="mt-3 animate-fade-in-up rounded-xl border border-white/10 bg-white/[0.02] p-3">
                 <p className="mb-2 text-xs text-slate-400">
-                  Publié automatiquement juste après la publication, en commentaire sous le post (Instagram et
-                  Facebook pour le moment — les comptes déjà connectés devront se reconnecter une fois pour
-                  autoriser les commentaires).
+                  Publié automatiquement juste après la publication, en commentaire sous le post (Instagram,
+                  Facebook, Bluesky, Threads et LinkedIn — pas encore TikTok, YouTube ni Pinterest). Les comptes
+                  Instagram et Facebook connectés avant cette option doivent se reconnecter une fois.
                 </p>
                 <textarea
                   value={firstComment}

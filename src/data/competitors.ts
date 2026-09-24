@@ -392,8 +392,9 @@ export const REFERENCE_SCENARIO: CostInput = { brands: 3, accounts: 8, users: 1 
 export const UPCOMING_NETWORKS: { slug: string; label: string; blurb: string }[] = [
   { slug: "threads", label: "Threads", blurb: "Le réseau de conversation de Meta, en texte court." },
   { slug: "linkedin", label: "LinkedIn", blurb: "Pages entreprise et profils, pour les indépendants et les marques B2B." },
-  { slug: "pinterest", label: "Pinterest", blurb: "Épingles et tableaux, pour le visuel qui dure dans le temps." },
-  { slug: "bluesky", label: "Bluesky", blurb: "Le réseau ouvert et décentralisé, en plein essor." }
+  { slug: "pinterest", label: "Pinterest", blurb: "Épingles et tableaux, pour le visuel qui dure dans le temps." }
+  // Bluesky : disponible depuis le 25/09/2026 (retiré de la liste d'attente,
+  // /reseaux/bluesky redirige vers /reseaux — voir next.config.js).
 ];
 
 export const FEATURE_LABELS: Record<keyof CompetitorFeatures, string> = {

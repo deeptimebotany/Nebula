@@ -17,6 +17,9 @@ export interface ConnectionLike {
   accessToken: string;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;
+  // Présent sur les lignes SocialConnection complètes ; Bluesky y lit
+  // l'adresse du serveur de données du compte (voir social/bluesky.ts).
+  scopes?: string | null;
 }
 
 // Réglages propres à YouTube pour une publication donnée — voir
@@ -32,12 +35,20 @@ export interface YoutubeOptions {
   playlistId?: string;
 }
 
+// Réglages Pinterest d'une publication (voir composer-types.ts et
+// social/pinterest.ts). boardId absent : premier tableau du compte.
+export interface PinterestOptions {
+  boardId?: string;
+  link?: string;
+}
+
 export interface PublishInput {
   title?: string; // utilisé notamment par YouTube comme titre de la vidéo
   caption: string;
   mediaUrls: string[]; // URLs publiquement accessibles (http/https) des médias à publier
   mediaType: "VIDEO" | "IMAGE";
   youtube?: YoutubeOptions;
+  pinterest?: PinterestOptions;
   // Option « Contenu généré par l'IA » du Composer (un interrupteur par
   // réseau, voir PostTarget.metadata.aiGenerated). Transmis au réseau quand
   // son API le permet : YouTube (status.containsSyntheticMedia), TikTok

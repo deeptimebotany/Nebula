@@ -1,3 +1,5 @@
+import { unlockKeysFor } from "@/lib/reussites/unlocks";
+import { refreshReussites } from "@/lib/reussites/engine";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -25,8 +27,8 @@ async function eggThemesUnlockedFor(userId: string, email: string | null | undef
 
 async function framesUnlockedFor(userId: string, email: string | null | undefined): Promise<string[]> {
   if (isOwnerEmail(email)) return unlockedFrameKeys([], true);
-  const found: { key: string }[] = await prisma.easterEggFound.findMany({ where: { userId }, select: { key: true } });
-  return unlockedFrameKeys(found.map((f) => f.key));
+  // Easter eggs trouvés + récompenses Réussites (cadres « Carrefour », « Astre »).
+  return unlockedFrameKeys(await unlockKeysFor(userId));
 }
 
 // GET/PATCH /api/link-in-bio?brandId=... — page "link in bio" de la marque
@@ -134,5 +136,7 @@ export async function PATCH(req: NextRequest) {
     include: { links: { orderBy: { order: "asc" } } }
   });
 
+  // Réussites : « Vitrine » (page bio publiée).
+  if (data.published === true) await refreshReussites(userId);
   return NextResponse.json({ linkPage, brand });
 }

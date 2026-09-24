@@ -28,6 +28,9 @@ const NETWORK_LABELS: Record<string, string> = {
   FACEBOOK: "Facebook",
   TIKTOK: "TikTok",
   YOUTUBE: "YouTube",
+  BLUESKY: "Bluesky",
+  THREADS: "Threads",
+  PINTEREST: "Pinterest",
   X: "X",
   LINKEDIN: "LinkedIn"
 };

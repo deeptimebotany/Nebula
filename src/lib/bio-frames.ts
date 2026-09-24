@@ -12,11 +12,12 @@
 //    Or Impérial, éclipse partout ailleurs).
 //  - Cadres ultimes Nacre (1 M de j'aime) et Prisme (1 M d'abonnés) : tous
 //    thèmes, avec leur propre univers visuel.
+//  - Carrefour et Astre : récompenses de la page Réussites, tous thèmes.
 //
 // LinkPage.frame vaut null (= automatique : halo sur Or/Éclipse, rien
 // ailleurs), "none" (aucun cadre) ou l'une des clés ci-dessous.
 
-export type FrameStyle = "halo" | "comete" | "orbites" | "metal" | "couronne" | "nacre" | "prisme";
+export type FrameStyle = "halo" | "comete" | "orbites" | "metal" | "couronne" | "nacre" | "prisme" | "carrefour" | "astre";
 export type FrameFlavor = "or" | "eclipse";
 
 export interface BioFrameDef {
@@ -42,7 +43,12 @@ export const BIO_FRAMES: BioFrameDef[] = [
   { key: "eclipse-metal", label: "Acier noir", style: "metal", flavor: "eclipse", requiresEgg: "frame-eclipse-metal", secret: true },
   { key: "couronne", label: "La couronne", style: "couronne", requiresEgg: "referral-crown" },
   { key: "nacre", label: "Nacre (ultime)", style: "nacre", requiresEgg: "frame-ultime-nacre", secret: true },
-  { key: "prisme", label: "Prisme (ultime)", style: "prisme", requiresEgg: "frame-ultime-prisme", secret: true }
+  { key: "prisme", label: "Prisme (ultime)", style: "prisme", requiresEgg: "frame-ultime-prisme", secret: true },
+  // Gagnés dans Réussites (25/09/2026) — visibles verrouillés, pour donner
+  // un objectif : « Carrefour » (1 000 clics sur la page bio) et « Astre »
+  // (niveau 7). Tous thèmes.
+  { key: "carrefour", label: "Carrefour", style: "carrefour", requiresEgg: "ach:frame-carrefour" },
+  { key: "astre", label: "Astre", style: "astre", requiresEgg: "ach:frame-astre" }
 ];
 
 export const FRAME_NONE = "none";

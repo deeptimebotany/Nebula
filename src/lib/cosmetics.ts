@@ -68,8 +68,8 @@ export const COSMETICS: CosmeticDefinition[] = [
   },
   {
     key: "papier-peint-succes",
-    label: "Voûte céleste (page Succès)",
-    description: "Une vraie voûte stellaire colorée et animée en fond de votre page Succès.",
+    label: "Voûte céleste (page Réussites)",
+    description: "Une vraie voûte stellaire colorée et animée en fond de votre page Réussites.",
     category: "decor",
     requiresPlan: "AGENCY"
   },
@@ -86,6 +86,38 @@ export const COSMETICS: CosmeticDefinition[] = [
     description: "Une phrase différente (parmi plusieurs variantes spatiales) affichée sur la Vue d'ensemble à chaque visite.",
     category: "profil",
     requiresEgg: "greeting-unlock"
+  },
+  // --- Anneaux d'avatar gagnés dans Réussites (25/09/2026) : autour de la
+  // pastille de marque (en haut), de la photo dans « Mon profil » et dans la
+  // Communauté. Activés automatiquement quand on les gagne ; si plusieurs
+  // sont activés, seul le plus prestigieux s'affiche.
+  {
+    key: "anneau-bronze-avatar",
+    label: "Anneau bronze (avatar)",
+    description: "Un anneau cuivré autour de votre pastille et de votre photo. Gagné avec l'accomplissement « Envol ».",
+    category: "profil",
+    requiresEgg: "ach:ring-bronze"
+  },
+  {
+    key: "anneau-argent-avatar",
+    label: "Anneau argent (avatar)",
+    description: "Un anneau argenté autour de votre pastille et de votre photo. Gagné au niveau 5 « Confirmé ».",
+    category: "profil",
+    requiresEgg: "ach:ring-argent"
+  },
+  {
+    key: "anneau-or-avatar",
+    label: "Anneau or (avatar)",
+    description: "Un anneau doré autour de votre pastille et de votre photo. Gagné à 100 publications.",
+    category: "profil",
+    requiresEgg: "ach:ring-or"
+  },
+  {
+    key: "anneau-stellaire-avatar",
+    label: "Anneau stellaire (avatar, animé)",
+    description: "Un anneau aux couleurs de la nébuleuse qui tourne lentement. Gagné au niveau 8 « Légende ».",
+    category: "profil",
+    requiresEgg: "ach:ring-stellaire"
   },
   {
     key: "sidebar-poussiere-etoiles",

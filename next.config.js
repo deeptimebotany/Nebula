@@ -48,7 +48,13 @@ const nextConfig = {
       // (/comments) et Engagements (/engagements) ; les liens déjà partagés
       // (menu déroulant d'un compte, favoris) atterrissent sur Commentaires,
       // paramètres conservés (?connectionId=…).
-      { source: "/interactions", destination: "/comments", permanent: false }
+      { source: "/interactions", destination: "/comments", permanent: false },
+      // Bluesky est disponible depuis le 25/09/2026 : sa page de liste
+      // d'attente n'existe plus.
+      { source: "/reseaux/bluesky", destination: "/reseaux", permanent: true },
+      // La page Succès est devenue Réussites (25/09/2026) : les easter eggs
+      // y sont toujours, sous les accomplissements.
+      { source: "/succes", destination: "/reussites", permanent: true }
     ];
   }
 };

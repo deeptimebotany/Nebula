@@ -1,5 +1,6 @@
 "use client";
 
+import { CommunityAuthor, type CommunityAuthorInfo } from "@/components/reussites/community-author";
 import { useEffect, useState, useCallback } from "react";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { useParams, useRouter } from "next/navigation";
@@ -21,7 +22,7 @@ interface Reply {
   id: string;
   body: string;
   createdAt: string;
-  author: { id: string; name: string };
+  author: CommunityAuthorInfo;
 }
 
 interface Thread {
@@ -30,7 +31,7 @@ interface Thread {
   body: string;
   category: string;
   createdAt: string;
-  author: { id: string; name: string };
+  author: CommunityAuthorInfo;
   replies: Reply[];
 }
 
@@ -116,7 +117,7 @@ export default function ThreadDetailPage() {
             </span>
             <h1 className="mt-2 font-display text-xl font-semibold text-white">{thread.title}</h1>
             <p className="mt-1 text-xs text-slate-500">
-              par {thread.author?.name ?? "utilisateur"} · {new Date(thread.createdAt).toLocaleString("fr-FR")}
+              par <CommunityAuthor author={thread.author} /> · {new Date(thread.createdAt).toLocaleString("fr-FR")}
             </p>
           </div>
           {userId === thread.author?.id && (
@@ -132,7 +133,7 @@ export default function ThreadDetailPage() {
           <GlassCard key={r.id}>
             <p className="whitespace-pre-wrap text-sm text-slate-200">{r.body}</p>
             <p className="mt-2 text-xs text-slate-500">
-              {r.author?.name ?? "utilisateur"} · {new Date(r.createdAt).toLocaleString("fr-FR")}
+              <CommunityAuthor author={r.author} /> · {new Date(r.createdAt).toLocaleString("fr-FR")}
             </p>
           </GlassCard>
         ))}

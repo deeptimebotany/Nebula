@@ -18,7 +18,11 @@ const NETWORK_LABELS: Record<string, string> = {
   INSTAGRAM: "Instagram",
   FACEBOOK: "Facebook",
   TIKTOK: "TikTok",
-  YOUTUBE: "YouTube"
+  YOUTUBE: "YouTube",
+  BLUESKY: "Bluesky",
+  THREADS: "Threads",
+  PINTEREST: "Pinterest",
+  LINKEDIN: "LinkedIn"
 };
 
 interface ReportData {

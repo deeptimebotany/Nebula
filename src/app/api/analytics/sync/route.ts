@@ -4,8 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
-import type { Network } from "@/lib/types";
+import { NETWORK_META, type Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
+import { notifyMany, brandEditorIds, looksLikeAuthError, networkLabel } from "@/lib/notifications";
+import { emitWebhookEvent } from "@/lib/webhooks";
 
 // Interroge les vraies API de chaque réseau connecté pour rafraîchir les
 // stats (abonnés, portée, impressions...) et enregistre un instantané.
@@ -20,7 +22,11 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
-  const connections = await prisma.socialConnection.findMany({ where: { brandId, status: "CONNECTED" } });
+  // Réseaux sans statistiques de compte dans leur API (ex. LinkedIn, profil
+  // personnel) : ignorés plutôt que marqués en erreur.
+  const connections = (await prisma.socialConnection.findMany({ where: { brandId, status: "CONNECTED" } })).filter(
+    (c: { network: string }) => NETWORK_META[c.network as Network]?.statsAvailable !== false
+  );
   const results = [];
 
   for (const connection of connections) {
@@ -47,6 +53,23 @@ export async function POST(req: NextRequest) {
         where: { id: connection.id },
         data: { lastError: (err as Error).message }
       });
+      // Connexion expirée ou révoquée : une seule alerte « à reconnecter »
+      // par compte (dedupeKey), remise en haut si le problème persiste.
+      if (looksLikeAuthError((err as Error).message)) {
+        const label = networkLabel(connection.network);
+        await notifyMany(await brandEditorIds(brandId), {
+          kind: "reconnect",
+          title: `${label} à reconnecter`,
+          body: `La connexion à ${label}${connection.displayName ? ` (${connection.displayName})` : ""} a expiré : les statistiques et les publications sur ce compte sont en pause.`,
+          href: "/accounts",
+          actionLabel: `Reconnecter ${label}`,
+          dedupeKey: `reconnect:${connection.id}`
+        });
+        await emitWebhookEvent(brandId, "connection.expired", {
+          connection: { id: connection.id, network: connection.network, name: connection.displayName, handle: connection.handle },
+          reason: (err as Error).message
+        });
+      }
       results.push({ connectionId: connection.id, ok: false, error: (err as Error).message });
     }
   }

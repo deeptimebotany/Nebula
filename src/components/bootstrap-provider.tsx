@@ -75,6 +75,16 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("nebula:achievement", onAchievement);
   }, []);
 
+  // Réussite fêtée à l'écran (accomplissement, défi, niveau) : niveau et
+  // compteur du menu relus depuis /api/me.
+  useEffect(() => {
+    function onReussite() {
+      refresh();
+    }
+    window.addEventListener("nebula:reussite", onReussite);
+    return () => window.removeEventListener("nebula:reussite", onReussite);
+  }, [refresh]);
+
   const setFocusMode = useCallback(
     async (value: boolean) => {
       const res = await fetch("/api/settings/focus", {

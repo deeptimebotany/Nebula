@@ -14,7 +14,10 @@ import { clsx } from "@/lib/clsx";
 // publiques annuelles (Sprout Social, Hootsuite, Buffer) relevées en
 // septembre 2026 — moyennes générales, toutes audiences confondues.
 const SOURCE_DATE = "septembre 2026";
-const SLOTS: Record<Network, { days: string; hours: number[]; note: string }[]> = {
+// Outil public : seulement les réseaux pour lesquels on a des études
+// publiques sourcées.
+type ToolNetwork = Extract<Network, "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE">;
+const SLOTS: Record<ToolNetwork, { days: string; hours: number[]; note: string }[]> = {
   INSTAGRAM: [
     { days: "Lundi – vendredi", hours: [9, 12, 18], note: "Pause du matin, pause déjeuner, sortie du travail." },
     { days: "Samedi – dimanche", hours: [10, 19], note: "Matinées plus calmes, soirées engagées." }
@@ -50,7 +53,7 @@ const FAQ = [
 ];
 
 export default function MeilleurMomentPage() {
-  const [network, setNetwork] = useState<Network>("INSTAGRAM");
+  const [network, setNetwork] = useState<ToolNetwork>("INSTAGRAM");
   const [tz, setTz] = useState("Europe/Paris");
   const rows = useMemo(() => SLOTS[network].map((s) => ({ ...s, hours: s.hours.map((h) => shiftHour(h, "Europe/Paris", tz)) })), [network, tz]);
 
@@ -76,7 +79,7 @@ export default function MeilleurMomentPage() {
           <div className="min-w-0 flex-1">
             <label className="block text-xs uppercase tracking-wide text-slate-500">Réseau</label>
             <div className="mt-1.5 flex flex-wrap gap-2">
-              {NETWORKS.map((n) => (
+              {NETWORKS.filter((n): n is ToolNetwork => n === "INSTAGRAM" || n === "FACEBOOK" || n === "TIKTOK" || n === "YOUTUBE").map((n) => (
                 <button
                   key={n}
                   type="button"

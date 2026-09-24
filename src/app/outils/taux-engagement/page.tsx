@@ -15,7 +15,10 @@ import { clsx } from "@/lib/clsx";
 // annuelles des éditeurs d'outils d'analyse (Socialinsider, Rival IQ,
 // Hootsuite). Ce sont des MOYENNES générales : vos propres statistiques
 // dans Nebula font toujours foi.
-const BENCHMARKS: Record<Network, { low: number; median: number; high: number }> = {
+// Outil public : seulement les réseaux pour lesquels on a des études
+// publiques sourcées.
+type ToolNetwork = Extract<Network, "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE">;
+const BENCHMARKS: Record<ToolNetwork, { low: number; median: number; high: number }> = {
   INSTAGRAM: { low: 0.5, median: 1.5, high: 4 },
   TIKTOK: { low: 2, median: 4.5, high: 9 },
   YOUTUBE: { low: 1, median: 3, high: 6 },
@@ -31,7 +34,7 @@ const FAQ = [
 ];
 
 export default function TauxEngagementPage() {
-  const [network, setNetwork] = useState<Network>("INSTAGRAM");
+  const [network, setNetwork] = useState<ToolNetwork>("INSTAGRAM");
   const [followers, setFollowers] = useState("");
   const [likes, setLikes] = useState("");
   const [comments, setComments] = useState("");
@@ -72,7 +75,7 @@ export default function TauxEngagementPage() {
       <GlassCard hover={false}>
         <label className="block text-xs uppercase tracking-wide text-slate-500">Réseau</label>
         <div className="mt-1.5 flex flex-wrap gap-2">
-          {NETWORKS.map((n) => (
+          {NETWORKS.filter((n): n is ToolNetwork => n === "INSTAGRAM" || n === "FACEBOOK" || n === "TIKTOK" || n === "YOUTUBE").map((n) => (
             <button
               key={n}
               type="button"

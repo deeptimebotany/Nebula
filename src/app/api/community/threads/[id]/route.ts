@@ -1,3 +1,4 @@
+import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -10,15 +11,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const thread = await prisma.forumThread.findUnique({
     where: { id: params.id },
     include: {
-      author: { select: { id: true, name: true } },
+      author: { select: AUTHOR_SELECT },
       replies: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true } } }
+        include: { author: { select: AUTHOR_SELECT } }
       }
     }
   });
   if (!thread) return NextResponse.json({ error: "Discussion introuvable" }, { status: 404 });
-  return NextResponse.json({ thread });
+  // Niveau de créateur et anneau d'avatar (Réussites), sans autre préférence.
+  return NextResponse.json({
+    thread: { ...thread, author: publicAuthor(thread.author), replies: thread.replies.map((r) => ({ ...r, author: publicAuthor(r.author) })) }
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {

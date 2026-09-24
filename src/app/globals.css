@@ -1457,3 +1457,110 @@ body {
     100% { opacity: 0; }
   }
 }
+
+/* En-tête collant des tableaux de chiffres (onglet Publicité, lot 5) : même
+   fond que les cartes, pour que les lignes ne transparaissent pas dessous. */
+.nebula-table-head { background: #151518; }
+[data-mode="light"] .nebula-table-head { background: var(--l-panel); }
+
+/* --- Réussites (25/09/2026) ------------------------------------------------ */
+
+/* Fond « Galaxie spirale » : trois bras lumineux qui tournent très lentement
+   autour du cœur (angle animé grâce à @property, positions via cos/sin). */
+@property --nb-spiral {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+[data-background-animated="nebula-bg-anim-spiral"] .noise-grid::before {
+  background:
+    radial-gradient(ellipse 26% 18% at calc(50% + cos(var(--nb-spiral)) * 17%) calc(42% + sin(var(--nb-spiral)) * 11%), rgb(var(--c-aurora-400) / 0.13), transparent 70%),
+    radial-gradient(ellipse 24% 16% at calc(50% + cos(var(--nb-spiral) + 120deg) * 22%) calc(42% + sin(var(--nb-spiral) + 120deg) * 14%), rgb(var(--c-accent-violet) / 0.11), transparent 70%),
+    radial-gradient(ellipse 22% 15% at calc(50% + cos(var(--nb-spiral) + 240deg) * 27%) calc(42% + sin(var(--nb-spiral) + 240deg) * 17%), rgb(var(--c-accent-cyan) / 0.08), transparent 70%),
+    var(--app-bg);
+  animation: nebulaSpiral 240s linear infinite;
+}
+[data-mode="light"][data-background-animated="nebula-bg-anim-spiral"] .noise-grid::before {
+  background:
+    radial-gradient(ellipse 26% 18% at calc(50% + cos(var(--nb-spiral)) * 17%) calc(42% + sin(var(--nb-spiral)) * 11%), rgb(var(--c-aurora-400) / 0.1), transparent 70%),
+    radial-gradient(ellipse 24% 16% at calc(50% + cos(var(--nb-spiral) + 120deg) * 22%) calc(42% + sin(var(--nb-spiral) + 120deg) * 14%), rgb(var(--c-accent-violet) / 0.08), transparent 70%),
+    radial-gradient(ellipse 22% 15% at calc(50% + cos(var(--nb-spiral) + 240deg) * 27%) calc(42% + sin(var(--nb-spiral) + 240deg) * 17%), rgb(var(--c-accent-cyan) / 0.07), transparent 70%),
+    var(--app-bg-light, none);
+}
+@keyframes nebulaSpiral {
+  to { --nb-spiral: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-background-animated="nebula-bg-anim-spiral"] .noise-grid::before { animation: none; }
+}
+
+/* Cadres de page bio « Carrefour » et « Astre » (voir bio-frame.tsx). */
+.bf-carrefour .bf-edge, .bf-astre .bf-edge { display: block; }
+.bf-carrefour .bf-edge { box-shadow: inset 0 0 0 1px rgba(160, 230, 225, 0.16); }
+.bf-astre .bf-edge { box-shadow: inset 0 0 0 1px rgba(255, 214, 150, 0.22); }
+.bf-astre-aura {
+  inset: -10px;
+  border-radius: calc(var(--bf-r) + 10px);
+  background: radial-gradient(ellipse at 100% 0%, rgba(255, 200, 120, 0.35), transparent 55%), radial-gradient(ellipse at 0% 100%, rgba(150, 120, 255, 0.18), transparent 60%);
+  filter: blur(14px);
+  animation: bf-astre-breathe 6s ease-in-out infinite;
+}
+@keyframes bf-astre-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+.bf-astre-glint::before, .bf-astre-glint::after { background: #fff3dc !important; box-shadow: 0 0 10px 2px rgba(255, 200, 120, 0.8); }
+.bf-av-astre {
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(255, 214, 150, 0.7), 0 0 18px 3px rgba(255, 190, 110, 0.35);
+  animation: bf-astre-breathe 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-astre-aura, .bf-av-astre { animation: none; }
+}
+
+/* Anneaux d'avatar gagnés dans Réussites (voir components/reussites/avatar-ring.tsx) :
+   un anneau fin posé autour de l'avatar, qui suit sa forme (carrée arrondie
+   ou ronde). */
+.nb-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.nb-ring-bronze { background: conic-gradient(from 200deg, #6e3a1c, #c8834c, #f0b98a, #a45f2e, #6e3a1c); }
+.nb-ring-argent { background: conic-gradient(from 200deg, #6f7480, #d9dde6, #ffffff, #a3a9b6, #6f7480); }
+.nb-ring-or { background: conic-gradient(from 200deg, #7a5a14, #f2cf6b, #fff4cc, #c99a2e, #7a5a14); box-shadow: 0 0 10px rgba(242, 207, 107, 0.25); }
+.nb-ring-stellaire {
+  background: conic-gradient(from var(--nb-ring-angle, 0deg), #7c62f0, #53eadb, #e949ae, #f2cf6b, #7c62f0);
+  animation: nb-ring-turn 9s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(124, 98, 240, 0.55));
+}
+@property --nb-ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes nb-ring-turn {
+  to { --nb-ring-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-ring-stellaire { animation: none; }
+}
+
+/* Bandeau de niveau de la page Réussites (sombre / clair). */
+.reussites-banner {
+  border-color: rgb(var(--c-aurora-400) / 0.25);
+  background: linear-gradient(135deg, rgb(var(--c-nebula-700) / 0.4), rgba(255, 255, 255, 0.02) 55%, rgb(var(--c-accent-cyan) / 0.06));
+}
+[data-mode="light"] .reussites-banner {
+  border-color: rgb(var(--c-aurora-400) / 0.3);
+  background: linear-gradient(135deg, rgb(var(--c-aurora-400) / 0.14), #ffffff 55%, rgb(var(--c-accent-cyan) / 0.1));
+}
+.reussites-reward-box { border-color: rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.2); }
+[data-mode="light"] .reussites-reward-box { border-color: rgba(15, 23, 42, 0.1); background: rgba(255, 255, 255, 0.75); }

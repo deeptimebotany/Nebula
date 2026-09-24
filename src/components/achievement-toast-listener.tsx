@@ -19,6 +19,7 @@ import Link from "next/link";
 import type { EasterEggUnlockedDetail } from "@/lib/report-easter-egg";
 import { findEasterEgg } from "@/lib/easter-eggs-registry";
 import { isAchievementSoundOn, playAchievementArpeggio } from "@/lib/cosmic-audio";
+import type { CelebrationDTO } from "@/lib/reussites/types";
 
 const SHOW_MS = 3600;
 const CONFETTI_COLORS = ["#7c62f0", "#b2a5fa", "#f2cf6b", "#fff3c4", "#53eadb", "#e949ae"];
@@ -26,6 +27,10 @@ const CONFETTI_COLORS = ["#7c62f0", "#b2a5fa", "#f2cf6b", "#fff3c4", "#53eadb", 
 interface Shown extends EasterEggUnlockedDetail {
   id: number;
   reward?: string;
+  /** Bandeau au-dessus du titre (« Succès débloqué » par défaut). */
+  label?: string;
+  /** Réussites : pastille dorée (niveau) ou violette. */
+  tone?: "egg" | "level" | "reussite";
 }
 
 function prefersReducedMotion(): boolean {
@@ -48,8 +53,21 @@ export function AchievementToastListener() {
       const reward = findEasterEgg(detail.key)?.reward;
       setQueue((q) => [...q, { ...detail, reward, id: Date.now() + Math.random() }]);
     }
+    // Réussites (accomplissement, défi, niveau — voir celebration-watcher.tsx).
+    function onReussite(e: Event) {
+      const d = (e as CustomEvent<CelebrationDTO>).detail;
+      if (!d) return;
+      setQueue((q) => [
+        ...q,
+        { key: d.id, title: d.title, emoji: d.emoji, reward: d.reward ?? undefined, label: d.label, tone: d.kind === "level" ? "level" : "reussite", id: Date.now() + Math.random() }
+      ]);
+    }
     window.addEventListener("nebula:achievement", onAchievement);
-    return () => window.removeEventListener("nebula:achievement", onAchievement);
+    window.addEventListener("nebula:reussite", onReussite);
+    return () => {
+      window.removeEventListener("nebula:achievement", onAchievement);
+      window.removeEventListener("nebula:reussite", onReussite);
+    };
   }, []);
 
   const dismiss = useCallback(() => {
@@ -94,17 +112,24 @@ export function AchievementToastListener() {
         onClick={dismiss}
         className="nebula-achievement-card pointer-events-auto relative flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-[#1b1b20] py-3 pl-3 pr-5 shadow-[0_18px_50px_rgba(0,0,0,.55)]"
       >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#d9d0ff,#7c62f0)] text-2xl" aria-hidden="true">
-          🎉
+        <span
+          className={
+            current.tone === "level"
+              ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff3c4,#c99a2e)] text-2xl"
+              : "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#d9d0ff,#7c62f0)] text-2xl"
+          }
+          aria-hidden="true"
+        >
+          {current.tone && current.tone !== "egg" ? current.emoji : "🎉"}
         </span>
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#f2cf6b]">Succès débloqué</span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#f2cf6b]">{current.label ?? "Succès débloqué"}</span>
           <span className="block truncate text-[15px] font-semibold text-white">
-            {current.emoji} {current.title}
+            {current.tone && current.tone !== "egg" ? current.title : `${current.emoji} ${current.title}`}
           </span>
           {current.reward && <span className="block truncate text-xs text-slate-400">Récompense : {current.reward}</span>}
-          <Link href="/succes" onClick={(e) => e.stopPropagation()} className="mt-0.5 inline-block text-[11px] text-aurora-300 hover:underline">
-            Voir mes succès →
+          <Link href="/reussites" onClick={(e) => e.stopPropagation()} className="mt-0.5 inline-block text-[11px] text-aurora-300 hover:underline">
+            Voir mes réussites →
           </Link>
         </span>
       </div>

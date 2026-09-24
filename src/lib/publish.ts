@@ -1,13 +1,18 @@
+import { refreshReussites } from "@/lib/reussites/engine";
 import { prisma } from "@/lib/prisma";
 import { sendPublishFailureEmail } from "@/lib/email";
 import { getSocialClient } from "@/lib/social";
-import type { PublishLocation, YoutubeOptions } from "@/lib/social/base";
+import type { PinterestOptions, PublishLocation, YoutubeOptions } from "@/lib/social/base";
 import type { Network } from "@/lib/types";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
+import { notify, listNetworks, networkLabel, looksLikeAuthError } from "@/lib/notifications";
+import { emitWebhookEvent, postPayload } from "@/lib/webhooks";
 
 // Mention ajoutée à la légende Instagram/Facebook quand « Contenu généré par
 // l'IA » est coché : Meta n'offre pas de champ d'API pour l'étiquette IA.
 export const AI_CAPTION_MENTION = "✨ Contenu créé avec l'aide de l'IA";
+// Réseaux sans champ « contenu IA » dans leur API : la mention est ajoutée au texte.
+const AI_MENTION_NETWORKS = new Set(["INSTAGRAM", "FACEBOOK", "THREADS", "PINTEREST", "LINKEDIN"]);
 
 // Paliers de publications GLOBAUX (tous comptes/marques confondus, pas par
 // marque : une seule marque n'atteindra jamais 100 000 ou 1 000 000 posts) —
@@ -92,10 +97,14 @@ export async function publishPost(postId: string) {
 
   let successCount = 0;
   let failureCount = 0;
+  // Pour la notification de fin (centre de notifications, voir src/lib/notifications.ts).
+  const okNetworks: string[] = [];
+  const failed: { network: string; message: string }[] = [];
 
   for (const target of post.targets) {
     if (target.status === "PUBLISHED") {
       successCount++;
+      okNetworks.push(target.network);
       continue;
     }
     try {
@@ -109,7 +118,7 @@ export async function publishPost(postId: string) {
       const location = rawLocation && typeof rawLocation.id === "string" && rawLocation.id ? rawLocation : undefined;
       const baseCaption = target.captionOverride || post.caption;
       const caption =
-        aiGenerated && (target.network === "INSTAGRAM" || target.network === "FACEBOOK") && !baseCaption.includes(AI_CAPTION_MENTION)
+        aiGenerated && AI_MENTION_NETWORKS.has(target.network) && !baseCaption.includes(AI_CAPTION_MENTION)
           ? `${baseCaption}${baseCaption.trim() ? "\n\n" : ""}${AI_CAPTION_MENTION}`
           : baseCaption;
       const result = await client.publishPost(target.connection, {
@@ -124,7 +133,12 @@ export async function publishPost(postId: string) {
         // abonnés — voir composer-types.ts → YoutubeOptions). target.metadata
         // est un JSON libre en base (voir schema.prisma) ; chaque client
         // (youtube.ts, etc.) ignore ce qu'il ne connaît pas.
-        ...(target.network === "YOUTUBE" && target.metadata ? { youtube: target.metadata as YoutubeOptions } : {})
+        ...(target.network === "YOUTUBE" && target.metadata ? { youtube: target.metadata as YoutubeOptions } : {}),
+        // Pinterest : tableau de destination et lien de l'épingle (voir
+        // composer-types.ts → PinterestOptions et social/pinterest.ts).
+        ...(target.network === "PINTEREST" && target.metadata
+          ? { pinterest: (target.metadata as { pinterest?: PinterestOptions }).pinterest }
+          : {})
       });
 
       await prisma.postTarget.update({
@@ -139,6 +153,7 @@ export async function publishPost(postId: string) {
         }
       });
       successCount++;
+      okNetworks.push(target.network);
 
       // "Premier commentaire" (bulle du Composer/Importation) : best-effort,
       // ne fait jamais échouer la publication elle-même. Certains réseaux ne
@@ -151,6 +166,7 @@ export async function publishPost(postId: string) {
       }
     } catch (err) {
       failureCount++;
+      failed.push({ network: target.network, message: (err as Error).message.replace(/^\[[A-Z_]+\]\s*/, "") });
       await prisma.postTarget.update({
         where: { id: target.id },
         data: {
@@ -165,6 +181,7 @@ export async function publishPost(postId: string) {
   const finalStatus =
     failureCount === 0 ? "PUBLISHED" : successCount === 0 ? "FAILED" : "PARTIAL";
   await prisma.post.update({ where: { id: post.id }, data: { status: finalStatus } });
+  await notifyPublishOutcome(post, finalStatus, okNetworks, failed);
 
   // Uniquement pertinent quand CE post vient de passer à "PUBLISHED" — pas
   // pour un post déjà publié (aucune requête inutile) ni pour un échec
@@ -205,7 +222,58 @@ export async function publishPost(postId: string) {
     }
   }
 
+  // Réussites : accomplissements de publication et défis de la semaine
+  // (seules les publications réellement en ligne comptent).
+  if (finalStatus !== "FAILED") await refreshReussites(post.createdById);
+
   return { successCount, failureCount, status: finalStatus, milestone };
+}
+
+/**
+ * Centre de notifications : prévient l'auteur du résultat d'une publication
+ * (en ligne, partielle ou en échec). Si l'échec ressemble à une connexion
+ * expirée, le bouton de la notification propose directement de reconnecter
+ * le compte. Jamais bloquant.
+ */
+async function notifyPublishOutcome(
+  post: { id: string; brandId: string; title: string; caption: string; createdById: string },
+  status: string,
+  okNetworks: string[],
+  failed: { network: string; message: string }[]
+) {
+  const label = (post.title || post.caption.split("\n")[0] || "Votre publication").trim();
+  const name = label.length > 60 ? `${label.slice(0, 59)}…` : label;
+  const href = `/posts/${post.id}`;
+  // Webhooks (lot 4) : même moment que la notification.
+  await emitWebhookEvent(post.brandId, status === "PUBLISHED" ? "post.published" : "post.failed", await postPayload(post.id));
+  if (status === "PUBLISHED") {
+    await notify(post.createdById, {
+      kind: "publish_ok",
+      title: "Publication en ligne",
+      body: `« ${name} » est publiée sur ${listNetworks(okNetworks)}.`,
+      href,
+      dedupeKey: `publish:${post.id}`
+    });
+    return;
+  }
+  const auth = failed.find((f) => looksLikeAuthError(f.message));
+  const first = failed[0];
+  const reason = auth
+    ? `la connexion à ${networkLabel(auth.network)} a expiré.`
+    : first
+      ? `${networkLabel(first.network)} a répondu : ${first.message}`
+      : "une erreur est survenue.";
+  await notify(post.createdById, {
+    kind: "publish_failed",
+    title: status === "PARTIAL" ? "Publication partielle" : "Échec de publication",
+    body:
+      status === "PARTIAL"
+        ? `« ${name} » est en ligne sur ${listNetworks(okNetworks)}, mais pas sur ${listNetworks(failed.map((f) => f.network))} : ${reason}`
+        : `« ${name} » n'a pas pu être publiée : ${reason}`,
+    href: auth ? "/accounts" : href,
+    actionLabel: auth ? `Reconnecter ${networkLabel(auth.network)}` : "Voir la publication",
+    dedupeKey: `publish:${post.id}`
+  });
 }
 
 /**

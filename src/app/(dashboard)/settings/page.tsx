@@ -1,5 +1,6 @@
 "use client";
 
+import { ALL_REWARD_KEYS, isReussiteRewardKey } from "@/lib/reussites/catalog";
 import { useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -199,7 +200,7 @@ export default function SettingsPage() {
   // suivent ce palier simulé — les items à easter egg, eux, restent basés
   // sur les eggs RÉELLEMENT trouvés par ce compte, aperçu ou non.
   const effectivePlan: Plan = planPreview ?? (isOwner ? "AGENCY" : plan);
-  const effectiveFoundEggKeys = isOwner && !planPreview ? new Set(EASTER_EGG_KEYS) : foundEggKeys;
+  const effectiveFoundEggKeys = isOwner && !planPreview ? new Set([...EASTER_EGG_KEYS, ...ALL_REWARD_KEYS]) : foundEggKeys;
 
   // Revérifie systématiquement le droit d'accès au thème étoilé à chaque
   // affichage de cette page (voir refresh() dans starfield-provider.tsx) :
@@ -300,7 +301,9 @@ export default function SettingsPage() {
       .then((d) => {
         if (!d?.eggs) return;
         const keys = (d.eggs as { found: boolean; key?: string }[]).filter((e) => e.found && e.key).map((e) => e.key as string);
-        setFoundEggKeys(new Set(keys));
+        // + récompenses Réussites (« ach:* ») et easter eggs devenus
+        // accomplissements : mêmes verrous (requiresEgg) côté fonds/anneaux.
+        setFoundEggKeys(new Set([...keys, ...((d.rewardKeys as string[] | undefined) ?? []), ...((d.linkedFound as string[] | undefined) ?? [])]));
         setIsOwner(Boolean(d.isOwner));
       })
       .catch(() => undefined);
@@ -409,7 +412,7 @@ export default function SettingsPage() {
       return;
     }
     if (bg?.requiresEgg && !effectiveFoundEggKeys.has(bg.requiresEgg)) {
-      toast.error(`Le fond "${bg.label}" doit d'abord être débloqué (easter egg) — voir la page Succès.`);
+      toast.error(`Le fond "${bg.label}" doit d'abord être débloqué — voir la page Réussites.`);
       return;
     }
     setBackgroundKey(backgroundKeyToPick);
@@ -579,9 +582,9 @@ export default function SettingsPage() {
           <Toggle checked={focusMode} onChange={onToggleFocusMode} disabled={!focusLoaded || savingFocus} aria-label="Mode focus" className="mt-1 shrink-0" />
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Vos succès restent visibles sur la page{" "}
-          <Link href="/succes" className="text-aurora-300 hover:underline">
-            Succès
+          Vos réussites et vos succès restent visibles sur la page{" "}
+          <Link href="/reussites" className="text-aurora-300 hover:underline">
+            Réussites
           </Link>
           .
         </p>
@@ -671,7 +674,7 @@ export default function SettingsPage() {
         <h2 className="font-display text-base font-medium text-white">Cosmétiques</h2>
         <p className="mt-1 text-sm text-slate-400">
           Petits effets visuels et sonores facultatifs — certains sont réservés aux paliers Pro/Agence, d&apos;autres
-          se débloquent en trouvant l&apos;easter egg correspondant (voir la page Succès), tous activables/désactivables
+          se débloquent en trouvant l&apos;easter egg correspondant (voir la page Réussites), tous activables/désactivables
           à volonté une fois débloqués.
         </p>
         <div className="mt-4 space-y-4">
@@ -698,7 +701,7 @@ export default function SettingsPage() {
                             {c.label}
                             {locked && (
                               <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-amber-300">
-                                <IconLock className="h-2.5 w-2.5" /> {c.requiresEgg ? "Easter egg" : `Palier ${c.requiresPlan}`}
+                                <IconLock className="h-2.5 w-2.5" /> {c.requiresEgg ? (isReussiteRewardKey(c.requiresEgg) ? "Réussite" : "Easter egg") : `Palier ${c.requiresPlan}`}
                               </span>
                             )}
                           </p>
@@ -730,9 +733,9 @@ export default function SettingsPage() {
           <Link href="/billing" className="text-aurora-300 hover:underline">
             Facturation
           </Link>
-          . Ceux marqués « Easter egg » se débloquent en jouant — voir la page{" "}
-          <Link href="/succes" className="text-aurora-300 hover:underline">
-            Succès
+          . Ceux marqués « Réussite » ou « Easter egg » se gagnent en publiant ou en jouant — voir la page{" "}
+          <Link href="/reussites" className="text-aurora-300 hover:underline">
+            Réussites
           </Link>
           .
         </p>
@@ -808,12 +811,12 @@ export default function SettingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-              <IconTrophy className="h-4 w-4 text-amber-300" /> Succès
+              <IconTrophy className="h-4 w-4 text-amber-300" /> Réussites
             </h2>
-            <p className="mt-1 text-sm text-slate-400">Les easter eggs que vous avez trouvés, et ceux qui restent à découvrir.</p>
+            <p className="mt-1 text-sm text-slate-400">Votre niveau de créateur, les défis de la semaine, vos accomplissements et les easter eggs trouvés.</p>
           </div>
-          <ButtonLink href="/succes" variant="outline">
-            Voir mes succès
+          <ButtonLink href="/reussites" variant="outline">
+            Voir mes réussites
           </ButtonLink>
         </div>
       </GlassCard>
@@ -925,7 +928,7 @@ function BrandImpactCard({ brandId }: { brandId: string | undefined }) {
         <strong className="text-slate-200">{impact.signups}</strong> inscription{impact.signups > 1 ? "s" : ""} sur Nebula
         {impact.paid > 0 ? <>, dont <strong className="text-slate-200">{impact.paid}</strong> devenue{impact.paid > 1 ? "s" : ""} payante{impact.paid > 1 ? "s" : ""}</> : null}.
       </p>
-      <p className="mt-2 text-xs text-slate-500">Chaque compte qui s&apos;abonne après être passé par votre page vous offre un mois de Pro (voir Mon profil).</p>
+      <p className="mt-2 text-xs text-slate-500">Chaque compte qui s&apos;abonne après être passé par votre page vous offre un mois de Pro, confirmé 30 jours plus tard (12 mois offerts au maximum sur 12 mois glissants, voir Mon profil).</p>
     </GlassCard>
   );
 }

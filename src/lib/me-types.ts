@@ -1,6 +1,7 @@
 // Forme de la réponse de GET /api/me (bootstrap de l'application connectée),
 // partagée entre la route et bootstrap-provider.tsx côté client.
 import type { Plan } from "@/lib/plans";
+import type { Network } from "@/lib/types";
 
 export interface MeResponse {
   user: { id: string; name: string; email: string; avatarUrl: string | null };
@@ -9,8 +10,10 @@ export interface MeResponse {
   brandsOwned: number;
   billingEnabled: boolean;
   isOwner: boolean;
-  /** Progression des easter eggs (compteur « Succès » du menu). */
+  /** Progression des easter eggs (section « Succès » de la page Réussites). */
   eggs: { found: number; total: number };
+  /** Niveau de créateur (mini-jauge du menu) et nouveautés non vues (compteur « Réussites »). */
+  reussites: { level: number; name: string; pct: number; xp: number; nextXp: number | null; unseen: number };
   previewPlan: Plan | null;
   theme: string;
   background: string;
@@ -41,4 +44,6 @@ export interface MeResponse {
   lifecycleEmails: boolean;
   referralPromptsSeen: string[];
   referralCode: string | null;
+  /** Réseaux proposés dans l'application (clés configurées, voir network-availability.ts). */
+  networks: Network[];
 }

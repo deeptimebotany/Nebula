@@ -6,6 +6,7 @@ import { runDuePosts } from "../src/lib/publish";
 import { runDueReports } from "../src/lib/reports";
 import { checkReferralCrownStreak } from "../src/lib/referral-crown-streak";
 import { runGrowthMaintenance } from "../src/lib/growth-jobs";
+import { runAccountJobs } from "../src/lib/account-jobs";
 
 // Worker autonome : à lancer avec `npm run worker` sur un serveur/VM/process
 // long-lived (Railway, Fly.io, VPS...). Alternative à /api/cron pour les
@@ -44,5 +45,11 @@ cron.schedule("* * * * *", async () => {
     }
   } catch (err) {
     console.error("[nebula-worker] erreur (growth)", err);
+  }
+
+  // Parrainage, rappels et purge des notifications (src/lib/account-jobs.ts).
+  const account = await runAccountJobs();
+  if (account.rewards && (account.rewards.granted || account.rewards.capped || account.rewards.canceled)) {
+    console.log("[nebula-worker] parrainage", account.rewards);
   }
 });

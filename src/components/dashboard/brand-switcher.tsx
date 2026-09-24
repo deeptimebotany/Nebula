@@ -4,6 +4,7 @@
 // latérale depuis le Lot 3 (avant : ligne 2 de l'ancienne barre du haut).
 // Liste les marques du compte, bascule, et permet d'en créer une nouvelle
 // dans la limite du palier (lue dans le bootstrap /api/me).
+import { AvatarRing, useMyRing } from "@/components/reussites/avatar-ring";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
@@ -34,6 +35,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
   const upgrade = useUpgradeModal();
   const { data, refresh } = useBootstrap();
   const cosmetics = useCosmetics();
+  const myRing = useMyRing();
   const toast = useToast();
 
   const plan: Plan = data?.plan ?? "FREE";
@@ -159,6 +161,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
         {/* Pastille de marque : logo (photo de la Page bio) ou initiale ; les
             cosmétiques « Halo doré » et « Anneau de Saturne » sont des
             enfants absolus, cumulables (voir globals.css). */}
+        <AvatarRing ring={myRing} shapeClassName="rounded-lg">
         <span className="relative isolate flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-sm font-semibold text-white">
           {cosmetics.has("halo-dore-avatar") && (
             <>
@@ -178,6 +181,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
           </span>
           {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn-front" aria-hidden="true" />}
         </span>
+        </AvatarRing>
         {!compact && (
           <>
             <span className="min-w-0 flex-1">

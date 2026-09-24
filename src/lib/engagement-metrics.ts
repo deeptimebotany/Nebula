@@ -20,7 +20,15 @@ export const NETWORK_METRIC_SUPPORT: Record<Network, Record<MetricKey, boolean>>
   YOUTUBE: { views: true, likes: true, comments: true, shares: false, saves: false },
   INSTAGRAM: { views: true, likes: true, comments: true, shares: true, saves: true },
   FACEBOOK: { views: false, likes: true, comments: true, shares: true, saves: false },
-  TIKTOK: { views: true, likes: true, comments: true, shares: true, saves: false }
+  TIKTOK: { views: true, likes: true, comments: true, shares: true, saves: false },
+  // Bluesky : reposts + citations comptés comme partages ; pas de vues publiques.
+  BLUESKY: { views: false, likes: true, comments: true, shares: true, saves: false },
+  // Threads : vues, j'aime, réponses, reposts + citations.
+  THREADS: { views: true, likes: true, comments: true, shares: true, saves: false },
+  // Pinterest : impressions (vues), enregistrements, commentaires si exposés.
+  PINTEREST: { views: true, likes: false, comments: true, shares: false, saves: true },
+  // LinkedIn (profil perso) : pas de statistiques par post dans l'API gratuite.
+  LINKEDIN: { views: false, likes: false, comments: false, shares: false, saves: false }
 };
 
 /** Format compact « 12,4 k » / « 1,2 M » pour les tuiles et le tableau. */

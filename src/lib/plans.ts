@@ -97,7 +97,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Analyse de rétention vidéo par IA",
       "Génération de miniatures",
       "Page « link in bio » publique (15 liens)",
-      "Thème de couleurs exclusif « Saphir »",
+      "Thèmes exclusifs « Saphir », « Or Impérial » et « Aube »",
       "Rapports clients automatiques",
       "Calendrier client public"
     ],
@@ -126,9 +126,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Publications prioritaires",
       "Support prioritaire",
       "Page « link in bio » publique (liens illimités)",
-      "Thème de couleurs exclusif « Or Impérial »",
+      "Tous les thèmes Pro + le thème exclusif « Éclipse totale »",
       "Rapports clients automatiques",
-      "Calendrier client public"
+      "Calendrier client public",
+      "API et webhooks (n8n, Make, Zapier)"
     ],
     reportsEnabled: true,
     calendarShareEnabled: true

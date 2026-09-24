@@ -131,7 +131,18 @@ export const EASTER_EGGS: EasterEggDef[] = [
   { key: "frame-eclipse-orbites", number: 53, emoji: "🪐", title: "Gravitation", hint: "Cumulez 10 000 abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre « Orbites » Éclipse (page bio)", secret: true, serverOnly: true },
   { key: "frame-eclipse-metal", number: 54, emoji: "⚫", title: "Masse critique", hint: "Cumulez 100 000 abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre « Acier noir » Éclipse (page bio)", secret: true, serverOnly: true },
   { key: "frame-ultime-nacre", number: 55, emoji: "🦪", title: "Le million de cœurs", hint: "Cumulez 1 000 000 de j'aime sur l'ensemble de vos publications.", reward: "Cadre ultime « Nacre » (page bio)", secret: true, serverOnly: true },
-  { key: "frame-ultime-prisme", number: 56, emoji: "💎", title: "Le million", hint: "Cumulez 1 000 000 d'abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre ultime « Prisme » (page bio) et thème « Prisme »", secret: true, serverOnly: true }
+  { key: "frame-ultime-prisme", number: 56, emoji: "💎", title: "Le million", hint: "Cumulez 1 000 000 d'abonnés sur l'ensemble de vos comptes connectés.", reward: "Cadre ultime « Prisme » (page bio) et thème « Prisme »", secret: true, serverOnly: true },
+
+  // --- Septième vague (25/09/2026) — paliers ambassadeur du parrainage
+  // (voir src/lib/billing/rewards.ts) : comptent les filleuls devenus
+  // payants et toujours abonnés 30 jours après leur premier paiement, y
+  // compris au-delà du plafond de 12 mois offerts. Visibles (pas secrets)
+  // pour donner un objectif, attribués uniquement par le serveur, et exclus
+  // de « Complétion totale » (voir REFERRAL_TIER_KEYS).
+  { key: "ambassador-bronze", number: 57, emoji: "🥉", title: "Ambassadeur bronze", hint: "Faites abonner 5 personnes avec votre lien de parrainage.", reward: "Badge « Ambassadeur bronze » (profil)", serverOnly: true },
+  { key: "ambassador-silver", number: 58, emoji: "🥈", title: "Ambassadeur argent", hint: "Faites abonner 10 personnes avec votre lien de parrainage.", reward: "Badge « Ambassadeur argent » (profil)", serverOnly: true },
+  { key: "ambassador-gold", number: 59, emoji: "🥇", title: "Ambassadeur or", hint: "Faites abonner 25 personnes avec votre lien de parrainage.", reward: "Badge « Ambassadeur or » (profil)", serverOnly: true },
+  { key: "ambassador-legend", number: 60, emoji: "🌠", title: "Ambassadeur légendaire", hint: "Faites abonner 50 personnes avec votre lien de parrainage.", reward: "Badge « Ambassadeur légendaire » (profil)", serverOnly: true }
 ];
 
 export const EASTER_EGG_KEYS = EASTER_EGGS.map((e) => e.key);
@@ -161,6 +172,10 @@ export const AUDIENCE_ACHIEVEMENT_KEYS = [
   "frame-ultime-nacre",
   "frame-ultime-prisme"
 ];
+
+// Paliers ambassadeur (septième vague) : dépendent du nombre de filleuls
+// abonnés, exclus de « Complétion totale » comme les succès d'audience.
+export const REFERRAL_TIER_KEYS = ["ambassador-bronze", "ambassador-silver", "ambassador-gold", "ambassador-legend"];
 
 export function isValidEasterEggKey(key: string): boolean {
   return EASTER_EGG_KEYS.includes(key);

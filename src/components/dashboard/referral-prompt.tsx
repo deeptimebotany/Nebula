@@ -8,7 +8,8 @@
 //   followers_1000 / followers_10000 — seuil franchi (page Analytics).
 // Lien copié en un clic (événement referral_link_copied), partage natif sur
 // téléphone. Le parrainage lui-même : filleul 30 jours de Pro, parrain un
-// mois de Pro à la première souscription (voir src/lib/billing/rewards.ts).
+// mois de Pro quand le filleul est abonné depuis 30 jours, dans la limite
+// de 12 mois sur 12 mois glissants (voir src/lib/billing/rewards.ts).
 import { useEffect, useState } from "react";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { IconGift, IconClose } from "@/components/dashboard/icons";
@@ -78,7 +79,7 @@ export function ReferralPrompt({ trigger, className }: { trigger: ReferralPrompt
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.14em] text-aurora-200/80">{CONTEXT[trigger]}</p>
-          <p className="mt-1 font-display text-base font-semibold text-white">Ça marche pour vous. Offrez {REFERRED_TRIAL_DAYS} jours de Pro à un ami créateur — et gagnez un mois.</p>
+          <p className="mt-1 font-display text-base font-semibold text-white">Ça marche pour vous. Offrez {REFERRED_TRIAL_DAYS} jours de Pro à un ami créateur — et gagnez un mois de Pro s&apos;il s&apos;abonne.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <code className="max-w-full truncate rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 text-xs text-slate-200">{url}</code>
             <button type="button" onClick={copy} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:border-aurora-400/60">

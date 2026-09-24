@@ -258,6 +258,44 @@ export const IconFacebook = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Bluesky (25/09/2026) : papillon stylisé au trait, comme les autres
+// glyphes de réseaux ci-dessus (pas le logo officiel).
+export const IconBluesky = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M12 11.5C10.6 8.6 6.9 4.5 4.4 4.5c-1.6 0-1.6 1.7-1.3 4 .3 2.1 1.5 3.4 4.1 3.6-2.6.5-3.3 2-2 3.6 2.2 2.6 4.8 1.2 6.8-2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 11.5c1.4-2.9 5.1-7 7.6-7 1.6 0 1.6 1.7 1.3 4-.3 2.1-1.5 3.4-4.1 3.6 2.6.5 3.3 2 2 3.6-2.2 2.6-4.8 1.2-6.8-2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Automatisations (lot 4) : prise électrique.
+export const IconPlug = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M9 3.5V8M15 3.5V8M6.5 8h11v3a5.5 5.5 0 0 1-11 0V8ZM12 16.5v4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Lot 2 (25/09/2026) : glyphes simplifiés au trait, comme ci-dessus.
+export const IconThreads = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M16.5 11.2c-.4-2.6-2.1-3.9-4.4-3.9-2.6 0-4.4 1.9-4.4 4.8 0 3.4 2 5.4 4.7 5.4 2.3 0 4.3-1.4 4.3-3.6 0-2-1.8-3-4-3-1.6 0-2.8.8-2.8 2 0 1.1 1 1.8 2.2 1.8 1.9 0 3-1.5 3.1-4.3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M19 7.5A8.5 8.5 0 1 0 20.5 12" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconPinterest = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M10.4 20.5 12.2 13M11 13.6c.5.9 1.4 1.3 2.4 1.3 2.2 0 3.6-2 3.6-4.4 0-2.5-2.1-4.3-4.8-4.3-3 0-4.9 2-4.9 4.4 0 1.2.5 2.2 1.3 2.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconLinkedIn = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+    <path d="M8 10.5V16M8 7.8v.1M11.5 16v-5.5M11.5 13c0-1.7 1-2.6 2.3-2.6 1.3 0 2.2.8 2.2 2.6V16" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 // Logos simplifiés (traits, pas les marques officielles) pour les boutons de
 // connexion rapide sur /login et /register — voir oauth-providers.ts.
 export const IconGoogle = ({ className = base }: IconProps) => (

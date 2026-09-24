@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { trackGrowth } from "@/lib/growth";
-import { rewardOnFirstPayment } from "@/lib/billing/rewards";
+import { rewardOnFirstPayment, flushBonusMonths } from "@/lib/billing/rewards";
 import type Stripe from "stripe";
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     const pause = (sub as unknown as { pause_collection?: { behavior?: string; resumes_at?: number | null } | null }).pause_collection;
     const pausedUntil = pause?.resumes_at ? new Date(pause.resumes_at * 1000) : null;
 
+    await consumeBonusIfUsed(resolvedUserId, sub);
+
     await prisma.subscription.upsert({
       where: { userId: resolvedUserId },
       update: {
@@ -90,13 +92,11 @@ export async function POST(req: NextRequest) {
       select: { id: true, name: true, firstPaidAt: true, acqSource: true, acqMedium: true, acqCampaign: true, acqContent: true, acqVia: true, acqLanding: true, referredByCode: true, offerExpiresAt: true, offerUsedAt: true }
     });
     if (!user || user.firstPaidAt) return;
-    const usedBonus = sub.metadata?.usedBonus === "1";
     const usedOffer = sub.metadata?.usedOffer === "1";
     await prisma.user.update({
       where: { id: userId },
       data: {
         firstPaidAt: new Date(),
-        ...(usedBonus ? { bonusMonths: { decrement: 1 } } : {}),
         ...(usedOffer && !user.offerUsedAt ? { offerUsedAt: new Date() } : {})
       }
     });
@@ -118,6 +118,26 @@ export async function POST(req: NextRequest) {
     );
     if (usedOffer) await trackGrowth("offer_used", { plan: (sub.metadata?.plan as string | undefined) ?? "PRO" }, userId);
     await rewardOnFirstPayment(user).catch((err) => console.error("[rewards]", (err as Error).message));
+    // Mois offerts restants (au-delà de celui éventuellement consommé par le
+    // coupon du Checkout) : convertis en crédits sur la prochaine facture.
+    await flushBonusMonths(userId).catch((err) => console.error("[rewards] flush :", (err as Error).message));
+  }
+
+  // Mois offert consommé par le coupon du Checkout (metadata usedBonus) :
+  // décompté UNE fois par abonnement Stripe — y compris lors d'un
+  // réabonnement, où markFirstPayment ne repasse pas. Fait AVANT la mise à
+  // jour de l'abonnement pour que flushBonusMonths (cron) ne voie jamais un
+  // abonnement actif avec ce mois encore compté.
+  async function consumeBonusIfUsed(userId: string, sub: Stripe.Subscription) {
+    if (sub.metadata?.usedBonus !== "1") return;
+    await prisma.user.updateMany({
+      where: {
+        id: userId,
+        bonusMonths: { gt: 0 },
+        OR: [{ bonusConsumedSubId: null }, { bonusConsumedSubId: { not: sub.id } }]
+      },
+      data: { bonusMonths: { decrement: 1 }, bonusConsumedSubId: sub.id }
+    } as never);
   }
 
   switch (event.type) {

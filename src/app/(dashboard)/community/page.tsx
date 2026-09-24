@@ -11,6 +11,9 @@
 //   - le parrainage devient une bannière d'une ligne, sous l'en-tête.
 // Sur téléphone, la colonne passe sous le flux.
 
+import { CommunityAuthor, type CommunityAuthorInfo } from "@/components/reussites/community-author";
+import { AvatarRing } from "@/components/reussites/avatar-ring";
+import type { RingStyle } from "@/lib/reussites/catalog";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
@@ -44,7 +47,7 @@ interface Thread {
   category: string;
   pinned: boolean;
   createdAt: string;
-  author: { id: string; name: string };
+  author: CommunityAuthorInfo & { ring?: RingStyle | null };
   _count: { replies: number };
 }
 
@@ -337,9 +340,11 @@ export default function CommunityPage() {
                 {visibleThreads.map((t) => (
                   <Link key={t.id} href={`/community/${t.id}`} className="block">
                     <GlassCard className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
-                        {initials(t.author?.name)}
-                      </span>
+                      <AvatarRing ring={t.author?.ring} shapeClassName="rounded-full" className="mt-0.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
+                          {initials(t.author?.name)}
+                        </span>
+                      </AvatarRing>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {t.pinned && (
@@ -350,7 +355,7 @@ export default function CommunityPage() {
                         <p className="mt-1 truncate font-display text-sm font-medium text-white">{t.title}</p>
                         <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{t.body}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
-                          {t.author?.name ?? "utilisateur"} · {relativeDate(t.createdAt)}
+                          <CommunityAuthor author={t.author} /> · {relativeDate(t.createdAt)}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-400" title={`${t._count.replies} réponse${t._count.replies > 1 ? "s" : ""}`}>

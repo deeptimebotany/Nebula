@@ -1,3 +1,4 @@
+import { refreshReussites } from "@/lib/reussites/engine";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -47,12 +48,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Auteur du message (Réussites : « Apprécié » compte les réactions reçues).
+  let recipientId: string | null = null;
   if (threadId) {
-    const thread = await prisma.forumThread.findUnique({ where: { id: threadId }, select: { id: true } });
+    const thread = await prisma.forumThread.findUnique({ where: { id: threadId }, select: { id: true, authorId: true } });
     if (!thread) return NextResponse.json({ error: "Discussion introuvable." }, { status: 404 });
+    recipientId = thread.authorId;
   } else if (replyId) {
-    const reply = await prisma.forumReply.findUnique({ where: { id: replyId }, select: { id: true } });
+    const reply = await prisma.forumReply.findUnique({ where: { id: replyId }, select: { id: true, authorId: true } });
     if (!reply) return NextResponse.json({ error: "Réponse introuvable." }, { status: 404 });
+    recipientId = reply.authorId;
   }
 
   const existing = await prisma.communityReaction.findFirst({
@@ -67,5 +72,6 @@ export async function POST(req: NextRequest) {
   await prisma.communityReaction.create({
     data: { userId, emoji, threadId: threadId ?? null, replyId: replyId ?? null }
   });
+  if (recipientId && recipientId !== userId) await refreshReussites(recipientId);
   return NextResponse.json({ toggled: "added" });
 }

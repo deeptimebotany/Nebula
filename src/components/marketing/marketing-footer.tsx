@@ -4,7 +4,7 @@
 // que le visiteur ne peut pas ouvrir.
 import Link from "next/link";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { SITE_NAME } from "@/lib/site";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
@@ -65,7 +65,7 @@ export function MarketingFooter() {
               Planifiez, publiez et analysez vos réseaux sociaux depuis un seul espace.
             </p>
             <ul className="mt-5 flex flex-wrap gap-2" aria-label="Réseaux pris en charge">
-              {NETWORKS.map((n) => (
+              {LAUNCHED_NETWORKS.map((n) => (
                 <li
                   key={n}
                   className="rounded-full border px-2.5 py-1 text-[11px] font-medium"

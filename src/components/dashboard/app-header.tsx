@@ -5,6 +5,7 @@
 // n'est PAS de la navigation : ouvrir le menu (téléphone), rechercher /
 // palette de commandes, les comptes connectés de la marque active, la mise à
 // niveau et le sélecteur de compte.
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import Link from "next/link";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import { PROVIDERS } from "@/lib/providers";
 import type { Network } from "@/lib/types";
 import { NebulaBrandMark } from "./nebula-brandmark";
 import { AccountSwitcher } from "./account-switcher";
+import { NotificationBell } from "./notification-bell";
 import { UpgradeButton } from "./upgrade-gem";
 import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
@@ -35,6 +37,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeaderProps) {
+  const offeredNetworks = useAvailableNetworks();
   const { activeBrand } = useBrand();
   const { data } = useBootstrap();
   const assistant = useAiAssistant();
@@ -140,7 +143,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
               {addOpen && (
                 <div role="menu" className={clsx("glass-panel-solid absolute top-[calc(100%+6px)] z-50 w-60 rounded-xl p-1.5", addAlign === "left" ? "left-0" : "right-0")}>
                   <p className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-wide text-slate-500">Connecter</p>
-                  {PROVIDERS.map((p) => (
+                  {PROVIDERS.filter((p) => p.networks.some((n) => offeredNetworks.includes(n))).map((p) => (
                     <a key={p.id} href={`/api/connections/${p.id}/start?brandId=${activeBrand.id}`} className="flex items-center rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
                       {p.label}
                     </a>
@@ -190,6 +193,9 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
             <span className="hidden md:inline">Demander à Nebula</span>
           </button>
         )}
+
+        {/* Centre de notifications (voir notification-bell.tsx). */}
+        <NotificationBell />
 
         {data && data.plan !== "AGENCY" && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex" label="Mettre à niveau" />}
 

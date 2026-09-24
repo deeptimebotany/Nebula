@@ -148,3 +148,43 @@ export async function saveGeneratedImage(input: {
 
   return { url: `/uploads/${safeName}` };
 }
+
+/**
+ * Enregistre un média téléchargé depuis une autre plateforme (lot 3 : import
+ * Google Drive, Dropbox, OneDrive, Unsplash, Canva), en flux : le fichier ne
+ * passe jamais entièrement en mémoire, ce qui permet d'importer des vidéos
+ * lourdes. Même stockage que saveUploadedFile (Vercel Blob, sinon disque).
+ */
+export async function saveRemoteMedia(input: {
+  body: ReadableStream<Uint8Array>;
+  mimeType: string;
+  filename: string;
+}): Promise<{ url: string }> {
+  const fromName = input.filename.includes(".") ? input.filename.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+  const ext = fromName || (input.mimeType.startsWith("video/") ? "mp4" : extensionForMimeType(input.mimeType));
+  const safeName = `${randomUUID()}.${ext}`;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const { put } = await import("@vercel/blob");
+    const blob = await put(safeName, input.body, {
+      access: "public",
+      contentType: input.mimeType,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      multipart: true
+    });
+    return { url: blob.url };
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error(
+      "Le stockage des fichiers n'est pas configuré : ajoutez la variable d'environnement BLOB_READ_WRITE_TOKEN dans les paramètres du projet Vercel (Settings → Environment Variables), puis redéployez."
+    );
+  }
+
+  const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
+  const absoluteDir = path.resolve(process.cwd(), uploadDir.replace(/^\.\//, ""));
+  await mkdir(absoluteDir, { recursive: true });
+  const buffer = Buffer.from(await new Response(input.body).arrayBuffer());
+  await writeFile(path.join(absoluteDir, safeName), buffer);
+  return { url: `/uploads/${safeName}` };
+}

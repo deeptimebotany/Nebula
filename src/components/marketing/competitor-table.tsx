@@ -3,7 +3,7 @@
 // Composant serveur, aucun état.
 import { FEATURE_LABELS, featureText, formatPrice, formatEur, nebulaEstimate, REFERENCE_SCENARIO, toEur, type Competitor } from "@/data/competitors";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 export function CompetitorTable({ competitor }: { competitor: Competitor }) {
   const pro = PLAN_LIMITS.PRO;
@@ -11,7 +11,7 @@ export function CompetitorTable({ competitor }: { competitor: Competitor }) {
   const ref = competitor.estimate(REFERENCE_SCENARIO);
   const refEur = toEur(ref.monthly, competitor.currency);
   const nebulaRef = nebulaEstimate(REFERENCE_SCENARIO);
-  const nebulaNetworks = NETWORKS.map((n) => NETWORK_META[n].label).join(", ");
+  const nebulaNetworks = LAUNCHED_NETWORKS.map((n) => NETWORK_META[n].label).join(", ");
 
   const rows: { label: string; them: string; us: string }[] = [
     { label: "Prix d'entrée (par mois, annuel)", them: competitor.entryMonthly === null ? "non publié" : `${formatPrice(competitor.entryMonthly, competitor.currency)}${competitor.currency === "USD" ? ` (≈ ${formatEur(toEur(competitor.entryMonthly, competitor.currency) ?? 0)})` : ""}`, us: `${formatEur(tier0.priceYearly / 12, 2)} (${tier0.priceMonthly} € en mensuel)` },

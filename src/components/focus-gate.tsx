@@ -5,11 +5,12 @@
 // ambiants (messages « Toujours là ? », étoiles filantes de minuit, code
 // Konami…) ni les toasts « succès débloqué » ne sont montés. Les découvertes
 // faites par ailleurs (double-clic sur l'avatar, appui long sur le logo…)
-// restent enregistrées et visibles sur la page Succès. Se désactive dans
+// restent enregistrées et visibles sur la page Réussites. Se désactive dans
 // Paramètres → Apparence & Succès, ou depuis la palette Cmd/Ctrl+K.
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { EasterEggs } from "@/components/easter-eggs";
 import { AchievementToastListener } from "@/components/achievement-toast-listener";
+import { ReussitesCelebrationWatcher } from "@/components/reussites/celebration-watcher";
 
 export function FocusGate() {
   const { focusMode, loaded } = useFocusMode();
@@ -18,6 +19,7 @@ export function FocusGate() {
     <>
       <EasterEggs />
       <AchievementToastListener />
+      <ReussitesCelebrationWatcher />
     </>
   );
 }

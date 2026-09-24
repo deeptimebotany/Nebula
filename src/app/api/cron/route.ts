@@ -4,6 +4,7 @@ import { runDueReports } from "@/lib/reports";
 import { checkReferralCrownStreak } from "@/lib/referral-crown-streak";
 import { purgeExpiredRateLimits } from "@/lib/rate-limit";
 import { runGrowthMaintenance } from "@/lib/growth-jobs";
+import { runAccountJobs } from "@/lib/account-jobs";
 
 // Endpoint appelé par un scheduler externe (Vercel Cron, cron-job.org, un
 // vrai cron système...) toutes les minutes, pour publier les posts
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const [results, reports, , , growth] = await Promise.all([
+  const [results, reports, , , growth, account] = await Promise.all([
     runDuePosts(),
     runDueReports(),
     checkReferralCrownStreak(),
@@ -39,7 +40,10 @@ export async function GET(req: NextRequest) {
     runGrowthMaintenance().catch((err) => {
       console.error("[cron] growth :", (err as Error).message);
       return null;
-    })
+    }),
+    // Parrainage (récompenses à 30 jours, plafond), rappels et purge des
+    // notifications — voir src/lib/account-jobs.ts.
+    runAccountJobs()
   ]);
-  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports, growth });
+  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports, growth, account });
 }

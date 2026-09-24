@@ -96,6 +96,11 @@ function makeHelpers(i: Ink) {
 }
 type H = ReturnType<typeof makeHelpers>;
 
+// Dessin du fond « Constellation » (Réussites), en SVG encodé : couleurs
+// fixes, une version pour le sombre et une pour le clair.
+const CONSTELLATION_DARK = "%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%201600%20900%27%20preserveAspectRatio%3D%27xMidYMid%20slice%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23c9c3ff%27%20stroke-opacity%3D%27.16%27%20stroke-width%3D%27.8%27%3E%3Cpath%20d%3D%27M1110%20120%20L1190%20170%20L1275%20150%20L1350%20210%20L1330%20300%20L1240%20280%20L1190%20170%27%2F%3E%3Cpath%20d%3D%27M180%20610%20L260%20560%20L350%20590%20L420%20520%20M350%20590%20L380%20680%20L300%20740%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27%23ffffff%27%3E%3Ccircle%20cx%3D%271110%27%20cy%3D%27120%27%20r%3D%271.8%27%20opacity%3D%27.55%27%2F%3E%3Ccircle%20cx%3D%271190%27%20cy%3D%27170%27%20r%3D%272.4%27%20opacity%3D%27.7%27%2F%3E%3Ccircle%20cx%3D%271275%27%20cy%3D%27150%27%20r%3D%271.6%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%271350%27%20cy%3D%27210%27%20r%3D%272%27%20opacity%3D%27.6%27%2F%3E%3Ccircle%20cx%3D%271330%27%20cy%3D%27300%27%20r%3D%271.7%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%271240%27%20cy%3D%27280%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27180%27%20cy%3D%27610%27%20r%3D%271.6%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%27260%27%20cy%3D%27560%27%20r%3D%272.2%27%20opacity%3D%27.65%27%2F%3E%3Ccircle%20cx%3D%27350%27%20cy%3D%27590%27%20r%3D%271.8%27%20opacity%3D%27.55%27%2F%3E%3Ccircle%20cx%3D%27420%27%20cy%3D%27520%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27380%27%20cy%3D%27680%27%20r%3D%272%27%20opacity%3D%27.6%27%2F%3E%3Ccircle%20cx%3D%27300%27%20cy%3D%27740%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27760%27%20cy%3D%2790%27%20r%3D%271.1%27%20opacity%3D%27.35%27%2F%3E%3Ccircle%20cx%3D%27930%27%20cy%3D%27760%27%20r%3D%271.2%27%20opacity%3D%27.35%27%2F%3E%3Ccircle%20cx%3D%27560%27%20cy%3D%27300%27%20r%3D%271%27%20opacity%3D%27.3%27%2F%3E%3Ccircle%20cx%3D%271480%27%20cy%3D%27620%27%20r%3D%271.2%27%20opacity%3D%27.35%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E";
+const CONSTELLATION_LIGHT = "%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%201600%20900%27%20preserveAspectRatio%3D%27xMidYMid%20slice%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%235b4fc4%27%20stroke-opacity%3D%27.2%27%20stroke-width%3D%27.8%27%3E%3Cpath%20d%3D%27M1110%20120%20L1190%20170%20L1275%20150%20L1350%20210%20L1330%20300%20L1240%20280%20L1190%20170%27%2F%3E%3Cpath%20d%3D%27M180%20610%20L260%20560%20L350%20590%20L420%20520%20M350%20590%20L380%20680%20L300%20740%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27%235b4fc4%27%3E%3Ccircle%20cx%3D%271110%27%20cy%3D%27120%27%20r%3D%271.8%27%20opacity%3D%27.55%27%2F%3E%3Ccircle%20cx%3D%271190%27%20cy%3D%27170%27%20r%3D%272.4%27%20opacity%3D%27.7%27%2F%3E%3Ccircle%20cx%3D%271275%27%20cy%3D%27150%27%20r%3D%271.6%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%271350%27%20cy%3D%27210%27%20r%3D%272%27%20opacity%3D%27.6%27%2F%3E%3Ccircle%20cx%3D%271330%27%20cy%3D%27300%27%20r%3D%271.7%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%271240%27%20cy%3D%27280%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27180%27%20cy%3D%27610%27%20r%3D%271.6%27%20opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%27260%27%20cy%3D%27560%27%20r%3D%272.2%27%20opacity%3D%27.65%27%2F%3E%3Ccircle%20cx%3D%27350%27%20cy%3D%27590%27%20r%3D%271.8%27%20opacity%3D%27.55%27%2F%3E%3Ccircle%20cx%3D%27420%27%20cy%3D%27520%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27380%27%20cy%3D%27680%27%20r%3D%272%27%20opacity%3D%27.6%27%2F%3E%3Ccircle%20cx%3D%27300%27%20cy%3D%27740%27%20r%3D%271.5%27%20opacity%3D%27.45%27%2F%3E%3Ccircle%20cx%3D%27760%27%20cy%3D%2790%27%20r%3D%271.1%27%20opacity%3D%27.35%27%2F%3E%3Ccircle%20cx%3D%27930%27%20cy%3D%27760%27%20r%3D%271.2%27%20opacity%3D%27.35%27%2F%3E%3Ccircle%20cx%3D%27560%27%20cy%3D%27300%27%20r%3D%271%27%20opacity%3D%27.3%27%2F%3E%3Ccircle%20cx%3D%271480%27%20cy%3D%27620%27%20r%3D%271.2%27%20opacity%3D%27.35%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E";
+
 function def(
   key: string,
   label: string,
@@ -149,6 +154,32 @@ export const BACKGROUNDS: BackgroundDefinition[] = [
     "Nébuleuse scintillante",
     ({ i, blob, dots }) => `${dots(i.AURORA_S, "22px", 0.16)}, ${blob("30%", "20%", i.NEBULA, "60%", 0.2)}, ${blob("75%", "80%", i.AURORA, "55%", 0.14)}, ${i.BASE}`,
     { animationClass: "nebula-bg-anim-shimmer" }
+  ),
+  // --- Fonds gagnés dans Réussites (25/09/2026, voir src/lib/reussites/catalog.ts).
+  // « Première lumière » : une aube discrète qui se lève en bas de l'écran.
+  def(
+    "premiere-lumiere",
+    "Première lumière",
+    ({ i, blob, dots, alpha }) =>
+      `linear-gradient(0deg, rgb(242 180 110 / ${alpha(0.14)}) 0%, transparent 40%), ${blob("50%", "118%", "255 196 120", "60%", 0.3)}, ${blob("50%", "100%", i.MAGENTA, "70%", 0.08)}, ${dots(i.AURORA_S, "64px", 0.1)}, ${i.BASE}`,
+    { requiresEgg: "ach:bg-premiere-lumiere" }
+  ),
+  // « Constellation » : deux constellations dessinées (étoiles reliées par
+  // des traits très fins), sur une nébuleuse discrète.
+  def(
+    "constellation-reussite",
+    "Constellation",
+    ({ i, blob }) =>
+      `url("data:image/svg+xml,${i === DARK_INK ? CONSTELLATION_DARK : CONSTELLATION_LIGHT}") center / cover no-repeat, ${blob("78%", "22%", i.CYAN, "50%", 0.1)}, ${blob("22%", "78%", i.VIOLET, "55%", 0.12)}, ${i.BASE}`,
+    { requiresEgg: "ach:bg-constellation" }
+  ),
+  // « Galaxie spirale » : un bras de galaxie qui tourne très lentement (le
+  // bras animé est dessiné dans globals.css, .nebula-bg-anim-spiral).
+  def(
+    "galaxie-spirale",
+    "Galaxie spirale",
+    ({ i, blob, dots }) => `${blob("50%", "42%", i.AURORA, "16%", 0.2)}, ${blob("50%", "42%", i.VIOLET, "48%", 0.12)}, ${dots(i.AURORA_S, "48px", 0.08)}, ${i.BASE}`,
+    { requiresEgg: "ach:bg-galaxie-spirale", animationClass: "nebula-bg-anim-spiral" }
   ),
   // Easter egg « Pluie d'étincelles » (voir easter-eggs-registry.ts).
   def(

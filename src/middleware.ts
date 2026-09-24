@@ -49,6 +49,8 @@ const PROTECTED_PREFIXES = [
   "/comments",
   "/engagements",
   "/succes",
+  "/reussites",
+  "/automatisations",
   "/admin",
   "/dev-preview"
 ];
@@ -88,9 +90,15 @@ function buildCsp(nonce: string, dev: boolean): string {
     // avant même le transfert vers *.blob.vercel-storage.com — sans cette
     // entrée, la CSP bloque l'envoi de fichier dès le départ (constaté en
     // production : erreur "Refused to connect" sur vercel.com/api/blob).
-    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com${dev ? " ws: wss:" : ""}`,
+    // Import de médias (lot 3) : le sélecteur Google Drive charge ses
+    // scripts depuis apis.google.com / accounts.google.com (autorisés par
+    // 'strict-dynamic', puisqu'ils sont injectés par notre propre code) et
+    // s'affiche dans une iframe docs.google.com ; Dropbox et Microsoft
+    // ouvrent des fenêtres séparées, non concernées. Les fichiers eux-mêmes
+    // sont téléchargés par le serveur, jamais par le navigateur.
+    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com${dev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
-    "frame-src https://challenges.cloudflare.com",
+    "frame-src https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",

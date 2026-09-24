@@ -1,6 +1,6 @@
 import { PLAN_LIMITS } from "@/lib/plans";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { COMPETITORS, UPCOMING_NETWORKS } from "@/data/competitors";
 import { TRIAL_DAYS } from "@/lib/trial";
 
@@ -18,7 +18,7 @@ export function GET() {
   const pro = PLAN_LIMITS.PRO;
   const agency = PLAN_LIMITS.AGENCY;
   const free = PLAN_LIMITS.FREE;
-  const networks = NETWORKS.map((n) => NETWORK_META[n].label).join(", ");
+  const networks = LAUNCHED_NETWORKS.map((n) => NETWORK_META[n].label).join(", ");
 
   const lines: string[] = [
     `# ${SITE_NAME}`,

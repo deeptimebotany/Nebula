@@ -1,3 +1,4 @@
+import { hasUnlockKey } from "@/lib/reussites/unlocks";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -67,13 +68,9 @@ export async function PATCH(req: NextRequest) {
     // egg requis) est revérifié ici, comme pour le thème étoilé animé et les
     // thèmes de couleurs réservés.
     if (cosmetic.requiresEgg) {
-      const found = await prisma.easterEggFound.findUnique({
-        where: { userId_key: { userId, key: cosmetic.requiresEgg } },
-        select: { id: true }
-      });
-      if (!found) {
+      if (!(await hasUnlockKey(userId, cosmetic.requiresEgg))) {
         return NextResponse.json(
-          { error: `"${cosmetic.label}" doit d'abord être débloqué (easter egg) — voir la page Succès.` },
+          { error: `"${cosmetic.label}" doit d'abord être débloqué — voir la page Réussites.` },
           { status: 403 }
         );
       }

@@ -6,6 +6,7 @@
 // vérification d'appartenance à la marque) vit dans /api/link-in-bio* — voir
 // src/lib/link-in-bio.ts.
 
+import { isReussiteRewardKey } from "@/lib/reussites/catalog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
@@ -536,7 +537,7 @@ export default function LinkInBioPage() {
                   <FrameOption
                     key={f.key}
                     label={f.label}
-                    sub={!unlocked ? "Easter egg" : !fits ? (f.flavor === "or" ? "Thème Or Impérial requis" : "Thème Éclipse totale requis") : undefined}
+                    sub={!unlocked ? (isReussiteRewardKey(f.requiresEgg) ? "Réussite" : "Easter egg") : !fits ? (f.flavor === "or" ? "Thème Or Impérial requis" : "Thème Éclipse totale requis") : undefined}
                     preview={preview}
                     background={miniBackground}
                     selected={page?.frame === f.key}

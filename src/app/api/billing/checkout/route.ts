@@ -70,7 +70,11 @@ export async function POST(req: NextRequest) {
   let coupon: string | undefined;
   let usedBonus = false;
   let usedOffer = false;
-  if ((user?.bonusMonths ?? 0) > 0 && freeMonthCoupon) {
+  // Le coupon « mois offert » ne s'applique qu'au MENSUEL : sur un tarif
+  // annuel, un coupon 100 % « une fois » offrirait l'année entière. En
+  // annuel, les mois en attente sont convertis en crédits juste après le
+  // premier paiement (voir flushBonusMonths dans src/lib/billing/rewards.ts).
+  if ((user?.bonusMonths ?? 0) > 0 && freeMonthCoupon && interval === "month") {
     coupon = freeMonthCoupon;
     usedBonus = true;
   } else if (interval === "month" && firstMonthCoupon && !user?.firstPaidAt && isOfferActive(user?.offerExpiresAt, user?.offerUsedAt)) {

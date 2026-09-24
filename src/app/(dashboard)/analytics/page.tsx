@@ -1,5 +1,6 @@
 "use client";
 
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton";
@@ -23,6 +24,7 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { ReferralPrompt, type ReferralPromptKey } from "@/components/dashboard/referral-prompt";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
+import { AdsTab } from "@/components/dashboard/ads/ads-tab";
 
 interface AnalyticsConnection {
   id: string;
@@ -100,6 +102,7 @@ interface CompetitorTrackRow {
 // donc un chiffre que VOUS avez constaté (visible publiquement sur son
 // profil) et saisi vous-même, jamais une valeur inventée par Nebula.
 function CompetitorTab({ brandId }: { brandId: string }) {
+  const offeredNetworks = useAvailableNetworks();
   const toast = useToast();
   const confirmDialog = useConfirm();
   const [tracks, setTracks] = useState<CompetitorTrackRow[] | null>(null);
@@ -185,7 +188,7 @@ function CompetitorTab({ brandId }: { brandId: string }) {
               onChange={(e) => setNetwork(e.target.value as Network)}
               className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
             >
-              {NETWORKS.map((n) => (
+              {offeredNetworks.map((n) => (
                 <option key={n} value={n} className="bg-void-900">{NETWORK_META[n].label}</option>
               ))}
             </select>
@@ -294,13 +297,24 @@ function AnalyticsPageInner() {
   const [connections, setConnections] = useState<AnalyticsConnection[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "competitors">("overview");
+  const [tab, setTab] = useState<"overview" | "competitors" | "ads">(() => (searchParams.get("tab") === "ads" ? "ads" : "overview"));
+  // Onglet Publicité (lot 5) : affiché dès qu'une régie est configurée sur
+  // le serveur (les formules gratuites y voient l'offre Pro).
+  const [adsEnabled, setAdsEnabled] = useState(searchParams.get("tab") === "ads");
   const [plan, setPlan] = useState<string>("FREE");
   const [pdfLoading, setPdfLoading] = useState(false);
   // Invitation de parrainage aux 1 000 / 10 000 abonnés (lot G7) : calculée
   // à la synchronisation (dernier relevé), affichée une seule fois par
   // compte — le composant vérifie referralPromptsSeen.
   const [referralTrigger, setReferralTrigger] = useState<ReferralPromptKey | null>(null);
+
+  useEffect(() => {
+    if (!activeBrand) return;
+    fetch(`/api/ads?brandId=${activeBrand.id}&probe=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setAdsEnabled(Boolean(d?.enabled)))
+      .catch(() => undefined);
+  }, [activeBrand]);
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -557,7 +571,8 @@ function AnalyticsPageInner() {
         {(
           [
             ["overview", "Vue d'ensemble"],
-            ["competitors", "Concurrence"]
+            ["competitors", "Concurrence"],
+            ...(adsEnabled ? [["ads", "Publicité"]] : [])
           ] as [typeof tab, string][]
         ).map(([id, label]) => (
           <button
@@ -581,7 +596,9 @@ function AnalyticsPageInner() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.2 }}
         >
-      {tab === "competitors" ? (
+      {tab === "ads" ? (
+        activeBrand ? <AdsTab key={activeBrand.id} brandId={activeBrand.id} /> : null
+      ) : tab === "competitors" ? (
         activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
       ) : connections.length === 0 && !loading ? (
         <Reveal>

@@ -53,7 +53,7 @@ export async function getAudienceTotals(userId: string): Promise<{ likes: number
  * un bonus, jamais une raison de faire échouer l'action qui l'appelle.
  * @returns les clés débloquées pour la toute première fois.
  */
-export async function checkAudienceMilestones(userId: string): Promise<string[]> {
+export async function checkAudienceMilestones(userId: string, opts: { evaluate?: boolean } = {}): Promise<string[]> {
   try {
     const { likes, followers } = await getAudienceTotals(userId);
     const reached = [
@@ -63,6 +63,12 @@ export async function checkAudienceMilestones(userId: string): Promise<string[]>
     const fresh: string[] = [];
     for (const m of reached) {
       if (await markEasterEggFound(userId, m.key)) fresh.push(m.key);
+    }
+    // Réussites : les paliers d'abonnés et de j'aime cumulés sont aussi des
+    // accomplissements (import dynamique : le moteur utilise ce fichier).
+    if (opts.evaluate !== false) {
+      const { refreshReussites } = await import("@/lib/reussites/engine");
+      await refreshReussites(userId);
     }
     return fresh;
   } catch (err) {

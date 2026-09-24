@@ -4,8 +4,12 @@ import {
   EASTER_EGGS,
   ORIGINAL_TWENTY_KEYS,
   META_ACHIEVEMENT_KEYS,
-  AUDIENCE_ACHIEVEMENT_KEYS
+  AUDIENCE_ACHIEVEMENT_KEYS,
+  REFERRAL_TIER_KEYS,
+  findEasterEgg
 } from "@/lib/easter-eggs-registry";
+import { notify } from "@/lib/notifications";
+import { LINKED_EGG_KEYS } from "@/lib/reussites/catalog";
 
 /**
  * Marque un easter egg comme trouvé pour ce compte (idempotent — retrouver
@@ -24,7 +28,7 @@ import {
  * (utile pour déclencher un toast "succès débloqué" uniquement à cet
  * instant-là), false s'il était déjà trouvé ou si la clé est invalide.
  */
-export async function markEasterEggFound(userId: string, key: string): Promise<boolean> {
+export async function markEasterEggFound(userId: string, key: string, opts: { silent?: boolean } = {}): Promise<boolean> {
   if (!isValidEasterEggKey(key)) return false;
   try {
     const existing = await prisma.easterEggFound.findUnique({
@@ -33,6 +37,23 @@ export async function markEasterEggFound(userId: string, key: string): Promise<b
     });
     if (existing) return false;
     await prisma.easterEggFound.create({ data: { userId, key } });
+
+    // Centre de notifications : garde une trace du succès (le toast, lui,
+    // ne s'affiche qu'une fois à l'écran).
+    // Les easter eggs devenus des accomplissements (cadres d'audience,
+    // paliers ambassadeur — voir src/lib/reussites/catalog.ts) sont annoncés
+    // par la notification de l'accomplissement, pas en double ici.
+    const def = findEasterEgg(key);
+    if (def && !opts.silent && !LINKED_EGG_KEYS.includes(key)) {
+      await notify(userId, {
+        kind: "achievement",
+        title: "Succès débloqué",
+        body: def.reward ? `${def.emoji} ${def.title} — ${def.reward}.` : `${def.emoji} ${def.title}.`,
+        href: "/reussites",
+        actionLabel: def.reward ? "Voir mes succès" : null,
+        dedupeKey: `egg:${key}`
+      });
+    }
 
     // Succès "méta" (voir META_ACHIEVEMENT_KEYS) : jamais déclenchés eux-mêmes
     // ci-dessus (isValidEasterEggKey les accepterait, mais rien dans le site
@@ -71,7 +92,7 @@ async function checkMetaAchievements(userId: string): Promise<void> {
     foundKeys.add("original-20-found");
   }
 
-  const requiredKeys = EASTER_EGGS.map((e) => e.key).filter((k) => !META_ACHIEVEMENT_KEYS.includes(k) && !AUDIENCE_ACHIEVEMENT_KEYS.includes(k));
+  const requiredKeys = EASTER_EGGS.map((e) => e.key).filter((k) => !META_ACHIEVEMENT_KEYS.includes(k) && !AUDIENCE_ACHIEVEMENT_KEYS.includes(k) && !REFERRAL_TIER_KEYS.includes(k));
   if (!foundKeys.has("all-eggs-100pct") && requiredKeys.every((k) => foundKeys.has(k))) {
     await markEasterEggFound(userId, "all-eggs-100pct");
   }

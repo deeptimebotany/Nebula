@@ -5,6 +5,7 @@
 // leur propre liste, avec des libellés différents (« Importation » /
 // « Nouveau post » / « Créer une publication » pour la même page).
 import {
+  IconPlug,
   IconHome,
   IconCalendar,
   IconUpload,
@@ -47,11 +48,17 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Page Succès (easter eggs) : dans le menu, section Compte, sous
- *  Communauté, avec un compteur de progression (voir sidebar-nav.tsx) —
- *  depuis le 24/09/2026 ; elle n'était avant accessible que depuis
- *  Paramètres, « Mon profil » et la palette, et passait inaperçue. */
-export const SUCCESS_NAV_ITEM: NavItem = { href: "/succes", label: "Succès", icon: IconTrophy, description: "Les easter eggs que vous avez trouvés", keywords: ["easter eggs", "trophées", "récompenses"] };
+/** Page Réussites (ex-Succès, 25/09/2026) : niveau de créateur, défis,
+ *  accomplissements, et les easter eggs en dessous. Dans le menu, section
+ *  Compte, sous Communauté, avec un compteur des nouveautés (voir
+ *  sidebar-nav.tsx). /succes redirige ici. */
+export const SUCCESS_NAV_ITEM: NavItem = {
+  href: "/reussites",
+  label: "Réussites",
+  icon: IconTrophy,
+  description: "Niveau de créateur, défis, accomplissements et easter eggs",
+  keywords: ["succès", "easter eggs", "trophées", "récompenses", "niveau", "défis", "accomplissements", "xp"]
+};
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -95,6 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/community", label: "Communauté", icon: IconUsers, description: "Entraide, guides et partages", keywords: ["forum", "guides"] },
       SUCCESS_NAV_ITEM,
       { href: "/billing", label: "Facturation", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "plan", "stripe", "prix", "tarif"] },
+      { href: "/automatisations", label: "Automatisations", icon: IconPlug, description: "API, webhooks, n8n, Make, Zapier (Agence)", keywords: ["api", "webhook", "zapier", "make", "n8n", "intégrations", "clé"] },
       { href: "/settings", label: "Paramètres", icon: IconSettings, description: "Marque, apparence, compte", keywords: ["réglages", "préférences", "thème", "mode focus"] },
       { href: "/support", label: "Soutenir Nebula", icon: IconHeart, description: "Donner un coup de pouce au projet", keywords: ["don", "soutien"] }
     ]

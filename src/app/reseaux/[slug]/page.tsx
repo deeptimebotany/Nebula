@@ -9,7 +9,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Page d'attente d'un réseau à venir (brief growth, lot G5.d).
 export function generateStaticParams() {
@@ -21,7 +21,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   if (!n) return {};
   return {
     title: `Programmer des publications ${n.label} avec Nebula — bientôt`,
-    description: `${n.label} arrive dans Nebula. Inscrivez-vous pour être prévenu, et commencez dès aujourd'hui sur Instagram, TikTok, YouTube et Facebook.`,
+    description: `${n.label} arrive dans Nebula. Inscrivez-vous pour être prévenu, et commencez dès aujourd'hui sur Instagram, TikTok, YouTube, Facebook et Bluesky.`,
     alternates: { canonical: `/reseaux/${n.slug}` }
   };
 }
@@ -29,7 +29,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
 export default function ReseauPage({ params }: { params: { slug: string } }) {
   const n = UPCOMING_NETWORKS.find((x) => x.slug === params.slug);
   if (!n) notFound();
-  const supported = NETWORKS.map((k) => NETWORK_META[k].label);
+  const supported = LAUNCHED_NETWORKS.map((k) => NETWORK_META[k].label);
   const faq = [
     { q: `Quand ${n.label} sera-t-il disponible ?`, a: `Nous ne donnons pas de date tant qu'elle n'est pas sûre : l'accès aux API de publication de ${n.label} et leur validation prennent du temps. La liste d'attente est le seul canal d'annonce ; vous recevrez un email le jour de l'ouverture.` },
     { q: "Que puis-je faire en attendant ?", a: `Tout le reste : programmer et publier sur ${supported.join(", ")}, suivre vos statistiques, envoyer des rapports à vos clients, créer votre page « link in bio ». Le palier Gratuit n'a pas de limite de durée.` },

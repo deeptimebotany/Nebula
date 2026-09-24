@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EASTER_EGGS } from "@/lib/easter-eggs-registry";
+import { EASTER_EGGS as ALL_EASTER_EGGS } from "@/lib/easter-eggs-registry";
+import { LINKED_EGG_KEYS } from "@/lib/reussites/catalog";
+import { reussiteRewardKeys } from "@/lib/reussites/unlocks";
+
+// Les easter eggs devenus des accomplissements (cadres d'audience, paliers
+// ambassadeur) s'affichent dans Réussites → Accomplissements, plus ici.
+const EASTER_EGGS = ALL_EASTER_EGGS.filter((e) => !LINKED_EGG_KEYS.includes(e.key));
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { isOwnerEmail } from "@/lib/dev-preview";
@@ -89,7 +95,8 @@ export async function GET() {
   }
 
   // Succès d'audience (cadres de la page bio) : revérifiés à chaque visite.
-  await checkAudienceMilestones(userId);
+  // (Les Réussites sont évaluées par /api/reussites, appelé par la même page.)
+  await checkAudienceMilestones(userId, { evaluate: false });
 
   // Types explicites : le client Prisma généré dans ce sandbox n'a pas accès
   // au réseau (voir schema.prisma), donc `findMany` ne renvoie pas de type
@@ -119,7 +126,13 @@ export async function GET() {
 
   return NextResponse.json({
     total: EASTER_EGGS.length,
-    foundCount: found.length,
+    foundCount: eggs.filter((e) => e.found).length,
+    // Récompenses Réussites débloquées (« ach:* ») : Paramètres s'en sert,
+    // comme des easter eggs trouvés, pour déverrouiller fonds et anneaux.
+    rewardKeys: await reussiteRewardKeys(userId),
+    // Easter eggs devenus accomplissements (cadres de page bio) : toujours
+    // nécessaires à Paramètres et à la Page bio pour les déverrouiller.
+    linkedFound: found.filter((f) => LINKED_EGG_KEYS.includes(f.key)).map((f) => f.key),
     // Voir dev-preview.ts : permet à Paramètres de laisser le compte
     // propriétaire choisir n'importe quel fond d'écran réservé, sans avoir à
     // revérifier ce même easter egg côté client pour chaque fond.

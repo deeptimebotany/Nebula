@@ -1,3 +1,5 @@
+import { refreshReussites } from "@/lib/reussites/engine";
+import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -20,8 +22,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       authorId: userId,
       body: body.trim().slice(0, 3000)
     },
-    include: { author: { select: { id: true, name: true } } }
+    include: { author: { select: AUTHOR_SELECT } }
   });
 
-  return NextResponse.json({ ok: true, reply });
+  // Réussites : « Voix de la communauté » et le défi « Aider quelqu'un ».
+  await refreshReussites(userId);
+  return NextResponse.json({ ok: true, reply: { ...reply, author: publicAuthor(reply.author) } });
 }

@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { publishPost } from "@/lib/publish";
-import { assertPostQuota } from "@/lib/billing/plan";
-import { assertBrandWritable } from "@/lib/billing/trial-expiry";
+import { createPost } from "@/lib/posts/create-post";
 import { requireBrandMembership, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { z } from "zod";
-import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 
 const targetSchema = z.object({
   connectionId: z.string(),
@@ -69,91 +66,19 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, title, caption, firstComment, scheduledAt, mediaAssetIds, targets, publishNow } = parsed.data;
   const userId = (session.user as { id: string }).id;
 
-  // 1) La marque doit être une des marques de l'utilisateur.
-  const denied = await requireBrandMembership(userId, brandId);
+  // La marque doit être une des marques de l'utilisateur ; le reste des
+  // règles (comptes et médias de la marque, quota, date) est appliqué par
+  // createPost, partagé avec l'API publique (voir src/lib/posts/create-post.ts).
+  const denied = await requireBrandMembership(userId, parsed.data.brandId);
   if (denied) return denied;
 
-  // 2) Les comptes ciblés et les médias joints doivent appartenir à CETTE
-  // marque : sinon, en envoyant le connectionId d'un compte social d'une
-  // autre marque avec publishNow, on publierait sur ce compte-là avec ses
-  // jetons — c'est la faille la plus grave de l'ancienne version.
-  const connectionIds = Array.from(new Set(targets.map((t) => t.connectionId)));
-  const okConnections = await prisma.socialConnection.count({
-    where: { id: { in: connectionIds }, brandId }
-  });
-  if (okConnections !== connectionIds.length) {
-    return NextResponse.json({ error: "Un des comptes ciblés n'appartient pas à cette marque." }, { status: 400 });
+  const result = await createPost(userId, parsed.data);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error, ...(result.reason ? { reason: result.reason } : {}) }, { status: result.status });
   }
-  const assetIds = Array.from(new Set(mediaAssetIds));
-  if (assetIds.length > 0) {
-    const okAssets = await prisma.mediaAsset.count({ where: { id: { in: assetIds }, brandId } });
-    if (okAssets !== assetIds.length) {
-      return NextResponse.json({ error: "Un des médias n'appartient pas à cette marque." }, { status: 400 });
-    }
-  }
-
-  // Marque au-delà de la limite du palier (fin d'essai, rétrogradation) :
-  // lecture seule — brief growth, lot G2.a. `reason` ouvre la bonne modale.
-  const writable = await assertBrandWritable(brandId);
-  if (!writable.ok) return NextResponse.json({ error: writable.message, reason: "second_brand" }, { status: 402 });
-
-  try {
-    await assertPostQuota(brandId);
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message, reason: "post_quota" }, { status: 402 });
-  }
-
-  const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;
-  // Jamais de programmation dans le passé (voir src/lib/schedule-guard.ts).
-  if (scheduledDate && isPastSchedule(scheduledDate)) {
-    return NextResponse.json({ error: PAST_SCHEDULE_ERROR, reason: "past_schedule" }, { status: 400 });
-  }
-  const status = scheduledDate ? "SCHEDULED" : publishNow ? "PUBLISHING" : "DRAFT";
-
-  const post = await prisma.post.create({
-    data: {
-      brandId,
-      createdById: userId,
-      title,
-      caption,
-      firstComment: firstComment?.trim() || null,
-      status,
-      scheduledAt: scheduledDate,
-      media: { create: mediaAssetIds.map((id, order) => ({ mediaAssetId: id, order })) },
-      targets: {
-        create: targets.map((t) => ({
-          connectionId: t.connectionId,
-          network: t.network,
-          titleOverride: t.titleOverride,
-          captionOverride: t.captionOverride,
-          metadata: t.metadata,
-          status: scheduledDate ? "SCHEDULED" : "PENDING"
-        }))
-      }
-    }
-  });
-
-  let milestone: number | null = null;
-  // "publishedStatus" ci-dessous : uniquement pour que le Composer sache si
-  // la publication immédiate a vraiment réussi (PUBLISHED) — utilisé pour le
-  // son de décollage optionnel (voir cosmic-audio.ts / easter egg
-  // "publish-sound-unlock") — jamais pour l'affichage lui-même, qui repart
-  // toujours vers /posts/[id] qui a sa propre vérité.
-  let publishedStatus: string | null = null;
-  if (!scheduledDate && publishNow) {
-    // Erreurs déjà enregistrées par cible (voir publishPost) — seul le
-    // palier franchi, s'il y en a un, doit remonter jusqu'ici pour
-    // déclencher l'animation côté client.
-    await publishPost(post.id)
-      .then((r) => {
-        milestone = r.milestone;
-        publishedStatus = r.status;
-      })
-      .catch(() => undefined);
-  }
-
-  return NextResponse.json({ ok: true, postId: post.id, milestone, status: publishedStatus });
+  // "status" : uniquement pour que le Composer sache si la publication
+  // immédiate a vraiment réussi (son de décollage, voir cosmic-audio.ts).
+  return NextResponse.json({ ok: true, postId: result.postId, milestone: result.milestone, status: result.status });
 }

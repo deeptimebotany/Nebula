@@ -119,7 +119,8 @@ function Caption({ text, limit, tagClass, moreLabel, prefix }: { text: string; l
   const clean = text.trim();
   const truncated = clean.length > limit;
   const shown = truncated ? clean.slice(0, limit).replace(/\s+\S*$/, "") : clean;
-  const parts = shown.split(/([#@][\p{L}\p{N}_]+)/u);
+  // Les mentions peuvent contenir des points (pseudos Bluesky : @nom.bsky.social).
+  const parts = shown.split(/(#[\p{L}\p{N}_]+|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_-]+)*)/u);
   return (
     <span className="whitespace-pre-wrap break-words">
       {prefix}
@@ -629,6 +630,379 @@ function YoutubeDesktop({ post }: { post: PreviewPost }) {
 
 // ============================================================================
 
+// ============================================================================
+// BLUESKY (thème « Pénombre », ajouté le 25/09/2026)
+// ============================================================================
+
+const Repost = ({ className }: P) => S(<><path d="M17 3.5 20.5 7 17 10.5" /><path d="M20.5 7H8a4.5 4.5 0 0 0-4.5 4.5V12" /><path d="M7 20.5 3.5 17 7 13.5" /><path d="M3.5 17H16a4.5 4.5 0 0 0 4.5-4.5V12" /></>, className);
+const Hash = ({ className }: P) => S(<path d="M5 9h15M4 15h15M10 3.5 8 20.5M16 3.5l-2 17" />, className);
+const Pencil = ({ className }: P) => S(<><path d="m4 20 1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1Z" /></>, className);
+
+function BlueskyPostCard({ post }: { post: PreviewPost }) {
+  const ratio = post.shape === "portrait" ? "aspect-[4/5]" : post.shape === "square" ? "aspect-square" : "aspect-video";
+  const handle = post.handle.replace(/^@/, "");
+  return (
+    <article className="flex gap-2.5 border-b border-[#2e4052] px-4 py-3 text-[15px] text-[#f1f3f5]">
+      <Avatar post={post} size={42} />
+      <div className="min-w-0 flex-1">
+        <p className="flex min-w-0 items-baseline gap-1 leading-tight">
+          <span className="truncate font-semibold">{post.accountName}</span>
+          <span className="truncate text-[14px] text-[#aebbc9]">@{handle} · 1 min</span>
+        </p>
+        <p className="mt-0.5 leading-snug">
+          <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={300} tagClass="text-[#208bfe]" moreLabel="" />
+        </p>
+        {post.asset && post.asset.type !== "VIDEO" && <Media post={post} className={clsx("mt-2.5 w-full rounded-xl border border-[#2e4052]", ratio)} />}
+        {post.asset && post.asset.type === "VIDEO" && (
+          <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12.5px] text-amber-200">
+            Vidéo non prise en charge pour Bluesky dans Nebula pour l&apos;instant : publiez une image ou du texte.
+          </p>
+        )}
+        <div className="mt-2.5 flex max-w-[320px] items-center justify-between text-[13px] text-[#aebbc9]">
+          <span className="flex items-center gap-1.5"><Comment className="h-[18px] w-[18px]" /> 4</span>
+          <span className="flex items-center gap-1.5"><Repost className="h-[18px] w-[18px]" /> 12</span>
+          <span className="flex items-center gap-1.5"><Heart className="h-[18px] w-[18px]" /> 57</span>
+          <Dots className="h-[18px] w-[18px]" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function BlueskyMobile({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-[#161e27]">
+      <div className="border-b border-[#2e4052] px-4 pt-2">
+        <div className="flex items-center justify-between pb-2 text-[#f1f3f5]">
+          <Menu className="h-6 w-6" />
+          <span className="text-[17px] font-semibold">Bluesky</span>
+          <Hash className="h-5 w-5 text-[#aebbc9]" />
+        </div>
+        <div className="flex justify-around text-[15px] font-semibold">
+          <span className="border-b-[3px] border-[#208bfe] pb-2 text-[#f1f3f5]">Suivis</span>
+          <span className="pb-2 text-[#aebbc9]">Découvrir</span>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <BlueskyPostCard post={post} />
+      </div>
+      <nav className="flex items-center justify-around border-t border-[#2e4052] py-2.5 text-[#aebbc9]">
+        <Home className="h-6 w-6 text-[#f1f3f5]" />
+        <Search className="h-6 w-6" />
+        <Comment className="h-6 w-6" />
+        <Bell className="h-6 w-6" />
+        <Avatar post={post} size={26} />
+      </nav>
+    </div>
+  );
+}
+
+function BlueskyDesktop({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full justify-center gap-6 bg-[#161e27] text-[#f1f3f5]">
+      <aside className="w-[210px] shrink-0 space-y-4 pt-5 text-[17px]">
+        <Avatar post={post} size={44} />
+        {[
+          [Home, "Accueil"],
+          [Search, "Explorer"],
+          [Bell, "Notifications"],
+          [Comment, "Discussions"],
+          [Hash, "Fils d'actu"],
+          [User, "Profil"]
+        ].map(([Icon, label], i) => {
+          const I = Icon as (p: P) => JSX.Element;
+          return (
+            <p key={label as string} className={clsx("flex items-center gap-3", i === 0 ? "font-semibold" : "text-[#d8dee4]")}>
+              <I className="h-6 w-6" />
+              {label as string}
+            </p>
+          );
+        })}
+        <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#208bfe] px-5 py-2.5 text-[15px] font-semibold text-white">
+          <Pencil className="h-4 w-4" /> Nouveau post
+        </span>
+      </aside>
+      <main className="flex min-h-0 w-[560px] flex-col border-x border-[#2e4052]">
+        <div className="flex justify-around border-b border-[#2e4052] pt-3 text-[15px] font-semibold">
+          <span className="border-b-[3px] border-[#208bfe] pb-2.5">Suivis</span>
+          <span className="pb-2.5 text-[#aebbc9]">Découvrir</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <BlueskyPostCard post={post} />
+        </div>
+      </main>
+      <aside className="w-[220px] shrink-0 space-y-4 pt-5 text-[15px]">
+        <span className="flex h-10 items-center gap-2 rounded-lg bg-[#1e2936] px-3 text-[#aebbc9]"><Search className="h-4 w-4" />Rechercher</span>
+        <div className="space-y-2 text-[#aebbc9]">
+          <p className="text-[#f1f3f5]">Découvrir</p>
+          <p>Suivis</p>
+          <p>Vidéo</p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+// ============================================================================
+// THREADS (mode sombre, lot 2 du 25/09/2026)
+// ============================================================================
+
+function ThreadsPostCard({ post }: { post: PreviewPost }) {
+  const ratio = post.shape === "portrait" ? "aspect-[4/5]" : post.shape === "square" ? "aspect-square" : "aspect-video";
+  const handle = post.handle.replace(/^@/, "");
+  return (
+    <article className="flex gap-3 border-b border-white/10 px-4 py-3 text-[15px] text-[#f3f5f7]">
+      <Avatar post={post} size={36} />
+      <div className="min-w-0 flex-1">
+        <p className="flex items-baseline gap-2 leading-tight">
+          <span className="truncate font-semibold">{handle}</span>
+          <span className="text-[14px] text-[#777]">1 min</span>
+          <Dots className="ml-auto h-5 w-5 text-[#777]" />
+        </p>
+        <p className="mt-0.5 leading-snug">
+          <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={500} tagClass="text-[#4f9df8]" moreLabel="" />
+        </p>
+        {post.asset && <Media post={post} className={clsx("mt-2.5 w-full max-w-[420px] rounded-lg", ratio)} />}
+        <div className="mt-2.5 flex items-center gap-5 text-[13px] text-[#ccc]">
+          <span className="flex items-center gap-1.5"><Heart className="h-[19px] w-[19px]" /> 86</span>
+          <span className="flex items-center gap-1.5"><Comment className="h-[19px] w-[19px]" /> 9</span>
+          <span className="flex items-center gap-1.5"><Repost className="h-[19px] w-[19px]" /> 4</span>
+          <Plane className="h-[19px] w-[19px]" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ThreadsMobile({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-[#101010]">
+      <div className="flex justify-around border-b border-white/10 pt-3 text-[15px] font-semibold">
+        <span className="border-b-2 border-[#f3f5f7] pb-2.5 text-[#f3f5f7]">Pour vous</span>
+        <span className="pb-2.5 text-[#777]">Suivis</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ThreadsPostCard post={post} />
+      </div>
+      <nav className="flex items-center justify-around border-t border-white/10 py-3 text-[#4d4d4d]">
+        <Home className="h-6 w-6 text-[#f3f5f7]" />
+        <Search className="h-6 w-6" />
+        <PlusSquare className="h-6 w-6" />
+        <Heart className="h-6 w-6" />
+        <User className="h-6 w-6" />
+      </nav>
+    </div>
+  );
+}
+
+function ThreadsDesktop({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full bg-[#0a0a0a] text-[#f3f5f7]">
+      <aside className="flex w-[76px] shrink-0 flex-col items-center gap-7 pt-6 text-[#4d4d4d]">
+        <Home className="h-7 w-7 text-[#f3f5f7]" />
+        <Search className="h-7 w-7" />
+        <PlusSquare className="h-7 w-7" />
+        <Heart className="h-7 w-7" />
+        <User className="h-7 w-7" />
+      </aside>
+      <main className="flex min-h-0 flex-1 flex-col items-center pt-4">
+        <p className="pb-3 text-[15px] font-semibold">Pour vous</p>
+        <div className="min-h-0 w-[620px] flex-1 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#181818]">
+          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4 text-[15px] text-[#777]">
+            <Avatar post={post} size={36} />
+            Quoi de neuf ?
+            <span className="ml-auto rounded-xl border border-white/15 px-4 py-1.5 font-semibold text-[#f3f5f7]">Publier</span>
+          </div>
+          <ThreadsPostCard post={post} />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ============================================================================
+// PINTEREST (mode sombre)
+// ============================================================================
+
+function PinterestMobile({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-[#111] text-[#efefef]">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative px-2 pt-2">
+          <Media post={post} className={clsx("w-full rounded-[24px]", post.shape === "landscape" ? "aspect-video" : post.shape === "square" ? "aspect-square" : "aspect-[2/3]")} />
+          <span className="absolute left-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white">‹</span>
+        </div>
+        <div className="flex items-center gap-4 px-4 pt-3 text-[#efefef]">
+          <Heart className="h-6 w-6" />
+          <Comment className="h-6 w-6" />
+          <ShareOut className="h-6 w-6" />
+          <Dots className="h-6 w-6" />
+          <span className="ml-auto rounded-full bg-[#e60023] px-5 py-3 text-[15px] font-semibold text-white">Enregistrer</span>
+        </div>
+        <div className="flex items-center gap-2.5 px-4 pt-3">
+          <Avatar post={post} size={32} />
+          <span className="text-[14px] font-semibold">{post.accountName}</span>
+        </div>
+        {post.title && <p className="px-4 pt-2 text-[20px] font-semibold leading-tight">{post.title}</p>}
+        <p className="px-4 pb-4 pt-1.5 text-[14px] leading-snug text-[#cdcdcd]">
+          <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={160} tagClass="font-semibold text-[#efefef]" moreLabel="Plus" />
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PinterestDesktop({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-[#111] text-[#efefef]">
+      <header className="flex items-center gap-3 px-5 py-3">
+        <span className="rounded-full bg-[#efefef] px-4 py-2.5 text-[15px] font-semibold text-[#111]">Accueil</span>
+        <span className="px-3 text-[15px] font-semibold">Explorer</span>
+        <span className="flex h-11 flex-1 items-center gap-2 rounded-full bg-[#2b2b2b] px-4 text-[15px] text-[#a5a5a5]"><Search className="h-4 w-4" />Rechercher</span>
+        <Bell className="h-6 w-6 text-[#a5a5a5]" />
+        <Avatar post={post} size={32} />
+      </header>
+      <div className="flex min-h-0 flex-1 justify-center pt-4">
+        <div className="flex h-fit max-h-full w-[820px] overflow-hidden rounded-[32px] bg-[#1e1e1e] shadow-2xl">
+          <Media post={post} className="w-1/2 object-cover" />
+          <div className="flex w-1/2 flex-col gap-4 p-7">
+            <div className="flex items-center gap-4 text-[#efefef]">
+              <Heart className="h-6 w-6" />
+              <ShareOut className="h-6 w-6" />
+              <Dots className="h-6 w-6" />
+              <span className="ml-auto flex items-center gap-1 text-[15px] font-semibold">Tableau ▾</span>
+              <span className="rounded-full bg-[#e60023] px-5 py-3 text-[15px] font-semibold text-white">Enregistrer</span>
+            </div>
+            {post.title && <p className="text-[28px] font-semibold leading-tight">{post.title}</p>}
+            <p className="text-[15px] leading-snug text-[#cdcdcd]">
+              <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={500} tagClass="font-semibold text-[#efefef]" moreLabel="" />
+            </p>
+            <div className="flex items-center gap-3">
+              <Avatar post={post} size={44} />
+              <div className="leading-tight">
+                <p className="text-[15px] font-semibold">{post.accountName}</p>
+                <p className="text-[13px] text-[#a5a5a5]">1,2 k abonnés</p>
+              </div>
+              <span className="ml-auto rounded-full bg-[#2b2b2b] px-4 py-2.5 text-[15px] font-semibold">S&apos;abonner</span>
+            </div>
+            <p className="text-[16px] font-semibold">Commentaires</p>
+            <p className="text-[14px] text-[#a5a5a5]">Pas encore de commentaires.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// LINKEDIN (mode sombre)
+// ============================================================================
+
+const Briefcase = ({ className }: P) => S(<><rect x="3.5" y="7" width="17" height="12.5" rx="2" /><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17" /></>, className);
+
+function LinkedInPostCard({ post, rounded }: { post: PreviewPost; rounded?: boolean }) {
+  const ratio = post.shape === "portrait" ? "aspect-[4/5]" : post.shape === "square" ? "aspect-square" : "aspect-video";
+  return (
+    <article className={clsx("bg-[#1b1f23] text-[14px] text-white/90", rounded && "overflow-hidden rounded-lg border border-white/10")}>
+      <header className="flex items-start gap-2.5 px-4 pt-3">
+        <Avatar post={post} size={48} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[14px] font-semibold">{post.accountName}</p>
+          <p className="truncate text-[12px] text-white/60">Créateur de contenu</p>
+          <p className="flex items-center gap-1 text-[12px] text-white/60">1 min · <Globe className="h-3 w-3" /></p>
+        </div>
+        <Dots className="h-5 w-5 text-white/60" />
+      </header>
+      <p className="px-4 py-3 leading-snug">
+        <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={210} tagClass="font-semibold text-[#71b7fb]" moreLabel="plus" />
+      </p>
+      {post.asset && <Media post={post} className={clsx("w-full", ratio)} />}
+      <div className="flex items-center justify-between px-4 py-2 text-[12px] text-white/60">
+        <span className="flex items-center gap-1">
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#378fe9]"><ThumbUp className="h-2.5 w-2.5 text-white" fill /></span>
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#df704d]"><Heart className="h-2.5 w-2.5 text-white" fill /></span>
+          42
+        </span>
+        <span>8 commentaires · 3 republications</span>
+      </div>
+      <div className="mx-3 flex items-center justify-around border-t border-white/10 py-1 text-[13px] font-semibold text-white/60">
+        <span className="flex items-center gap-1.5 py-2.5"><ThumbUp className="h-5 w-5" /> J&apos;aime</span>
+        <span className="flex items-center gap-1.5 py-2.5"><Comment className="h-5 w-5" /> Commenter</span>
+        <span className="flex items-center gap-1.5 py-2.5"><Repost className="h-5 w-5" /> Republier</span>
+        <span className="flex items-center gap-1.5 py-2.5"><Plane className="h-5 w-5" /> Envoyer</span>
+      </div>
+    </article>
+  );
+}
+
+function LinkedInMobile({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-black">
+      <div className="flex items-center gap-3 bg-[#1b1f23] px-3 py-2.5">
+        <Avatar post={post} size={30} />
+        <span className="flex h-8 flex-1 items-center gap-2 rounded bg-[#38434f] px-3 text-[14px] text-white/60"><Search className="h-4 w-4" />Rechercher</span>
+        <Comment className="h-6 w-6 text-white/70" />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto pt-2">
+        <LinkedInPostCard post={post} />
+      </div>
+      <nav className="flex items-center justify-around bg-[#1b1f23] py-2 text-[10px] text-white/60">
+        {[
+          [Home, "Accueil"],
+          [Users, "Réseau"],
+          [PlusSquare, "Publier"],
+          [Bell, "Notifications"],
+          [Briefcase, "Emplois"]
+        ].map(([Icon, label], i) => {
+          const I = Icon as (p: P) => JSX.Element;
+          return (
+            <span key={label as string} className={clsx("flex flex-col items-center gap-0.5", i === 0 && "text-white")}>
+              <I className="h-6 w-6" />
+              {label as string}
+            </span>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+function LinkedInDesktop({ post }: { post: PreviewPost }) {
+  return (
+    <div className="flex h-full flex-col bg-black text-white/90">
+      <header className="flex items-center gap-3 bg-[#1b1f23] px-6 py-1.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded bg-[#0a66c2] text-[18px] font-bold text-white">in</span>
+        <span className="flex h-9 w-72 items-center gap-2 rounded bg-[#38434f] px-3 text-[14px] text-white/60"><Search className="h-4 w-4" />Rechercher</span>
+        <span className="flex flex-1 justify-end gap-9 text-white/60">
+          <Home className="h-6 w-6 text-white" />
+          <Users className="h-6 w-6" />
+          <Briefcase className="h-6 w-6" />
+          <Comment className="h-6 w-6" />
+          <Bell className="h-6 w-6" />
+        </span>
+        <Avatar post={post} size={26} />
+      </header>
+      <div className="flex min-h-0 flex-1 justify-center gap-6 pt-6">
+        <aside className="h-fit w-[225px] shrink-0 overflow-hidden rounded-lg bg-[#1b1f23] text-center">
+          <div className="h-14 bg-[#38434f]" />
+          <div className="-mt-9 flex justify-center"><Avatar post={post} size={72} ring="white" /></div>
+          <p className="px-3 pt-2 text-[16px] font-semibold">{post.accountName}</p>
+          <p className="px-3 pb-4 text-[12px] text-white/60">Créateur de contenu</p>
+        </aside>
+        <main className="min-h-0 w-[555px] overflow-y-auto">
+          <LinkedInPostCard post={post} rounded />
+        </main>
+        <aside className="h-fit w-[300px] shrink-0 space-y-3 rounded-lg bg-[#1b1f23] p-4 text-[13px]">
+          <p className="text-[16px] font-semibold">Actualités LinkedIn</p>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-1.5"><span className="block h-3 w-52 rounded bg-white/10" /><span className="block h-2.5 w-28 rounded bg-white/[0.06]" /></div>
+          ))}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export function NetworkPreviewUi({ post, device }: { post: PreviewPost; device: PreviewDevice }) {
   switch (post.network) {
     case "INSTAGRAM":
@@ -639,6 +1013,14 @@ export function NetworkPreviewUi({ post, device }: { post: PreviewPost; device: 
       return device === "mobile" ? <TikTokMobile post={post} /> : <TikTokDesktop post={post} />;
     case "YOUTUBE":
       return device === "mobile" ? <YoutubeMobile post={post} /> : <YoutubeDesktop post={post} />;
+    case "BLUESKY":
+      return device === "mobile" ? <BlueskyMobile post={post} /> : <BlueskyDesktop post={post} />;
+    case "THREADS":
+      return device === "mobile" ? <ThreadsMobile post={post} /> : <ThreadsDesktop post={post} />;
+    case "PINTEREST":
+      return device === "mobile" ? <PinterestMobile post={post} /> : <PinterestDesktop post={post} />;
+    case "LINKEDIN":
+      return device === "mobile" ? <LinkedInMobile post={post} /> : <LinkedInDesktop post={post} />;
   }
 }
 
@@ -647,5 +1029,9 @@ export const NETWORK_WEB_ADDRESS: Record<Network, string> = {
   INSTAGRAM: "instagram.com",
   FACEBOOK: "facebook.com",
   TIKTOK: "tiktok.com/foryou",
-  YOUTUBE: "youtube.com/watch"
+  YOUTUBE: "youtube.com/watch",
+  BLUESKY: "bsky.app",
+  THREADS: "threads.com",
+  PINTEREST: "pinterest.fr/pin",
+  LINKEDIN: "linkedin.com/feed"
 };

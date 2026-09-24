@@ -5,13 +5,13 @@ import { TrackView } from "@/components/marketing/track-view";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Index des réseaux (brief growth, lot G5.d) : pris en charge aujourd'hui,
 // et à venir avec leur liste d'attente.
 export const metadata: Metadata = {
   title: "Réseaux pris en charge et à venir",
-  description: "Nebula publie sur Instagram, TikTok, YouTube et Facebook. Threads, LinkedIn, Pinterest et Bluesky arrivent : inscrivez-vous pour être prévenu.",
+  description: "Nebula publie sur Instagram, TikTok, YouTube, Facebook et Bluesky. Threads, LinkedIn et Pinterest arrivent : inscrivez-vous pour être prévenu.",
   alternates: { canonical: "/reseaux" }
 };
 
@@ -24,7 +24,7 @@ export default function ReseauxIndexPage() {
       <section aria-labelledby="supportes">
         <h2 id="supportes" className="mb-4 font-display text-2xl font-semibold text-white">Pris en charge aujourd&apos;hui</h2>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {NETWORKS.map((n) => (
+          {LAUNCHED_NETWORKS.map((n) => (
             <li key={n}>
               <GlassCard hover={false} className="h-full text-center">
                 <p className="font-display text-lg font-semibold" style={{ color: NETWORK_META[n].color }}>

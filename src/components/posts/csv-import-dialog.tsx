@@ -9,6 +9,7 @@
 // puis import : brouillons créés avec leur date/heure dans le fuseau de la
 // marque, jamais programmés ; récapitulatif « n brouillons créés, m lignes
 // ignorées » avec la raison par ligne.
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ interface Connection {
 type Step = 1 | 2 | 3 | 4;
 
 export function CsvImportDialog({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => void }) {
+  const offeredNetworks = useAvailableNetworks();
   const { brands, activeBrand } = useBrand();
   const upgrade = useUpgradeModal();
   const [step, setStep] = useState<Step>(1);
@@ -233,7 +235,7 @@ export function CsvImportDialog({ open, onClose, onImported }: { open: boolean; 
           </div>
           <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Une colonne « oui/non » par réseau (facultatif)</p>
           <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {NETWORKS.map((n) => (
+            {offeredNetworks.map((n) => (
               <Select key={n} label={NETWORK_META[n].label} value={fmt.networkColumns[n] ?? ""} onChange={(e) => setNetworkColumn(n, e.target.value)}>
                 <option value="">—</option>
                 {parsed.headers.map((h, i) => (
@@ -303,7 +305,7 @@ export function CsvImportDialog({ open, onClose, onImported }: { open: boolean; 
                 {rowsWithoutNetwork} ligne{rowsWithoutNetwork > 1 ? "s" : ""} sans réseau : les créer pour
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {NETWORKS.map((n) => {
+                {offeredNetworks.map((n) => {
                   const on = defaultNetworks.includes(n);
                   return (
                     <button key={n} type="button" aria-pressed={on} onClick={() => setDefaultNetworks((prev) => (on ? prev.filter((x) => x !== n) : [...prev, n]))} className={clsx("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition", on ? "border-aurora-400 bg-aurora-400/10 text-white" : "border-white/10 text-slate-400 hover:border-white/25")}>

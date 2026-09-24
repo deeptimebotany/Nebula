@@ -1,5 +1,6 @@
 "use client";
 
+import { isReussiteRewardKey } from "@/lib/reussites/catalog";
 import { useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
@@ -141,7 +142,7 @@ export function BackgroundCarousel({
               )}
               <span className={clsx("h-16 w-full rounded-lg shadow-inner", locked && "opacity-50 saturate-50")} style={{ background: mode === "light" ? bg.lightCss : bg.css }} />
               <span className="line-clamp-1 text-[10px] text-slate-400">{bg.label}</span>
-              {locked && <span className="text-[9px] text-amber-400">{bg.requiresEgg ? "Easter egg" : `Palier ${bg.requiresPlan}`}</span>}
+              {locked && <span className="text-[9px] text-amber-400">{bg.requiresEgg ? (isReussiteRewardKey(bg.requiresEgg) ? "Réussite" : "Easter egg") : `Palier ${bg.requiresPlan}`}</span>}
             </button>
           );
         })}

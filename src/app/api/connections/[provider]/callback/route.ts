@@ -10,7 +10,10 @@ import type { Network } from "@/lib/types";
 
 const PROVIDER_TO_NETWORK: Record<string, Network> = {
   tiktok: "TIKTOK",
-  youtube: "YOUTUBE"
+  youtube: "YOUTUBE",
+  threads: "THREADS",
+  pinterest: "PINTEREST",
+  linkedin: "LINKEDIN"
 };
 
 export async function GET(req: NextRequest, { params }: { params: { provider: string } }) {

@@ -7,7 +7,7 @@
 // vectorielles au lieu d'emojis, et le produit montré tout de suite.
 import { ButtonLink } from "@/components/ui/button";
 import { DashboardVisual } from "@/components/marketing/product-visuals";
-import { NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { NetworkLogo } from "@/components/ui/network-badge";
 import { IconCard, IconCheck, IconLock } from "@/components/dashboard/icons";
 
@@ -29,7 +29,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-6xl px-6 pb-16 pt-20 sm:pt-28">
         <div className="mx-auto max-w-3xl text-center">
           <ul className="hero-enter hero-enter-1 mb-6 flex flex-wrap items-center justify-center gap-2" aria-label="Réseaux pris en charge">
-            {NETWORKS.map((n) => (
+            {LAUNCHED_NETWORKS.map((n) => (
               <li
                 key={n}
                 className="flex items-center gap-1.5 rounded-full border bg-white/[0.02] px-3 py-1 text-xs font-medium"
@@ -48,7 +48,7 @@ export function Hero() {
           </h1>
 
           <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base text-slate-300 sm:text-lg">
-            Programmez vos publications sur Instagram, TikTok, YouTube et Facebook en une seule fois, suivez vos
+            Programmez vos publications sur Instagram, TikTok, YouTube, Facebook et Bluesky en une seule fois, suivez vos
             résultats au même endroit et envoyez des rapports clairs à vos clients — sans jongler entre quatre
             applications.
           </p>

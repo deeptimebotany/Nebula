@@ -34,6 +34,13 @@ model User {
   communityReactions CommunityReaction[]
   pollVotes    PollVote[]
   easterEggsFound EasterEggFound[]
+  notifications Notification[]
+  integrationAccounts IntegrationAccount[]
+  apiKeys ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  pendingAdAuths PendingAdAuth[]
+  achievementUnlocks AchievementUnlock[]
+  challengeCompletions ChallengeCompletion[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
@@ -169,6 +176,11 @@ model User {
   // consommés à la prochaine souscription — pour un compte sans abonnement
   // Stripe actif (sinon le coupon est appliqué directement à l'abonnement).
   bonusMonths Int @default(0)
+  // Abonnement Stripe sur lequel un mois offert a déjà été consommé via le
+  // coupon du Checkout (25/09/2026) : évite de le décompter deux fois quand
+  // Stripe envoie plusieurs événements pour le même abonnement, ou de ne
+  // jamais le décompter lors d'un réabonnement (voir /api/billing/webhook).
+  bonusConsumedSubId String?
   // Nombre de factures mensuelles payées (rappel annuel à la 3e).
   paidInvoices Int @default(0)
   // Emails de conseils (cycle de vie) — désinscription dans Paramètres ou
@@ -176,6 +188,17 @@ model User {
   lifecycleEmails Boolean @default(true)
   // Déclencheurs d'invitation au parrainage déjà affichés (clés).
   referralPromptsSeen Json?
+
+  // --- Réussites (niveaux de créateur) ---
+  // Copie à jour du total d'XP et du niveau (voir src/lib/reussites/engine.ts),
+  // recalculée à chaque évaluation : sert au menu, au tableau de bord et au
+  // badge de niveau dans la Communauté sans refaire les sommes à chaque fois.
+  creatorXp          Int       @default(0)
+  creatorLevel       Int       @default(1)
+  // Dernière évaluation complète (limite la fréquence des recalculs) et
+  // dernière visite de la page Réussites (compteur du menu).
+  reussitesCheckedAt DateTime?
+  reussitesSeenAt    DateTime?
   lifecycleEmailsSent LifecycleEmail[]
   growthEvents        GrowthEvent[]
   // Accès offert (partenaires, streamers, testeurs — décision du
@@ -259,6 +282,7 @@ model Brand {
   linkPage       LinkPage?
   report         BrandReport?
   calendarShare  CalendarShare?
+  adAccounts     AdAccount[]
 }
 
 // Calendrier client en lecture seule (produit n°7 de la feuille de route) :
@@ -384,7 +408,7 @@ model Membership {
   @@unique([userId, brandId])
 }
 
-// network : "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE" | "X" | "LINKEDIN"
+// network : "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE" | "BLUESKY" (+ plus tard "X" | "LINKEDIN")
 // status  : "CONNECTED" | "EXPIRED" | "ERROR" | "DISCONNECTED"
 model SocialConnection {
   id                String              @id @default(cuid())
@@ -939,4 +963,251 @@ model NetworkWaitlist {
 
   @@unique([email, network])
   @@index([network])
+}
+
+// Centre de notifications (25/09/2026) : la cloche de l'en-tête (voir
+// src/components/dashboard/notification-bell.tsx et src/lib/notifications.ts).
+// Quelques lignes de texte par notification, purgées au bout de 90 jours par
+// le cron. dedupeKey (facultatif) évite de répéter la même alerte (ex. un
+// compte à reconnecter) : unique par compte, plusieurs NULL autorisés.
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  // publish_ok | publish_failed | approval | reconnect | reminder | achievement | referral | news
+  kind        String
+  // Onglet de la bulle : "pub" (publications), "win" (succès et récompenses), "news" (actus).
+  category    String
+  title       String
+  body        String
+  href        String?
+  actionLabel String?
+  dedupeKey   String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+}
+
+// Récompenses de parrainage (25/09/2026, voir src/lib/billing/rewards.ts) :
+// une ligne par compte devenu payant et par motif. Créée au premier VRAI
+// paiement (facture > 0 €) du filleul, en attente 30 jours (eligibleAt),
+// puis accordée par le cron si le filleul est toujours abonné — dans la
+// limite de 12 mois offerts sur 12 mois glissants par bénéficiaire. Au-delà,
+// statut CAPPED : pas de mois, mais la ligne compte pour les paliers
+// ambassadeur. Pas de relation vers User : deux comptes différents y
+// figurent, et une ligne orpheline est simplement ignorée.
+model ReferralReward {
+  id            String    @id @default(cuid())
+  beneficiaryId String
+  refereeId     String
+  // "referral" (lien de parrainage) | "badge" (badge « Propulsé par Nebula »)
+  reason        String
+  // PENDING | GRANTED | CAPPED | CANCELED
+  status        String    @default("PENDING")
+  eligibleAt    DateTime
+  grantedAt     DateTime?
+  // credit (solde Stripe) | coupon | bonus (déduit à la prochaine souscription)
+  mode          String?
+  brandSlug     String?
+  refereeName   String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([refereeId, reason])
+  @@index([beneficiaryId, status])
+  @@index([status, eligibleAt])
+}
+
+// Comptes d'outils externes reliés pour IMPORTER des médias dans Publier
+// (lot 3, 25/09/2026) : Canva et OneDrive, qui passent par une connexion
+// OAuth propre à chaque personne. Google Drive (Google Picker), Dropbox
+// (Dropbox Chooser) et Unsplash n'ont besoin d'aucun jeton enregistré.
+// Voir src/lib/integrations/*.ts.
+model IntegrationAccount {
+  id           String    @id @default(cuid())
+  userId       String
+  // "canva" | "onedrive"
+  provider     String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  displayName  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+// API publique et webhooks (lot 4, palier Agence, 25/09/2026) — voir
+// src/lib/api/*.ts et la page /automatisations.
+//
+// Clé d'API : seul son empreinte SHA-256 est stockée (la clé complète n'est
+// montrée qu'une fois, à la création). prefix = début de la clé, pour la
+// reconnaître dans la liste. scopes : "read" ou "read,write". brandId :
+// limite la clé à une marque (null = toutes les marques du compte).
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  prefix     String
+  keyHash    String    @unique
+  scopes     String    @default("read")
+  brandId    String?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Adresse appelée à chaque événement choisi (publication en ligne, échec,
+// validation client…). secret : clé de signature HMAC des envois (en-tête
+// Nebula-Signature). Désactivée automatiquement après 15 échecs d'affilée.
+model WebhookEndpoint {
+  id             String            @id @default(cuid())
+  userId         String
+  brandId        String?
+  url            String
+  description    String?
+  events         String[]
+  secret         String
+  active         Boolean           @default(true)
+  failureCount   Int               @default(0)
+  lastDeliveryAt DateTime?
+  lastStatus     Int?
+  disabledReason String?
+  createdAt      DateTime          @default(now())
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries     WebhookDelivery[]
+
+  @@index([userId])
+}
+
+// Journal des envois (30 jours) et file des relances : PENDING tant qu'il
+// reste des tentatives (nextAttemptAt), puis SUCCESS ou FAILED.
+model WebhookDelivery {
+  id             String          @id @default(cuid())
+  endpointId     String
+  event          String
+  payload        String
+  status         String          @default("PENDING")
+  attempts       Int             @default(0)
+  responseStatus Int?
+  error          String?
+  nextAttemptAt  DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime        @default(now())
+  endpoint       WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+}
+
+// Suivi publicitaire (lot 5, paliers Pro et Agence, 25/09/2026) — Google
+// Ads, Meta Ads, TikTok Ads : dépenses et résultats dans Analytics → onglet
+// « Publicité ». Voir src/lib/ads/*.ts. Pas de relation Prisma vers Brand
+// (lignes orphelines ignorées) pour garder l'ajout 100 % additif.
+//
+// platform : "GOOGLE_ADS" | "META_ADS" | "TIKTOK_ADS". externalId :
+// numéro de client Google (sans tirets), identifiant de compte Meta (sans
+// « act_ ») ou identifiant d'annonceur TikTok. loginCustomerId : compte
+// administrateur Google par lequel on accède à ce client (en-tête
+// login-customer-id), sinon null.
+model AdAccount {
+  id              String    @id @default(cuid())
+  brandId         String
+  platform        String
+  externalId      String
+  name            String
+  currency        String    @default("EUR")
+  accessToken     String
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+  loginCustomerId String?
+  status          String    @default("CONNECTED")
+  lastError       String?
+  // Dernière synchro RÉUSSIE (null = historique de 90 jours pas encore chargé).
+  lastSyncedAt    DateTime?
+  // Prochain passage du cron (toutes les 12 h, plus tôt après une erreur passagère).
+  nextSyncAt      DateTime  @default(now())
+  // Campagnes des 30 derniers jours (JSON), remplacées à chaque synchro.
+  campaigns       String?
+  connectedAt     DateTime  @default(now())
+  brand           Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  metrics         AdMetricDaily[]
+
+  @@unique([brandId, platform, externalId])
+  @@index([brandId])
+  @@index([nextSyncAt])
+}
+
+// Chiffres d'une journée pour un compte publicitaire (dépense dans la devise
+// du compte).
+model AdMetricDaily {
+  id          String   @id @default(cuid())
+  adAccountId String
+  date        DateTime
+  spend       Float    @default(0)
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  conversions Float    @default(0)
+  reach       Int?
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([adAccountId, date])
+  @@index([adAccountId, date])
+}
+
+// Autorisation reçue d'une régie, en attente du choix des comptes à relier
+// à la marque (1 h au plus, puis supprimée par le cron).
+model PendingAdAuth {
+  id             String    @id @default(cuid())
+  userId         String
+  brandId        String
+  platform       String
+  accessToken    String
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  accounts       String
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// --- Réussites (25/09/2026) ---------------------------------------------
+// Accomplissement débloqué (un palier = une ligne, ex. « posts-50 ») ou
+// niveau atteint (« level-5 », 0 XP). L'XP est figée au moment du déblocage :
+// changer le barème plus tard ne retire rien à personne.
+model AchievementUnlock {
+  id           String    @id @default(cuid())
+  userId       String
+  key          String
+  xp           Int       @default(0)
+  unlockedAt   DateTime  @default(now())
+  // Célébration (carte + confettis) déjà montrée à l'écran.
+  celebratedAt DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId, unlockedAt])
+}
+
+// Défi de la semaine ou du mois réussi. period = « 2026-W39 » ou « 2026-09 ».
+model ChallengeCompletion {
+  id           String    @id @default(cuid())
+  userId       String
+  period       String
+  challengeKey String
+  kind         String
+  xp           Int       @default(0)
+  completedAt  DateTime  @default(now())
+  celebratedAt DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period, challengeKey])
+  @@index([userId, completedAt])
 }

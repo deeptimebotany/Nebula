@@ -14,5 +14,13 @@ export const PROVIDERS: { id: string; label: string; networks: Network[] }[] = [
   { id: "facebook", label: "Facebook", networks: ["FACEBOOK"] },
   { id: "instagram", label: "Instagram", networks: ["INSTAGRAM"] },
   { id: "tiktok", label: "TikTok", networks: ["TIKTOK"] },
-  { id: "youtube", label: "YouTube", networks: ["YOUTUBE"] }
+  { id: "youtube", label: "YouTube", networks: ["YOUTUBE"] },
+  // Pas d'OAuth : /api/connections/bluesky/start renvoie vers un petit
+  // formulaire (mot de passe d'application), voir accounts/bluesky/page.tsx.
+  { id: "bluesky", label: "Bluesky", networks: ["BLUESKY"] },
+  // Lot 2 (25/09/2026) : affichés seulement quand les clés sont configurées
+  // (voir src/lib/network-availability.ts et useAvailableNetworks).
+  { id: "threads", label: "Threads", networks: ["THREADS"] },
+  { id: "pinterest", label: "Pinterest", networks: ["PINTEREST"] },
+  { id: "linkedin", label: "LinkedIn", networks: ["LINKEDIN"] }
 ];

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { useRouter } from "next/navigation";
@@ -58,6 +59,7 @@ interface QuickComposerModalProps {
  * risques de bug entre deux flux de publication distincts.
  */
 export function QuickComposerModal({ open, initialDate, initialTime, onClose }: QuickComposerModalProps) {
+  const offeredNetworks = useAvailableNetworks();
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
@@ -222,7 +224,7 @@ export function QuickComposerModal({ open, initialDate, initialTime, onClose }: 
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Réseaux</p>
             <div className="flex flex-wrap items-center gap-2.5">
-              {NETWORKS.map((network) => {
+              {NETWORKS.filter((network) => offeredNetworks.includes(network)).map((network) => {
                 const meta = NETWORK_META[network];
                 const isConnected = connections.some((c) => c.network === network);
                 const isSelected = selectedNetworks.includes(network);

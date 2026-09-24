@@ -57,6 +57,29 @@ const TRACES: Partial<Record<string, Dash[]>> = {
     { l: 0.8, o: 66, color: "#ffffff", width: 3, dur: 4.5 },
     { l: 0.6, color: "#ff6b8e", width: 2.5, dur: 9, reverse: true }
   ],
+  // « Carrefour » (Réussites) : deux traînées qui se croisent en sens
+  // inverse, comme des flux qui se rejoignent.
+  "carrefour-or": [
+    { l: 16, color: "#c99a2e", width: 1.5, opacity: 0.4, dur: 6 },
+    { l: 2.5, color: "#fff4cc", width: 2.4, dur: 6 },
+    { l: 16, o: 50, color: "#53eadb", width: 1.5, opacity: 0.35, dur: 6, reverse: true },
+    { l: 2.5, o: 50, color: "#d9fffb", width: 2.4, dur: 6, reverse: true }
+  ],
+  "carrefour-eclipse": [
+    { l: 16, color: "#6b5bd6", width: 1.6, opacity: 0.45, dur: 6 },
+    { l: 2.5, color: "#ffffff", width: 2.4, dur: 6 },
+    { l: 16, o: 50, color: "#1fa89a", width: 1.6, opacity: 0.4, dur: 6, reverse: true },
+    { l: 2.5, o: 50, color: "#c8fff8", width: 2.4, dur: 6, reverse: true }
+  ],
+  // « Astre » (Réussites) : un astre unique, très lent, au halo chaud.
+  "astre-or": [
+    { l: 7, color: "#f2cf6b", width: 2, opacity: 0.35, dur: 12 },
+    { l: 0.5, color: "#fffbe8", width: 6, dur: 12 }
+  ],
+  "astre-eclipse": [
+    { l: 7, color: "#ffc27a", width: 2, opacity: 0.35, dur: 12 },
+    { l: 0.5, color: "#fff6e6", width: 6, dur: 12 }
+  ],
   // « Anneau de diamant » : un seul point très lumineux qui fait le tour.
   "couronne-eclipse": [
     { l: 4, color: "#b9a8ff", width: 3, opacity: 0.45, dur: 6 },
@@ -156,6 +179,7 @@ export function BioFrame({
           <span className="bf-layer bf-ring" aria-hidden="true" />
         </>
       )}
+      {style === "astre" && <span className="bf-layer bf-astre-aura" aria-hidden="true" />}
 
       <div ref={ref} className={clsx("bf-card relative", cardClassName)} style={{ borderRadius: radius, ...cardStyle }}>
         {/* Couches DANS la carte (sous le contenu) */}
@@ -183,6 +207,7 @@ export function BioFrame({
           <span className="bf-layer bf-glint" style={{ left: "30%", bottom: -9, animationDelay: "1.8s" }} aria-hidden="true" />
         </>
       )}
+      {style === "astre" && <span className="bf-layer bf-glint bf-astre-glint" style={{ right: -9, top: -9 }} aria-hidden="true" />}
     </div>
   );
 }
@@ -201,11 +226,12 @@ export function BioAvatarFrame({ frame, className, children }: { frame: Resolved
           <span className="bf-layer bf-av-corona-glow" aria-hidden="true" />
         </>
       )}
-      {style === "orbites" && (
+      {(style === "orbites" || style === "carrefour") && (
         <span className="bf-layer bf-av-orbit" aria-hidden="true">
           <i />
         </span>
       )}
+      {style === "astre" && <span className="bf-layer bf-av-astre" aria-hidden="true" />}
       {children}
       {style === "comete" && <span className="bf-layer bf-av-sheen" aria-hidden="true" />}
     </div>

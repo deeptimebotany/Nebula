@@ -10,7 +10,11 @@ import { DEFAULT_THEME_KEY, THEMES, canUseTheme } from "@/lib/themes";
 import { DEFAULT_BACKGROUND_KEY, canUseBackground, findBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import type { MeResponse } from "@/lib/me-types";
 import { EASTER_EGGS } from "@/lib/easter-eggs-registry";
+import { LINKED_EGG_KEYS, levelFor } from "@/lib/reussites/catalog";
+import { unseenReussites } from "@/lib/reussites/engine";
+import { userReussitesDb } from "@/lib/prisma-extra";
 import { isOfferActive, trialDaysLeft } from "@/lib/trial";
+import { availableNetworks } from "@/lib/network-availability";
 
 // Toujours réévalué à la demande : le palier et les droits d'apparence
 // doivent refléter l'état réel au moment de l'appel.
@@ -59,8 +63,12 @@ export async function GET() {
     getUserPlan(userId),
     countOwnedBrands(userId),
     getAppearanceAccess(userId, session.user.email),
-    prisma.easterEggFound.count({ where: { userId } })
+    prisma.easterEggFound.count({ where: { userId, key: { notIn: LINKED_EGG_KEYS } } })
   ]);
+  // Réussites : valeurs gardées à jour par le moteur (src/lib/reussites/engine.ts).
+  const reussitesRow = await userReussitesDb.findUnique({ where: { id: userId }, select: { creatorXp: true, reussitesSeenAt: true } }).catch(() => null);
+  const levelInfo = levelFor(reussitesRow?.creatorXp ?? 0);
+  const unseen = await unseenReussites(userId, reussitesRow?.reussitesSeenAt ? new Date(reussitesRow.reussitesSeenAt) : null).catch(() => 0);
   if (!user) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
   // Avantages de palier = palier ACTUEL, jamais seulement la préférence
@@ -92,7 +100,9 @@ export async function GET() {
     brandsOwned,
     billingEnabled: isBillingEnabled(),
     isOwner: access.isOwner,
-    eggs: { found: eggsFound, total: EASTER_EGGS.length },
+    // Easter eggs devenus des accomplissements : comptés dans Réussites, plus ici.
+    eggs: { found: eggsFound, total: EASTER_EGGS.length - LINKED_EGG_KEYS.length },
+    reussites: { level: levelInfo.level, name: levelInfo.name, pct: levelInfo.pct, xp: levelInfo.xp, nextXp: levelInfo.nextXp, unseen },
     previewPlan: access.previewPlan,
     theme: effectiveTheme,
     // Fond retiré lors du tri du 24/09/2026 → son remplaçant ; fond de
@@ -121,7 +131,8 @@ export async function GET() {
     annualNudge: planInfo.paid && planInfo.interval === "month" && (user.paidInvoices ?? 0) >= 3,
     lifecycleEmails: (user.lifecycleEmails as boolean | null | undefined) ?? true,
     referralPromptsSeen: Array.isArray(user.referralPromptsSeen) ? (user.referralPromptsSeen as string[]) : [],
-    referralCode: user.referralCode ?? null
+    referralCode: user.referralCode ?? null,
+    networks: availableNetworks()
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }

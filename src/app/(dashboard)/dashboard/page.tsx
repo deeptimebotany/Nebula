@@ -17,6 +17,7 @@ import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { LivingClock } from "@/components/dashboard/living-clock";
 import { MomentumComet, computeStreak } from "@/components/dashboard/momentum-comet";
+import { LevelCard } from "@/components/reussites/level-card";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { OnboardingChecklist, type ChecklistStep } from "@/components/dashboard/onboarding-checklist";
 import { AttentionWidget, type AttentionItem } from "@/components/dashboard/attention-widget";
@@ -298,7 +299,7 @@ export default function DashboardPage() {
         </RevealItem>
       </RevealGroup>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <Reveal>
           <AttentionWidget items={attentionItems} loading={loading} />
         </Reveal>
@@ -340,10 +341,15 @@ export default function DashboardPage() {
         </Reveal>
 
         <Reveal delay={0.05}>
-          <MotionGlassCard>
+          <MotionGlassCard className="h-full">
             <h2 className="mb-2 font-display text-base font-medium text-white">Momentum</h2>
             <MomentumComet streak={streak} />
           </MotionGlassCard>
+        </Reveal>
+
+        {/* Réussites : niveau de créateur et défi de la semaine en cours. */}
+        <Reveal delay={0.07}>
+          <LevelCard />
         </Reveal>
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { Suspense, useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +74,7 @@ export default function AccountsPage() {
 }
 
 function AccountsPageInner() {
+  const offeredNetworks = useAvailableNetworks();
   const { activeBrand, loading: brandLoading } = useBrand();
   const toast = useToast();
   const confirmDialog = useConfirm();
@@ -180,7 +182,7 @@ function AccountsPageInner() {
     <div className="space-y-6">
       <PageHeader
         title="Comptes connectés"
-        description="Reliez autant de comptes Facebook, Instagram, TikTok ou YouTube que vous gérez — chaque connexion utilise l'API officielle de la plateforme."
+        description="Reliez autant de comptes Facebook, Instagram, TikTok, YouTube ou Bluesky que vous gérez — chaque connexion utilise l'API officielle de la plateforme."
         actions={
           planInfo && (
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">
@@ -211,7 +213,7 @@ function AccountsPageInner() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {PROVIDERS.map((provider) => {
+        {PROVIDERS.filter((provider) => provider.networks.some((n) => offeredNetworks.includes(n)) || connections.some((c) => provider.networks.includes(c.network))).map((provider) => {
           const linked = connections.filter((c) => provider.networks.includes(c.network));
           // On revient tout juste de l'autorisation de CE fournisseur : le
           // bloc l'annonce explicitement le temps que la liste arrive.

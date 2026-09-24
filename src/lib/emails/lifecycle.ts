@@ -108,7 +108,11 @@ const NETWORK_FORMATS: Record<string, string[]> = {
   YOUTUBE: ["Une vidéo « 3 erreurs que je faisais » (8–12 min)", "Un Short qui reprend le meilleur moment d'une vidéo longue", "Une vidéo réponse aux commentaires reçus"],
   INSTAGRAM: ["Un carrousel « avant / après » en 5 diapositives", "Un Reel de 15 s avec un texte à l'écran dès la première seconde", "Une story sondage pour relancer la conversation"],
   TIKTOK: ["Un POV de 10 s avec accroche écrite", "Une réponse vidéo à un commentaire", "Un « jour dans ma vie » monté serré"],
-  FACEBOOK: ["Une question courte à votre communauté", "Une photo coulisses avec une légende personnelle", "Un lien vers votre dernière vidéo avec 2 lignes de contexte"]
+  FACEBOOK: ["Une question courte à votre communauté", "Une photo coulisses avec une légende personnelle", "Un lien vers votre dernière vidéo avec 2 lignes de contexte"],
+  BLUESKY: ["Un fil de 3 posts qui raconte une coulisse", "Une question ouverte à votre communauté", "Une image avec une astuce en une phrase"],
+  THREADS: ["Une opinion tranchée sur votre domaine, en 2 phrases", "Un « ce que j'aurais aimé savoir » en carrousel", "Une question à laquelle on répond en un mot"],
+  PINTEREST: ["Une épingle verticale « 5 idées pour… »", "Un tutoriel en étapes sur une seule image", "Une épingle qui renvoie vers votre dernier article ou votre page bio"],
+  LINKEDIN: ["Un retour d'expérience avec un chiffre concret", "Les coulisses d'un projet terminé, en photo", "Une leçon apprise cette semaine, en 5 lignes"]
 };
 
 export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): Rendered {

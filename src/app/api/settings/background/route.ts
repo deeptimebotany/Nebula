@@ -1,3 +1,4 @@
+import { hasUnlockKey } from "@/lib/reussites/unlocks";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -55,13 +56,10 @@ export async function PATCH(req: NextRequest) {
   } else if (background.requiresEgg) {
     // Fond débloqué par easter egg plutôt que par palier (voir
     // src/lib/backgrounds.ts) — jamais confiance au client.
-    const found = await prisma.easterEggFound.findUnique({
-      where: { userId_key: { userId, key: background.requiresEgg } },
-      select: { id: true }
-    });
-    if (!found) {
+    // Easter egg ou récompense Réussites (clé « ach:* »).
+    if (!(await hasUnlockKey(userId, background.requiresEgg))) {
       return NextResponse.json(
-        { error: `Le fond "${background.label}" doit d'abord être débloqué (easter egg) — voir la page Succès.` },
+        { error: `Le fond "${background.label}" doit d'abord être débloqué — voir la page Réussites.` },
         { status: 403 }
       );
     }

@@ -1,13 +1,17 @@
 import type { CSSProperties } from "react";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconTikTok, IconYouTube, IconInstagram, IconFacebook } from "@/components/dashboard/icons";
+import { IconTikTok, IconYouTube, IconInstagram, IconFacebook, IconBluesky, IconThreads, IconPinterest, IconLinkedIn } from "@/components/dashboard/icons";
 
 const NETWORK_ICONS: Record<Network, (props: { className?: string }) => JSX.Element> = {
   TIKTOK: IconTikTok,
   YOUTUBE: IconYouTube,
   INSTAGRAM: IconInstagram,
-  FACEBOOK: IconFacebook
+  FACEBOOK: IconFacebook,
+  BLUESKY: IconBluesky,
+  THREADS: IconThreads,
+  PINTEREST: IconPinterest,
+  LINKEDIN: IconLinkedIn
 };
 
 /** Glyphe du réseau (voir icons.tsx) — utilisé notamment dans "Réseaux cibles". */

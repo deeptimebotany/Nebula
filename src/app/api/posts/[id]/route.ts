@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deletePostAndOrphanMedia } from "@/lib/posts/delete-post";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -195,38 +196,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const own = await findOwnPost(userId, params.id);
   if (!own) return notFound();
 
-  // Fichiers (vidéo/image) potentiellement libérés par cette suppression —
-  // capturés AVANT de supprimer le post, pour savoir ensuite lesquels ne sont
-  // plus utilisés par aucune autre publication (un même fichier peut être
-  // réutilisé par "Dupliquer", voir POST ci-dessus).
-  const mediaAssetIds = (
-    await prisma.postMedia.findMany({ where: { postId: own.id }, select: { mediaAssetId: true } })
-  ).map((m: { mediaAssetId: string }) => m.mediaAssetId);
-
-  await prisma.post.delete({ where: { id: own.id } });
-
-  // Le post est supprimé (cascade sur PostMedia, voir schema.prisma) : pour
-  // chaque fichier qu'il utilisait, on vérifie s'il est encore référencé par
-  // une AUTRE publication. Si non, on le supprime vraiment (base + Vercel
-  // Blob) plutôt que de le laisser occuper le quota de stockage pour rien —
-  // c'est ce qui, faute de nettoyage, avait fini par remplir le 1 Go gratuit
-  // de Vercel Blob et bloquer tout nouvel envoi.
-  if (mediaAssetIds.length > 0) {
-    const stillUsed = await prisma.postMedia.findMany({
-      where: { mediaAssetId: { in: mediaAssetIds } },
-      select: { mediaAssetId: true }
-    });
-    const stillUsedIds = new Set(stillUsed.map((m: { mediaAssetId: string }) => m.mediaAssetId));
-    const orphaned = mediaAssetIds.filter((id: string) => !stillUsedIds.has(id));
-    if (orphaned.length > 0) {
-      const assets = await prisma.mediaAsset.findMany({ where: { id: { in: orphaned } } });
-      for (const asset of assets) {
-        await deleteUploadedFile(asset.url);
-        if (asset.thumbnailUrl) await deleteUploadedFile(asset.thumbnailUrl);
-      }
-      await prisma.mediaAsset.deleteMany({ where: { id: { in: orphaned } } });
-    }
-  }
+  // Suppression + nettoyage des fichiers orphelins (voir src/lib/posts/delete-post.ts).
+  await deletePostAndOrphanMedia(own.id);
 
   return NextResponse.json({ ok: true });
 }

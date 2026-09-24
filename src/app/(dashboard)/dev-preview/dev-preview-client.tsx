@@ -36,10 +36,14 @@ const COSMETIC_LOCATION: Record<string, string> = {
   "halo-dore-avatar": "Pastille de marque active, en haut à gauche (barre du haut) — cumulable avec l'anneau de Saturne.",
   "eclat-dore-statcard": "Contour des cartes de statistiques, sur Analytics, une fois le palier d'abonnés dépassé.",
   "police-cosmique": "Tous les titres de page (h1) et les onglets de la barre du haut, sur tout le site.",
-  "papier-peint-succes": "Fond de la page Succès.",
+  "papier-peint-succes": "Fond de la page Réussites.",
   "son-pulsar": "Son joué à l'apparition d'une notification de succès.",
   "message-accueil-perso": "Texte d'accueil en haut de la Vue d'ensemble.",
-  "sidebar-poussiere-etoiles": "Fond du menu latéral (icône ☰ en haut à gauche)."
+  "sidebar-poussiere-etoiles": "Fond du menu latéral (icône ☰ en haut à gauche).",
+  "anneau-bronze-avatar": "Pastille de marque (en haut), photo de « Mon profil » et avatar dans la Communauté.",
+  "anneau-argent-avatar": "Pastille de marque (en haut), photo de « Mon profil » et avatar dans la Communauté.",
+  "anneau-or-avatar": "Pastille de marque (en haut), photo de « Mon profil » et avatar dans la Communauté.",
+  "anneau-stellaire-avatar": "Pastille de marque (en haut), photo de « Mon profil » et avatar dans la Communauté (animé)."
 };
 
 const PLAN_OPTIONS: { value: Plan | null; label: string }[] = [
