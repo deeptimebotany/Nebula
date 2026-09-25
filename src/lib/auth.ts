@@ -9,8 +9,15 @@ import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
 import { cookies } from "next/headers";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
+import { TOOLS_COOKIE, toolsExploredCount } from "@/lib/tools-explored";
 import { applyPendingPartnerGrant } from "@/lib/billing/partners";
 import { trialEndDate } from "@/lib/trial";
+import { assertSecretConfig } from "@/lib/secrets";
+import { currentSessionVersion, forgetSessionCache, isPrivilegedEmail, providerEmailVerified, sendVerificationEmail } from "@/lib/account-security";
+import { notify } from "@/lib/notifications";
+
+// Refuse un NEXTAUTH_SECRET resté à la valeur d'exemple (voir lib/secrets.ts).
+assertSecretConfig();
 
 function slugifyBrand(input: string) {
   return (
@@ -32,19 +39,85 @@ function isProviderAvatar(url: string): boolean {
   return /googleusercontent\.com|appleid\.apple\.com|fbcdn\.net|fbsbx\.com|facebook\.com/i.test(url);
 }
 
-async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: string | null) {
-  const normalizedEmail = email.toLowerCase();
+type OAuthSignInResult = { ok: true } | { ok: false; error: "AccountExists" | "EmailReserved" };
+
+// Connexion Google/Apple/Meta (audit sécurité, lot 1 — voir
+// lib/account-security.ts pour le détail des règles).
+export async function resolveOAuthSignIn(input: {
+  provider: string;
+  providerAccountId: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  avatarUrl?: string | null;
+}): Promise<OAuthSignInResult> {
+  const normalizedEmail = input.email.toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (existing) {
-    // Compte déjà existant (souvent créé par email/mot de passe) : sa photo
-    // n'était jamais remplie ni mise à jour. On reprend celle du compte
-    // social, sauf si une photo a été choisie à la main dans Nebula.
-    if (avatarUrl && avatarUrl !== existing.avatarUrl && (!existing.avatarUrl || isProviderAvatar(existing.avatarUrl))) {
-      return prisma.user.update({ where: { id: existing.id }, data: { avatarUrl } });
-    }
-    return existing;
+
+  if (!existing) {
+    // Une adresse réservée (propriétaire, administrateurs) ne peut être
+    // prise que par un fournisseur qui garantit l'adresse.
+    if (!input.emailVerified && isPrivilegedEmail(normalizedEmail)) return { ok: false, error: "EmailReserved" };
+    await createOAuthUser(normalizedEmail, input);
+    return { ok: true };
   }
 
+  const avatarUpdate =
+    input.avatarUrl && input.avatarUrl !== existing.avatarUrl && (!existing.avatarUrl || isProviderAvatar(existing.avatarUrl))
+      ? { avatarUrl: input.avatarUrl }
+      : {};
+
+  if (input.emailVerified) {
+    if (!existing.emailVerifiedAt) {
+      // Compte créé par mot de passe mais jamais confirmé, et la personne
+      // qui arrive prouve (via Google/Apple) posséder l'adresse : le mot de
+      // passe posé sans preuve est supprimé et toutes les sessions ouvertes
+      // sont coupées — si un inconnu avait créé ce compte avec son adresse,
+      // il en perd immédiatement l'accès.
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          ...avatarUpdate,
+          emailVerifiedAt: new Date(),
+          emailVerifyTokenHash: null,
+          emailVerifyTokenExpiresAt: null,
+          passwordHash: null,
+          facebookLoginId: null,
+          sessionVersion: { increment: 1 }
+        }
+      });
+      forgetSessionCache(existing.id);
+      if (existing.passwordHash) {
+        await notify(existing.id, {
+          kind: "reconnect",
+          title: "Adresse confirmée, mot de passe désactivé",
+          body: "Votre adresse e-mail n'avait jamais été confirmée : par sécurité, le mot de passe défini à l'inscription a été désactivé et les autres sessions déconnectées. Utilisez « Mot de passe oublié » pour en choisir un nouveau.",
+          href: "/settings",
+          actionLabel: "Paramètres"
+        }).catch(() => undefined);
+      }
+      await applyPendingPartnerGrant(existing.id, existing.email).catch(() => undefined);
+    } else if (Object.keys(avatarUpdate).length) {
+      await prisma.user.update({ where: { id: existing.id }, data: avatarUpdate });
+    }
+    return { ok: true };
+  }
+
+  // Adresse non garantie (Meta) : on ne relie un compte existant que s'il a
+  // déjà été ouvert avec CE compte Facebook.
+  if (input.provider === "facebook" && existing.facebookLoginId === input.providerAccountId) {
+    if (Object.keys(avatarUpdate).length) await prisma.user.update({ where: { id: existing.id }, data: avatarUpdate });
+    return { ok: true };
+  }
+  return { ok: false, error: "AccountExists" };
+}
+
+async function createOAuthUser(
+  normalizedEmail: string,
+  input: { provider: string; providerAccountId: string; emailVerified: boolean; name: string; avatarUrl?: string | null }
+) {
+  const name = input.name;
+  const avatarUrl = input.avatarUrl;
   const brandName = name || normalizedEmail.split("@")[0];
   let slug = slugifyBrand(brandName);
   const slugTaken = await prisma.brand.findUnique({ where: { slug } });
@@ -55,8 +128,11 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
   // callback NextAuth s'exécute dans une route handler). Le code de
   // parrainage ne peut venir que du cookie (?ref= sur un lien).
   let attribution: ReturnType<typeof parseAttributionCookie> = null;
+  // Badge Explorateur (Réussites, lot C) : outils gratuits essayés avant l'inscription.
+  let toolsExplored = 0;
   try {
     attribution = parseAttributionCookie(cookies().get(ATTRIBUTION_COOKIE)?.value);
+    toolsExplored = toolsExploredCount(cookies().get(TOOLS_COOKIE)?.value);
   } catch {
     attribution = null;
   }
@@ -75,10 +151,13 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
       email: normalizedEmail,
       passwordHash: null,
       avatarUrl: avatarUrl ?? undefined,
+      emailVerifiedAt: input.emailVerified ? new Date() : null,
+      facebookLoginId: input.provider === "facebook" ? input.providerAccountId : null,
       referralCode,
       referredByCode: referrerCode,
       aiTrialUntil: referrerCode ? trialEndsAt : null,
       trialEndsAt,
+      toolsExplored,
       ...attributionToUserFields(attribution),
       memberships: {
         create: {
@@ -89,8 +168,10 @@ async function findOrCreateOAuthUser(email: string, name: string, avatarUrl?: st
     }
   });
   await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrerCode), oauth: true }, user.id);
-  // Accès offert en attente pour cet email (partenaires, /admin/partenaires).
-  await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);
+  // Accès offert en attente pour cet email (partenaires, /admin/partenaires) :
+  // seulement si l'adresse est garantie, sinon à la confirmation.
+  if (input.emailVerified) await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);
+  else await sendVerificationEmail(user).catch(() => undefined);
   return user;
 }
 
@@ -135,7 +216,7 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, email: user.email, name: user.name };
+        return { id: user.id, email: user.email, name: user.name, sessionVersion: user.sessionVersion };
       }
     }),
     // Connexion rapide (voir bulle "Continuer avec Google/Apple" sur /login
@@ -175,10 +256,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     // Premier login Google/Apple : crée le compte Nebula + sa marque par
     // défaut avant que jwt() ne cherche à résoudre l'id (voir ci-dessous).
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google" || account?.provider === "apple" || account?.provider === "facebook") {
         if (!user.email) return false;
-        await findOrCreateOAuthUser(user.email, user.name ?? "", user.image);
+        const result = await resolveOAuthSignIn({
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+          email: user.email,
+          emailVerified: providerEmailVerified(account.provider, profile),
+          name: user.name ?? "",
+          avatarUrl: user.image
+        });
+        if (!result.ok) return `/login?error=${result.error}`;
       }
       return true;
     },
@@ -186,12 +275,27 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         if (account?.provider === "google" || account?.provider === "apple" || account?.provider === "facebook") {
           const dbUser = user.email
-            ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } })
+            ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { id: true, sessionVersion: true } })
             : null;
-          if (dbUser) token.uid = dbUser.id;
+          if (dbUser) {
+            token.uid = dbUser.id;
+            token.sv = dbUser.sessionVersion;
+          }
         } else {
           token.uid = user.id;
+          token.sv = (user as { sessionVersion?: number }).sessionVersion ?? 0;
         }
+        return token;
+      }
+      // Révocation (audit sécurité, lot 1) : si le compte a coupé ses
+      // sessions depuis (réinitialisation du mot de passe, compte repris par
+      // le vrai propriétaire de l'adresse) ou n'existe plus, cette session
+      // est refusée. Les sessions ouvertes avant cette mise à jour n'ont pas
+      // de version : elles valent 0, comme les comptes.
+      if (typeof token.uid === "string") {
+        const current = await currentSessionVersion(token.uid);
+        const own = typeof token.sv === "number" ? token.sv : 0;
+        if (current === null || current !== own) throw new Error("Session révoquée");
       }
       return token;
     },

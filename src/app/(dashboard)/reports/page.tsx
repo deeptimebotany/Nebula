@@ -12,10 +12,9 @@ import { SaveStatus, useSaveStatus } from "@/components/ui/save-status";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useChartTheme } from "@/lib/chart-theme";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { FollowersAreaChart } from "@/components/charts/lazy";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { useBrand } from "@/components/brand-context";
@@ -59,7 +58,6 @@ interface ReportPreview {
 }
 
 export default function ReportsPage() {
-  const chartTheme = useChartTheme();
   const { activeBrand } = useBrand();
   const toast = useToast();
   // Enregistrement visible (voir save-status.tsx).
@@ -308,20 +306,7 @@ export default function ReportsPage() {
 
             {preview.growthSeries.length >= 2 ? (
               <div className="mt-6 h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={preview.growthSeries}>
-                    <defs>
-                      <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={chartTheme.series[0]} stopOpacity={0.5} />
-                        <stop offset="100%" stopColor={chartTheme.series[0]} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: chartTheme.axis }} />
-                    <YAxis tick={{ fontSize: 11, fill: chartTheme.axis }} width={40} />
-                    <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
-                    <Area type="monotone" dataKey="followers" stroke={chartTheme.series[0]} fill="url(#growthFill)" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <FollowersAreaChart data={preview.growthSeries} />
               </div>
             ) : (
               <p className="mt-6 text-sm text-slate-500">

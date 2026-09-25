@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendReportEmail } from "@/lib/email";
+import { emailIdempotencyKey, sendReportEmail } from "@/lib/email";
 import { getBrandPlan } from "@/lib/billing/plan";
 
 // Rapports clients automatiques (produit n°6 de la feuille de route) — voir
@@ -186,7 +186,10 @@ export async function runDueReports(): Promise<{ sent: number; failed: number }>
         periodLabel: periodLabel(report.frequency),
         followers: data.totals.followers,
         followersDelta: data.totals.followersDelta,
-        brandSlug: report.brand.slug
+        brandSlug: report.brand.slug,
+        // Une seule fois par période, même si deux passages du cron se
+        // chevauchent ou si Resend répond trop tard (lot 9).
+        idempotencyKey: emailIdempotencyKey("report", report.recipientEmail!, `${report.id}:${report.nextSendAt?.toISOString() ?? ""}`)
       });
 
       if (result.ok) sent += 1;

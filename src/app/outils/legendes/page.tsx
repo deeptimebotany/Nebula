@@ -2,6 +2,7 @@
 
 // Générateur gratuit de titres/légendes, sans compte (voir /api/public/tools/captions).
 import { useState } from "react";
+import { markToolExplored } from "@/lib/tools-explored";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -52,6 +53,7 @@ export default function FreeCaptionToolPage() {
         return;
       }
       setResult(data.text);
+      markToolExplored();
       setRemaining(data.remaining ?? null);
       if (typeof data.used === "number") setUsed(data.used);
     } catch {

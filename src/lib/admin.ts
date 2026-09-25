@@ -9,17 +9,9 @@
  * Voir .env.example pour la marche à suivre — tant que cette variable est
  * vide, ces actions sont bloquées pour tout le monde (fail-closed).
  */
-function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return adminEmails().includes(email.trim().toLowerCase());
-}
+// isAdminEmail vit dans admin-emails.ts (sans dépendance à NextAuth), pour
+// pouvoir être utilisé par lib/auth.ts sans import circulaire.
+export { isAdminEmail } from "@/lib/admin-emails";
 
 // ---------------------------------------------------------------------------
 // Garde « compte propriétaire » pour les routes et pages d'administration

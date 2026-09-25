@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashResetToken } from "@/lib/password-reset";
+import { forgetSessionCache } from "@/lib/account-security";
+import { applyPendingPartnerGrant } from "@/lib/billing/partners";
 
 const schema = z.object({
   token: z.string().min(10),
@@ -25,11 +27,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ce lien de réinitialisation est invalide ou a expiré." }, { status: 400 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
+  // Le clic sur le lien prouve la possession de l'adresse : elle devient
+  // confirmée. Toutes les sessions ouvertes sont coupées (audit sécurité,
+  // lot 1) — si quelqu'un d'autre était connecté, il ne l'est plus.
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash, passwordResetTokenHash: null, passwordResetTokenExpiresAt: null }
+    data: {
+      passwordHash,
+      passwordResetTokenHash: null,
+      passwordResetTokenExpiresAt: null,
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+      emailVerifyTokenHash: null,
+      emailVerifyTokenExpiresAt: null,
+      sessionVersion: { increment: 1 }
+    }
   });
+  forgetSessionCache(user.id);
+  if (!user.emailVerifiedAt) await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);
 
   return NextResponse.json({ ok: true });
 }

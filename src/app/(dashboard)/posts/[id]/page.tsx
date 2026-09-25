@@ -11,15 +11,16 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useBrand } from "@/components/brand-context";
-import { useChartTheme } from "@/lib/chart-theme";
 import { DEFAULT_TIMEZONE, timeZoneLabel } from "@/lib/timezone";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { RetentionCurveChart } from "@/components/charts/lazy";
 import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
-import type { Network } from "@/lib/types";
+import { NETWORK_META, type Network } from "@/lib/types";
+import { errorAdvice } from "@/lib/social/error-advice";
 import { PostStats } from "@/components/posts/post-stats";
+import { clsx } from "@/lib/clsx";
 
 interface MediaAsset {
   id: string;
@@ -44,9 +45,25 @@ interface Target {
   captionOverride?: string | null;
   externalUrl?: string | null;
   errorMessage?: string | null;
+  /** Catégorie de la dernière erreur (lot 5, voir lib/social/errors.ts). */
+  errorCategory?: string | null;
+  nextCheckAt?: string | null;
+  /** Miniature envoyée avec la vidéo (YouTube, Réussites lot B). */
+  thumbnailStatus?: string | null;
   connection: { displayName: string };
   insights: Insight[];
 }
+
+// Sort de la miniature choisie dans Publier (PostTarget.thumbnailStatus).
+const THUMBNAIL_NOTE: Record<string, { text: string; tone: string }> = {
+  APPLIED: { text: "Miniature choisie appliquée sur YouTube.", tone: "text-emerald-300" },
+  REFUSED: {
+    text: "YouTube a refusé la miniature : les miniatures personnalisées demandent une chaîne vérifiée par téléphone (youtube.com/verify). La vidéo est bien en ligne.",
+    tone: "text-amber-300"
+  },
+  UNSUPPORTED: { text: "Miniature non envoyée : YouTube accepte une image JPEG ou PNG de 2 Mo au plus.", tone: "text-amber-300" },
+  FAILED: { text: "La miniature n'a pas pu être envoyée à YouTube. Vous pouvez l'ajouter dans YouTube Studio.", tone: "text-amber-300" }
+};
 
 interface Post {
   id: string;
@@ -78,11 +95,16 @@ const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "Publié",
   FAILED: "Échec",
   PARTIAL: "Partiellement publié",
-  PENDING: "En attente"
+  PENDING: "En attente",
+  // Lot 2 : le réseau prépare encore la vidéo ; Nebula termine la
+  // publication automatiquement dès qu'elle est prête.
+  PROCESSING: "En traitement par le réseau",
+  // Lot 5 : panne passagère, limite de débit ou réseau suspendu — Nebula
+  // réessaie tout seul (voir lib/publish.ts).
+  RETRY_WAIT: "Nouvel essai prévu"
 };
 
 export default function PostDetailPage() {
-  const chartTheme = useChartTheme();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { activeBrand, brands } = useBrand();
@@ -119,6 +141,20 @@ export default function PostDetailPage() {
     load();
   }, [load]);
 
+  // Publication en cours (ou vidéo en traitement chez un réseau) : la fiche
+  // se met à jour toute seule, toutes les 10 s, jusqu'au résultat.
+  const inProgress = post?.status === "PUBLISHING";
+  // Seulement des relances programmées (plusieurs minutes d'attente) : une
+  // vérification par minute suffit (lot 5).
+  const waitingOnly = Boolean(post?.targets.every((t) => t.status !== "PUBLISHING" && t.status !== "PROCESSING"));
+  useEffect(() => {
+    if (!inProgress) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, waitingOnly ? 60_000 : 10_000);
+    return () => window.clearInterval(id);
+  }, [inProgress, waitingOnly, load]);
+
   async function duplicate() {
     setBusy("duplicate");
     const res = await fetch(`/api/posts/${params.id}`, {
@@ -143,6 +179,20 @@ export default function PostDetailPage() {
     setBusy(null);
     if (!res.ok) toast.error(data.error ?? "Erreur lors de la publication.");
     else if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
+    load();
+  }
+
+  // Relances automatiques (lot 5).
+  async function retryAction(action: "retry-now" | "stop-retries") {
+    setBusy(action);
+    const res = await fetch(`/api/posts/${params.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    }).catch(() => null);
+    setBusy(null);
+    if (!res || !res.ok) toast.error("Action impossible pour le moment. Réessayez dans un instant.");
+    else if (action === "stop-retries") toast.info("Nouveaux essais arrêtés.");
     load();
   }
 
@@ -260,6 +310,22 @@ export default function PostDetailPage() {
                 {busy === "publish" ? "Envoi..." : "Publier maintenant"}
               </Button>
             )}
+            {post.targets.some((t) => t.status === "RETRY_WAIT" && t.errorCategory !== "PAUSED") && (
+              <Button onClick={() => retryAction("retry-now")} disabled={busy !== null}>
+                {post.targets.every((t) => t.status !== "RETRY_WAIT" || t.errorCategory === "VERIFY")
+                  ? busy === "retry-now"
+                    ? "Vérification..."
+                    : "Vérifier maintenant"
+                  : busy === "retry-now"
+                    ? "Nouvel essai..."
+                    : "Réessayer maintenant"}
+              </Button>
+            )}
+            {post.targets.some((t) => t.status === "RETRY_WAIT") && (
+              <Button variant="outline" onClick={() => retryAction("stop-retries")} disabled={busy !== null}>
+                Arrêter les nouveaux essais
+              </Button>
+            )}
             <Button variant="outline" onClick={duplicate} disabled={busy === "duplicate"}>
               {busy === "duplicate" ? "Duplication..." : "Dupliquer"}
             </Button>
@@ -325,7 +391,9 @@ export default function PostDetailPage() {
                       <span className="text-xs text-slate-400">{t.connection.displayName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">{STATUS_LABEL[t.status] ?? t.status}</span>
+                      <span className="text-xs text-slate-400">
+                        {t.status === "RETRY_WAIT" && t.errorCategory === "VERIFY" ? "Vérification en cours" : (STATUS_LABEL[t.status] ?? t.status)}
+                      </span>
                       {t.externalUrl && (
                         <>
                           <a href={t.externalUrl} target="_blank" rel="noreferrer" className="text-xs text-aurora-300 underline">
@@ -350,7 +418,17 @@ export default function PostDetailPage() {
                       )}
                     </div>
                   </div>
-                  {t.errorMessage && <p className="mt-2 text-xs text-red-400">{t.errorMessage}</p>}
+                  {t.network === "YOUTUBE" && t.thumbnailStatus && THUMBNAIL_NOTE[t.thumbnailStatus] && (
+                    <p className={clsx("mt-2 text-xs", THUMBNAIL_NOTE[t.thumbnailStatus].tone)}>{THUMBNAIL_NOTE[t.thumbnailStatus].text}</p>
+                  )}
+                  {t.errorMessage && (
+                    <TargetError
+                      network={t.network}
+                      status={t.status}
+                      message={t.errorMessage}
+                      category={t.errorCategory ?? null}
+                    />
+                  )}
 
                   {t.network === "YOUTUBE" && t.status === "PUBLISHED" && aiStatus?.enabled && (
                     <div className="mt-3 border-t border-white/[0.06] pt-3">
@@ -370,14 +448,7 @@ export default function PostDetailPage() {
                         <div className="space-y-3">
                           <p className="text-sm text-slate-200">{insight.summary}</p>
                           {retentionCurve.length > 0 && (
-                            <ResponsiveContainer width="100%" height={140}>
-                              <LineChart data={retentionCurve.map((p) => ({ x: Math.round(p.timeRatio * 100), y: Math.round(p.watchRatio * 100) }))}>
-                                <XAxis dataKey="x" tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
-                                <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
-                                <Line type="monotone" dataKey="y" stroke={chartTheme.series[1]} strokeWidth={2} dot={false} />
-                              </LineChart>
-                            </ResponsiveContainer>
+                            <RetentionCurveChart points={retentionCurve} height={140} />
                           )}
                           {dropOffPoints.length > 0 && (
                             <ul className="space-y-1 text-xs text-slate-400">
@@ -452,6 +523,29 @@ export default function PostDetailPage() {
           </button>
         </div>
       </GlassCard>
+    </div>
+  );
+}
+
+// Erreur d'une cible (lot 5) : en attente de relance, texte ambre ; en
+// échec, message du réseau + conseil selon la catégorie, et raccourci vers
+// Comptes quand il faut reconnecter le compte.
+function TargetError({ network, status, message, category }: { network: Network; status: string; message: string; category: string | null }) {
+  const label = NETWORK_META[network]?.label ?? network;
+  const text = message.replace(/^\[[A-Z_]+\]\s*/, "");
+  if (status === "RETRY_WAIT") {
+    return <p className="mt-2 text-xs text-amber-300">{text}</p>;
+  }
+  const advice = status === "FAILED" ? errorAdvice(category, label) : null;
+  return (
+    <div className="mt-2 space-y-1">
+      <p className="text-xs text-red-400">{text}</p>
+      {advice && <p className="text-xs text-slate-400">{advice}</p>}
+      {status === "FAILED" && category === "AUTH_EXPIRED" && (
+        <Link href="/accounts" className="inline-block text-xs text-aurora-300 underline">
+          Reconnecter {label}
+        </Link>
+      )}
     </div>
   );
 }

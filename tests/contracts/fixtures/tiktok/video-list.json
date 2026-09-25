@@ -1,0 +1,21 @@
+{
+  "data": {
+    "videos": [
+      {
+        "id": "7301234567890123456",
+        "title": "Nouveau menu d'automne",
+        "video_description": "Nouveau menu d'automne ☕ #cafe",
+        "create_time": 1790237730,
+        "cover_image_url": "https://p16-sign.tiktokcdn-eu.com/cover.jpeg",
+        "share_url": "https://www.tiktok.com/@cafe.nebula/video/7301234567890123456",
+        "like_count": 12,
+        "comment_count": 3,
+        "share_count": 1,
+        "view_count": 456
+      }
+    ],
+    "cursor": 1790237730000,
+    "has_more": false
+  },
+  "error": { "code": "ok", "message": "", "log_id": "20260924081530C0FFEE0000000001" }
+}

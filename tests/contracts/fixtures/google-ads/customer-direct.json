@@ -1,0 +1,7 @@
+{
+  "results": [
+    { "customer": { "resourceName": "customers/1234567890", "id": "1234567890", "descriptiveName": "Café Nebula", "currencyCode": "EUR", "manager": false } }
+  ],
+  "fieldMask": "customer.id,customer.descriptiveName,customer.currencyCode,customer.manager",
+  "requestId": "req-customer-1"
+}

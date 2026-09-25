@@ -8,17 +8,12 @@
 // Appelée par /api/cron et scripts/worker.ts, quelques fichiers par passage.
 import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/storage";
-import { isAllowedMediaMime } from "@/lib/upload-policy";
+import { fetchPublic, readBodyCapped } from "@/lib/net-safety";
+import { sniffMediaMime } from "@/lib/upload-policy";
+import { brandUploadPrefix } from "@/lib/upload-policy";
 
 const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
 const MAX_ATTEMPTS = 3;
-
-function guessMime(url: string, header: string | null): string | null {
-  if (header && isAllowedMediaMime(header.split(";")[0])) return header.split(";")[0].trim();
-  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
-  const table: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", mov: "video/quicktime", m4v: "video/mp4", webm: "video/webm" };
-  return table[ext] ?? null;
-}
 
 export async function fetchPendingImportMedia(limit = 4): Promise<{ done: number; failed: number }> {
   const pending = await prisma.post.findMany({
@@ -35,21 +30,21 @@ export async function fetchPendingImportMedia(limit = 4): Promise<{ done: number
     // relance pas la même URL indéfiniment.
     await prisma.post.update({ where: { id: post.id }, data: { sourceMediaAttempts: { increment: 1 } } });
     try {
-      if (!/^https:\/\//i.test(url)) throw new Error("URL non HTTPS");
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch(url, { signal: controller.signal, redirect: "follow", headers: { "user-agent": "NebulaImport/1.0 (+https://nebulahub.space)" } });
-      clearTimeout(timer);
+      // Audit sécurité (lot 1) : avant, seul « https:// » était vérifié puis
+      // les redirections suivies — une adresse piégée pouvait faire lire au
+      // serveur un service interne, dont la réponse devenait un média
+      // téléchargeable. fetchPublic refuse toute adresse non publique (à
+      // chaque redirection et au moment de la connexion), la lecture
+      // s'arrête à 100 Mo, et le type vient du CONTENU du fichier (signature
+      // d'image/vidéo), jamais de l'extension de l'adresse.
+      const res = await fetchPublic(url, { timeoutMs: 20000, headers: { "user-agent": "NebulaImport/1.0 (+https://nebulahub.space)" } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const mime = guessMime(url, res.headers.get("content-type"));
-      if (!mime) throw new Error("type de fichier non accepté");
-      const length = Number(res.headers.get("content-length") ?? "0");
-      if (length > MAX_IMPORT_BYTES) throw new Error("fichier trop volumineux");
-      const buffer = Buffer.from(await res.arrayBuffer());
-      if (buffer.byteLength > MAX_IMPORT_BYTES) throw new Error("fichier trop volumineux");
+      const buffer = await readBodyCapped(res, MAX_IMPORT_BYTES);
+      const mime = sniffMediaMime(buffer);
+      if (!mime) throw new Error("type de fichier non accepté (image ou vidéo attendue)");
       const ext = mime.split("/")[1]?.replace("jpeg", "jpg").replace("quicktime", "mov") ?? "bin";
-      const file = new File([buffer], `import-${post.id}.${ext}`, { type: mime });
-      const saved = await saveUploadedFile(file);
+      const file = new File([new Uint8Array(buffer)], `import-${post.id}.${ext}`, { type: mime });
+      const saved = await saveUploadedFile(file, { prefix: brandUploadPrefix(post.brandId), mimeType: mime });
       const asset = await prisma.mediaAsset.create({
         data: { brandId: post.brandId, type: mime.startsWith("video") ? "VIDEO" : "IMAGE", url: saved.url, filename: saved.filename, mimeType: saved.mimeType, sizeBytes: saved.sizeBytes }
       });

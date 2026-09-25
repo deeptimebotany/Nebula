@@ -4,6 +4,7 @@
 // résultats Google Ads, Meta Ads et TikTok Ads au même endroit. Nebula LIT
 // les chiffres (autorisation en lecture seule quand la régie le permet) et
 // ne touche jamais aux campagnes ni aux budgets.
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -17,9 +18,17 @@ import { useConfirm } from "@/components/dashboard/confirm";
 import { IconAlert, IconChart, IconLock, IconRefresh } from "@/components/dashboard/icons";
 import { AD_PLATFORM_META, type AdPlatform } from "@/lib/ads/types";
 import { clsx } from "@/lib/clsx";
-import { AdsSpendChart, type DailyPoint } from "./ads-spend-chart";
+import type { DailyPoint } from "./ads-spend-chart";
 import { useAdColors } from "./ads-colors";
 import { dec, int, money, pct, relativeTime } from "./ads-format";
+import { ChartSkeleton } from "@/components/charts/lazy";
+
+// Graphique des dépenses (recharts) chargé à la demande : l'onglet Publicité
+// n'est ouvert que par une partie des utilisateurs (audit performance, lot 4).
+const AdsSpendChart = dynamic(() => import("./ads-spend-chart").then((m) => m.AdsSpendChart), {
+  ssr: false,
+  loading: () => <ChartSkeleton height={300} />
+});
 
 interface Totals {
   spend: number;

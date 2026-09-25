@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { assertBrandMembership } from "@/lib/link-in-bio";
+import { linkUrlSchema } from "@/lib/safe-url-schema";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
 
 // PATCH/DELETE /api/link-in-bio/links/[id] — édite ou supprime un lien
 // précis. L'appartenance à la marque de l'utilisateur connecté est
@@ -18,7 +20,7 @@ async function resolveOwnedLink(id: string, userId: string) {
 
 const patchSchema = z.object({
   label: z.string().min(1).max(60).optional(),
-  url: z.string().url().max(500).optional(),
+  url: linkUrlSchema(500).optional(),
   enabled: z.boolean().optional()
 });
 
@@ -34,6 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!parsed.success) return NextResponse.json({ error: "Données invalides." }, { status: 400 });
 
   const updated = await prisma.linkItem.update({ where: { id: params.id }, data: parsed.data });
+  await invalidateLinkPage(link.linkPage.brandId);
   return NextResponse.json({ ok: true, link: updated });
 }
 
@@ -46,5 +49,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (!link) return NextResponse.json({ error: "Lien introuvable." }, { status: 404 });
 
   await prisma.linkItem.delete({ where: { id: params.id } });
+  await invalidateLinkPage(link.linkPage.brandId);
   return NextResponse.json({ ok: true });
 }

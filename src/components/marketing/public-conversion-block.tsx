@@ -12,7 +12,8 @@ import { discoverUrl, type PublicSurface } from "./powered-by";
 const COPY: Record<Exclude<PublicSurface, "bio">, (brand: string) => string> = {
   rapport: () => "Ce rapport est généré automatiquement par Nebula. Vous gérez aussi des comptes ? Obtenez le même rapport pour vos marques, gratuitement pour commencer.",
   calendrier: () => "Ce calendrier est partagé depuis Nebula. Planifiez vos propres publications avec le même outil.",
-  approve: (brand) => `Vous validez les publications de ${brand} en un clic. Pour vos propres réseaux, Nebula programme, publie et mesure.`
+  approve: (brand) => `Vous validez les publications de ${brand} en un clic. Pour vos propres réseaux, Nebula programme, publie et mesure.`,
+  kit: () => "Ce media kit est tenu à jour automatiquement par Nebula. Vous êtes créateur ? Préparez le vôtre avec vos vrais chiffres, gratuitement pour commencer."
 };
 
 export function PublicConversionBlock({

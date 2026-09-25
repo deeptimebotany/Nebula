@@ -7,6 +7,7 @@ import { assertBrandMembership } from "@/lib/brand-access";
 import { getBrandPlan } from "@/lib/billing/plan";
 import { isAiEnabled, analyzeVideoRetentionByThumbnail } from "@/lib/ai/gemini";
 import { fetchRetention, fetchVideoMetadata } from "@/lib/social/youtube";
+import { downloadMedia } from "@/lib/social/base";
 
 // GET/POST /api/ai/analyze-channel-video — version autonome de
 // /api/ai/analyze-video (voir ce fichier) : au lieu d'un postTargetId
@@ -73,10 +74,12 @@ export async function POST(req: NextRequest) {
       fetchVideoMetadata(connection, videoId)
     ]);
 
-    const thumbRes = await fetch(metadata.thumbnailUrl);
-    if (!thumbRes.ok) throw new Error("Impossible de récupérer la miniature de la vidéo.");
-    const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
-    const thumbnailMimeType = thumbRes.headers.get("content-type") || "image/jpeg";
+    // Délai garanti (lot 9) : une miniature lente ne bloque plus la fonction.
+    const thumb = await downloadMedia("YOUTUBE", metadata.thumbnailUrl, 15_000).catch(() => {
+      throw new Error("Impossible de récupérer la miniature de la vidéo.");
+    });
+    const thumbBuffer = Buffer.from(thumb.bytes);
+    const thumbnailMimeType = thumb.type.startsWith("image/") ? thumb.type : "image/jpeg";
 
     const sorted = [...retentionCurve].sort((a, b) => a.timeRatio - b.timeRatio);
     const deltas = sorted.slice(1).map((p, i) => ({ point: p, delta: sorted[i].watchRatio - p.watchRatio }));

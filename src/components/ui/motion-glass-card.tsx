@@ -8,9 +8,10 @@
 // scrubber du Calendrier) : le reste de l'appli garde .glass-panel-hover
 // (CSS pur, moins coûteux) pour ne pas alourdir chaque carte de la liste.
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { useRef, type HTMLAttributes } from "react";
 import { clsx } from "@/lib/clsx";
+import { MotionRoot } from "@/components/motion/motion-root";
 
 export function MotionGlassCard({
   className,
@@ -38,20 +39,22 @@ export function MotionGlassCard({
   }
 
   return (
-    <motion.div
-      ref={ref}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      whileHover={{ y: -4, scale: 1.01 }}
-      transition={{ type: "spring", stiffness: 300, damping: 24 }}
-      style={{
-        transform: "perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
-        transformStyle: "preserve-3d"
-      }}
-      className={clsx("glass-panel rounded-2xl p-5", glow && "glow-border-spin", className)}
-      {...(props as Record<string, unknown>)}
-    >
-      {children}
-    </motion.div>
+    <MotionRoot>
+      <motion.div
+        ref={ref}
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+        whileHover={{ y: -4, scale: 1.01 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        style={{
+          transform: "perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
+          transformStyle: "preserve-3d"
+        }}
+        className={clsx("glass-panel rounded-2xl p-5", glow && "glow-border-spin", className)}
+        {...(props as Record<string, unknown>)}
+      >
+        {children}
+      </motion.div>
+    </MotionRoot>
   );
 }

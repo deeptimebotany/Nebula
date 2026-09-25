@@ -11,6 +11,8 @@ import { getBrandPlan } from "@/lib/billing/plan";
 import { FRAME_NONE, MILLION_FOLLOWERS_EGG, bioCardSize, findBioFrame, frameFitsTheme, unlockedFrameKeys } from "@/lib/bio-frames";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
+import { invalidateMediaKit } from "@/lib/media-kit/cache";
 
 // Cadres de page bio débloqués par CE compte (easter eggs trouvés). Le
 // compte propriétaire les a tous seulement en mode « Tout déverrouillé »
@@ -170,5 +172,9 @@ export async function PATCH(req: NextRequest) {
 
   // Réussites : « Vitrine » (page bio publiée).
   if (data.published === true) await refreshReussites(userId);
+  // Page publique à jour immédiatement (cache, audit performance lot 4).
+  await invalidateLinkPage(brandId);
+  // Nom et logo de la marque, partagés avec le media kit public.
+  if (brand) await invalidateMediaKit(brandId);
   return NextResponse.json({ linkPage, brand, frameReset });
 }

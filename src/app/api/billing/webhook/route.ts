@@ -4,6 +4,8 @@ import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { trackGrowth } from "@/lib/growth";
 import { rewardOnFirstPayment, flushBonusMonths } from "@/lib/billing/rewards";
 import type Stripe from "stripe";
+import { invalidateAllLinkPages } from "@/lib/link-in-bio-cache";
+import { invalidateAllMediaKits } from "@/lib/media-kit/cache";
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
 // confirmé, abonnement modifié/annulé) et met à jour la table Subscription
@@ -178,6 +180,14 @@ export async function POST(req: NextRequest) {
     }
     default:
       break;
+  }
+
+  // Abonnement créé, modifié ou terminé : les pages bio publiques (thème
+  // premium, nombre de liens) sont recalculées à la prochaine visite.
+  if (event.type.startsWith("customer.subscription.") || event.type === "checkout.session.completed") {
+    invalidateAllLinkPages();
+    // Media kits : leur publication dépend du palier.
+    invalidateAllMediaKits();
   }
 
   return NextResponse.json({ received: true });

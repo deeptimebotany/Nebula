@@ -1,11 +1,12 @@
 // Nebula — schéma de données
 //
-// Provider par défaut : SQLite (zéro configuration pour démarrer en local).
-// Pour la production, remplacez le provider par "postgresql" et DATABASE_URL
-// par votre chaîne de connexion Postgres (Railway, Supabase, Neon, RDS...).
-// Note : SQLite ne supporte pas les enums natifs, on utilise donc des
-// champs String contraints par les types TypeScript / Zod côté application
-// (voir src/lib/types.ts) — ce choix reste valable si vous migrez vers Postgres.
+// Base : PostgreSQL (Neon en production). Le schéma évolue par MIGRATIONS
+// (dossier prisma/migrations) : après une modification de ce fichier, lancez
+// « npx prisma migrate dev --name description_courte » sur une base de dev,
+// committez le dossier créé ; le déploiement l'applique tout seul
+// (scripts/db-migrate.mjs). Ne plus utiliser « prisma db push » en production.
+// Les statuts restent des champs String contraints par les types TypeScript /
+// Zod côté application (voir src/lib/types.ts), plutôt que des enums natifs.
 
 generator client {
   provider = "prisma-client-js"
@@ -41,6 +42,10 @@ model User {
   pendingAdAuths PendingAdAuth[]
   achievementUnlocks AchievementUnlock[]
   challengeCompletions ChallengeCompletion[]
+  weeklyMissions     WeeklyMissions[]
+  reussiteItems      ReussiteItem[]
+  featuredVideos     FeaturedVideo[]
+  studioGenerations  StudioGeneration[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
@@ -142,6 +147,31 @@ model User {
   passwordResetTokenHash      String?   @unique
   passwordResetTokenExpiresAt DateTime?
 
+  // Vérification de l'adresse e-mail (audit sécurité, lot 1). Avant, un
+  // inconnu pouvait créer un compte avec l'adresse de quelqu'un d'autre
+  // (sans jamais prouver qu'il la possède), et ce compte était ensuite
+  // ouvert à la vraie personne lors de son « Continuer avec Google », mot de
+  // passe de l'inconnu compris.
+  // - emailVerifiedAt : date de confirmation. Valeur par défaut « maintenant »
+  //   pour que les comptes existants (créés avant cette vérification) ne
+  //   soient pas bloqués ; l'inscription par mot de passe la met à null
+  //   jusqu'au clic sur le lien reçu par e-mail. Google/Apple : confirmée
+  //   d'office quand le fournisseur garantit l'adresse (email_verified).
+  // - emailVerifyTokenHash : hash SHA-256 du jeton envoyé par e-mail (jamais
+  //   le jeton en clair, comme pour la réinitialisation du mot de passe).
+  emailVerifiedAt           DateTime? @default(now())
+  emailVerifyTokenHash      String?   @unique
+  emailVerifyTokenExpiresAt DateTime?
+  // Compteur de sessions : l'augmenter déconnecte immédiatement toutes les
+  // sessions ouvertes de ce compte (voir le rappel jwt de src/lib/auth.ts).
+  // Augmenté à la réinitialisation du mot de passe et quand un compte non
+  // confirmé est repris par le vrai propriétaire de l'adresse.
+  sessionVersion            Int       @default(0)
+  // Identifiant Facebook du compte qui s'est connecté via « Continuer avec
+  // Meta » : Facebook ne garantit pas que l'adresse e-mail transmise a été
+  // vérifiée, on ne relie donc un compte existant QUE par cet identifiant.
+  facebookLoginId           String?   @unique
+
   // --- Croissance (brief growth du 23/09/2026) ---
   // Attribution « premier contact » : copiée depuis le cookie nb_attr posé
   // par src/middleware.ts au moment de l'inscription (formulaire ou
@@ -190,7 +220,8 @@ model User {
   referralPromptsSeen Json?
 
   // --- Réussites (niveaux de créateur) ---
-  // Copie à jour du total d'XP et du niveau (voir src/lib/reussites/engine.ts),
+  // Copie à jour du total d'XP et du rang (voir src/lib/reussites/engine.ts ;
+  // creatorLevel = palier de rang 1 à 15 depuis Réussites v2, 1 à 8 avant),
   // recalculée à chaque évaluation : sert au menu, au tableau de bord et au
   // badge de niveau dans la Communauté sans refaire les sommes à chaque fois.
   creatorXp          Int       @default(0)
@@ -199,6 +230,15 @@ model User {
   // dernière visite de la page Réussites (compteur du menu).
   reussitesCheckedAt DateTime?
   reussitesSeenAt    DateTime?
+  // Vitrine (Réussites v2, lot B) : jusqu'à 3 badges gagnés choisis par le
+  // créateur (clés d'accomplissement ou d'étoile), montrés à côté de son nom
+  // dans la Communauté et sur sa carte de créateur.
+  showcase           String[]  @default([])
+  // Lot C : accord pour que ses vidéos partagées dans la Communauté puissent
+  // être mises « à la une » (retirable à tout moment), et nombre d'outils
+  // gratuits essayés avant l'inscription (badge Explorateur).
+  featureConsent     Boolean   @default(false)
+  toolsExplored      Int       @default(0)
   lifecycleEmailsSent LifecycleEmail[]
   growthEvents        GrowthEvent[]
   // Accès offert (partenaires, streamers, testeurs — décision du
@@ -232,6 +272,10 @@ model PartnerGrant {
   user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([email])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([userId])
 }
 
 // Onglet "Succès" (voir /succes) : chaque ligne = un easter egg trouvé par un
@@ -283,6 +327,8 @@ model Brand {
   report         BrandReport?
   calendarShare  CalendarShare?
   adAccounts     AdAccount[]
+  studioGenerations StudioGeneration[]
+  mediaKit       MediaKit?
 }
 
 // Calendrier client en lecture seule (produit n°7 de la feuille de route) :
@@ -406,6 +452,10 @@ model Membership {
   brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([userId, brandId])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([brandId, role])
 }
 
 // network : "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "YOUTUBE" | "BLUESKY" (+ plus tard "X" | "LINKEDIN")
@@ -433,6 +483,12 @@ model SocialConnection {
   // Idem pour la page Engagements (métriques par publication : likes,
   // partages…) — voir /api/engagements/sync.
   lastMetricsSyncedAt DateTime?
+  // Identifiant de la PERSONNE qui a donné l'autorisation chez le réseau
+  // (lot 2, fiabilité) : compte Facebook pour Instagram/Facebook, compte
+  // Threads pour Threads. Sert aux rappels de Meta « application retirée » /
+  // « suppression des données » (voir /api/meta/*), qui ne donnent que cet
+  // identifiant. Vide pour les connexions faites avant cette mise à jour.
+  authUserId        String?
   brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   targets           PostTarget[]
   analytics         AnalyticsSnapshot[]
@@ -441,6 +497,7 @@ model SocialConnection {
   postMetrics       PostMetric[]
 
   @@unique([brandId, network, externalAccountId])
+  @@index([authUserId])
 }
 
 // Métriques d'ENGAGEMENT par publication (page /engagements) : likes,
@@ -493,9 +550,17 @@ model MediaAsset {
   width           Int?
   height          Int?
   thumbnailUrl    String?
+  // Source d'un média importé (Réussites v2) : « gdrive », « dropbox »,
+  // « onedrive », « unsplash », « canva » ou « api » ; null = envoyé depuis
+  // l'appareil. Sert aux missions « publier un média importé ».
+  importSource    String?
   createdAt       DateTime    @default(now())
   brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
   postMedia       PostMedia[]
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([brandId, createdAt])
 }
 
 // status : "DRAFT" | "SCHEDULED" | "PUBLISHING" | "PUBLISHED" | "FAILED" | "PARTIAL"
@@ -522,6 +587,11 @@ model Post {
   sourceMediaUrl      String?
   sourceMediaAttempts Int       @default(0)
   importedAt          DateTime?
+  // Début de la publication en cours (lot 2, fiabilité) : posé au moment
+  // où un passage du cron (ou « Publier maintenant ») PREND la publication,
+  // de façon atomique — deux passages simultanés ne peuvent plus publier le
+  // même post deux fois. Sert aussi à repérer une publication interrompue.
+  publishingStartedAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
@@ -530,6 +600,14 @@ model Post {
   targets      PostTarget[]
   messages     PostMessage[]
   approval     PostApproval?
+
+  @@index([status, scheduledAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([brandId, scheduledAt])
+  @@index([brandId, createdAt])
+  @@index([createdById, status])
 }
 
 model PostMedia {
@@ -539,6 +617,11 @@ model PostMedia {
   order        Int        @default(0)
   post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
   mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([postId])
+  @@index([mediaAssetId])
 }
 
 // network : voir SocialConnection.network
@@ -563,9 +646,41 @@ model PostTarget {
   errorMessage     String?
   attempts         Int               @default(0)
   publishedAt      DateTime?
+  // Publication « en traitement » chez le réseau (lot 2, fiabilité) :
+  // Instagram, TikTok, Threads, LinkedIn et Pinterest traitent les vidéos
+  // de leur côté pendant de longues minutes. Au lieu d'attendre dans la
+  // requête (coupée par Vercel) ou de déclarer un succès à l'aveugle, la
+  // cible passe à PROCESSING avec son point de reprise (checkpoint : id du
+  // conteneur, du publish_id…) et le cron la termine plus tard.
+  checkpoint       Json?
+  nextCheckAt      DateTime?
+  processingSince  DateTime?
+  // Appel en cours vers le réseau depuis… (repère les publications
+  // interrompues par un arrêt de la fonction).
+  startedAt        DateTime?
+  // Résilience des API (lot 5) : catégorie de la dernière erreur (voir
+  // src/lib/social/errors.ts — AUTH_EXPIRED, RATE_LIMITED, TRANSIENT…, ou
+  // PAUSED quand le réseau est suspendu) et nombre de relances automatiques
+  // déjà faites. Statut RETRY_WAIT : nouvel essai prévu à nextCheckAt.
+  errorCategory    String?
+  autoRetries      Int               @default(0)
+  // Début du dernier envoi vers le réseau (lot 6) : fenêtre de recherche
+  // de la vérification « déjà en ligne ? » (voir social/reconcile.ts).
+  lastAttemptAt    DateTime?
+  // Miniature choisie dans Publier, envoyée au réseau (YouTube, lot B des
+  // Réussites) : « APPLIED », « REFUSED » (chaîne non vérifiée…),
+  // « UNSUPPORTED » (format ou poids refusé) ou « FAILED ». null = aucune.
+  thumbnailStatus  String?
   post             Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
   connection       SocialConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   insights         VideoInsight[]
+
+  @@index([status, nextCheckAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([postId])
+  @@index([connectionId, status])
 }
 
 // Analyse IA de la performance d'une publication vidéo (rétention YouTube +
@@ -650,6 +765,10 @@ model EngagementItem {
   permalink       String?
   publishedAt     DateTime?
   read            Boolean          @default(false)
+  // Réponse du compte lui-même repérée à la synchro (Réussites v2, lot B) :
+  // date de la première réponse du compte à ce commentaire, d'où qu'elle
+  // ait été écrite (appli du réseau ou autre). null = pas de réponse vue.
+  ownerRepliedAt  DateTime?
   createdAt       DateTime         @default(now())
   connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
@@ -679,6 +798,10 @@ model ForumThread {
   reactions CommunityReaction[]
 
   @@index([createdAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([authorId])
 }
 
 model ForumReply {
@@ -692,6 +815,10 @@ model ForumReply {
   reactions CommunityReaction[]
 
   @@index([threadId, createdAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([authorId])
 }
 
 // Contenu éditorial fixe (pas d'auteur "utilisateur") — géré via le script de
@@ -722,8 +849,65 @@ model SharedVideo {
   note         String?
   createdAt    DateTime @default(now())
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  featured     FeaturedVideo[]
 
   @@index([createdAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([authorId])
+}
+
+// Vidéo à la une dans la Communauté (Réussites v2, lot C) : 7 jours, 3 à la
+// fois, seulement une vidéo déjà partagée par un créateur qui l'accepte
+// (User.featureConsent). Gagnée au rang Constellation ou dans le coffre
+// (objet « feature » de ReussiteItem), ou choisie par le propriétaire du
+// site. Retirable par le créateur et par le propriétaire (removedAt).
+// source : « rank » | « chest » | « admin ».
+model FeaturedVideo {
+  id            String      @id @default(cuid())
+  userId        String
+  sharedVideoId String
+  source        String
+  startsAt      DateTime
+  endsAt        DateTime
+  removedAt     DateTime?
+  removedBy     String?
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedVideo   SharedVideo @relation(fields: [sharedVideoId], references: [id], onDelete: Cascade)
+
+  @@index([endsAt])
+  @@index([userId])
+  @@index([sharedVideoId])
+}
+
+// Défi collectif du mois (Réussites v2, lot C) : un objectif commun à tous
+// les créateurs (vidéos mises en ligne dans le mois). Objectif automatique
+// (mois précédent + 10 %, minimum 10) ou fixé par le propriétaire du site.
+// reachedAt : objectif atteint (chaque participant reçoit le badge
+// collectif du mois, ChallengeCompletion kind « COLLECTIVE »).
+model CollectiveChallenge {
+  id        String    @id @default(cuid())
+  month     String    @unique
+  metric    String    @default("videos")
+  target    Int
+  source    String    @default("auto")
+  reachedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Rareté réelle des badges (Réussites v2, lot C) : part des créateurs
+// (comptes ayant publié au moins une fois) qui ont chaque accomplissement
+// ou étoile. Recalculée une fois par jour par le cron ; jamais par
+// personne, seulement des totaux.
+model BadgeRarity {
+  key        String   @id
+  owners     Int
+  creators   Int
+  share      Float
+  computedAt DateTime @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -886,6 +1070,10 @@ model PollVote {
 
   @@unique([pollId, userId])
   @@index([optionId])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
@@ -920,6 +1108,89 @@ model LifecycleEmail {
 
   @@unique([email, key])
   @@index([email, sentAt])
+
+  // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
+  // n'indexe pas les clés étrangères tout seul.
+  @@index([userId])
+}
+
+// Studio IA (produit n°9, page /studio) : idées + accroches, ou script de
+// vidéo, écrits par Gemini à partir de ce qui marche déjà pour la marque.
+// Historique gardé (50 derniers par marque) : revoir un résultat ne coûte
+// aucune génération. Quota par jour et par compte : Pro 15, Agence 40
+// (compté sur ces lignes). `sources` = les publications citées, avec leurs
+// chiffres au moment de la génération (jamais tirés du texte de l'IA).
+model StudioGeneration {
+  id        String   @id @default(cuid())
+  brandId   String
+  userId    String
+  kind      String // "ideas" | "script"
+  input     Json
+  output    Json
+  sources   Json?
+  createdAt DateTime @default(now())
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Media kit public (produit n°10, /kit/[slug]) : la page que le créateur
+// envoie aux marques et aux sponsors. Une ligne par marque, créée au premier
+// accès à l'éditeur (/media-kit). Les CHIFFRES ne sont jamais stockés ici :
+// ils sont recalculés depuis AnalyticsSnapshot et PostMetric (relevés par les
+// API officielles), et le créateur ne peut pas les modifier ; il choisit
+// seulement les comptes et les publications affichés, et écrit le texte.
+// Publier est réservé aux paliers Pro et Agence (mediaKitEnabled).
+model MediaKit {
+  id                 String    @id @default(cuid())
+  brandId            String    @unique
+  brand              Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  published          Boolean   @default(false)
+  headline           String    @default("")
+  about              String    @default("")
+  contactEmail       String?
+  // Identifiants de SocialConnection masqués sur le kit (tous affichés par défaut).
+  hiddenConnectionIds Json     @default("[]")
+  // Identifiants de PostMetric mis en avant, dans l'ordre ; vide = choix automatique.
+  featuredPostIds    Json      @default("[]")
+  // Offres : [{ label, price }] (6 au plus), texte libre du créateur.
+  offers             Json      @default("[]")
+  // Ouvertures du kit (un visiteur compté une fois par jour, sans cookie ;
+  // les membres de la marque ne comptent pas).
+  views              Int       @default(0)
+  lastViewedAt       DateTime?
+  publishedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// Audit de présence en ligne (produit n°8, outil public /outils/audit) :
+// rapport partageable par lien secret (/audit/[token]), fait uniquement de
+// données publiques. Conservé 30 jours (purge par le cron), supprimable par
+// quiconque a le lien. Ni adresse e-mail ni IP en clair (empreinte de l'IP
+// pour le quota). Mêmes comptes dans les 24 h : le rapport existant est
+// resservi (inputKey). `result` suit AuditResult (src/lib/audit/types.ts),
+// `advice` les paragraphes de Gemini, écrits après coup (2 essais au plus).
+model PublicAudit {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  inputKey       String
+  input          Json
+  result         Json
+  score          Int?
+  // Sources lues avec succès (« youtube,website »).
+  sources        String
+  advice         Json?
+  adviceAttempts Int       @default(0)
+  ipHash         String
+  emailSentAt    DateTime?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+
+  @@index([inputKey, createdAt])
+  @@index([expiresAt])
 }
 
 // Résultat d'un outil gratuit (légende, miniature…) mis de côté le temps
@@ -948,6 +1219,13 @@ model ToolLead {
   consent   Boolean  @default(false)
   ipHash    String?
   createdAt DateTime @default(now())
+  // Double confirmation (audit sécurité, lot 1) : avant, n'importe qui
+  // pouvait inscrire l'adresse d'un tiers et lui faire envoyer 3 e-mails.
+  // confirmationSentAt : e-mail « Confirmez votre inscription » envoyé ;
+  // la séquence de conseils ne part qu'après le clic (confirmedAt). Les
+  // leads antérieurs (les deux dates vides) gardent l'ancien fonctionnement.
+  confirmationSentAt DateTime?
+  confirmedAt        DateTime?
 
   @@index([email])
   @@index([createdAt])
@@ -1196,6 +1474,55 @@ model AchievementUnlock {
   @@index([userId, unlockedAt])
 }
 
+// Missions de la semaine (Réussites v2, 26/09/2026) : une ligne par compte
+// et par semaine, créée à la première évaluation de la semaine. Le choix est
+// figé pour la semaine : Habitude (objectif réglé sur le rythme du compte),
+// Progression (choisie parmi 3, un changement permis), Mystère (révélée
+// quand les deux autres sont faites, ou le jeudi). Les missions réussies
+// sont des ChallengeCompletion de kind « MISSION » (challengeKey
+// « mission-habit » / « mission-progress » / « mission-mystery ») ; le
+// coffre ouvert, une ChallengeCompletion de kind « CHEST ».
+model WeeklyMissions {
+  id            String    @id @default(cuid())
+  userId        String
+  week          String
+  habitKey      String
+  habitTarget   Int
+  choices       String[]
+  progressKey   String
+  swapsUsed     Int       @default(0)
+  mysteryKey    String
+  revealedAt    DateTime?
+  chestOpenedAt DateTime?
+  chestItem     String?
+  // Bilan de la semaine (lot B) : fait le…, et le cap choisi pour la
+  // semaine (« format », « slot », « rhythm » ou « new »).
+  reviewedAt    DateTime?
+  reviewFocus   String?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, week])
+}
+
+// Objets des Réussites (boucliers de série, fragments d'étoile filante) :
+// un mouvement par ligne (+1 gagné, -1 utilisé), le solde est la somme.
+// reason est unique par compte : un même gain ou une même dépense ne peut
+// jamais être compté deux fois (« chest:2026-W39 », « streak:2917:8 »,
+// « protect:2918 »).
+model ReussiteItem {
+  id        String   @id @default(cuid())
+  userId    String
+  item      String
+  qty       Int
+  reason    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reason])
+  @@index([userId, item])
+}
+
 // Défi de la semaine ou du mois réussi. period = « 2026-W39 » ou « 2026-09 ».
 model ChallengeCompletion {
   id           String    @id @default(cuid())
@@ -1210,4 +1537,43 @@ model ChallengeCompletion {
 
   @@unique([userId, period, challengeKey])
   @@index([userId, completedAt])
+}
+
+// Demandes de suppression de données reçues de Meta (lot 2) : Facebook,
+// Instagram ou Threads appellent /api/meta/data-deletion quand une personne
+// supprime l'application de ses paramètres et demande l'effacement de ses
+// données. L'identifiant est le code de confirmation montré à la personne
+// (page /suppression-donnees?code=…).
+model DataDeletionRequest {
+  id          String    @id
+  provider    String
+  status      String    @default("RECEIVED")
+  connections Int       @default(0)
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+}
+
+// Interrupteurs par réseau et disjoncteur (lot 5, résilience des API).
+// Une ligne par réseau, créée à la première utilisation. Pilotable depuis
+// /admin/reseaux sans redéploiement :
+//  - publishEnabled / syncEnabled : suspendre la publication ou la synchro
+//    des statistiques sur un réseau (incident, changement d'API…) ; les
+//    publications en attente repartent seules à la réactivation ;
+//  - disjoncteur automatique : après plusieurs pannes rapprochées chez le
+//    réseau, les envois sont mis en pause quelques minutes (trippedUntil)
+//    au lieu d'échouer les uns après les autres.
+model NetworkControl {
+  network             String    @id
+  publishEnabled      Boolean   @default(true)
+  syncEnabled         Boolean   @default(true)
+  // Message montré aux utilisateurs pendant une suspension manuelle.
+  message             String?
+  failureCount        Int       @default(0)
+  failureWindowStart  DateTime?
+  trippedUntil        DateTime?
+  lastFailureAt       DateTime?
+  lastFailureCategory String?
+  lastFailureMessage  String?
+  lastSuccessAt       DateTime?
+  updatedAt           DateTime  @updatedAt
 }

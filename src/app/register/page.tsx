@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   description: "Créez votre espace Nebula gratuitement : planification, publication multi-réseaux et analytics en un seul endroit."
 };
 
+// CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
+// rendu à chaque visite, jamais pré-généré.
+export const dynamic = "force-dynamic";
+
 // Composant serveur : si une session valide existe déjà, on saute
 // directement au tableau de bord au lieu de réafficher l'inscription.
 export default async function RegisterPage() {

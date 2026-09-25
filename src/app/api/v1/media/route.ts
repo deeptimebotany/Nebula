@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!res.ok) throw new ImportError(`Le serveur du média a répondu ${res.status}.`, 502);
     const current = res.url || parsed.data.url;
     const name = parsed.data.filename || decodeURIComponent(new URL(current).pathname.split("/").pop() || "media");
-    const asset = await storeDownloadedMedia(brand.id, res, name);
+    const asset = await storeDownloadedMedia(brand.id, res, name, null, "api");
     return apiJson({ data: { id: asset.id, url: asset.url, type: asset.type, mimeType: asset.mimeType, filename: asset.filename } }, 201);
   } catch (err) {
     if (err instanceof UnsafeUrlError) return apiError(400, "unsafe_url", err.message);

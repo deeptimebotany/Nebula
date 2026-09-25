@@ -3,7 +3,8 @@
 // Meilleur moment pour publier (brief growth, lot G4.c) — tableau STATIQUE
 // d'ordres de grandeur par réseau, daté et sourcé, converti dans le fuseau
 // choisi. Sans IA : n'entame pas le quota Gemini.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { markToolExplored } from "@/lib/tools-explored";
 import { ToolPage } from "@/components/tools/tool-page";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconClock } from "@/components/dashboard/icons";
@@ -56,6 +57,10 @@ export default function MeilleurMomentPage() {
   const [network, setNetwork] = useState<ToolNetwork>("INSTAGRAM");
   const [tz, setTz] = useState("Europe/Paris");
   const rows = useMemo(() => SLOTS[network].map((s) => ({ ...s, hours: s.hours.map((h) => shiftHour(h, "Europe/Paris", tz)) })), [network, tz]);
+  // Badge Explorateur (Réussites, lot C) : la page EST le résultat (tableau des créneaux).
+  useEffect(() => {
+    markToolExplored();
+  }, []);
 
   return (
     <ToolPage
@@ -68,6 +73,7 @@ export default function MeilleurMomentPage() {
       }
       faq={FAQ}
       related={[
+        { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/taux-engagement", title: "Calculateur de taux d'engagement" },
         { href: "/outils/legendes", title: "Générateur de légendes" },
         { href: "/outils/titre-youtube", title: "Testeur de titre YouTube" }

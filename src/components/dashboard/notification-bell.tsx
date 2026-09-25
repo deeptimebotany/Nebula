@@ -30,7 +30,14 @@ interface NotificationItem {
 type Filter = "all" | "fix" | "pub" | "win" | "news";
 
 const SEEN_KEY = "nebula:notifications-seen-at";
-const POLL_MS = 60_000;
+// Toutes les 5 minutes (au lieu de chaque minute) : chaque appel réveille la
+// base Neon, qui peut ainsi se mettre en veille quand personne n'agit. Le
+// retour sur l'onglet et chaque succès débloqué rafraîchissent tout de suite
+// (audit performance, lot 4).
+const POLL_MS = 5 * 60_000;
+// Écart minimal entre deux rafraîchissements déclenchés par le retour sur
+// l'onglet (focus + visibilitychange arrivent souvent ensemble).
+const REFRESH_GAP_MS = 15_000;
 const FIX_KINDS = new Set(["publish_failed", "reconnect"]);
 
 function readSeenAt(): string | null {
@@ -179,25 +186,34 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Compteur : au chargement, toutes les minutes tant que l'onglet est
+  // Compteur : au chargement, toutes les 5 minutes tant que l'onglet est
   // visible, au retour sur l'onglet, et juste après un succès débloqué.
   useEffect(() => {
+    let lastRefresh = Date.now();
     refreshBadge();
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") refreshBadge();
+      if (document.visibilityState !== "visible") return;
+      lastRefresh = Date.now();
+      refreshBadge();
     }, POLL_MS);
-    const onFocus = () => refreshBadge();
+    const onBack = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastRefresh < REFRESH_GAP_MS) return;
+      lastRefresh = Date.now();
+      refreshBadge();
+    };
     let achievementTimer: number | undefined;
     const onAchievement = () => {
       window.clearTimeout(achievementTimer);
       achievementTimer = window.setTimeout(refreshBadge, 1500);
     };
-    window.addEventListener("focus", onFocus);
+    window.addEventListener("focus", onBack);
+    document.addEventListener("visibilitychange", onBack);
     window.addEventListener("nebula:achievement", onAchievement);
     return () => {
       window.clearInterval(timer);
       window.clearTimeout(achievementTimer);
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", onBack);
+      document.removeEventListener("visibilitychange", onBack);
       window.removeEventListener("nebula:achievement", onAchievement);
     };
   }, [refreshBadge]);

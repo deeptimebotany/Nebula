@@ -5,6 +5,7 @@ import { generatePasswordResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { publicAppUrl } from "@/lib/account-security";
 
 const schema = z.object({
   email: z.string().email(),
@@ -46,8 +47,9 @@ export async function POST(req: NextRequest) {
     data: { passwordResetTokenHash: tokenHash, passwordResetTokenExpiresAt: expiresAt }
   });
 
-  const origin = new URL(req.url).origin;
-  const resetUrl = `${origin}/reset-password?token=${rawToken}`;
+  // Adresse du site fixe (jamais l'en-tête Host de la requête, qu'un proxy
+  // mal configuré laisserait falsifier pour détourner le lien).
+  const resetUrl = `${publicAppUrl()}/reset-password?token=${rawToken}`;
   const result = await sendPasswordResetEmail(user.email, resetUrl);
 
   if (!result.ok) {

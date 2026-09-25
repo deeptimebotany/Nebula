@@ -1,0 +1,9 @@
+{
+  "data": [
+    { "name": "views", "period": "day", "values": [{ "value": 10, "end_time": "2026-09-23T07:00:00+0000" }, { "value": 15, "end_time": "2026-09-24T07:00:00+0000" }], "title": "views", "description": "Vues du profil.", "id": "26123456789012345/insights/views/day" },
+    { "name": "likes", "period": "day", "title": "likes", "description": "J'aime.", "total_value": { "value": 7 }, "id": "26123456789012345/insights/likes/day" },
+    { "name": "replies", "period": "day", "title": "replies", "description": "Réponses.", "total_value": { "value": 2 }, "id": "26123456789012345/insights/replies/day" },
+    { "name": "reposts", "period": "day", "title": "reposts", "description": "Republications.", "total_value": { "value": 1 }, "id": "26123456789012345/insights/reposts/day" },
+    { "name": "quotes", "period": "day", "title": "quotes", "description": "Citations.", "total_value": { "value": 0 }, "id": "26123456789012345/insights/quotes/day" }
+  ]
+}

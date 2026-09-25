@@ -51,14 +51,14 @@ export async function POST(req: NextRequest) {
         if (!gdriveConfig()) throw new ImportError("Google Drive n'est pas configuré.", 503);
         const headers = { Authorization: `Bearer ${input.accessToken}` };
         const res = await fetchFromAllowedHost(`https://www.googleapis.com/drive/v3/files/${input.fileId}?alt=media&supportsAllDrives=true`, ALLOWED_HOSTS.gdrive, { headers });
-        const asset = await storeDownloadedMedia(input.brandId, res, input.filename || "google-drive", input.mimeType);
+        const asset = await storeDownloadedMedia(input.brandId, res, input.filename || "google-drive", input.mimeType, "gdrive");
         return NextResponse.json({ asset });
       }
       case "dropbox": {
         if (!dropboxConfig()) throw new ImportError("Dropbox n'est pas configuré.", 503);
         const res = await fetchFromAllowedHost(input.url, ALLOWED_HOSTS.dropbox);
         const fallback = decodeURIComponent(new URL(input.url).pathname.split("/").pop() || "dropbox");
-        const asset = await storeDownloadedMedia(input.brandId, res, input.filename || fallback);
+        const asset = await storeDownloadedMedia(input.brandId, res, input.filename || fallback, null, "dropbox");
         return NextResponse.json({ asset });
       }
       case "onedrive": {
@@ -67,14 +67,14 @@ export async function POST(req: NextRequest) {
         const item = await oneDriveItem(token, input.itemId);
         if (item.kind !== "image" && item.kind !== "video") throw new ImportError("Choisissez une image ou une vidéo.", 415);
         const res = await fetchFromAllowedHost(`${GRAPH}/me/drive/items/${input.itemId}/content`, ALLOWED_HOSTS.onedrive, { headers: { Authorization: `Bearer ${token}` } });
-        const asset = await storeDownloadedMedia(input.brandId, res, item.name, item.mimeType);
+        const asset = await storeDownloadedMedia(input.brandId, res, item.name, item.mimeType, "onedrive");
         return NextResponse.json({ asset });
       }
       case "unsplash": {
         if (!isUnsplashConfigured()) throw new ImportError("Unsplash n'est pas configuré.", 503);
         const prepared = await prepareUnsplashImport(input.photoId);
         const res = await fetchFromAllowedHost(prepared.fileUrl, ALLOWED_HOSTS.unsplash);
-        const asset = await storeDownloadedMedia(input.brandId, res, prepared.filename, "image/jpeg");
+        const asset = await storeDownloadedMedia(input.brandId, res, prepared.filename, "image/jpeg", "unsplash");
         return NextResponse.json({ asset, credit: prepared.credit });
       }
     }

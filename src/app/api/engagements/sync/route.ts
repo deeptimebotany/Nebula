@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
+import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
 
 // « Actualiser » de la page /engagements : interroge l'API de chaque réseau
 // (SocialClient.fetchPostMetrics) pour les comptes d'une marque, ou pour un
@@ -34,6 +35,11 @@ export async function POST(req: NextRequest) {
     const client = getSocialClient(connection.network as Network);
     if (!client.fetchPostMetrics) {
       results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: 0, unsupported: true });
+      continue;
+    }
+    const blocked = await syncBlockedReason(connection.network);
+    if (blocked) {
+      results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: 0, error: blocked });
       continue;
     }
     try {
@@ -75,9 +81,10 @@ export async function POST(req: NextRequest) {
         }
       }
       await prisma.socialConnection.update({ where: { id: connection.id }, data: { lastMetricsSyncedAt: now } });
+      await onSyncSuccess(connection);
       results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: inputs.length });
     } catch (err) {
-      results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: 0, error: (err as Error).message });
+      results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: 0, error: await onSyncError(connection, err) });
     }
   }
 

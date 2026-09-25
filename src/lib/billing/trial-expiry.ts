@@ -3,7 +3,7 @@
 //   - liens de page bio au-delà de la limite Gratuit : conservés mais
 //     DÉSACTIVÉS (grisés « Pro » dans l'éditeur) ;
 //   - rapports et calendrier client : dépubliés (la page publique affiche
-//     « n'est plus partagé ») ;
+//     « n'est plus partagé ») ; media kit : dépublié (réglages gardés) ;
 //   - marques au-delà de la limite : lecture seule, appliquée à la volée par
 //     assertBrandWritable() (ci-dessous) — rien à faire ici ;
 //   - Rétention IA et assistant : verrouillés par getUserPlan() ;
@@ -20,6 +20,9 @@ import { PLAN_LIMITS } from "@/lib/plans";
 import { getUserPlan } from "@/lib/billing/plan";
 import { trialEndDate } from "@/lib/trial";
 import { trackGrowth } from "@/lib/growth";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
+import { mediaKitDb } from "@/lib/media-kit/load";
+import { invalidateMediaKit } from "@/lib/media-kit/cache";
 
 export async function applyTrialExpirations(): Promise<{ applied: number }> {
   const now = new Date();
@@ -45,9 +48,16 @@ export async function applyTrialExpirations(): Promise<{ applied: number }> {
         const extra = page.links.slice(limit).map((l) => l.id);
         await prisma.linkItem.updateMany({ where: { id: { in: extra } }, data: { enabled: false } });
       }
+      // Page bio publique : liens désactivés et thème premium retirés tout
+      // de suite plutôt qu'à l'expiration du cache (lot 4).
+      if (page) await invalidateLinkPage(brandId);
     }
     if (!PLAN_LIMITS.FREE.reportsEnabled) await prisma.brandReport.updateMany({ where: { brandId: { in: brandIds }, enabled: true }, data: { enabled: false } });
     if (!PLAN_LIMITS.FREE.calendarShareEnabled) await prisma.calendarShare.updateMany({ where: { brandId: { in: brandIds }, enabled: true }, data: { enabled: false } });
+    if (!PLAN_LIMITS.FREE.mediaKitEnabled) {
+      const { count } = await mediaKitDb.updateMany({ where: { brandId: { in: brandIds }, published: true }, data: { published: false } });
+      if (count) for (const brandId of brandIds) await invalidateMediaKit(brandId);
+    }
     await prisma.user.update({ where: { id: user.id }, data: { trialExpiredAppliedAt: now } });
     await trackGrowth("trial_ended", { brands: brandIds.length }, user.id);
     applied += 1;

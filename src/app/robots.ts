@@ -36,17 +36,24 @@ const DISALLOW = [
         "/reussites",
         "/reports",
         "/retention",
+        "/studio",
         "/interactions",
         "/comments",
         "/engagements",
         "/admin/",
         "/link-in-bio",
+        "/media-kit",
         "/dev-preview",
         "/forgot-password",
         "/reset-password",
         "/approve/",
         "/rapport/",
         "/calendrier/"
+        // Rapports d'audit de présence (/audit/<jeton>) et media kits
+        // (/kit/<marque>) : volontairement PAS bloqués ici. Les robots
+        // d'aperçu (X, LinkedIn) respectent ce fichier : bloqués, ils
+        // n'afficheraient ni titre ni image quand le lien est partagé. Les
+        // moteurs, eux, lisent la balise « noindex » de la page.
 ];
 
 export default function robots(): MetadataRoute.Robots {

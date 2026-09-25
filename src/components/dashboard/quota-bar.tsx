@@ -1,33 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { clsx } from "@/lib/clsx";
 import { isUnlimitedPlan } from "@/lib/plans";
 
 import type { BrandUsage } from "@/lib/billing/usage";
+import { useUsage } from "@/lib/data/hooks";
 
 /** Barre de progression « publications ce mois » affichée au-dessus du
  * calendrier — masquée pour les paliers illimités. Depuis le Lot 4, les
  * chiffres viennent de /api/billing/usage (une seule requête, mêmes règles
  * que le quota appliqué côté serveur) au lieu d'être recomptés ici. */
 export function QuotaBar({ brandId }: { brandId: string | undefined }) {
-  const [usage, setUsage] = useState<BrandUsage | null>(null);
-
-  useEffect(() => {
-    if (!brandId) return;
-    let cancelled = false;
-    fetch(`/api/billing/usage?brandId=${brandId}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d) setUsage(d as BrandUsage);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId]);
+  // Cache partagé avec Facturation et Comptes (lot 6), rafraîchi après
+  // chaque publication créée (voir refreshUsage).
+  const { usage } = useUsage<BrandUsage>(brandId);
 
   const plan = usage ? { plan: usage.plan, limits: usage.limits } : null;
   const used = usage?.postsThisMonth ?? 0;

@@ -33,9 +33,10 @@ export function useBootstrap() {
   return useContext(BootstrapContext);
 }
 
-export function BootstrapProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<BootstrapData | null>(null);
-  const [loaded, setLoaded] = useState(false);
+export function BootstrapProvider({ children, initialData }: { children: React.ReactNode; initialData?: BootstrapData }) {
+  // Lot 10 : données préparées par le layout (serveur) au premier affichage.
+  const [data, setData] = useState<BootstrapData | null>(initialData ?? null);
+  const [loaded, setLoaded] = useState(Boolean(initialData));
   const inflight = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(() => {
@@ -57,7 +58,9 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    // Déjà fourni par le serveur : pas de second chargement au démarrage.
+    if (!initialData) refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
 
   const patch = useCallback((partial: Partial<BootstrapData>) => {

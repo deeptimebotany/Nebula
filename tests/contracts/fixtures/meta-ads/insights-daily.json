@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "spend": "12.34", "impressions": "1500", "clicks": "40", "reach": "1200",
+      "actions": [
+        { "action_type": "link_click", "value": "40" },
+        { "action_type": "omni_purchase", "value": "2" },
+        { "action_type": "purchase", "value": "2" },
+        { "action_type": "lead", "value": "1" }
+      ],
+      "date_start": "2026-09-23", "date_stop": "2026-09-23"
+    },
+    { "spend": "0", "impressions": "0", "clicks": "0", "reach": "0", "date_start": "2026-09-24", "date_stop": "2026-09-24" }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD", "after": "MQZDZD" } }
+}

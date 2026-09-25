@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "id": "18000000000000001",
+      "text": "Nouveau menu d'automne ☕",
+      "permalink": "https://www.threads.net/@cafe.nebula/post/C0dEfGhIjKl",
+      "timestamp": "2026-09-24T08:15:30+0000",
+      "media_type": "TEXT_POST"
+    }
+  ],
+  "paging": { "cursors": { "before": "BEFORE", "after": "AFTER" } }
+}

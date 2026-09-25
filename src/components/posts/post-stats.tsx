@@ -62,7 +62,13 @@ function TargetRow({ t }: { t: TargetMetrics }) {
         )}
       </div>
       {t.status !== "PUBLISHED" ? (
-        <p className="mt-2 text-xs text-red-300">{t.status === "FAILED" ? `Pas en ligne : ${t.error ?? "échec de la publication"}` : "Pas encore en ligne."}</p>
+        <p className={`mt-2 text-xs ${t.status === "PROCESSING" ? "text-slate-400" : "text-red-300"}`}>
+          {t.status === "FAILED"
+            ? `Pas en ligne : ${t.error ?? "échec de la publication"}`
+            : t.status === "PROCESSING"
+              ? `${meta.label} prépare encore la vidéo : la publication se termine automatiquement.`
+              : "Pas encore en ligne."}
+        </p>
       ) : m ? (
         <>
           <dl className="mt-2 grid grid-cols-4 gap-2">

@@ -2,6 +2,7 @@
 
 // Générateur gratuit de miniatures, sans compte (voir /api/public/tools/thumbnail).
 import { useRef, useState } from "react";
+import { markToolExplored } from "@/lib/tools-explored";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -83,6 +84,7 @@ export default function FreeThumbnailToolPage() {
         return;
       }
       setResultUrl(`data:${data.imageMimeType};base64,${data.imageBase64}`);
+      markToolExplored();
       setGenerated({ base64: data.imageBase64, mimeType: data.imageMimeType });
       setRemaining(data.remaining ?? null);
       if (typeof data.used === "number") setUsed(data.used);

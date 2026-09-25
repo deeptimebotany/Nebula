@@ -12,7 +12,7 @@
 import { createHmac, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { webhookDeliveryDb, webhookEndpointDb, type WebhookDeliveryRow, type WebhookEndpointRow } from "@/lib/prisma-extra";
-import { assertPublicHttpsUrl } from "@/lib/net-safety";
+import { fetchPublic } from "@/lib/net-safety";
 import { hasApiAccess } from "@/lib/api/access";
 import { notify } from "@/lib/notifications";
 
@@ -88,8 +88,9 @@ async function attempt(endpoint: WebhookEndpointRow, delivery: WebhookDeliveryRo
   let responseStatus: number | null = null;
   let error: string | null = null;
   try {
-    await assertPublicHttpsUrl(endpoint.url);
-    const res = await fetch(endpoint.url, {
+    // fetchPublic : IP vérifiée au moment de la connexion (lib/net-safety.ts),
+    // pas de redirection suivie.
+    const res = await fetchPublic(endpoint.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -99,9 +100,8 @@ async function attempt(endpoint: WebhookEndpointRow, delivery: WebhookDeliveryRo
         "Nebula-Signature": `t=${timestamp},v1=${signWebhook(endpoint.secret, timestamp, delivery.payload)}`
       },
       body: delivery.payload,
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-      cache: "no-store"
+      followRedirects: false,
+      timeoutMs
     });
     responseStatus = res.status;
     if (!res.ok) error = `Réponse ${res.status}`;

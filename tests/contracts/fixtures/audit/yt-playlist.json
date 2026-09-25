@@ -1,0 +1,10 @@
+{
+  "kind": "youtube#playlistItemListResponse",
+  "etag": "etag-audit-4",
+  "items": [
+    { "kind": "youtube#playlistItem", "etag": "e1", "id": "pi1", "contentDetails": { "videoId": "vidA000001a", "videoPublishedAt": "2026-09-22T16:00:00Z" } },
+    { "kind": "youtube#playlistItem", "etag": "e2", "id": "pi2", "contentDetails": { "videoId": "vidA000002b", "videoPublishedAt": "2026-09-15T16:00:00Z" } },
+    { "kind": "youtube#playlistItem", "etag": "e3", "id": "pi3", "contentDetails": { "videoId": "vidA000003c", "videoPublishedAt": "2026-09-08T16:00:00Z" } }
+  ],
+  "pageInfo": { "totalResults": 142, "resultsPerPage": 30 }
+}

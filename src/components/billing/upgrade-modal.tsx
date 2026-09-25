@@ -25,7 +25,7 @@ import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { IconClose } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 
-export type UpgradeReason = "links_limit" | "second_brand" | "retention" | "reports" | "calendar_share" | "ai_assistant" | "post_quota" | "generic";
+export type UpgradeReason = "links_limit" | "second_brand" | "retention" | "reports" | "calendar_share" | "ai_assistant" | "studio" | "media_kit" | "post_quota" | "generic";
 
 const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; visual: "dashboard" | "composer" | "report" }> = {
   links_limit: {
@@ -58,6 +58,22 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
     lines: ["Titres, descriptions, miniatures, réponses aux commentaires : l'IA lit vos vraies données et propose.", "Elle explique le pourquoi de chaque conseil, pour que vous progressiez à chaque publication."],
     visual: "composer"
   },
+  studio: {
+    title: "Le Studio IA, à partir de vos chiffres",
+    lines: [
+      "Des idées, des accroches et des scripts de vidéo tirés de ce qui marche déjà chez vous : vos meilleures publications, vos heures, vos courbes de rétention.",
+      `${PLAN_LIMITS.PRO.studioDailyLimit} générations par jour en Pro, ${PLAN_LIMITS.AGENCY.studioDailyLimit} en Agence, et tout l'historique gardé.`
+    ],
+    visual: "composer"
+  },
+  media_kit: {
+    title: "Votre media kit, en ligne",
+    lines: [
+      "Une page à envoyer aux marques et aux sponsors : vos abonnés, votre engagement et vos meilleures publications, relevés automatiquement par Nebula.",
+      "Préparez-le gratuitement ; le publier (lien, PDF, image de partage) fait partie des paliers Pro et Agence."
+    ],
+    visual: "report"
+  },
   post_quota: {
     title: "Publiez sans compter",
     lines: [`Le palier Gratuit permet ${PLAN_LIMITS.FREE.maxPostsPerMonth} publications par mois et par marque ; Pro en permet ${PLAN_LIMITS.PRO.maxPostsPerMonth}.`, "Programmez tout votre mois en une fois, sur tous vos réseaux."],
@@ -65,7 +81,7 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
   },
   generic: {
     title: "Passez en Pro",
-    lines: ["Plusieurs marques, rapports clients, calendrier partagé, assistant IA et analyse de rétention.", "Sans engagement : résiliable ou mis en pause à tout moment depuis Facturation."],
+    lines: ["Plusieurs marques, rapports clients, calendrier partagé, assistant IA, Studio IA et analyse de rétention.", "Sans engagement : résiliable ou mis en pause à tout moment depuis Facturation."],
     visual: "dashboard"
   }
 };
@@ -154,7 +170,9 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
     };
   }, [reason, close]);
 
-  const countdown = useCountdown(me?.offerExpiresAt ?? null);
+  // Le compte à rebours de l'offre ne tourne que modale ouverte : fermée,
+  // elle ne réveille plus la page chaque seconde (audit performance, lot 4).
+  const countdown = useCountdown(reason ? me?.offerExpiresAt ?? null : null);
   const proTier = PLAN_LIMITS.PRO.tiers[0];
 
   async function goPro() {

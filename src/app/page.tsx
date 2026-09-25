@@ -1,7 +1,4 @@
 import type { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
@@ -124,12 +121,10 @@ function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: stri
   );
 }
 
-// Composant serveur : si une session valide existe déjà (cookie persistant,
-// voir src/lib/auth.ts), on saute directement au tableau de bord au lieu de
-// réafficher la page marketing à chaque ouverture du site.
-export default async function LandingPage() {
-  const session = await getServerSession(authOptions);
-  if (session?.user) redirect("/dashboard");
+// Page pré-générée (lot 11), servie depuis le cache de Vercel. Un visiteur
+// déjà connecté est envoyé au tableau de bord par le middleware, avant
+// même que la page ne soit servie (voir src/middleware.ts).
+export default function LandingPage() {
 
   return (
     <>

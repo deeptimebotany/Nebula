@@ -7,11 +7,16 @@ import { assertBrandMembership, getOrCreateLinkPage } from "@/lib/link-in-bio";
 import { getBrandPlan } from "@/lib/billing/plan";
 import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import { trackGrowth } from "@/lib/growth";
-import { extractLinktreeLinks } from "@/lib/linktree";
+import { extractLinktreeLinksDetailed } from "@/lib/linktree";
+import { UnsafeUrlError, fetchPublic } from "@/lib/net-safety";
+import { alertOwnerFormatChange } from "@/lib/owner-alerts";
+import { linkUrlSchema } from "@/lib/safe-url-schema";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
 
 // Import Linktree (brief growth, lot G6.b).
 //   GET  ?url=https://linktr.ee/xxx  → { links: [{label,url}] } : le serveur
-//        récupère la page publique (5 s, 1 Mo max, rate-limit), extrait
+//        récupère la page publique (5 s, 1 Mo max, rate-limit, adresses
+//        privées refusées même après redirection), extrait
 //        titre et URL de chaque lien (__NEXT_DATA__ si présent, sinon <a>).
 //   POST { brandId, links: [{label,url}] } → crée les LinkItem. Au-delà de
 //        la limite du palier, les liens sont créés DÉSACTIVÉS (conservés,
@@ -41,10 +46,14 @@ export async function GET(req: NextRequest) {
   const url = normalizeLinktreeUrl(req.nextUrl.searchParams.get("url") ?? "");
   if (!url) return NextResponse.json({ error: "Collez une adresse de la forme linktr.ee/votre-nom." }, { status: 400 });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal, redirect: "follow", headers: { "user-agent": "Mozilla/5.0 (compatible; NebulaImport/1.0; +https://nebulahub.space)", accept: "text/html" } });
+    // Lot 9 : fetchPublic (chaque redirection revérifiée : jamais d'adresse
+    // privée ou locale ; avant, les redirections étaient suivies à l'aveugle)
+    // avec un délai garanti de 5 s.
+    const res = await fetchPublic(url, {
+      timeoutMs: TIMEOUT_MS,
+      headers: { "user-agent": "Mozilla/5.0 (compatible; NebulaImport/1.0; +https://nebulahub.space)", accept: "text/html" }
+    });
     if (!res.ok) return NextResponse.json({ error: res.status === 404 ? "Cette page Linktree n'existe pas (ou n'est plus publique)." : `Linktree a répondu ${res.status}.` }, { status: 502 });
     const reader = res.body?.getReader();
     if (!reader) return NextResponse.json({ error: "Réponse vide." }, { status: 502 });
@@ -60,20 +69,30 @@ export async function GET(req: NextRequest) {
     }
     reader.cancel().catch(() => undefined);
     const html = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
-    const links = extractLinktreeLinks(html);
+    const { links, structured } = extractLinktreeLinksDetailed(html);
+    // Contrat de la page (lot 9) : Linktree publie ses liens dans un bloc de
+    // données (__NEXT_DATA__). S'il disparaît, Linktree a changé sa page :
+    // l'import passe par la méthode de secours (liens <a>), et le
+    // propriétaire est prévenu pour adapter src/lib/linktree.ts.
+    if (!structured) {
+      console.warn("[contrat] LINKTREE : bloc __NEXT_DATA__ absent ou illisible, méthode de secours utilisée.");
+      void alertOwnerFormatChange("Linktree", "format:linktree", "Page Linktree sans bloc __NEXT_DATA__ lisible : l'import utilise la méthode de secours (liens <a>).", {
+        where: "src/lib/linktree.ts"
+      });
+    }
     if (links.length === 0) return NextResponse.json({ error: "Aucun lien trouvé sur cette page. Vérifiez qu'elle est publique." }, { status: 422 });
     return NextResponse.json({ links: links.slice(0, 100) });
   } catch (err) {
-    const aborted = (err as Error).name === "AbortError";
+    const name = (err as Error).name;
+    const aborted = name === "AbortError" || name === "TimeoutError";
+    if (err instanceof UnsafeUrlError) return NextResponse.json({ error: "Adresse Linktree refusée." }, { status: 400 });
     return NextResponse.json({ error: aborted ? "Linktree met trop de temps à répondre, réessayez." : "Impossible de lire cette page Linktree." }, { status: 502 });
-  } finally {
-    clearTimeout(timer);
   }
 }
 
 const postSchema = z.object({
   brandId: z.string().min(1),
-  links: z.array(z.object({ label: z.string().trim().min(1).max(60), url: z.string().url().max(500) })).min(1).max(100)
+  links: z.array(z.object({ label: z.string().trim().min(1).max(60), url: linkUrlSchema(500) })).min(1).max(100)
 });
 
 export async function POST(req: NextRequest) {
@@ -107,5 +126,6 @@ export async function POST(req: NextRequest) {
     existingUrls.add(link.url);
   }
   await trackGrowth("linktree_import", { created, disabled, duplicates }, userId);
+  await invalidateLinkPage(brandId);
   return NextResponse.json({ ok: true, created, disabled, duplicates, reason: disabled > 0 ? "links_limit" : undefined });
 }

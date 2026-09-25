@@ -22,14 +22,9 @@ import type { EarnedBadge } from "@/lib/badges";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 
-export type ProfileSection = "activity" | "badges" | "eggs" | "referral";
+import { PROFILE_OPEN_EVENT as OPEN_EVENT, type ProfileSection } from "./profile-panel-events";
 
-const OPEN_EVENT = "nebula:open-profile";
-
-/** Ouvre le panneau, éventuellement positionné sur une section. */
-export function openProfilePanel(section?: ProfileSection) {
-  window.dispatchEvent(new CustomEvent<ProfileSection | undefined>(OPEN_EVENT, { detail: section }));
-}
+export { openProfilePanel, type ProfileSection } from "./profile-panel-events";
 
 interface LeaderboardRow {
   id: string;
@@ -84,7 +79,12 @@ function initials(name: string | null | undefined): string {
     .join("");
 }
 
-export function ProfilePanel() {
+/**
+ * Chargé à la demande par profile-panel-lazy.tsx, qui le monte au premier
+ * appel d'openProfilePanel() : il démarre alors ouvert, sur la section
+ * demandée. Les ouvertures suivantes passent par son propre écouteur.
+ */
+export function ProfilePanel({ initialSection = null }: { initialSection?: ProfileSection | null } = {}) {
   const { data: me, patch: patchMe } = useBootstrap();
   const myRing = useMyRing();
   const toast = useToast();
@@ -114,9 +114,9 @@ export function ProfilePanel() {
       if (photoInputRef.current) photoInputRef.current.value = "";
     }
   }
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
-  const [pendingSection, setPendingSection] = useState<ProfileSection | null>(null);
+  const [pendingSection, setPendingSection] = useState<ProfileSection | null>(initialSection);
   const sectionRefs = useRef<Record<ProfileSection, HTMLElement | null>>({ activity: null, badges: null, eggs: null, referral: null });
 
   const load = useCallback(async () => {
@@ -244,9 +244,9 @@ export function ProfilePanel() {
             </div>
           </section>
 
-          {/* Niveau de créateur (Réussites) */}
+          {/* Rang de créateur (Réussites) */}
           <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Niveau de créateur</h3>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Rang de créateur</h3>
             <Link href="/reussites" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
               {!data ? (
                 <Skeleton className="h-10 w-full" />
@@ -254,7 +254,7 @@ export function ProfilePanel() {
                 <>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-slate-200">
-                      Niveau {data.reussites.level.level} · <span className="font-medium text-white">{data.reussites.level.name}</span>
+                      Rang · <span className="font-medium text-white">{data.reussites.level.name}</span>
                     </span>
                     <span className="text-xs tabular-nums text-slate-400">{data.reussites.level.pct} %</span>
                   </div>

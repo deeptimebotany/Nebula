@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    {
+      "content": { "parts": [{ "text": "Nouveau menu d'automne : " }, { "text": "venez goûter nos tartes ! #cafe #automne" }], "role": "model" },
+      "finishReason": "STOP",
+      "index": 0,
+      "safetyRatings": []
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 42, "candidatesTokenCount": 18, "totalTokenCount": 60 },
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "exemple-1"
+}

@@ -21,6 +21,7 @@ import { UpgradeButton } from "./upgrade-gem";
 import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
 import { IconMenu, IconPlus, IconSearch, IconSparkle } from "./icons";
+import { useConnections } from "@/lib/data/hooks";
 
 interface ConnectionRow {
   id: string;
@@ -42,7 +43,8 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
   const { data } = useBootstrap();
   const assistant = useAiAssistant();
 
-  const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  // Comptes de la marque active : cache partagé avec les pages (lot 6).
+  const connections = useConnections<ConnectionRow>(activeBrand?.id).connections ?? [];
   const [addOpen, setAddOpen] = useState(false);
   const addRef = useRef<HTMLDivElement>(null);
   const [isMac, setIsMac] = useState(false);
@@ -51,22 +53,6 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
     setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
   }, []);
 
-  useEffect(() => {
-    if (!activeBrand) {
-      setConnections([]);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/connections?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setConnections(d.connections ?? []);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [activeBrand]);
 
   // Le menu « Connecter un compte » s'ouvre à DROITE du bouton + (aligné sur
   // son bord gauche) : ancré à droite, il partait sous la colonne de
@@ -111,7 +97,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
         {/* Comptes connectés de la marque active (ordinateur) */}
         {activeBrand && (
           <div className="hidden min-w-0 flex-1 items-center gap-1.5 md:flex">
-            <span className="mr-1 hidden shrink-0 text-[11px] font-medium uppercase tracking-wider text-slate-500 xl:inline">{activeBrand.name}</span>
+            <span className="mr-1 hidden shrink-0 text-[11px] font-medium uppercase tracking-wider text-slate-500 xl:inline [.nebula-assistant-docked_&]:hidden">{activeBrand.name}</span>
             <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1" aria-label="Comptes connectés">
               {connections.map((c) => (
                 <span
@@ -166,8 +152,8 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
           className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-slate-400 transition hover:border-white/20 hover:text-white sm:px-3"
         >
           <IconSearch className="h-4 w-4" />
-          <span className="hidden text-xs sm:inline">Rechercher</span>
-          <kbd className="hidden rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-sans text-[10px] text-slate-500 lg:inline">
+          <span className="hidden text-xs sm:inline [.nebula-assistant-docked_&]:hidden">Rechercher</span>
+          <kbd className="hidden rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-sans text-[10px] text-slate-500 lg:inline [.nebula-assistant-docked_&]:hidden">
             {isMac ? "⌘" : "Ctrl"} K
           </kbd>
         </button>
@@ -190,14 +176,17 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
             )}
           >
             <IconSparkle className="h-4 w-4 text-aurora-300" />
-            <span className="hidden md:inline">Demander à Nebula</span>
+            <span className="hidden md:inline [.nebula-assistant-docked_&]:hidden">Demander à Nebula</span>
           </button>
         )}
 
         {/* Centre de notifications (voir notification-bell.tsx). */}
         <NotificationBell />
 
-        {data && data.plan !== "AGENCY" && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex" label="Mettre à niveau" />}
+        {/* Assistant ancré à droite (ordinateur) : la barre perd ~420 px ;
+            libellés et bouton de mise à niveau s'effacent pour que rien ne
+            se chevauche (lot 5). */}
+        {data && data.plan !== "AGENCY" && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex [.nebula-assistant-docked_&]:hidden" label="Mettre à niveau" />}
 
         <AccountSwitcher oauth={oauth} />
       </div>

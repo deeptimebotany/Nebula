@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { NetworkLogo } from "@/components/ui/network-badge";
 import { useBrand } from "@/components/brand-context";
+import { refreshConnections } from "@/lib/data/hooks";
 
 function BlueskyConnectForm() {
   const router = useRouter();
@@ -44,6 +45,8 @@ function BlueskyConnectForm() {
         setSubmitting(false);
         return;
       }
+      // Liste des comptes partagée (lot 6) : à jour dès l'arrivée sur Comptes.
+      await refreshConnections();
       router.push("/accounts?connected=bluesky");
     } catch {
       setError("Connexion impossible pour le moment. Réessayez dans un instant.");

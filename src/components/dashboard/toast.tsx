@@ -4,7 +4,7 @@
 // externe) qui remplace les alert()/messages perdus dans la page : succès,
 // erreurs et infos apparaissent en bas à droite et disparaissent seuls.
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { playPulsarChime } from "@/lib/cosmic-audio";
@@ -44,12 +44,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   // le compte l'a activé (et y a droit — CosmeticsProvider ne renvoie la clé
   // dans `enabled` que dans ce cas, voir /api/settings/cosmetics).
   const cosmetics = useCosmetics();
+  // Lu via une référence : `push` (et donc la valeur du contexte) reste le
+  // même objet d'un rendu à l'autre. Avant, chaque toast affiché recréait
+  // la valeur et re-rendait tous les composants qui utilisent useToast()
+  // (audit performance, lot 4).
+  const hasCosmetic = useRef(cosmetics.has);
+  useEffect(() => {
+    hasCosmetic.current = cosmetics.has;
+  }, [cosmetics.has]);
 
   const push = useCallback(
     (kind: ToastKind, message: string) => {
       const id = Math.random().toString(36).slice(2);
       setToasts((prev) => [...prev, { id, kind, message }]);
-      if (kind === "success" && cosmetics.has("son-pulsar")) {
+      if (kind === "success" && hasCosmetic.current("son-pulsar")) {
         try {
           playPulsarChime();
         } catch {
@@ -60,14 +68,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 4500);
     },
-    [cosmetics]
+    []
   );
 
-  const value: ToastContextValue = {
-    success: (m) => push("success", m),
-    error: (m) => push("error", m),
-    info: (m) => push("info", m)
-  };
+  const value = useMemo<ToastContextValue>(
+    () => ({
+      success: (m) => push("success", m),
+      error: (m) => push("error", m),
+      info: (m) => push("info", m)
+    }),
+    [push]
+  );
 
   return (
     <ToastContext.Provider value={value}>
@@ -104,16 +115,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Filet de sécurité si un composant est monté hors du provider (ne devrait
+// pas arriver dans le dashboard) : on retombe sur la console. Objet unique,
+// pour rester stable dans les dépendances des effets.
+const CONSOLE_TOAST: ToastContextValue = {
+  success: (m) => console.log("[toast:success]", m),
+  error: (m) => console.error("[toast:error]", m),
+  info: (m) => console.info("[toast:info]", m)
+};
+
 export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) {
-    // Filet de sécurité si un composant est monté hors du provider (ne
-    // devrait pas arriver dans le dashboard) : on retombe sur console.
-    return {
-      success: (m) => console.log("[toast:success]", m),
-      error: (m) => console.error("[toast:error]", m),
-      info: (m) => console.info("[toast:info]", m)
-    };
-  }
-  return ctx;
+  return useContext(ToastContext) ?? CONSOLE_TOAST;
 }

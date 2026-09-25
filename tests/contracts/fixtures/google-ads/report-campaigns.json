@@ -1,0 +1,8 @@
+{
+  "results": [
+    { "campaign": { "resourceName": "customers/1234567890/campaigns/111", "status": "ENABLED", "name": "Automne 2026", "id": "111" }, "metrics": { "clicks": "12", "conversions": 1.5, "costMicros": "4570000", "impressions": "1520" } },
+    { "campaign": { "resourceName": "customers/1234567890/campaigns/222", "status": "PAUSED", "name": "Été 2026", "id": "222" }, "metrics": {} }
+  ],
+  "fieldMask": "campaign.id,campaign.name,campaign.status,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions",
+  "requestId": "req-campaigns"
+}

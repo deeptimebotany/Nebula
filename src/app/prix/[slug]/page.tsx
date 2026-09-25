@@ -13,6 +13,10 @@ import { TRIAL_DAYS } from "@/lib/trial";
 
 // Page « {X} : tarifs {année} expliqués » (brief growth, lot G5.a) — le
 // préfixe /tarifs étant celui de Nebula, ces pages vivent sous /prix.
+// Pages pré-générées (lot 11) : une adresse hors de la liste répond 404
+// directement, sans rendu à la demande.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return COMPETITOR_SLUGS.map((slug) => ({ slug }));
 }

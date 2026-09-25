@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "type": "rich",
+  "title": "Recettes de café maison, une vidéo chaque jour ☕",
+  "author_url": "https://www.tiktok.com/@cafenebula",
+  "author_name": "Café Nebula",
+  "width": "100%",
+  "height": "100%",
+  "html": "<blockquote class=\"tiktok-embed\" cite=\"https://www.tiktok.com/@cafenebula\" data-unique-id=\"cafenebula\" data-embed-type=\"creator\"><section><a target=\"_blank\" href=\"https://www.tiktok.com/@cafenebula\">@cafenebula</a></section></blockquote>",
+  "provider_url": "https://www.tiktok.com",
+  "provider_name": "TikTok"
+}

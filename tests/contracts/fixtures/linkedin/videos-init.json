@@ -1,0 +1,11 @@
+{
+  "value": {
+    "uploadUrlsExpireAt": 1790241330000,
+    "video": "urn:li:video:C5505AQHoV1qvnFtKA",
+    "uploadInstructions": [
+      { "uploadUrl": "https://www.linkedin.com/dms-uploads/sp/v2/C5505AQExemple/uploadedVideo?sau=aHR0cHM6Ly93d3cu&part=0", "lastByte": 1023, "firstByte": 0 },
+      { "uploadUrl": "https://www.linkedin.com/dms-uploads/sp/v2/C5505AQExemple/uploadedVideo?sau=aHR0cHM6Ly93d3cu&part=1", "lastByte": 2047, "firstByte": 1024 }
+    ],
+    "uploadToken": ""
+  }
+}

@@ -130,6 +130,16 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
     needs: { recentPosts: true },
     maxOutputTokens: 1000
   },
+  studio: {
+    instruction: `Contexte : l'utilisateur est dans le Studio IA (idées de vidéos, accroches, scripts tirés de ses meilleures publications et de ses courbes de rétention). Priorité : l'aider à choisir, reformuler une accroche, raccourcir un titre, adapter un script à un autre format ou réseau, en restant fidèle à ses chiffres. ${HOWTO_HINT}`,
+    needs: { stats: true, recentPosts: true },
+    maxOutputTokens: 1000
+  },
+  "media-kit": {
+    instruction: `Contexte : l'utilisateur prépare son media kit (page publique envoyée aux marques et aux sponsors : abonnés, engagement et meilleures publications relevés par Nebula, plus sa présentation, ses offres et son contact). Priorité : l'aider à écrire une accroche et une présentation claires, à choisir ses publications à la une, à fixer des tarifs cohérents avec sa taille de compte et à rédiger le message d'approche. Les chiffres du kit ne se modifient pas : ne propose jamais de les arrondir à la hausse ni d'en inventer. ${HOWTO_HINT}`,
+    needs: { stats: true, recentPosts: true },
+    maxOutputTokens: 1000
+  },
   community: {
     instruction: `Contexte : l'utilisateur est dans la Communauté Nebula (entraide, guides). Priorité : orienter vers les bons guides, aider à formuler une question claire, résumer des bonnes pratiques. ${HOWTO_HINT}`,
     needs: {},

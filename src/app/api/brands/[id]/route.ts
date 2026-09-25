@@ -4,7 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { isValidTimeZone } from "@/lib/timezone";
-import { deleteUploadedFile } from "@/lib/storage";
+import { deleteBrandMediaFile } from "@/lib/media-files";
+import { invalidateLinkPageSlug } from "@/lib/link-in-bio-cache";
+import { invalidateMediaKitSlug } from "@/lib/media-kit/cache";
 
 const bodySchema = z
   .object({
@@ -43,7 +45,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // deux restent synchronisés dans les deux sens (voir /api/link-in-bio).
   if (parsed.data.name !== undefined) {
     await prisma.linkPage.updateMany({ where: { brandId: params.id }, data: { title: parsed.data.name } }).catch(() => undefined);
+    invalidateLinkPageSlug(brand.slug);
   }
+  // Nom et logo apparaissent sur le media kit public.
+  invalidateMediaKitSlug(brand.slug);
   return NextResponse.json({ ok: true, brand });
 }
 
@@ -87,9 +92,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     );
   }
 
-  const media: { url: string }[] = await prisma.mediaAsset.findMany({ where: { brandId: params.id }, select: { url: true } });
-  await prisma.brand.delete({ where: { id: params.id } });
-  // Fichiers envoyés (vidéos, images) : nettoyés après coup, sans bloquer.
-  await Promise.all(media.map((m) => deleteUploadedFile(m.url)));
+  const media: { url: string; thumbnailUrl: string | null }[] = await prisma.mediaAsset.findMany({
+    where: { brandId: params.id },
+    select: { url: true, thumbnailUrl: true }
+  });
+  const deleted = await prisma.brand.delete({ where: { id: params.id }, select: { slug: true } });
+  // Page bio publique retirée tout de suite (sinon servie par le cache).
+  invalidateLinkPageSlug(deleted.slug);
+  invalidateMediaKitSlug(deleted.slug);
+  // Fichiers envoyés (vidéos, images, miniatures) : nettoyés après coup,
+  // seulement ceux de cette marque (audit sécurité, lot 1).
+  await Promise.all(media.flatMap((m) => [deleteBrandMediaFile(m.url, params.id), deleteBrandMediaFile(m.thumbnailUrl, params.id)]));
   return NextResponse.json({ ok: true, action: "deleted" });
 }

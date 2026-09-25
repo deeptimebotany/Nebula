@@ -14,7 +14,7 @@
 
 import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { clsx } from "@/lib/clsx";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { createPortal } from "react-dom";
@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import type { UploadedAsset } from "./composer-types";
 import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, type MediaShape, type PreviewDevice, type PreviewPost } from "./preview-network-ui";
+import { MotionRoot } from "@/components/motion/motion-root";
 
 export interface PreviewAccount {
   name: string;
@@ -333,103 +334,105 @@ export function ComposerPreview({
   const notSelected = !selectedNetworks.includes(network);
 
   return (
-    <MotionGlassCard glow>
-      <h2 className="mb-2 font-display text-base font-medium text-white">Aperçu</h2>
-      {toolbar}
-      <p className="mb-3 mt-1.5 min-h-4 text-[11px] text-slate-500">
-        {notSelected
-          ? `${NETWORK_META[network].label} n'est pas coché pour cette publication — aperçu seulement.`
-          : `${NETWORK_META[network].label} · ${device === "mobile" ? "application mobile" : "sur ordinateur"}`}
-      </p>
+    <MotionRoot>
+      <MotionGlassCard glow>
+        <h2 className="mb-2 font-display text-base font-medium text-white">Aperçu</h2>
+        {toolbar}
+        <p className="mb-3 mt-1.5 min-h-4 text-[11px] text-slate-500">
+          {notSelected
+            ? `${NETWORK_META[network].label} n'est pas coché pour cette publication — aperçu seulement.`
+            : `${NETWORK_META[network].label} · ${device === "mobile" ? "application mobile" : "sur ordinateur"}`}
+        </p>
 
-      {!expanded && renderFrame()}
+        {!expanded && renderFrame()}
 
-      {network === "INSTAGRAM" && asset && (
-        <div className="mt-3 flex justify-center">
-          <button
-            type="button"
-            onClick={onToggleInstagramGrid}
-            aria-pressed={showInstagramGrid}
-            className={clsx(
-              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-              showInstagramGrid ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300" : "border-white/10 text-slate-400 hover:text-white"
-            )}
-          >
-            {showInstagramGrid ? "Masquer ma grille Instagram" : "Voir dans ma grille Instagram"}
-          </button>
-        </div>
-      )}
+        {network === "INSTAGRAM" && asset && (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={onToggleInstagramGrid}
+              aria-pressed={showInstagramGrid}
+              className={clsx(
+                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+                showInstagramGrid ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300" : "border-white/10 text-slate-400 hover:text-white"
+              )}
+            >
+              {showInstagramGrid ? "Masquer ma grille Instagram" : "Voir dans ma grille Instagram"}
+            </button>
+          </div>
+        )}
 
-      <AnimatePresence>
-        {showInstagramGrid && network === "INSTAGRAM" && asset && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ overflow: "hidden" }}
-            className="mt-3"
-          >
-            <p className="mb-2 text-[11px] text-slate-500">
-              Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières publications Instagram réelles.
-            </p>
-            {gridLoading ? (
-              <div className="grid grid-cols-3 gap-1" aria-busy="true">
-                {Array.from({ length: 9 }, (_, i) => (
-                  <Skeleton key={i} className="aspect-square rounded" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-1">
-                <div className="relative aspect-square overflow-hidden rounded ring-2 ring-aurora-400">
-                  {asset.type === "VIDEO" ? (
-                    <video src={asset.previewUrl} className="h-full w-full object-cover" muted />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img loading="lazy" decoding="async" src={asset.previewUrl} alt="" className="h-full w-full object-cover" />
-                  )}
+        <AnimatePresence>
+          {showInstagramGrid && network === "INSTAGRAM" && asset && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{ overflow: "hidden" }}
+              className="mt-3"
+            >
+              <p className="mb-2 text-[11px] text-slate-500">
+                Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières publications Instagram réelles.
+              </p>
+              {gridLoading ? (
+                <div className="grid grid-cols-3 gap-1" aria-busy="true">
+                  {Array.from({ length: 9 }, (_, i) => (
+                    <Skeleton key={i} className="aspect-square rounded" />
+                  ))}
                 </div>
-                {instagramGridTiles.slice(0, 8).map((tile, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.03 }} className="aspect-square overflow-hidden rounded">
-                    {tile.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img loading="lazy" decoding="async" src={tile.imageUrl} alt="" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+              ) : (
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="relative aspect-square overflow-hidden rounded ring-2 ring-aurora-400">
+                    {asset.type === "VIDEO" ? (
+                      <video src={asset.previewUrl} className="h-full w-full object-cover" muted />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/50" aria-label="Vidéo">
-                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" /></svg>
-                      </span>
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img loading="lazy" decoding="async" src={asset.previewUrl} alt="" className="h-full w-full object-cover" />
                     )}
-                  </motion.div>
-                ))}
+                  </div>
+                  {instagramGridTiles.slice(0, 8).map((tile, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.03 }} className="aspect-square overflow-hidden rounded">
+                      {tile.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img loading="lazy" decoding="async" src={tile.imageUrl} alt="" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/50" aria-label="Vidéo">
+                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" /></svg>
+                        </span>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <p className="mt-3 text-center text-[11px] text-slate-500">Rendu indicatif (compteurs d&apos;exemple) — la mise en page réelle peut varier légèrement.</p>
+
+        {/* Plein écran (24/09/2026) : le cadre occupe tout l'écran disponible,
+            agrandi jusqu'à 135 % si la place le permet. */}
+        {expanded &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0b0d]/95 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Aperçu en plein écran">
+              <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-6">
+                <span className="hidden font-display text-sm font-medium text-white sm:block">Aperçu · {NETWORK_META[network].label}</span>
+                <div className="min-w-0 flex-1">{toolbar}</div>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
+                >
+                  Fermer <span className="hidden text-xs text-slate-500 sm:inline">Échap</span>
+                </button>
               </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <p className="mt-3 text-center text-[11px] text-slate-500">Rendu indicatif (compteurs d&apos;exemple) — la mise en page réelle peut varier légèrement.</p>
-
-      {/* Plein écran (24/09/2026) : le cadre occupe tout l'écran disponible,
-          agrandi jusqu'à 135 % si la place le permet. */}
-      {expanded &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0b0d]/95 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Aperçu en plein écran">
-            <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-6">
-              <span className="hidden font-display text-sm font-medium text-white sm:block">Aperçu · {NETWORK_META[network].label}</span>
-              <div className="min-w-0 flex-1">{toolbar}</div>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
-              >
-                Fermer <span className="hidden text-xs text-slate-500 sm:inline">Échap</span>
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8">{renderFrame(true)}</div>
-          </div>,
-          document.body
-        )}
-    </MotionGlassCard>
+              <div className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8">{renderFrame(true)}</div>
+            </div>,
+            document.body
+          )}
+      </MotionGlassCard>
+    </MotionRoot>
   );
 }

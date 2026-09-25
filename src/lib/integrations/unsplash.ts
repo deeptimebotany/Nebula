@@ -7,10 +7,30 @@
 // directement d'Unsplash (pas de copie), chaque photo affiche son auteur avec
 // des liens utm_source=<app>&utm_medium=referral, et l'événement de
 // téléchargement (download_location) est déclenché à chaque import.
+import type { ZodType, ZodTypeDef } from "zod";
+import { sendRequest } from "@/lib/social/base";
+import { idSchema, soft, textSchema, z } from "@/lib/social/contract";
 import { unsplashAppName } from "./config";
-import { ImportError } from "./remote-media";
+import { ImportError } from "./errors";
+import { importJson } from "./http";
 
 const API = "https://api.unsplash.com";
+
+// --- Contrat des réponses (lot 8, voir social/contract.ts) -------------------
+// Doc : https://unsplash.com/documentation (search/photos, photos/:id).
+// Réponses types : tests/contracts/fixtures/unsplash.
+const photoSchema = z.object({
+  id: idSchema,
+  width: z.number(),
+  height: z.number(),
+  color: soft(z.string()),
+  alt_description: textSchema,
+  description: textSchema,
+  urls: z.object({ raw: z.string().url(), small: z.string().url(), thumb: z.string().url(), regular: soft(z.string()) }),
+  links: z.object({ html: z.string().url(), download_location: z.string().url() }),
+  user: z.object({ name: z.string(), username: z.string(), links: z.object({ html: z.string().url() }) })
+});
+type ApiPhoto = z.output<typeof photoSchema>;
 
 function key(): string {
   const k = process.env.UNSPLASH_ACCESS_KEY;
@@ -18,23 +38,14 @@ function key(): string {
   return k;
 }
 
-async function call<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { headers: { Authorization: `Client-ID ${key()}`, "Accept-Version": "v1" }, cache: "no-store" });
-  if (res.status === 403) throw new ImportError("Limite de recherches Unsplash atteinte pour cette heure : réessayez un peu plus tard.", 429);
-  if (!res.ok) throw new ImportError(`Unsplash a répondu ${res.status}.`, 502);
-  return (await res.json()) as T;
-}
-
-interface ApiPhoto {
-  id: string;
-  width: number;
-  height: number;
-  color: string | null;
-  alt_description: string | null;
-  description: string | null;
-  urls: { raw: string; small: string; thumb: string; regular: string };
-  links: { html: string; download_location: string };
-  user: { name: string; username: string; links: { html: string } };
+function call<T>(path: string, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
+  return importJson(
+    "UNSPLASH",
+    `${API}${path}`,
+    { headers: { Authorization: `Client-ID ${key()}`, "Accept-Version": "v1" }, schema },
+    // Unsplash signale la limite horaire par un 403 (« Rate Limit Exceeded »).
+    (err) => (err.status === 403 ? new ImportError("Limite de recherches Unsplash atteinte pour cette heure : réessayez un peu plus tard.", 429) : null)
+  );
 }
 
 export interface UnsplashPhoto {
@@ -63,7 +74,7 @@ function toPhoto(p: ApiPhoto): UnsplashPhoto {
     id: p.id,
     width: p.width,
     height: p.height,
-    color: p.color,
+    color: p.color ?? null,
     alt: p.alt_description || p.description || "",
     thumbUrl: p.urls.thumb,
     smallUrl: p.urls.small,
@@ -75,7 +86,7 @@ function toPhoto(p: ApiPhoto): UnsplashPhoto {
 export async function searchUnsplash(query: string, page: number, orientation?: "landscape" | "portrait" | "squarish") {
   const params = new URLSearchParams({ query, page: String(page), per_page: "24", content_filter: "high", lang: "fr" });
   if (orientation) params.set("orientation", orientation);
-  const data = await call<{ total: number; total_pages: number; results: ApiPhoto[] }>(`/search/photos?${params.toString()}`);
+  const data = await call(`/search/photos?${params.toString()}`, z.object({ total: z.number(), total_pages: z.number(), results: z.array(photoSchema) }));
   return { total: data.total, totalPages: data.total_pages, photos: data.results.map(toPhoto) };
 }
 
@@ -86,9 +97,9 @@ export async function searchUnsplash(query: string, page: number, orientation?: 
  */
 export async function prepareUnsplashImport(id: string): Promise<{ fileUrl: string; filename: string; credit: { name: string; profileUrl: string; photoUrl: string } }> {
   if (!/^[A-Za-z0-9_-]{5,40}$/.test(id)) throw new ImportError("Photo Unsplash introuvable.", 404);
-  const photo = await call<ApiPhoto>(`/photos/${id}`);
+  const photo = await call(`/photos/${id}`, photoSchema);
   // Événement de téléchargement (obligatoire, sans effet sur le fichier).
-  await fetch(photo.links.download_location, { headers: { Authorization: `Client-ID ${key()}` }, cache: "no-store" }).catch(() => undefined);
+  await sendRequest("UNSPLASH", photo.links.download_location, { headers: { Authorization: `Client-ID ${key()}` }, cache: "no-store", timeoutMs: 10_000 }).catch(() => undefined);
   const file = new URL(photo.urls.raw);
   file.searchParams.set("w", "2400");
   file.searchParams.set("fm", "jpg");

@@ -50,6 +50,7 @@ export default function HashtagsPage() {
       }
       faq={FAQ}
       related={[
+        { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/legendes", title: "Générateur de légendes" },
         { href: "/outils/bio-instagram", title: "Générateur de bio Instagram" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" }

@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
+// CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
+// rendu à chaque visite, jamais pré-généré.
+export const dynamic = "force-dynamic";
+
 export default function RapportPage({ params }: { params: { token: string } }) {
   return <RapportClient token={params.token} />;
 }

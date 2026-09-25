@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    {
+      "content": { "parts": [{ "text": "Je réfléchis à l'accroche…", "thought": true }, { "text": "Titre final" }], "role": "model" },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.6-flash"
+}

@@ -15,6 +15,7 @@ import {
   IconMessage,
   IconThumbUp,
   IconBioLink,
+  IconMediaKit,
   IconReport,
   IconCalendarShare,
   IconRetention,
@@ -24,7 +25,8 @@ import {
   IconTrophy,
   IconFlask,
   IconHeart,
-  IconGift
+  IconGift,
+  IconSparkle
 } from "./icons";
 
 export type NavIcon = (props: { className?: string }) => JSX.Element;
@@ -56,8 +58,8 @@ export const SUCCESS_NAV_ITEM: NavItem = {
   href: "/reussites",
   label: "Réussites",
   icon: IconTrophy,
-  description: "Niveau de créateur, défis, accomplissements et easter eggs",
-  keywords: ["succès", "easter eggs", "trophées", "récompenses", "niveau", "défis", "accomplissements", "xp"]
+  description: "Rang de créateur, missions de la semaine, accomplissements et easter eggs",
+  keywords: ["succès", "easter eggs", "trophées", "récompenses", "niveau", "rang", "missions", "coffre", "défis", "accomplissements", "xp", "constellation", "étoiles", "compétences", "bilan", "vitrine", "carte de créateur", "leçons"]
 };
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -66,6 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Vue d'ensemble", shortLabel: "Accueil", icon: IconHome, description: "Vos chiffres et vos prochaines publications", keywords: ["accueil", "home", "tableau de bord"] },
       { href: "/composer", label: "Publier", icon: IconUpload, description: "Créer et programmer une publication", keywords: ["nouveau post", "composer", "importation", "créer"] },
+      { href: "/studio", label: "Studio IA", icon: IconSparkle, description: "Idées, accroches et scripts tirés de vos chiffres", keywords: ["idées", "script", "accroche", "hook", "ia", "inspiration", "vidéo"] },
       { href: "/publications", label: "Publications", icon: IconList, description: "Toutes vos publications, filtrables par statut et réseau", keywords: ["posts", "liste", "historique", "échecs"] },
       { href: "/calendar", label: "Calendrier", icon: IconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] },
       { href: "/analytics", label: "Analytics", icon: IconChart, description: "Abonnés, portée, engagement", keywords: ["statistiques", "stats", "audience"] }
@@ -83,7 +86,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // doit rester clair.
       { href: "/comments", label: "Commentaires", icon: IconMessage, description: "Modérer les commentaires reçus sur vos publications", keywords: ["interactions", "messages", "modération", "réponses"] },
       { href: "/engagements", label: "Engagements", icon: IconThumbUp, description: "Likes, partages, enregistrements et vues par publication", keywords: ["réactions", "likes", "partages", "stories", "vues", "interactions"] },
-      { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] }
+      { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
+      { href: "/media-kit", label: "Media kit", icon: IconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] }
     ]
   },
   {
@@ -115,7 +119,9 @@ export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA
 export const OWNER_NAV_ITEMS: NavItem[] = [
   OWNER_NAV_ITEM,
   { href: "/admin/acquisition", label: "Acquisition", icon: IconChart, description: "D'où viennent inscrits et payants", keywords: ["admin", "stats", "croissance"] },
-  { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] }
+  { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] },
+  { href: "/admin/reseaux", label: "Réseaux", icon: IconPlug, description: "Suspendre un réseau, disjoncteur", keywords: ["admin", "incident", "panne", "api", "suspendre"] },
+  { href: "/admin/reussites", label: "Réussites (admin)", icon: IconTrophy, description: "Défi collectif, vidéos à la une", keywords: ["admin", "défi collectif", "à la une", "communauté"] }
 ];
 
 

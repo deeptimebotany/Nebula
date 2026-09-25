@@ -53,6 +53,11 @@ export const TARGET_STATUSES = [
   "PENDING",
   "SCHEDULED",
   "PUBLISHING",
+  // Vidéo en cours de traitement chez le réseau : terminée par le cron (lot 2).
+  "PROCESSING",
+  // Nouvel essai automatique prévu (panne passagère, limite de débit, réseau
+  // suspendu) : relancé par le cron à nextCheckAt (lot 5).
+  "RETRY_WAIT",
   "PUBLISHED",
   "FAILED"
 ] as const;
@@ -189,7 +194,16 @@ export interface ChartPoint {
 export interface PublishResult {
   externalPostId: string;
   externalUrl?: string;
+  /** Miniature choisie dans Publier, envoyée au réseau (YouTube). Absent : aucune miniature. */
+  thumbnail?: ThumbnailStatus;
 }
+
+/**
+ * Sort de la miniature envoyée avec une vidéo (PostTarget.thumbnailStatus) :
+ * appliquée, refusée par le réseau (chaîne YouTube non vérifiée…), format ou
+ * poids non acceptés (JPEG ou PNG de 2 Mo au plus), ou échec passager.
+ */
+export type ThumbnailStatus = "APPLIED" | "REFUSED" | "UNSUPPORTED" | "FAILED";
 
 export interface AnalyticsResult {
   followers: number;

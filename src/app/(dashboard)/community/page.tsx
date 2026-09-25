@@ -13,6 +13,7 @@
 
 import { CommunityAuthor, type CommunityAuthorInfo } from "@/components/reussites/community-author";
 import { AvatarRing } from "@/components/reussites/avatar-ring";
+import { FeaturedStrip } from "@/components/reussites/featured-strip";
 import type { RingStyle } from "@/lib/reussites/catalog";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
@@ -25,7 +26,7 @@ import { NetworkBadge } from "@/components/ui/network-badge";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { useToast } from "@/components/dashboard/toast";
 import { useBootstrap } from "@/components/bootstrap-provider";
-import { openProfilePanel } from "@/components/dashboard/profile-panel";
+import { openProfilePanel } from "@/components/dashboard/profile-panel-events";
 import { clsx } from "@/lib/clsx";
 import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift, IconChevronRight } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
@@ -244,6 +245,9 @@ export default function CommunityPage() {
           Classement <IconChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {/* À la une (Réussites v2, lot C) */}
+      <FeaturedStrip />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_272px]">
         {/* ---------- Flux central ---------- */}

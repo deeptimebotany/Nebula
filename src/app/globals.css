@@ -140,6 +140,7 @@ body {
      nebula-700 pour les autres thèmes, voir themes.ts). */
   --l-success: #047857; /* emerald-700 — 5,5:1 sur blanc */
   --l-warning: #b45309; /* amber-700 — 5,0:1 */
+  --l-info: #0e7490; /* cyan-700 — 5,4:1 (text-accent-cyan) */
   --l-danger: #b91c1c; /* red-700 — 6,1:1 */
   --l-accent: rgb(var(--c-accent-ink));
 }
@@ -196,6 +197,7 @@ body {
 [data-mode="light"] .text-amber-300,
 [data-mode="light"] .text-amber-400,
 [data-mode="light"] .text-orange-300 { color: var(--l-warning); }
+[data-mode="light"] .text-accent-cyan { color: var(--l-info); }
 [data-mode="light"] .text-red-200,
 [data-mode="light"] .text-red-300,
 [data-mode="light"] .text-red-400 { color: var(--l-danger); }
@@ -225,10 +227,18 @@ body {
 [data-mode="light"] .text-white.bg-black\/70,
 [data-mode="light"] .text-white.from-nebula-500,
 [data-mode="light"] .text-white.from-nebula-600,
-[data-mode="light"] .text-white.from-accent-magenta { color: #ffffff; }
+[data-mode="light"] .text-white.from-accent-magenta,
+[data-mode="light"] .text-white.bg-aurora-500 { color: #ffffff; }
 /* Couleur de marque d'un réseau en texte (voir networkInkStyle) : teinte
    officielle en sombre, version assombrie (--nb-ink) sur fond clair. */
 [data-mode="light"] .network-ink { color: var(--nb-ink); }
+/* Bandeau « Confirmez votre adresse » : pastille sombre en mode sombre,
+   blanche en mode clair (son texte suit déjà les couleurs du mode clair). */
+[data-mode="light"] .nb-verify-banner {
+  background-color: #ffffff;
+  border-color: var(--l-border);
+  box-shadow: var(--l-panel-shadow);
+}
 /* Fonds bleutés translucides (option retenue, ligne de la vue Liste) :
    30 % de nebula-700 sur blanc donne un bleu moyen qui écrase le texte. */
 [data-mode="light"] .bg-nebula-700\/30,
@@ -249,8 +259,12 @@ body {
 [data-mode="light"] .border-white\/\[0\.02\],
 [data-mode="light"] .border-white\/\[0\.03\],
 [data-mode="light"] .border-white\/\[0\.04\],
+[data-mode="light"] .border-white\/\[0\.05\],
 [data-mode="light"] .border-white\/\[0\.06\],
-[data-mode="light"] .border-white\/\[0\.08\] { border-color: var(--l-border); }
+[data-mode="light"] .border-white\/\[0\.07\],
+[data-mode="light"] .border-white\/\[0\.08\],
+[data-mode="light"] .border-white\/\[0\.1\],
+[data-mode="light"] .border-white\/\[0\.16\] { border-color: var(--l-border); }
 [data-mode="light"] .hover\:border-white\/20:hover,
 [data-mode="light"] .hover\:border-white\/25:hover,
 [data-mode="light"] .hover\:border-white\/30:hover { border-color: var(--l-border-hover); }
@@ -1779,4 +1793,87 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   12% { box-shadow: 0 0 0 3px rgb(var(--c-aurora-400) / 0.9), 0 0 32px 4px rgb(var(--c-aurora-400) / 0.45); }
   70% { box-shadow: 0 0 0 3px rgb(var(--c-aurora-400) / 0.6), 0 0 22px 2px rgb(var(--c-aurora-400) / 0.25); }
   100% { box-shadow: 0 0 0 0 rgb(var(--c-aurora-400) / 0); }
+}
+
+/* Réussites v2 (26/09/2026) : pastilles de rang, emblèmes, coffre de la
+   semaine. Couleurs doublées d'un emblème différent par rang (jamais la
+   couleur seule) ; animations coupées si l'appareil demande moins
+   d'animations. */
+.rank-chip { border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.04); color: #e2e8f0; }
+.rank-chip-etincelle { border-color: rgba(242, 207, 107, 0.4); background: rgba(242, 207, 107, 0.1); color: #f7e2a6; }
+.rank-chip-comete { border-color: rgba(122, 149, 255, 0.45); background: rgba(122, 149, 255, 0.12); color: #c9d3ff; }
+.rank-chip-etoile { border-color: rgba(174, 188, 255, 0.5); background: rgba(174, 188, 255, 0.12); color: #e4e9ff; }
+.rank-chip-constellation { border-color: rgba(187, 143, 255, 0.5); background: rgba(160, 102, 255, 0.14); color: #dcc8ff; }
+.rank-chip-nebuleuse { border-color: rgba(240, 98, 208, 0.5); background: rgba(240, 98, 208, 0.14); color: #f9c4ec; }
+[data-mode="light"] .rank-chip-etincelle { border-color: rgba(161, 98, 7, 0.35); background: rgba(242, 207, 107, 0.18); color: #7a4a05; }
+[data-mode="light"] .rank-chip-comete { border-color: rgba(59, 83, 200, 0.35); background: rgba(122, 149, 255, 0.14); color: #2f3f9e; }
+[data-mode="light"] .rank-chip-etoile { border-color: rgba(59, 83, 200, 0.3); background: rgba(174, 188, 255, 0.2); color: #29357f; }
+[data-mode="light"] .rank-chip-constellation { border-color: rgba(106, 47, 224, 0.35); background: rgba(160, 102, 255, 0.14); color: #5a24c4; }
+[data-mode="light"] .rank-chip-nebuleuse { border-color: rgba(176, 30, 140, 0.35); background: rgba(240, 98, 208, 0.14); color: #8e1470; }
+
+@keyframes nb-rank-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes nb-rank-spin { to { transform: rotate(360deg); } }
+.nb-rank-float { animation: nb-rank-float 4s ease-in-out infinite; }
+.nb-rank-spin { transform-box: fill-box; transform-origin: center; animation: nb-rank-spin 48s linear infinite; }
+
+@keyframes nb-chest-shake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-6deg); } 40% { transform: rotate(6deg); } 60% { transform: rotate(-4deg); } 80% { transform: rotate(3deg); } }
+@keyframes nb-chest-reveal { from { opacity: 0; transform: translateY(10px) scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes nb-chest-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(242, 207, 107, 0); } 50% { box-shadow: 0 0 0 6px rgba(242, 207, 107, 0.22); } }
+.nb-chest-shake { transform-origin: 50% 100%; animation: nb-chest-shake 0.45s ease-in-out 1; }
+.nb-chest-reveal { animation: nb-chest-reveal 0.5s ease-out both; }
+.nb-chest-ready { animation: nb-chest-glow 2.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-rank-float, .nb-rank-spin, .nb-chest-shake, .nb-chest-ready { animation: none; }
+  .nb-chest-reveal { animation: none; }
+}
+
+/* Constellation de compétences (Réussites v2, lot B) : le ciel reste sombre
+   en mode clair aussi (c'est un ciel) ; ses onglets aussi. */
+.nb-sky {
+  background: radial-gradient(70% 70% at 50% 45%, rgba(134, 70, 255, 0.14) 0%, rgba(17, 17, 20, 0) 72%), #111114;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e7e9f5;
+}
+.nb-sky-tab { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.14); color: #c9c9d1; }
+.nb-sky-tab:hover { border-color: rgba(255, 255, 255, 0.3); color: #ffffff; }
+.nb-sky-tab-on, .nb-sky-tab-on:hover { color: #0e0e10; }
+[data-mode="light"] .nb-sky { border-color: rgba(15, 15, 30, 0.12); box-shadow: 0 10px 30px -18px rgba(20, 10, 60, 0.5); }
+@keyframes nb-star-next { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+.nb-star-next { animation: nb-star-next 2.4s ease-in-out infinite; }
+/* Sur téléphone, les noms des branches deviendraient illisibles : les
+   onglets sous le ciel les donnent déjà. */
+@media (max-width: 640px) {
+  .nb-sky-label { display: none; }
+}
+/* Pastilles de priorité (audit de présence) : lisibles sur fond clair (4,5:1 au moins). */
+.nb-chip-danger { background-color: rgb(248 113 113 / 0.15); color: #fecaca; }
+.nb-chip-warn { background-color: rgb(252 211 77 / 0.15); color: #fde68a; }
+[data-mode="light"] .nb-chip-danger { background-color: #fee2e2; color: #991b1b; }
+[data-mode="light"] .nb-chip-warn { background-color: #fef3c7; color: #92400e; }
+/* Rareté (lot C) : une couleur par palier, plus soutenue sur fond clair. */
+.nb-rarity-commun { color: #cfd3dc; }
+.nb-rarity-rare { color: #5fe0f0; }
+.nb-rarity-epique { color: #bb8fff; }
+.nb-rarity-legendaire { color: #f2cf6b; }
+[data-mode="light"] .nb-rarity-commun { color: #8a8f98; }
+[data-mode="light"] .nb-rarity-rare { color: #0e7490; }
+[data-mode="light"] .nb-rarity-epique { color: #7c3aed; }
+[data-mode="light"] .nb-rarity-legendaire { color: #b45309; }
+/* Rareté légendaire (lot C) : halo qui respire. */
+@keyframes nb-rarity-halo { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.nb-rarity-halo { animation: nb-rarity-halo 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .nb-rarity-halo { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-star-next { animation: none; }
+}
+
+/* Media kit (produit n°10) : version PDF (impression du navigateur). La page
+   passe en mode clair le temps de l'impression (kit-client.tsx) ; ici, des
+   marges et les fonds des pastilles de réseau et des cartes imprimés. */
+@media print {
+  @page { margin: 14mm 12mm; }
+  .kit-print { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

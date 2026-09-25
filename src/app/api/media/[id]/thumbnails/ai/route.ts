@@ -7,6 +7,7 @@ import { isAiEnabled, generateThumbnail } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
 import { saveUploadedFile } from "@/lib/storage";
 import { z } from "zod";
+import { brandUploadPrefix } from "@/lib/upload-policy";
 
 const bodySchema = z.object({
   frameBase64: z.string(),
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const buffer = Buffer.from(generated.base64, "base64");
     const ext = generated.mimeType.includes("png") ? "png" : "jpg";
     const file = new File([buffer], `ia-${asset.id}.${ext}`, { type: generated.mimeType });
-    const saved = await saveUploadedFile(file);
+    const saved = await saveUploadedFile(file, { prefix: brandUploadPrefix(asset.brandId) });
     return NextResponse.json({ url: saved.url });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

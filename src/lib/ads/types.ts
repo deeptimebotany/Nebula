@@ -61,7 +61,12 @@ export interface AdAccountRef {
 }
 
 export class AdsError extends Error {
-  constructor(message: string, public status = 400) {
+  constructor(
+    message: string,
+    public status = 400,
+    /** Catégorie de l'erreur d'origine (voir social/errors.ts), si connue (lot 8). */
+    public category?: string
+  ) {
     super(message);
   }
 }

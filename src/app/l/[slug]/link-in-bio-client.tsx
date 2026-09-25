@@ -14,6 +14,7 @@ import { PoweredByNebula } from "@/components/marketing/powered-by";
 import type { PublicLinkPageData } from "@/lib/link-in-bio-public";
 import { BIO_CARD_SIZES, resolveBioFrame } from "@/lib/bio-frames";
 import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
+import { safeHref } from "@/lib/safe-url";
 
 // Les données arrivent déjà rendues par le serveur (voir page.tsx) : ce
 // composant ne fait plus aucun appel réseau au chargement — il ne garde de
@@ -85,7 +86,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
               data.links.map((link) => (
                 <a
                   key={link.id}
-                  href={link.url}
+                  href={safeHref(link.url)}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => onLinkClick(link.id)}

@@ -1,0 +1,64 @@
+# Intégration continue (lot 3, qualité) — gratuite sur GitHub.
+#
+# À chaque « git push » (et chaque pull request), GitHub vérifie le projet
+# sur une machine neuve, AVANT que vous ne regardiez le site en ligne :
+#   1. installation propre (npm ci) ;
+#   2. les migrations de la base s'appliquent sur une base Postgres vide ;
+#   3. types TypeScript, lint ;
+#   4. tests automatiques (npm test) et tests d'intégration sur la base de test ;
+#   5. build de production.
+# Résultat : pastille verte ✓ ou rouge ✗ à côté du commit sur GitHub (onglet
+# « Actions »), et un e-mail en cas d'échec. Aucune donnée de production
+# n'est utilisée : la base est jetable et les secrets sont factices.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nebula_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nebula_ci
+      INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nebula_ci
+      NEXTAUTH_SECRET: ci-secret-not-used-in-production-0123456789
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Installation
+        run: npm ci
+      - name: Migrations sur une base vide
+        run: npx prisma migrate deploy
+      - name: Types
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      - name: Tests d'intégration (base de test)
+        run: npm run test:integration
+      - name: Build de production
+        run: npx next build

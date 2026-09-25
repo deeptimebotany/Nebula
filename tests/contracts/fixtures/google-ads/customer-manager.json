@@ -1,0 +1,7 @@
+{
+  "results": [
+    { "customer": { "resourceName": "customers/9876543210", "id": "9876543210", "descriptiveName": "Agence Exemple (MCC)", "currencyCode": "EUR", "manager": true } }
+  ],
+  "fieldMask": "customer.id,customer.descriptiveName,customer.currencyCode,customer.manager",
+  "requestId": "req-customer-2"
+}

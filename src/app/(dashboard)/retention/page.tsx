@@ -6,14 +6,13 @@
 // ceci fonctionne pour N'IMPORTE QUELLE vidéo de la chaîne YouTube connectée
 // — voir le produit n°3 de la feuille de route ("outil autonome").
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
-import { useChartTheme } from "@/lib/chart-theme";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { RetentionCurveChart } from "@/components/charts/lazy";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
@@ -22,8 +21,12 @@ import { useToast } from "@/components/dashboard/toast";
 import { useAiStatus } from "@/components/use-ai-status";
 import { IconRetention, IconSparkle, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
-import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
+import dynamic from "next/dynamic";
 import { useFocusMode } from "@/components/bootstrap-provider";
+import { useConnections } from "@/lib/data/hooks";
+
+// Mini-jeu d'attente chargé seulement pendant une analyse (lot 5).
+const LoadingMiniGame = dynamic(() => import("@/components/mini-game/loading-mini-game").then((m) => m.LoadingMiniGame), { ssr: false });
 
 interface ConnectionRow {
   id: string;
@@ -61,7 +64,6 @@ function extractVideoId(input: string): string | null {
 }
 
 export default function RetentionToolPage() {
-  const chartTheme = useChartTheme();
   // Mini-jeu d'attente (voir loading-mini-game.tsx) : jamais en Mode focus,
   // même règle que dans le Composer (composer/page.tsx).
   const { focusMode } = useFocusMode();
@@ -70,7 +72,9 @@ export default function RetentionToolPage() {
   const upgrade = useUpgradeModal();
   const aiStatus = useAiStatus(activeBrand?.id);
 
-  const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  // Chaînes YouTube connectées : cache partagé des comptes (lot 6).
+  const cachedConnections = useConnections<ConnectionRow>(activeBrand?.id).connections;
+  const connections = useMemo(() => (cachedConnections ?? []).filter((c) => c.network === "YOUTUBE" && c.status === "CONNECTED"), [cachedConnections]);
   const [connectionId, setConnectionId] = useState<string>("");
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
@@ -83,17 +87,8 @@ export default function RetentionToolPage() {
   const [loadingInsight, setLoadingInsight] = useState(false);
 
   useEffect(() => {
-    if (!activeBrand) return;
-    fetch(`/api/connections?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const yt = (d.connections ?? []).filter((c: ConnectionRow) => c.network === "YOUTUBE" && c.status === "CONNECTED");
-        setConnections(yt);
-        setConnectionId((prev) => prev || yt[0]?.id || "");
-      })
-      .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBrand?.id]);
+    if (connections.length > 0) setConnectionId((prev) => prev || connections[0].id);
+  }, [connections]);
 
   useEffect(() => {
     if (!connectionId) return;
@@ -289,20 +284,13 @@ export default function RetentionToolPage() {
                       <Button onClick={analyze} disabled={analyzing} className="mt-3">
                         <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la rétention (IA)"}
                       </Button>
-                      {!focusMode && <LoadingMiniGame active={analyzing} />}
+                      {!focusMode && analyzing && <LoadingMiniGame active />}
                     </>
                   ) : (
                     <div className="mt-3 space-y-3">
                       <p className="text-sm text-slate-200">{insight.summary}</p>
                       {retentionCurve.length > 0 && (
-                        <ResponsiveContainer width="100%" height={180}>
-                          <LineChart data={retentionCurve.map((p) => ({ x: Math.round(p.timeRatio * 100), y: Math.round(p.watchRatio * 100) }))}>
-                            <XAxis dataKey="x" tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: chartTheme.axis, fontSize: 10 }} unit="%" axisLine={false} tickLine={false} width={32} />
-                            <Tooltip contentStyle={chartTheme.tooltip} labelStyle={chartTheme.labelStyle} />
-                            <Line type="monotone" dataKey="y" stroke={chartTheme.series[1]} strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <RetentionCurveChart points={retentionCurve} height={180} />
                       )}
                       {dropOffPoints.length > 0 && (
                         <ul className="space-y-1 text-xs text-slate-400">

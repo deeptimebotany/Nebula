@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { disconnectConnection } from "@/lib/social/revoke";
 
 // DELETE /api/connections/[provider]?connectionId=xxx — déconnecte un compte
+// (jetons effacés et, si possible, accès retiré chez le réseau).
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -21,6 +23,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Connexion introuvable" }, { status: 404 });
   }
 
-  await prisma.socialConnection.update({ where: { id: connectionId }, data: { status: "DISCONNECTED" } });
-  return NextResponse.json({ ok: true });
+  // Lot 2 : jetons effacés et accès retiré chez le réseau quand c'est
+  // possible sans toucher aux autres comptes (voir social/revoke.ts).
+  const { revoked } = await disconnectConnection(connectionId);
+  return NextResponse.json({ ok: true, revoked });
 }

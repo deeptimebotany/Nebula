@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Network } from "@/lib/types";
 import type { OAuthTokenResult } from "@/lib/social/base";
 import { createHmac, timingSafeEqual } from "crypto";
+import { deriveKey } from "@/lib/secrets";
 
 export async function upsertConnection(brandId: string, network: Network, token: OAuthTokenResult) {
   return prisma.socialConnection.upsert({
@@ -18,8 +19,11 @@ export async function upsertConnection(brandId: string, network: Network, token:
       avatarUrl: token.avatarUrl,
       accessToken: token.accessToken,
       refreshToken: token.refreshToken ?? undefined,
-      tokenExpiresAt: token.expiresAt,
+      // null (et non « inchangé ») quand le jeton n'expire pas — cas des
+      // jetons de Page Facebook (lot 2).
+      tokenExpiresAt: token.expiresAt ?? null,
       scopes: token.scopes,
+      ...(token.authUserId ? { authUserId: token.authUserId } : {}),
       status: "CONNECTED",
       lastError: null,
       lastSyncedAt: new Date()
@@ -34,12 +38,14 @@ export async function upsertConnection(brandId: string, network: Network, token:
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       tokenExpiresAt: token.expiresAt,
-      scopes: token.scopes
+      scopes: token.scopes,
+      authUserId: token.authUserId
     }
   });
 }
 
-// État OAuth SIGNÉ (HMAC-SHA256 avec NEXTAUTH_SECRET) et daté : le
+// État OAuth SIGNÉ (HMAC-SHA256, clé dédiée dérivée de NEXTAUTH_SECRET —
+// voir lib/secrets.ts) et daté : le
 // paramètre `state` transite par le navigateur et par le fournisseur OAuth,
 // donc un tiers pouvait auparavant en forger un avec le brandId d'une autre
 // marque et y rattacher son propre compte social (confused deputy). Le
@@ -47,14 +53,8 @@ export async function upsertConnection(brandId: string, network: Network, token:
 // plus de OAUTH_STATE_TTL_MS.
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
-function oauthStateSecret(): string {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) throw new Error("NEXTAUTH_SECRET manquant : impossible de signer l'état OAuth.");
-  return secret;
-}
-
 function signOAuthPayload(encoded: string): string {
-  return createHmac("sha256", oauthStateSecret()).update(encoded).digest("base64url");
+  return createHmac("sha256", deriveKey("oauth-state")).update(encoded).digest("base64url");
 }
 
 export function encodeOAuthState(payload: Record<string, unknown>): string {

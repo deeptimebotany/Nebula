@@ -15,6 +15,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { useBrand } from "@/components/brand-context";
 import type { BrandUsage } from "@/lib/billing/usage";
+import { useUsage } from "@/lib/data/hooks";
 
 interface PlanResponse {
   plan: Plan;
@@ -127,20 +128,7 @@ function BillingPageInner() {
   const proTier = PLAN_LIMITS.PRO.tiers[0];
   // Consommation réelle de la marque active, calculée par le serveur avec
   // les mêmes règles que les quotas (voir /api/billing/usage).
-  const [usage, setUsage] = useState<BrandUsage | null>(null);
-  useEffect(() => {
-    if (!activeBrand) return;
-    let cancelled = false;
-    fetch(`/api/billing/usage?brandId=${activeBrand.id}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d) setUsage(d as BrandUsage);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [activeBrand]);
+  const { usage } = useUsage<BrandUsage>(activeBrand?.id);
 
   useEffect(() => {
     fetch("/api/billing/plan")

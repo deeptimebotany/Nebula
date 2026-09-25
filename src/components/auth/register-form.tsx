@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeRelativePath } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,8 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   // Retour après inscription : ?next=/composer?draft=… (outils gratuits,
   // lot G4.a) — chemin relatif uniquement, jamais une URL externe.
   const rawNext = searchParams.get("next");
-  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  // safeRelativePath refuse aussi « /\evil.com » (lu //evil.com par les navigateurs).
+  const nextPath = safeRelativePath(rawNext, "/dashboard");
 
   // Un lien de parrainage (?ref=CODE) pré-remplit le champ et le déplie, et
   // affiche « Invité par {prénom} : 30 jours de Pro offerts » (brief growth,
@@ -108,8 +110,9 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
       router.push("/login");
       return;
     }
-    router.push(nextPath);
-    router.refresh();
+    // Chargement complet : l'application reçoit sa CSP stricte même si
+    // l'onglet a été ouvert sur la vitrine (lot 11, voir src/lib/csp.ts).
+    window.location.assign(nextPath);
   }
 
   return (

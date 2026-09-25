@@ -1,0 +1,31 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lbexemple2x",
+        "cid": "bafyreiexempledecid",
+        "author": { "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "cafe-nebula.bsky.social", "displayName": "Café Nebula", "avatar": "https://cdn.bsky.app/img/avatar/plain/x@jpeg", "labels": [], "createdAt": "2025-11-02T09:00:00.000Z" },
+        "record": { "$type": "app.bsky.feed.post", "createdAt": "2026-09-24T08:15:30.123Z", "langs": ["fr"], "text": "Nouveau menu d'automne ☕ #cafe" },
+        "embed": { "$type": "app.bsky.embed.images#view", "images": [{ "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/x@jpeg", "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/x@jpeg", "alt": "" }] },
+        "replyCount": 2,
+        "repostCount": 1,
+        "likeCount": 14,
+        "quoteCount": 0,
+        "indexedAt": "2026-09-24T08:15:31.000Z",
+        "labels": []
+      }
+    },
+    {
+      "post": {
+        "uri": "at://did:plc:autrecompte0000000000000/app.bsky.feed.post/3lbautre",
+        "cid": "bafyreiautre",
+        "author": { "did": "did:plc:autrecompte0000000000000", "handle": "ami.bsky.social" },
+        "record": { "$type": "app.bsky.feed.post", "createdAt": "2026-09-23T08:00:00.000Z", "text": "Republié par le café" },
+        "replyCount": 0, "repostCount": 5, "likeCount": 30, "quoteCount": 0,
+        "indexedAt": "2026-09-23T08:00:01.000Z"
+      },
+      "reason": { "$type": "app.bsky.feed.defs#reasonRepost", "by": { "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "cafe-nebula.bsky.social" }, "indexedAt": "2026-09-23T09:00:00.000Z" }
+    }
+  ],
+  "cursor": "2026-09-23T08:00:01.000Z"
+}

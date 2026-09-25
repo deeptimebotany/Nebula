@@ -14,7 +14,27 @@ export interface ToolLink {
   title: string;
 }
 
-export function ToolPage({ icon, title, intro, children, faq, related, ctaLabel = "Programmer avec Nebula" }: { icon: ReactNode; title: string; intro: ReactNode; children: ReactNode; faq: FaqItem[]; related: ToolLink[]; ctaLabel?: string }) {
+export function ToolPage({
+  icon,
+  title,
+  intro,
+  children,
+  faq,
+  related,
+  ctaLabel = "Programmer avec Nebula",
+  ctaTitle = "Programmez directement ce que vous générez",
+  ctaText
+}: {
+  icon: ReactNode;
+  title: string;
+  intro: ReactNode;
+  children: ReactNode;
+  faq: FaqItem[];
+  related: ToolLink[];
+  ctaLabel?: string;
+  ctaTitle?: string;
+  ctaText?: ReactNode;
+}) {
   return (
     <main id="contenu" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
@@ -34,9 +54,9 @@ export function ToolPage({ icon, title, intro, children, faq, related, ctaLabel 
 
       <section className="relative z-10 mx-auto max-w-2xl px-6 pb-10">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center">
-          <p className="font-display text-lg font-semibold text-white">Programmez directement ce que vous générez</p>
+          <p className="font-display text-lg font-semibold text-white">{ctaTitle}</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-            Nebula publie sur YouTube, Instagram, Facebook et TikTok, à l&apos;heure, avec l&apos;IA intégrée. Gratuit pour commencer, {TRIAL_DAYS} jours de Pro offerts.
+            {ctaText ?? <>Nebula publie sur YouTube, Instagram, Facebook et TikTok, à l&apos;heure, avec l&apos;IA intégrée. Gratuit pour commencer, {TRIAL_DAYS} jours de Pro offerts.</>}
           </p>
           <div className="mt-4">
             <ButtonLink href="/register?utm_source=outils&utm_medium=cta&utm_campaign=micro-outils">{ctaLabel}</ButtonLink>

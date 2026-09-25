@@ -1,7 +1,7 @@
 "use client";
 
 import { useAvailableNetworks } from "@/lib/use-available-networks";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
 import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus, IconRefresh, IconThumbUp } from "@/components/dashboard/icons";
+import { refreshConnections, refreshUsage, useConnections, useUsage } from "@/lib/data/hooks";
 
 interface ConnectionRow {
   id: string;
@@ -81,7 +82,11 @@ function AccountsPageInner() {
   const { activeBrand, loading: brandLoading } = useBrand();
   const toast = useToast();
   const confirmDialog = useConfirm();
-  const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  // Comptes et usage : cache partagé avec l'en-tête et les autres pages
+  // (lot 6) — la liste s'affiche tout de suite en revenant sur la page.
+  const { connections: cachedConnections, error: connectionsError } = useConnections<ConnectionRow>(activeBrand?.id);
+  const connections = useMemo(() => cachedConnections ?? [], [cachedConnections]);
+  const { usage: planInfo } = useUsage<PlanInfo>(activeBrand?.id);
   // Faux tant que la liste des comptes de la marque active n'a pas été lue
   // au moins une fois. Au retour d'une connexion OAuth (YouTube, TikTok…),
   // la page se recharge entièrement : pendant les 2-3 s où la marque puis
@@ -89,12 +94,11 @@ function AccountsPageInner() {
   // + un bouton « Connecter » actif — et on pouvait relancer une connexion
   // déjà faite. Tant que ce drapeau est faux, les blocs montrent un
   // chargement et le bouton est désactivé.
-  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  const connectionsLoaded = cachedConnections !== null || Boolean(connectionsError);
   // Fournisseur dont on vient de cliquer « Connecter » : le bouton passe en
   // « Redirection… » et se désactive, le temps que le navigateur parte vers
   // la page d'autorisation (un second clic lançait un second flux OAuth).
   const [startingProvider, setStartingProvider] = useState<string | null>(null);
-  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
   // Compte dont le menu déroulant (Analytics / Publié / Interactions,
   // filtrés sur lui) est actuellement ouvert — un seul à la fois, façon
   // Buffer (voir capture partagée par l'utilisateur).
@@ -104,40 +108,23 @@ function AccountsPageInner() {
   const connected = params.get("connected");
   const count = params.get("count");
 
+  // Après une connexion ou déconnexion : toutes les vues se mettent à jour.
   async function load() {
     if (!activeBrand) return;
-    let loaded: ConnectionRow[] = [];
-    try {
-      const res = await fetch(`/api/connections?brandId=${activeBrand.id}`, { cache: "no-store" });
-      const data = await res.json();
-      loaded = data.connections ?? [];
-      setConnections(loaded);
-    } catch {
-      toast.error("Impossible de charger les comptes connectés. Rechargez la page.");
-    } finally {
-      setConnectionsLoaded(true);
-    }
-
-    // Easter egg : les 6 réseaux disponibles connectés en même temps sur
-    // cette marque (peu importe combien de comptes par réseau).
-    const connectedNetworks = new Set(loaded.filter((c) => c.status === "CONNECTED").map((c) => c.network));
-    if (connectedNetworks.size >= NETWORKS.length) {
-      reportEasterEggFound("all-networks-connected");
-    }
-
-    // Consommation et limites calculées par le serveur (mêmes règles que le
-    // quota appliqué à la connexion — voir /api/billing/usage).
-    fetch(`/api/billing/usage?brandId=${activeBrand.id}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setPlanInfo(d))
-      .catch(() => undefined);
+    await Promise.all([refreshConnections(activeBrand.id), refreshUsage()]);
   }
 
   useEffect(() => {
-    setConnectionsLoaded(false);
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBrand]);
+    if (connectionsError) toast.error("Impossible de charger les comptes connectés. Rechargez la page.");
+  }, [connectionsError, toast]);
+
+  // Easter egg : les 6 réseaux disponibles connectés en même temps sur
+  // cette marque (peu importe combien de comptes par réseau).
+  useEffect(() => {
+    const connectedNetworks = new Set(connections.filter((c) => c.status === "CONNECTED").map((c) => c.network));
+    if (connectedNetworks.size >= NETWORKS.length) reportEasterEggFound("all-networks-connected");
+  }, [connections]);
+
 
   function startConnect(providerId: string) {
     if (!activeBrand || startingProvider) return;
@@ -277,7 +264,14 @@ function AccountsPageInner() {
               {!listLoading && linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
               <ul className="space-y-2">
                 {linked.map((c) => {
-                  const expiry = c.autoRenew ? { level: "ok" as const, daysLeft: Infinity } : tokenStatus(c.tokenExpiresAt);
+                  // Statut EXPIRED : le réseau a refusé la connexion lors d'une
+                  // publication ou d'une synchro (lot 5) — prioritaire sur la date.
+                  const expiry =
+                    c.status === "EXPIRED"
+                      ? { level: "expired" as const, daysLeft: 0 }
+                      : c.autoRenew
+                        ? { level: "ok" as const, daysLeft: Infinity }
+                        : tokenStatus(c.tokenExpiresAt);
                   const expanded = expandedId === c.id;
                   return (
                     <li key={c.id} className="rounded-lg bg-white/[0.02]">

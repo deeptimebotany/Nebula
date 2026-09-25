@@ -9,11 +9,9 @@
 import { cookies } from "next/headers";
 import type { Plan } from "./plans";
 
-const OWNER_EMAIL = "nommelucas@gmail.com";
+import { isOwnerEmail } from "./owner";
 
-export function isOwnerEmail(email: string | null | undefined): boolean {
-  return typeof email === "string" && email.toLowerCase() === OWNER_EMAIL;
-}
+export { isOwnerEmail };
 
 // "Aperçu de palier" (voir /dev-preview et le bouton dans Paramètres) :
 // permet au compte propriétaire de voir le site EXACTEMENT comme un compte

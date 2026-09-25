@@ -5,7 +5,11 @@
 // visible nulle part une fois sa page quittée : le calendrier ne montre que
 // ce qui a une date. Ici : filtres par statut, réseau et texte, tri du plus
 // récent au plus ancien, accès direct à la fiche de chaque publication.
-import { Suspense, useEffect, useMemo, useState } from "react";
+//
+// Lot 5 : liste paginée par le serveur (50 par page, « Afficher plus »),
+// filtres et compteurs calculés par la base — plus aucun plafond ni tout
+// l'historique chargé dans le navigateur.
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -23,6 +27,7 @@ import { NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 import { IconCalendar, IconChevron, IconList, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
+import { refreshUsage } from "@/lib/data/hooks";
 
 interface ApiPost {
   id: string;
@@ -46,13 +51,6 @@ const STATUS_META: Record<string, { label: string; tone: BadgeTone }> = {
   FAILED: { label: "Échec", tone: "danger" },
   PARTIAL: { label: "Partiellement publiée", tone: "warning" }
 };
-
-function matchesStatus(post: ApiPost, filter: StatusFilter): boolean {
-  if (filter === "ALL") return true;
-  if (filter === "SCHEDULED") return post.status === "SCHEDULED" || post.status === "PUBLISHING";
-  if (filter === "FAILED") return post.status === "FAILED" || post.status === "PARTIAL";
-  return post.status === filter;
-}
 
 function postDate(post: ApiPost): Date {
   const published = post.targets.map((t) => t.publishedAt).filter(Boolean).sort().pop();
@@ -80,60 +78,91 @@ function PublicationsPageInner() {
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get("status")?.toUpperCase();
   const [posts, setPosts] = useState<ApiPost[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<StatusFilter, number>>({ ALL: 0, SCHEDULED: 0, PUBLISHED: 0, FAILED: 0, DRAFT: 0 });
+  const [networksPresent, setNetworksPresent] = useState<Network[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusFilter>(STATUS_FILTERS.includes(initialStatus as StatusFilter) ? (initialStatus as StatusFilter) : "ALL");
   const [network, setNetwork] = useState<Network | "ALL">("ALL");
   const [query, setQuery] = useState("");
+  // Recherche envoyée au serveur 300 ms après la dernière frappe.
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearch(query.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [query]);
   // Import CSV (brief growth, lot G6.a) : la modale, et un compteur qui
   // force le rechargement de la liste une fois les brouillons créés.
   const [importOpen, setImportOpen] = useState(searchParams.get("import") === "1");
   const [reloadKey, setReloadKey] = useState(0);
+  // Seule la dernière requête lancée a le droit d'afficher son résultat.
+  const requestSeq = useRef(0);
 
+  const pageUrl = useCallback(
+    (brandId: string, cursor?: string) => {
+      const params = new URLSearchParams({ brandId, paginate: "1", status });
+      if (network !== "ALL") params.set("network", network);
+      if (search) params.set("q", search);
+      if (cursor) params.set("cursor", cursor);
+      return `/api/posts?${params.toString()}`;
+    },
+    [status, network, search]
+  );
+
+  // Première page : à l'ouverture et à chaque changement de filtre.
   useEffect(() => {
     if (!activeBrand) return;
-    let cancelled = false;
-    setPosts(null);
+    const seq = ++requestSeq.current;
+    setRefreshing(true);
     setError(null);
-    fetch(`/api/posts?brandId=${activeBrand.id}`)
+    fetch(pageUrl(activeBrand.id))
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : "Impossible de charger les publications.");
-        return data.posts as ApiPost[];
+        return data as { posts: ApiPost[]; nextCursor: string | null; counts: Record<StatusFilter, number>; networks: Network[] };
       })
-      .then((list) => {
-        if (!cancelled) setPosts(list);
+      .then((data) => {
+        if (seq !== requestSeq.current) return;
+        setPosts(data.posts);
+        setNextCursor(data.nextCursor);
+        setCounts(data.counts);
+        setNetworksPresent(NETWORKS.filter((n) => data.networks.includes(n)));
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+        if (seq === requestSeq.current) setError(e.message);
+      })
+      .finally(() => {
+        if (seq === requestSeq.current) setRefreshing(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeBrand, reloadKey]);
+  }, [activeBrand, pageUrl, reloadKey]);
 
-  const counts = useMemo(() => {
-    const c: Record<StatusFilter, number> = { ALL: 0, SCHEDULED: 0, PUBLISHED: 0, FAILED: 0, DRAFT: 0 };
-    for (const p of posts ?? []) {
-      c.ALL += 1;
-      for (const key of ["SCHEDULED", "PUBLISHED", "FAILED", "DRAFT"] as const) if (matchesStatus(p, key)) c[key] += 1;
+  // Changement de marque : on repart d'un écran de chargement.
+  useEffect(() => {
+    setPosts(null);
+  }, [activeBrand?.id]);
+
+  async function loadMore() {
+    if (!activeBrand || !nextCursor || loadingMore) return;
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    try {
+      const r = await fetch(pageUrl(activeBrand.id, nextCursor));
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : "Impossible de charger la suite.");
+      if (seq !== requestSeq.current) return;
+      setPosts((prev) => [...(prev ?? []), ...(data.posts as ApiPost[])]);
+      setNextCursor(data.nextCursor ?? null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
     }
-    return c;
-  }, [posts]);
+  }
 
-  const networksPresent = useMemo(() => {
-    const set = new Set<Network>();
-    for (const p of posts ?? []) for (const t of p.targets) set.add(t.network);
-    return NETWORKS.filter((n) => set.has(n));
-  }, [posts]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (posts ?? [])
-      .filter((p) => matchesStatus(p, status))
-      .filter((p) => network === "ALL" || p.targets.some((t) => t.network === network))
-      .filter((p) => !q || p.title.toLowerCase().includes(q) || p.caption.toLowerCase().includes(q))
-      .sort((a, b) => postDate(b).getTime() - postDate(a).getTime());
-  }, [posts, status, network, query]);
+  const filtersActive = status !== "ALL" || network !== "ALL" || search !== "";
+  const shownTotal = counts[status];
 
   const count = (n: number) => <span className="rounded-full bg-white/[0.06] px-1.5 text-[11px] text-slate-400">{n}</span>;
   const tabs = [
@@ -171,6 +200,7 @@ function PublicationsPageInner() {
         onImported={() => {
           setStatus("DRAFT");
           setReloadKey((k) => k + 1);
+          void refreshUsage();
         }}
       />
 
@@ -202,7 +232,7 @@ function PublicationsPageInner() {
         ) : (
           <EmptyState icon={<IconList className="h-5 w-5" />} title="Aucune marque sélectionnée" description="Créez ou choisissez une marque depuis le menu pour voir ses publications." />
         )
-      ) : posts.length === 0 ? (
+      ) : posts.length === 0 && !filtersActive ? (
         <EmptyState
           icon={<IconList className="h-5 w-5" />}
           title="Aucune publication pour l'instant"
@@ -218,18 +248,30 @@ function PublicationsPageInner() {
             </div>
           }
         />
-      ) : filtered.length === 0 ? (
+      ) : posts.length === 0 ? (
         <EmptyState
           icon={<IconSearch className="h-5 w-5" />}
           title="Rien ne correspond à ces filtres"
           description="Essayez un autre statut, un autre réseau ou effacez la recherche."
         />
       ) : (
-        <ul className="space-y-2" aria-label="Liste des publications">
-          {filtered.map((post) => (
-            <PublicationRow key={post.id} post={post} />
-          ))}
-        </ul>
+        <div className={clsx("space-y-3 transition-opacity", refreshing && "opacity-60")} aria-busy={refreshing || undefined}>
+          <ul className="space-y-2" aria-label="Liste des publications">
+            {posts.map((post) => (
+              <PublicationRow key={post.id} post={post} />
+            ))}
+          </ul>
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <p className="text-xs text-slate-500">
+              {posts.length.toLocaleString("fr-FR")} sur {Math.max(shownTotal, posts.length).toLocaleString("fr-FR")}
+            </p>
+            {nextCursor && (
+              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Chargement…" : "Afficher plus"}
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

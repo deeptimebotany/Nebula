@@ -30,6 +30,8 @@ export const ASSISTANT_CONTEXT_KEYS = [
   "reports",
   "calendar-share",
   "retention",
+  "studio",
+  "media-kit",
   "community",
   "billing",
   "settings",
@@ -254,6 +256,30 @@ export const ASSISTANT_CONTEXTS: Record<AssistantContextKey, AssistantContextDef
       "Quels chapitres ajouter pour améliorer la rétention ?"
     ]
   },
+  studio: {
+    label: "Studio IA",
+    welcome: "Vous êtes dans le Studio IA : idées, accroches et scripts écrits à partir de ce qui marche chez vous. Je peux vous aider à choisir une idée, à améliorer une accroche ou à adapter un script.",
+    suggestions: [
+      "Laquelle de ces idées devrais-je tourner en premier ?",
+      "Rends cette accroche plus percutante",
+      "Comment adapter ce script en format court ?",
+      "Pourquoi mes meilleures publications ont-elles marché ?",
+      "Comment tenir l'attention jusqu'à la fin d'une vidéo ?",
+      "Propose un titre plus court pour ce script"
+    ]
+  },
+  "media-kit": {
+    label: "Media kit",
+    welcome: "Vous préparez votre media kit, la page à envoyer aux marques. Je peux vous aider à écrire votre accroche et votre présentation, à fixer vos tarifs ou à rédiger le message qui accompagne le lien.",
+    suggestions: [
+      "Écris une accroche courte pour mon media kit",
+      "Aide-moi à rédiger ma présentation « À propos »",
+      "Comment fixer le prix d'une vidéo sponsorisée ?",
+      "Rédige un e-mail pour proposer une collaboration à une marque",
+      "Quelles publications mettre à la une ?",
+      "Comment expliquer mon taux d'engagement à un sponsor ?"
+    ]
+  },
   community: {
     label: "Communauté",
     welcome: "Vous êtes dans la communauté Nebula. Je peux vous orienter vers un guide, vous aider à formuler une question, ou résumer les bonnes pratiques partagées.",
@@ -336,6 +362,8 @@ const PATH_RULES: { prefix: string; key: AssistantContextKey }[] = [
   { prefix: "/link-in-bio", key: "link-in-bio" },
   { prefix: "/reports", key: "reports" },
   { prefix: "/retention", key: "retention" },
+  { prefix: "/studio", key: "studio" },
+  { prefix: "/media-kit", key: "media-kit" },
   { prefix: "/community", key: "community" },
   { prefix: "/billing", key: "billing" },
   { prefix: "/settings", key: "settings" },

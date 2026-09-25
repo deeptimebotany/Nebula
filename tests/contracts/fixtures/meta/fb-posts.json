@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "id": "101010101010101_987654321098765",
+      "message": "Nouveau menu d'automne ☕ #cafe",
+      "permalink_url": "https://www.facebook.com/101010101010101/posts/987654321098765",
+      "created_time": "2026-09-24T08:15:31+0000",
+      "full_picture": "https://scontent.xx.fbcdn.net/v/menu.jpg",
+      "shares": { "count": 3 },
+      "likes": { "data": [], "summary": { "total_count": 12, "can_like": true, "has_liked": false } },
+      "comments": { "data": [], "summary": { "order": "ranked", "total_count": 4, "can_comment": true } }
+    }
+  ],
+  "paging": { "cursors": { "before": "QVFIU", "after": "QVFIV" } }
+}

@@ -5,6 +5,7 @@
 // d'email après la 2e génération du jour (voir tool-lead-capture.tsx).
 import { useState } from "react";
 import { hasToolLead } from "@/components/tools/tool-lead-capture";
+import { markToolExplored } from "@/lib/tools-explored";
 
 export type LeadStep = "idle" | "ask" | "done" | "skipped";
 
@@ -37,6 +38,8 @@ export function useToolGeneration<T>(tool: string) {
         return;
       }
       setResult(pick(data));
+      // Badge Explorateur (Réussites, lot C) : un vrai résultat obtenu.
+      markToolExplored();
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       if (typeof data.used === "number") setUsed(data.used);
     } catch {

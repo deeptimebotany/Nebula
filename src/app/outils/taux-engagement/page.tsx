@@ -3,7 +3,8 @@
 // Calculateur de taux d'engagement (brief growth, lot G4.c) — SANS IA :
 // n'entame pas le quota Gemini. Repères indicatifs datés et sourcés,
 // libellés « ordres de grandeur ».
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { markToolExplored } from "@/lib/tools-explored";
 import { ToolPage } from "@/components/tools/tool-page";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconChart } from "@/components/dashboard/icons";
@@ -52,6 +53,11 @@ export default function TauxEngagementPage() {
     const verdict = rate >= b.high ? "excellent" : rate >= b.median ? "bon" : rate >= b.low ? "dans la moyenne" : "en dessous de la moyenne";
     return { rate, perPost, verdict };
   }, [network, followers, likes, comments, shares, posts]);
+  // Badge Explorateur (Réussites, lot C) : un vrai taux calculé.
+  const computed = Boolean(result && (Number(likes) || Number(comments) || Number(shares)));
+  useEffect(() => {
+    if (computed) markToolExplored();
+  }, [computed]);
 
   const b = BENCHMARKS[network];
 
@@ -66,6 +72,7 @@ export default function TauxEngagementPage() {
       }
       faq={FAQ}
       related={[
+        { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" },
         { href: "/outils/hashtags", title: "Générateur de hashtags" },
         { href: "/outils/legendes", title: "Générateur de légendes" }

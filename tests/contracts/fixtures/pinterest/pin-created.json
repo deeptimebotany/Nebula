@@ -1,0 +1,27 @@
+{
+      "id": "813744226420795884",
+      "created_at": "2026-09-24T08:15:30",
+      "link": "https://nebulahub.space",
+      "title": "Nouveau menu d'automne",
+      "description": "Nouveau menu d'automne ☕ #cafe",
+      "dominant_color": "#6E7874",
+      "alt_text": null,
+      "creative_type": "REGULAR",
+      "board_id": "549755885176",
+      "board_section_id": null,
+      "board_owner": { "username": "cafenebula" },
+      "is_owner": true,
+      "media": {
+        "media_type": "image",
+        "images": {
+          "150x150": { "width": 150, "height": 150, "url": "https://i.pinimg.com/150x150/exemple.jpg" },
+          "400x300": { "width": 400, "height": 300, "url": "https://i.pinimg.com/400x300/exemple.jpg" },
+          "600x": { "width": 600, "height": 600, "url": "https://i.pinimg.com/600x/exemple.jpg" }
+        }
+      },
+      "parent_pin_id": null,
+      "is_standard": true,
+      "has_been_promoted": false,
+      "note": "",
+      "pin_metrics": null
+    }

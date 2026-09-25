@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { assertBrandMembership } from "@/lib/link-in-bio";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
 
 // POST /api/link-in-bio/links/reorder { brandId, orderedIds } — réécrit le
 // champ "order" de chaque lien selon sa position dans orderedIds (déplacé
@@ -40,5 +41,6 @@ export async function POST(req: NextRequest) {
     orderedIds.map((id, index) => prisma.linkItem.update({ where: { id }, data: { order: index } }))
   );
 
+  await invalidateLinkPage(brandId);
   return NextResponse.json({ ok: true });
 }

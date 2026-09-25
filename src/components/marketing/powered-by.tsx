@@ -9,8 +9,9 @@
 // agence qui découvre le service par ce biais.
 //
 // Brief growth (lot G1.a) : le lien est maintenant TRACKÉ et RÉCOMPENSÉ.
-//   - `surface` (bio / rapport / calendrier / approve) choisit la page
-//     d'atterrissage : /decouvrir/page-bio ou /decouvrir/rapports-clients ;
+//   - `surface` (bio / rapport / calendrier / approve / kit) choisit la page
+//     d'atterrissage : /decouvrir/page-bio, /decouvrir/media-kit ou
+//     /decouvrir/rapports-clients ;
 //   - `via` (slug de la marque) voyage dans l'URL → cookie d'attribution du
 //     middleware → User.acqVia à l'inscription → un mois de Pro offert à la
 //     marque quand ce compte devient payant (src/lib/billing/rewards.ts) ;
@@ -21,7 +22,7 @@ import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import { clsx } from "@/lib/clsx";
 import { trackGrowthEvent } from "@/lib/growth-client";
 
-export type PublicSurface = "bio" | "rapport" | "calendrier" | "approve";
+export type PublicSurface = "bio" | "rapport" | "calendrier" | "approve" | "kit";
 
 export function discoverUrl(surface: PublicSurface, via: string | null | undefined, medium: "badge" | "block"): string {
   const params = new URLSearchParams();
@@ -29,7 +30,8 @@ export function discoverUrl(surface: PublicSurface, via: string | null | undefin
   params.set("utm_source", medium === "badge" ? "powered-by" : "public-page");
   params.set("utm_medium", medium);
   params.set("utm_campaign", surface);
-  return `${surface === "bio" ? "/decouvrir/page-bio" : "/decouvrir/rapports-clients"}?${params.toString()}`;
+  const landing = surface === "bio" ? "/decouvrir/page-bio" : surface === "kit" ? "/decouvrir/media-kit" : "/decouvrir/rapports-clients";
+  return `${landing}?${params.toString()}`;
 }
 
 export function PoweredByNebula({

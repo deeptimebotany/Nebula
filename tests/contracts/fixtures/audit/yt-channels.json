@@ -1,0 +1,31 @@
+{
+  "kind": "youtube#channelListResponse",
+  "etag": "etag-audit-1",
+  "pageInfo": { "totalResults": 1, "resultsPerPage": 5 },
+  "items": [
+    {
+      "kind": "youtube#channel",
+      "etag": "etag-audit-2",
+      "id": "UCaudit1234567890abcdefg",
+      "snippet": {
+        "title": "Café Nebula",
+        "description": "Recettes de café et de pâtisserie maison, une nouvelle vidéo chaque mardi. Site : https://cafe-nebula.fr",
+        "customUrl": "@cafenebula",
+        "publishedAt": "2021-03-14T09:00:00Z",
+        "thumbnails": {
+          "default": { "url": "https://yt3.ggpht.com/exemple=s88", "width": 88, "height": 88 },
+          "medium": { "url": "https://yt3.ggpht.com/exemple=s240", "width": 240, "height": 240 },
+          "high": { "url": "https://yt3.ggpht.com/exemple=s800", "width": 800, "height": 800 }
+        },
+        "localized": { "title": "Café Nebula", "description": "Recettes de café" },
+        "country": "FR"
+      },
+      "contentDetails": { "relatedPlaylists": { "likes": "", "uploads": "UUaudit1234567890abcdefg" } },
+      "statistics": { "viewCount": "845210", "subscriberCount": "12400", "hiddenSubscriberCount": false, "videoCount": "142" },
+      "brandingSettings": {
+        "channel": { "title": "Café Nebula", "description": "Recettes de café", "keywords": "café pâtisserie recettes", "unsubscribedTrailer": "abc", "country": "FR" },
+        "image": { "bannerExternalUrl": "https://yt3.googleusercontent.com/banniere-exemple" }
+      }
+    }
+  ]
+}

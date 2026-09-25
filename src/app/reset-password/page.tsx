@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
+// CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
+// rendu à chaque visite, jamais pré-généré.
+export const dynamic = "force-dynamic";
+
 export default async function ResetPasswordPage() {
   const session = await getServerSession(authOptions);
   if (session?.user) redirect("/dashboard");

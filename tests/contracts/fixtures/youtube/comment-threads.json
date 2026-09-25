@@ -1,0 +1,102 @@
+{
+  "kind": "youtube#commentThreadListResponse",
+  "etag": "etag-15",
+  "pageInfo": {
+    "totalResults": 2,
+    "resultsPerPage": 25
+  },
+  "items": [
+    {
+      "kind": "youtube#commentThread",
+      "etag": "etag-16",
+      "id": "UgzExempleDeFil",
+      "snippet": {
+        "channelId": "UCabcdefghijklmnopqrstuv",
+        "videoId": "aBcDeFgHiJk",
+        "topLevelComment": {
+          "kind": "youtube#comment",
+          "etag": "etag-17",
+          "id": "UgzExempleDeFil",
+          "snippet": {
+            "channelId": "UCabcdefghijklmnopqrstuv",
+            "videoId": "aBcDeFgHiJk",
+            "textDisplay": "Super vidéo !",
+            "textOriginal": "Super vidéo !",
+            "authorDisplayName": "@spectateur",
+            "authorProfileImageUrl": "https://yt3.ggpht.com/spectateur.jpg",
+            "authorChannelUrl": "http://www.youtube.com/@spectateur",
+            "canRate": true,
+            "viewerRating": "none",
+            "likeCount": 0,
+            "publishedAt": "2026-09-24T10:00:00Z",
+            "updatedAt": "2026-09-24T10:00:00Z"
+          }
+        },
+        "canReply": true,
+        "totalReplyCount": 1,
+        "isPublic": true
+      },
+      "replies": {
+        "comments": [
+          {
+            "kind": "youtube#comment",
+            "etag": "etag-18",
+            "id": "UgzExempleDeFil.AbCdEf",
+            "snippet": {
+              "channelId": "UCabcdefghijklmnopqrstuv",
+              "videoId": "aBcDeFgHiJk",
+              "textDisplay": "Merci beaucoup !",
+              "textOriginal": "Merci beaucoup !",
+              "parentId": "UgzExempleDeFil",
+              "authorDisplayName": "@cafenebula",
+              "authorProfileImageUrl": "https://yt3.ggpht.com/cafenebula.jpg",
+              "authorChannelUrl": "http://www.youtube.com/@cafenebula",
+              "authorChannelId": {
+                "value": "UCabcdefghijklmnopqrstuv"
+              },
+              "canRate": true,
+              "viewerRating": "none",
+              "likeCount": 0,
+              "publishedAt": "2026-09-24T11:15:00Z",
+              "updatedAt": "2026-09-24T11:15:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "youtube#commentThread",
+      "etag": "etag-19",
+      "id": "UgzAutreFil",
+      "snippet": {
+        "channelId": "UCabcdefghijklmnopqrstuv",
+        "videoId": "aBcDeFgHiJk",
+        "topLevelComment": {
+          "kind": "youtube#comment",
+          "etag": "etag-20",
+          "id": "UgzAutreFil",
+          "snippet": {
+            "channelId": "UCabcdefghijklmnopqrstuv",
+            "videoId": "aBcDeFgHiJk",
+            "textDisplay": "Quelle caméra ?",
+            "textOriginal": "Quelle caméra ?",
+            "authorDisplayName": "@curieuse",
+            "authorProfileImageUrl": "https://yt3.ggpht.com/curieuse.jpg",
+            "authorChannelUrl": "http://www.youtube.com/@curieuse",
+            "authorChannelId": {
+              "value": "UCzzzzzzzzzzzzzzzzzzzzzz"
+            },
+            "canRate": true,
+            "viewerRating": "none",
+            "likeCount": 0,
+            "publishedAt": "2026-09-24T09:00:00Z",
+            "updatedAt": "2026-09-24T09:00:00Z"
+          }
+        },
+        "canReply": true,
+        "totalReplyCount": 0,
+        "isPublic": true
+      }
+    }
+  ]
+}

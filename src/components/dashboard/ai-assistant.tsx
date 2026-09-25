@@ -17,6 +17,10 @@
 // La conversation survit à la navigation (le composant vit dans le layout)
 // et au rechargement (sessionStorage, par marque) ; « Nouvelle conversation »
 // la vide.
+//
+// Ce module est chargé à la demande (ai-assistant-lazy.tsx) : le bouton
+// flottant est toujours là, le tiroir n'est téléchargé qu'à la première
+// ouverture (ou au survol du bouton).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -559,21 +563,6 @@ export function AiAssistant() {
           <p className="mt-2 px-1 text-center text-[10.5px] leading-snug text-slate-500">{LEGAL_NOTICE}</p>
         </div>
       </aside>
-
-      {/* Bouton flottant — masqué quand le tiroir est ouvert */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={clsx(
-          "nebula-chat-launcher fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white lg:bottom-6 lg:right-6",
-          open && "pointer-events-none opacity-0"
-        )}
-        aria-label="Demander à Nebula"
-        title="Demander à Nebula"
-        tabIndex={open ? -1 : 0}
-      >
-        <NebulaIcon size={30} tone="onDark" />
-      </button>
     </>
   );
 }

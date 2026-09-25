@@ -1,0 +1,7 @@
+{
+  "kind": "youtube#video",
+  "etag": "etag-14",
+  "id": "aBcDeFgHiJk",
+  "snippet": { "publishedAt": "2026-09-24T08:15:40Z", "channelId": "UCabcdefghijklmnopqrstuv", "title": "Nouveau menu d'automne", "description": "Toutes les nouveautés de la saison.", "categoryId": "22" },
+  "status": { "uploadStatus": "uploaded", "privacyStatus": "public", "license": "youtube", "embeddable": true, "publicStatsViewable": true, "selfDeclaredMadeForKids": false }
+}

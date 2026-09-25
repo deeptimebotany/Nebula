@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
-import { TrackView } from "@/components/marketing/track-view";
+import { OriginLabel, OriginTracker } from "./landing-origin";
 import { ReportVisual } from "@/components/marketing/product-visuals";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
@@ -17,17 +18,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/decouvrir/rapports-clients" }
 };
 
-export const dynamic = "force-dynamic";
-
-const SURFACE_LABEL: Record<string, string> = {
-  rapport: "un rapport",
-  calendrier: "un calendrier",
-  approve: "une page d'approbation"
-};
-
-export default function DecouvrirRapportsClients({ searchParams }: { searchParams: { via?: string; utm_campaign?: string } }) {
-  const via = typeof searchParams.via === "string" && /^[\w.-]{1,80}$/.test(searchParams.via) ? searchParams.via : "";
-  const surface = typeof searchParams.utm_campaign === "string" && SURFACE_LABEL[searchParams.utm_campaign] ? searchParams.utm_campaign : "rapport";
+// Page pré-générée (lot 11) : la provenance (?via, ?utm_campaign) est lue
+// dans le navigateur, voir landing-origin.tsx.
+export default function DecouvrirRapportsClients() {
   const proMonthly = PLAN_LIMITS.PRO.tiers[0].priceMonthly;
 
   const faq = [
@@ -38,10 +31,17 @@ export default function DecouvrirRapportsClients({ searchParams }: { searchParam
 
   return (
     <PublicShell width="max-w-5xl">
-      <TrackView name="landing_view" meta={{ landing: "rapports-clients", via, surface }} />
+      <Suspense fallback={null}>
+        <OriginTracker />
+      </Suspense>
 
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Vous venez de consulter {SURFACE_LABEL[surface]} généré par Nebula</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Vous venez de consulter{" "}
+          <Suspense fallback="un rapport généré">
+            <OriginLabel />
+          </Suspense>{" "}
+          par Nebula
+        </p>
         <h1 className="mt-3 font-display text-3xl font-semibold text-white sm:text-5xl">Les mêmes rapports, pour vos propres marques</h1>
         <p className="mt-4 text-base text-slate-400 sm:text-lg">
           Rapports et calendrier client automatiques, approbation en un clic, publication sur YouTube, Instagram, Facebook et TikTok — à partir de {proMonthly} €/mois, avec {TRIAL_DAYS} jours de Pro offerts.

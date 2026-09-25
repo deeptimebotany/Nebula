@@ -1,0 +1,22 @@
+{
+  "business_discovery": {
+    "username": "cafe.nebula",
+    "name": "Café Nebula",
+    "biography": "Recettes de café maison ☕ Nouvelle vidéo chaque mardi",
+    "website": "https://cafe-nebula.fr/",
+    "followers_count": 5400,
+    "follows_count": 210,
+    "media_count": 318,
+    "profile_picture_url": "https://scontent.cdninstagram.com/v/exemple.jpg",
+    "id": "17841400000000001",
+    "media": {
+      "data": [
+        { "caption": "Le cappuccino parfait #cafe #barista #recette", "comments_count": 12, "like_count": 240, "media_type": "VIDEO", "media_product_type": "REELS", "permalink": "https://www.instagram.com/reel/AAA1/", "timestamp": "2026-09-23T17:30:00+0000", "id": "18000000000000001" },
+        { "caption": "Nouveau grain du mois", "comments_count": 4, "media_type": "IMAGE", "media_product_type": "FEED", "permalink": "https://www.instagram.com/p/AAA2/", "timestamp": "2026-09-19T08:00:00+0000", "id": "18000000000000002" },
+        { "caption": "Les coulisses de la torréfaction : on vous montre tout, du grain vert à la tasse. #torrefaction", "comments_count": 9, "like_count": 180, "media_type": "CAROUSEL_ALBUM", "media_product_type": "FEED", "permalink": "https://www.instagram.com/p/AAA3/", "timestamp": "2026-09-14T09:00:00+0000", "id": "18000000000000003" }
+      ],
+      "paging": { "cursors": { "after": "QVFIUk" } }
+    }
+  },
+  "id": "17841400000009999"
+}

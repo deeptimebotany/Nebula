@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { signIn } from "next-auth/react";
 import { clsx } from "@/lib/clsx";
 import { IconAvatar, IconChevron, IconPlus, IconClose, IconTrophy } from "./icons";
-import { openProfilePanel } from "./profile-panel";
+import { openProfilePanel } from "./profile-panel-events";
 import { useBootstrap } from "@/components/bootstrap-provider";
 
 interface LinkedAccount {

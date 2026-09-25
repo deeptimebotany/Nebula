@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { requireBrandMembership } from "@/lib/brand-access";
+import { brandUploadPrefix, DIRECT_UPLOAD_CONTENT_TYPES, MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
 
 /**
  * GET /api/upload/blob-token — indique simplement si Vercel Blob est
@@ -41,17 +43,32 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as HandleUploadBody;
+  const userId = (session.user as { id: string }).id;
 
   try {
     const jsonResponse = await handleUpload({
       body,
       request: req,
       token: process.env.BLOB_READ_WRITE_TOKEN,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ["video/*", "image/*"],
-        addRandomSuffix: true,
-        maximumSizeInBytes: 2 * 1024 * 1024 * 1024 // 2 Go, largement suffisant pour une vidéo courte
-      })
+      // Audit sécurité (lot 1) : le fichier doit être rangé dans le dossier
+      // de la marque (b/<marque>/…) dont l'utilisateur est membre — c'est ce
+      // qui permet ensuite de n'accepter, et de ne supprimer, que les
+      // fichiers de cette marque. Pas de SVG (voir upload-policy.ts).
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        let brandId = "";
+        try {
+          brandId = String((JSON.parse(clientPayload ?? "{}") as { brandId?: unknown }).brandId ?? "");
+        } catch {
+          brandId = "";
+        }
+        if (!brandId || (await requireBrandMembership(userId, brandId))) throw new Error("Marque introuvable.");
+        if (!pathname.startsWith(brandUploadPrefix(brandId)) || pathname.includes("..")) throw new Error("Emplacement de fichier refusé.");
+        return {
+          allowedContentTypes: DIRECT_UPLOAD_CONTENT_TYPES,
+          addRandomSuffix: true,
+          maximumSizeInBytes: MAX_UPLOAD_BYTES // 2 Go, largement suffisant pour une vidéo courte
+        };
+      }
       // Pas de onUploadCompleted : l'enregistrement en base se fait via un
       // appel explicite du navigateur à /api/upload/register juste après,
       // ce qui évite de dépendre d'un webhook Vercel Blob accessible

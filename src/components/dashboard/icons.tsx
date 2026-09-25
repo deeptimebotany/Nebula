@@ -352,6 +352,17 @@ export const IconBioLink = ({ className = base }: IconProps) => (
   </svg>
 );
 
+// Fiche de présentation (portrait + lignes de chiffres) — media kit public
+// (voir /media-kit et /kit/[slug]).
+export const IconMediaKit = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <circle cx="8.5" cy="10" r="2" />
+    <path d="M5.8 16c.6-1.5 1.6-2.2 2.7-2.2s2.1.7 2.7 2.2" strokeLinecap="round" />
+    <path d="M14 9.5h4M14 12.5h4M14 15.5h2.5" strokeLinecap="round" />
+  </svg>
+);
+
 // Courbe qui chute puis remonte — outil autonome d'analyse de rétention
 // vidéo (voir /retention).
 export const IconRetention = ({ className = base }: IconProps) => (

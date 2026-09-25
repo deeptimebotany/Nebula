@@ -1,0 +1,8 @@
+{
+  "results": [
+    { "customer": { "resourceName": "customers/1234567890" }, "metrics": { "clicks": "12", "conversions": 1.5, "costMicros": "4560000", "impressions": "1500" }, "segments": { "date": "2026-09-23" } },
+    { "customer": { "resourceName": "customers/1234567890" }, "metrics": { "costMicros": "10000", "impressions": "20" }, "segments": { "date": "2026-09-24" } }
+  ],
+  "fieldMask": "segments.date,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions",
+  "requestId": "req-daily"
+}

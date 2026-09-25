@@ -15,6 +15,10 @@ import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Page « Alternative à {X} » (brief growth, lot G5.a). Contenu généré depuis
 // plans.ts et src/data/competitors.ts : aucun prix en dur ici.
+// Pages pré-générées (lot 11) : une adresse hors de la liste répond 404
+// directement, sans rendu à la demande.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return COMPETITOR_SLUGS.map((slug) => ({ slug }));
 }

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isOwnerEmail } from "@/lib/dev-preview";
 import { prisma } from "@/lib/prisma";
-import { deleteUploadedFile } from "@/lib/storage";
+import { deleteBrandMediaFile } from "@/lib/media-files";
 
 // POST /api/dev/cleanup-media — réservé au compte propriétaire (voir
 // /dev-preview, qui expose le bouton). Purge tous les MediaAsset qui ne
@@ -24,8 +24,8 @@ export async function POST() {
 
   let freedBytes = 0;
   for (const asset of orphaned) {
-    await deleteUploadedFile(asset.url);
-    if (asset.thumbnailUrl) await deleteUploadedFile(asset.thumbnailUrl);
+    await deleteBrandMediaFile(asset.url, asset.brandId);
+    await deleteBrandMediaFile(asset.thumbnailUrl, asset.brandId);
     freedBytes += asset.sizeBytes;
   }
   if (orphaned.length > 0) {

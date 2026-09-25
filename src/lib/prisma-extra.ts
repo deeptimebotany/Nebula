@@ -151,12 +151,48 @@ export interface ChallengeCompletionRow {
   celebratedAt: Date | null;
 }
 
+/** Missions de la semaine d'un compte (Réussites v2, voir schema.prisma). */
+export interface WeeklyMissionsRow {
+  id: string;
+  userId: string;
+  week: string;
+  habitKey: string;
+  habitTarget: number;
+  choices: string[];
+  progressKey: string;
+  swapsUsed: number;
+  mysteryKey: string;
+  revealedAt: Date | null;
+  chestOpenedAt: Date | null;
+  chestItem: string | null;
+  /** Bilan de la semaine (lot B) : fait le…, cap choisi. */
+  reviewedAt: Date | null;
+  reviewFocus: string | null;
+  createdAt: Date;
+}
+
+/** Mouvement d'objet Réussites (bouclier, fragment) : +1 gagné, -1 utilisé. */
+export interface ReussiteItemRow {
+  id: string;
+  userId: string;
+  item: string;
+  qty: number;
+  reason: string;
+  createdAt: Date;
+}
+
 /** Champs « Réussites » du modèle User (ajoutés le 25/09/2026). */
 export interface UserReussitesFields {
   creatorXp: number;
   creatorLevel: number;
   reussitesCheckedAt: Date | null;
   reussitesSeenAt: Date | null;
+  /** Vitrine : jusqu'à 3 clés de badges gagnés (lot B). */
+  showcase: string[];
+  /** Lot C : accord « à la une », outils gratuits essayés avant l'inscription. */
+  featureConsent: boolean;
+  toolsExplored: number;
+  createdAt: Date;
 }
 
 // Arguments volontairement souples (mêmes objets que l'API Prisma habituelle).
@@ -185,6 +221,8 @@ const extra = prisma as unknown as {
   pendingAdAuth: Delegate<PendingAdAuthRow>;
   achievementUnlock: Delegate<AchievementUnlockRow> & { aggregate(args: Args): Promise<{ _sum: { xp: number | null } }> };
   challengeCompletion: Delegate<ChallengeCompletionRow> & { aggregate(args: Args): Promise<{ _sum: { xp: number | null } }> };
+  weeklyMissions: Delegate<WeeklyMissionsRow>;
+  reussiteItem: Delegate<ReussiteItemRow> & { groupBy(args: Args): Promise<{ item: string; _sum: { qty: number | null } }[]> };
   user: {
     findUnique(args: Args): Promise<(UserReussitesFields & Record<string, unknown>) | null>;
     update(args: Args): Promise<unknown>;
@@ -203,5 +241,7 @@ export const adMetricDailyDb = extra.adMetricDaily;
 export const pendingAdAuthDb = extra.pendingAdAuth;
 export const achievementUnlockDb = extra.achievementUnlock;
 export const challengeCompletionDb = extra.challengeCompletion;
+export const weeklyMissionsDb = extra.weeklyMissions;
+export const reussiteItemDb = extra.reussiteItem;
 /** Accès au modèle User pour les champs « Réussites » (voir UserReussitesFields). */
 export const userReussitesDb = extra.user;

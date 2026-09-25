@@ -1,0 +1,25 @@
+{
+  "data": [
+    {
+      "id": "987654321098765_111111111111111",
+      "message": "Superbe menu !",
+      "from": { "name": "Camille Martin", "id": "5550001112223334" },
+      "created_time": "2026-09-24T12:00:00+0000",
+      "permalink_url": "https://www.facebook.com/101010101010101/posts/987654321098765?comment_id=111111111111111",
+      "comments": {
+        "data": [
+          { "id": "987654321098765_222222222222222", "from": { "name": "Café Nebula", "id": "101010101010101" }, "message": "Merci Camille !", "created_time": "2026-09-24T12:40:00+0000" }
+        ],
+        "paging": { "cursors": { "before": "QVFIUa", "after": "QVFIUb" } }
+      }
+    },
+    {
+      "id": "987654321098765_333333333333333",
+      "message": "Et en version sans gluten ?",
+      "from": { "name": "Alex Durand", "id": "5550001112229999" },
+      "created_time": "2026-09-24T13:00:00+0000",
+      "permalink_url": "https://www.facebook.com/101010101010101/posts/987654321098765?comment_id=333333333333333"
+    }
+  ],
+  "paging": { "cursors": { "before": "QVFIUc", "after": "QVFIUd" } }
+}

@@ -6,8 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
-import { notifyMany, brandEditorIds, looksLikeAuthError, networkLabel } from "@/lib/notifications";
-import { emitWebhookEvent } from "@/lib/webhooks";
+import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
 
 // Interroge les vraies API de chaque réseau connecté pour rafraîchir les
 // stats (abonnés, portée, impressions...) et enregistre un instantané.
@@ -30,6 +29,12 @@ export async function POST(req: NextRequest) {
   const results = [];
 
   for (const connection of connections) {
+    // Réseau suspendu (interrupteur ou disjoncteur, lot 5) : pas d'appel.
+    const blocked = await syncBlockedReason(connection.network);
+    if (blocked) {
+      results.push({ connectionId: connection.id, ok: false, skipped: true, error: blocked });
+      continue;
+    }
     try {
       const client = getSocialClient(connection.network as Network);
       const analytics = await client.fetchAnalytics(connection);
@@ -47,30 +52,17 @@ export async function POST(req: NextRequest) {
         }
       });
       await prisma.socialConnection.update({ where: { id: connection.id }, data: { lastSyncedAt: new Date(), lastError: null } });
+      await onSyncSuccess(connection);
       results.push({ connectionId: connection.id, ok: true });
     } catch (err) {
       await prisma.socialConnection.update({
         where: { id: connection.id },
         data: { lastError: (err as Error).message }
       });
-      // Connexion expirée ou révoquée : une seule alerte « à reconnecter »
-      // par compte (dedupeKey), remise en haut si le problème persiste.
-      if (looksLikeAuthError((err as Error).message)) {
-        const label = networkLabel(connection.network);
-        await notifyMany(await brandEditorIds(brandId), {
-          kind: "reconnect",
-          title: `${label} à reconnecter`,
-          body: `La connexion à ${label}${connection.displayName ? ` (${connection.displayName})` : ""} a expiré : les statistiques et les publications sur ce compte sont en pause.`,
-          href: "/accounts",
-          actionLabel: `Reconnecter ${label}`,
-          dedupeKey: `reconnect:${connection.id}`
-        });
-        await emitWebhookEvent(brandId, "connection.expired", {
-          connection: { id: connection.id, network: connection.network, name: connection.displayName, handle: connection.handle },
-          reason: (err as Error).message
-        });
-      }
-      results.push({ connectionId: connection.id, ok: false, error: (err as Error).message });
+      // Erreur classée (lot 5) : connexion expirée → compte « à reconnecter »
+      // et une seule alerte par compte ; panne → disjoncteur du réseau.
+      const message = await onSyncError(connection, err);
+      results.push({ connectionId: connection.id, ok: false, error: message });
     }
   }
 

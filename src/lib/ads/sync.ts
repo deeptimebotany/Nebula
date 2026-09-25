@@ -63,7 +63,17 @@ export async function syncAdAccount(account: AdAccountRow): Promise<SyncResult> 
       if (latest) campaigns = report.campaigns;
     }
 
-    for (let t = start.getTime(); t <= end.getTime(); t += DAY) {
+    // Garde-fou (lot 8) : un rapport entièrement vide alors que des dépenses
+    // sont déjà enregistrées sur la période n'est pas une correction de la
+    // régie (elle ne remet jamais 30 jours à zéro) mais une réponse suspecte.
+    // On garde alors les chiffres enregistrés au lieu de les effacer.
+    const suspicious =
+      days.size === 0 && (await adMetricDailyDb.count({ where: { adAccountId: account.id, date: { gte: start, lte: end }, spend: { gt: 0 } } })) > 0;
+    if (suspicious) {
+      console.warn(`[publicité] rapport vide pour ${platform} ${account.externalId} alors que des dépenses sont enregistrées : chiffres conservés.`);
+    }
+
+    for (let t = start.getTime(); t <= end.getTime() && !suspicious; t += DAY) {
       const date = new Date(t);
       const d = days.get(date.toISOString().slice(0, 10));
       const values = {
@@ -93,7 +103,7 @@ export async function syncAdAccount(account: AdAccountRow): Promise<SyncResult> 
         lastError: null,
         lastSyncedAt: new Date(),
         nextSyncAt: new Date(Date.now() + EVERY_MS),
-        campaigns: JSON.stringify(campaigns.slice(0, 50))
+        ...(suspicious ? {} : { campaigns: JSON.stringify(campaigns.slice(0, 50)) })
       }
     });
     return { ok: true };

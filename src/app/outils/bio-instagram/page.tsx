@@ -57,6 +57,7 @@ export default function BioInstagramPage() {
       }
       faq={FAQ}
       related={[
+        { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/hashtags", title: "Générateur de hashtags" },
         { href: "/outils/legendes", title: "Générateur de légendes" },
         { href: "/decouvrir/page-bio", title: "Créer une page bio" }

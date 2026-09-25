@@ -4,31 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertBrandQuota } from "@/lib/billing/plan";
 import { z } from "zod";
-import { DEFAULT_TIMEZONE } from "@/lib/timezone";
+import { listUserBrands } from "@/lib/server-data/brands";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const memberships = await prisma.membership.findMany({
-    where: { userId: (session.user as { id: string }).id },
-    include: { brand: { include: { connections: true } } }
-  });
-
-  return NextResponse.json({
-    brands: memberships.map((m: { role: string; brand: { id: string; name: string; slug: string; logoUrl?: string | null; timezone?: string | null; connections: unknown[] } }) => ({
-      id: m.brand.id,
-      name: m.brand.name,
-      slug: m.brand.slug,
-      // Logo de la marque (= photo de sa Page bio, voir /api/link-in-bio) :
-      // affiché dans le sélecteur de marque à la place de l'initiale.
-      logoUrl: m.brand.logoUrl ?? null,
-      // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
-      timezone: m.brand.timezone || DEFAULT_TIMEZONE,
-      role: m.role,
-      connectionsCount: m.brand.connections.length
-    }))
-  });
+  return NextResponse.json({ brands: await listUserBrands((session.user as { id: string }).id) });
 }
 
 const bodySchema = z.object({ name: z.string().min(2).max(80) });

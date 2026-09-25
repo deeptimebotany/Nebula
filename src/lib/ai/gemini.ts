@@ -8,6 +8,11 @@
 //
 // Clé gratuite : https://aistudio.google.com/apikey
 
+import { SocialApiError, fetchJson } from "@/lib/social/base";
+import { classifyProviderError } from "@/lib/social/errors";
+import { opt, soft, textSchema, z } from "@/lib/social/contract";
+import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
+
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 // Google retire régulièrement les anciens modèles (gemini-2.5-flash a été
 // retiré pour les nouvelles clés le 19/09/2026, remplacé par gemini-3.6-flash
@@ -38,10 +43,65 @@ export interface ChatMessage {
   text: string;
 }
 
+/** Partie d'une requête (Gemini accepte inline_data en snake_case dans les requêtes). */
 interface GenerateContentPart {
   text?: string;
   inline_data?: { mime_type: string; data: string };
 }
+
+// --- Contrat de la réponse (lot 9, voir social/contract.ts) ------------------
+// Doc : https://ai.google.dev/api/generate-content — les RÉPONSES sont en
+// camelCase (inlineData, mimeType). Avant le lot 9, les images générées
+// étaient lues dans « inline_data » (forme des requêtes) : jamais trouvées,
+// d'où « Gemini n'a renvoyé aucune image » pour les miniatures et stickers.
+// Les deux formes sont acceptées. Réponses types : tests/contracts/fixtures/gemini.
+const inlineSchema = z.object({ data: z.string().min(1), mimeType: textSchema, mime_type: textSchema });
+const responsePartSchema = z.object({ text: textSchema, inlineData: soft(inlineSchema), inline_data: soft(inlineSchema), thought: soft(z.boolean()) });
+const generateResponseSchema = z
+  .object({
+    candidates: opt(z.array(z.object({ content: soft(z.object({ parts: soft(z.array(responsePartSchema)) })), finishReason: textSchema }))),
+    promptFeedback: soft(z.object({ blockReason: textSchema }))
+  })
+  .superRefine((d, ctx) => {
+    // Sans candidat, Gemini explique toujours pourquoi (promptFeedback).
+    if (!d.candidates && !d.promptFeedback) ctx.addIssue({ code: z.ZodIssueCode.invalid_type, expected: "array", received: "undefined", path: ["candidates"] });
+  });
+type GenerateResponse = z.output<typeof generateResponseSchema>;
+
+/** Texte de la réponse (les « pensées » du modèle sont ignorées), ou erreur claire. */
+function responseText(data: GenerateResponse): string {
+  const candidate = data.candidates?.[0];
+  const text = (candidate?.content?.parts ?? [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? "")
+    .join("");
+  if (text) return text;
+  throw new Error(emptyReason(data));
+}
+
+/** Image générée de la réponse (inlineData, ou inline_data par sécurité). */
+function responseImage(data: GenerateResponse): { base64: string; mimeType: string } | null {
+  for (const p of data.candidates?.[0]?.content?.parts ?? []) {
+    const inline = p.inlineData ?? p.inline_data;
+    if (inline?.data) return { base64: inline.data, mimeType: inline.mimeType || inline.mime_type || "image/png" };
+  }
+  return null;
+}
+
+function emptyReason(data: GenerateResponse): string {
+  const blocked = data.promptFeedback?.blockReason;
+  const finish = data.candidates?.[0]?.finishReason;
+  if (blocked || finish === "SAFETY" || finish === "PROHIBITED_CONTENT" || finish === "BLOCKLIST" || finish === "IMAGE_SAFETY") {
+    return "Gemini a refusé de traiter cette demande (contenu jugé sensible par ses filtres). Reformulez ou changez d'image, puis réessayez.";
+  }
+  if (finish === "MAX_TOKENS") return "La réponse de Gemini a été coupée avant d'avoir du contenu (limite de longueur). Réessayez avec une demande plus courte.";
+  if (finish === "RECITATION") return "Gemini a interrompu sa réponse (contenu trop proche d'un texte existant). Reformulez la demande.";
+  return "Gemini n'a renvoyé aucun contenu. Réessayez dans un instant.";
+}
+
+/** Durée maximale d'un appel à Gemini, relances comprises (sous la limite des fonctions). */
+const GEMINI_DEADLINE_MS = 55_000;
+const GEMINI_ATTEMPT_TIMEOUT_MS = 50_000;
 
 /**
  * Erreur levée quand Gemini refuse pour cause de QUOTA (429 /
@@ -67,46 +127,84 @@ export class GeminiQuotaError extends Error {
 // d'image ci-dessous : on retente automatiquement avant de renoncer, plutôt
 // que de faire remonter tout de suite une erreur brute en anglais à
 // l'utilisateur (constaté en prod sur l'analyse de rétention).
-async function fetchGeminiWithRetry(url: string, body: unknown): Promise<Record<string, unknown>> {
+//
+// Lot 9 : porte commune (délai garanti : 55 s en tout, relances comprises),
+// clé d'API dans l'en-tête x-goog-api-key et non plus dans l'adresse (où
+// elle pouvait finir dans des journaux), réponse vérifiée par son contrat,
+// et le propriétaire prévenu quand la configuration est en cause (modèle
+// retiré par Google, clé refusée, format de réponse changé).
+async function fetchGeminiWithRetry(model: string, body: unknown): Promise<GenerateResponse> {
+  const key = requireKey();
+  const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`;
   const maxAttempts = 3;
-  let lastMessage = "Erreur Gemini inconnue.";
+  const deadline = Date.now() + GEMINI_DEADLINE_MS;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+  for (let attempt = 1; ; attempt++) {
+    const remaining = deadline - Date.now();
+    try {
+      return await fetchJson("GEMINI", url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        cache: "no-store",
+        timeoutMs: Math.max(1_000, Math.min(GEMINI_ATTEMPT_TIMEOUT_MS, remaining)),
+        schema: generateResponseSchema
+      });
+    } catch (err) {
+      if (!(err instanceof SocialApiError)) throw err;
+      const status = (err.raw as { error?: { status?: string } } | undefined)?.error?.status;
+      const googleMessage = err.message.replace(/^\[GEMINI\] /, "");
+      const quota = err.status === 429 || status === "RESOURCE_EXHAUSTED";
+      const overloaded = err.status === 503 || err.status === 500 || status === "UNAVAILABLE" || status === "INTERNAL";
+      const { category } = classifyProviderError(err);
 
-    const data = await res.json().catch(() => null);
-    if (res.ok) return data ?? {};
+      if (category === "UNEXPECTED_RESPONSE") {
+        void alertOwnerFormatChange("Gemini", "format:gemini", err.message, { where: "src/lib/ai/gemini.ts" });
+        throw new Error("Le service IA a répondu dans un format inattendu. L'équipe Nebula est prévenue ; réessayez un peu plus tard.");
+      }
+      if (category === "TIMEOUT") {
+        throw new Error("Le service IA de Google (Gemini) met trop de temps à répondre. Réessayez dans un instant, avec une demande plus courte si possible.");
+      }
+      // Modèle retiré par Google (déjà arrivé le 19/09/2026) : réglage à changer.
+      if (err.status === 404 || status === "NOT_FOUND") {
+        void alertOwner({
+          title: "Gemini : modèle IA indisponible",
+          body: `Google ne trouve plus le modèle « ${model} ». Réglez GEMINI_MODEL (ou GEMINI_IMAGE_MODEL pour les images) sur Vercel avec un modèle actuel (voir ai.google.dev/gemini-api/docs/models). Message : ${googleMessage}`,
+          dedupeKey: `gemini-model:${model}`
+        });
+        throw new Error("Le modèle d'IA configuré n'est plus disponible chez Google. L'équipe Nebula est prévenue et le remplace au plus vite.");
+      }
+      // Clé refusée ou retirée : aucune fonction IA ne peut marcher.
+      if (err.status === 401 || err.status === 403 || /API_KEY_INVALID|API key not valid/i.test(JSON.stringify(err.raw ?? ""))) {
+        void alertOwner({
+          title: "Gemini : clé d'API refusée",
+          body: `Google refuse la clé GEMINI_API_KEY : toutes les fonctions IA sont en panne. Créez une nouvelle clé sur aistudio.google.com/apikey et remplacez-la sur Vercel. Message : ${googleMessage}`,
+          dedupeKey: "gemini-key"
+        });
+        throw new Error("Le service IA est momentanément indisponible (configuration). L'équipe Nebula est prévenue.");
+      }
 
-    const status = (data as { error?: { status?: string } } | null)?.error?.status;
-    const quota = res.status === 429 || status === "RESOURCE_EXHAUSTED";
-    const retryable = res.status === 503 || quota || status === "UNAVAILABLE";
-    lastMessage = (data as { error?: { message?: string } } | null)?.error?.message || `Erreur Gemini (${res.status})`;
-
-    if (!retryable) throw new Error(lastMessage);
-    if (attempt === maxAttempts) {
-      if (quota) {
-        // Google indique parfois le délai à respecter ("retry in 42.3s").
-        const hinted = /retry in (\d+(?:\.\d+)?)s/i.exec(lastMessage);
-        const retryAfter = hinted ? Math.ceil(Number(hinted[1])) : 60;
-        throw new GeminiQuotaError(
-          "Le quota gratuit de l'IA est atteint pour le moment (limite par minute de Google Gemini). Ce n'est pas un bug : patientez un instant avant de renvoyer votre question.",
-          Math.min(Math.max(retryAfter, 10), 300)
+      const retryable = quota || overloaded || category === "TRANSIENT";
+      if (!retryable) throw new Error(googleMessage || "Erreur du service IA.");
+      const wait = attempt * 1500;
+      if (attempt >= maxAttempts || deadline - Date.now() < wait + 5_000) {
+        if (quota) {
+          // Google indique parfois le délai à respecter ("retry in 42.3s").
+          const hinted = /retry in (\d+(?:\.\d+)?)s/i.exec(googleMessage);
+          const retryAfter = hinted ? Math.ceil(Number(hinted[1])) : err.retryAfterMs ? Math.ceil(err.retryAfterMs / 1000) : 60;
+          throw new GeminiQuotaError(
+            "Le quota gratuit de l'IA est atteint pour le moment (limite par minute de Google Gemini). Ce n'est pas un bug : patientez un instant avant de renvoyer votre question.",
+            Math.min(Math.max(retryAfter, 10), 300)
+          );
+        }
+        throw new Error(
+          "Le service IA de Google (Gemini) est momentanément surchargé par une forte demande. Ce n'est pas un bug Nebula : réessayez dans une minute ou deux, ça repasse généralement tout seul."
         );
       }
-      throw new Error(
-        "Le service IA de Google (Gemini) est momentanément surchargé par une forte demande. Ce n'est pas un bug Nebula : réessayez dans une minute ou deux, ça repasse généralement tout seul."
-      );
+      // Backoff progressif entre les tentatives (1,5 s puis 3 s).
+      await new Promise((resolve) => setTimeout(resolve, wait));
     }
-
-    // Backoff progressif entre les tentatives (1,5 s puis 3 s).
-    await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
   }
-
-  throw new Error(lastMessage);
 }
 
 async function callGemini(params: {
@@ -119,14 +217,15 @@ async function callGemini(params: {
    *  plus bas pour une question d'usage — chaque token de sortie compte
    *  dans le quota gratuit. */
   maxOutputTokens?: number;
+  /** 0,8 par défaut ; plus bas pour des textes fidèles à des chiffres donnés. */
+  temperature?: number;
 }): Promise<string> {
-  const key = requireKey();
   const model = params.model || DEFAULT_MODEL;
 
   const body: Record<string, unknown> = {
     contents: params.contents,
     generationConfig: {
-      temperature: 0.8,
+      temperature: params.temperature ?? 0.8,
       maxOutputTokens: params.maxOutputTokens ?? 1024,
       ...(params.jsonMode ? { responseMimeType: "application/json" } : {})
     }
@@ -135,13 +234,8 @@ async function callGemini(params: {
     body.systemInstruction = { role: "system", parts: [{ text: params.systemInstruction }] };
   }
 
-  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${model}:generateContent?key=${key}`, body);
-  const text =
-    (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text ?? "")
-      .join("") ?? "";
-  if (!text) throw new Error("Gemini n'a renvoyé aucun contenu (réponse peut-être filtrée).");
-  return text;
+  const data = await fetchGeminiWithRetry(model, body);
+  return responseText(data);
 }
 
 /** Chat assistant général : aide à l'usage du site + analyse des stats fournies en contexte. */
@@ -237,6 +331,45 @@ export async function generateFreeCaption(input: {
  * un prompt, une réponse JSON (tableau de chaînes) — même quota Gemini que
  * les autres outils publics, via consumePublicQuota côté route.
  */
+/**
+ * Conseils personnalisés de l'audit de présence (produit n°8) : trois
+ * paragraphes rédigés à partir des faits CALCULÉS par Nebula (JSON en
+ * entrée, voir src/lib/audit/advice.ts), en mode JSON. Température basse :
+ * on veut des conseils fidèles aux chiffres, pas de la créativité.
+ */
+export async function generateAuditParagraphs(systemInstruction: string, factsJson: string): Promise<string[]> {
+  const text = await callGemini({
+    jsonMode: true,
+    maxOutputTokens: 900,
+    temperature: 0.4,
+    systemInstruction,
+    contents: [{ role: "user", parts: [{ text: `Faits calculés (JSON) :\n${factsJson}\n\nRéponds UNIQUEMENT par un objet JSON {"paragraphs": ["…", "…", "…"]}.` }] }]
+  });
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    const list = Array.isArray(parsed) ? parsed : (parsed as { paragraphs?: unknown })?.paragraphs;
+    if (!Array.isArray(list)) return [];
+    return list.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((x) => x.trim()).slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Studio IA (produit n°9) : réponse JSON brute pour une consigne et des
+ * faits donnés (idées et accroches, script de vidéo). Le texte est lu et
+ * vérifié par src/lib/studio/generate.ts (contrat zod), jamais utilisé tel quel.
+ */
+export async function generateStudioJson(systemInstruction: string, prompt: string, maxOutputTokens: number): Promise<string> {
+  return callGemini({
+    jsonMode: true,
+    maxOutputTokens,
+    temperature: 0.85,
+    systemInstruction,
+    contents: [{ role: "user", parts: [{ text: prompt }] }]
+  });
+}
+
 export async function generateFreeList(prompt: string, maxItems = 5): Promise<string[]> {
   const text = await callGemini({
     jsonMode: true,
@@ -348,7 +481,6 @@ export async function generateThumbnail(input: {
    *  concept que l'utilisateur vient de valider en lisant le « pourquoi ». */
   brief?: { hook: string; imagePrompt: string } | null;
 }): Promise<GeneratedThumbnail> {
-  const key = requireKey();
   const prompt = [
     "Tu vas créer une miniature vidéo accrocheuse à partir de cette image, extraite d'une vraie vidéo.",
     `Titre de la vidéo : "${input.title || "sans titre"}"${input.network ? ` (réseau : ${input.network})` : ""}.`,
@@ -360,7 +492,7 @@ export async function generateThumbnail(input: {
     "Format 16:9."
   ].join(" ");
 
-  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+  const data = await fetchGeminiWithRetry(IMAGE_MODEL, {
     contents: [
       {
         role: "user",
@@ -369,13 +501,9 @@ export async function generateThumbnail(input: {
     ]
   });
 
-  const parts: GenerateContentPart[] =
-    (data as { candidates?: { content?: { parts?: GenerateContentPart[] } }[] })?.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find((p) => p.inline_data?.data);
-  if (!imagePart?.inline_data) {
-    throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");
-  }
-  return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
+  const image = responseImage(data);
+  if (!image) throw new Error(data.candidates?.length ? "Gemini n'a renvoyé aucune image cette fois : réessayez." : emptyReason(data));
+  return image;
 }
 
 /**
@@ -386,7 +514,6 @@ export async function generateThumbnail(input: {
  * réactions du pack (voir le prompt de style ci-dessous).
  */
 export async function generateStickerPack(input: { prompt: string }): Promise<GeneratedThumbnail> {
-  const key = requireKey();
   const prompt = [
     "Crée un sticker/emoji numérique unique représentant :",
     input.prompt + ".",
@@ -396,17 +523,13 @@ export async function generateStickerPack(input: { prompt: string }): Promise<Ge
     "utilisable en petite taille (comme une réaction sur un réseau social)."
   ].join(" ");
 
-  const data = await fetchGeminiWithRetry(`${API_BASE}/models/${IMAGE_MODEL}:generateContent?key=${key}`, {
+  const data = await fetchGeminiWithRetry(IMAGE_MODEL, {
     contents: [{ role: "user", parts: [{ text: prompt }] }]
   });
 
-  const parts: GenerateContentPart[] =
-    (data as { candidates?: { content?: { parts?: GenerateContentPart[] } }[] })?.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find((p) => p.inline_data?.data);
-  if (!imagePart?.inline_data) {
-    throw new Error("Gemini n'a renvoyé aucune image (le modèle de génération d'image est peut-être indisponible).");
-  }
-  return { base64: imagePart.inline_data.data, mimeType: imagePart.inline_data.mime_type || "image/png" };
+  const image = responseImage(data);
+  if (!image) throw new Error(data.candidates?.length ? "Gemini n'a renvoyé aucune image cette fois : réessayez." : emptyReason(data));
+  return image;
 }
 
 export interface FrameInput {

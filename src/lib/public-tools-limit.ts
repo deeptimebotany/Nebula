@@ -85,3 +85,13 @@ export async function consumePublicQuota(req: NextRequest, tool: string, dailyLi
 
   return { ok: true, remaining: Math.max(0, limit - updated.count), limit, used: updated.count };
 }
+
+/**
+ * Rend une utilisation du jour (audit de présence : aucune source n'a pu
+ * être lue, par exemple une faute de frappe). Jamais en dessous de zéro.
+ */
+export async function releasePublicQuota(req: NextRequest, tool: string): Promise<void> {
+  const ipHash = hashIp(getClientIp(req));
+  const day = todayUtc();
+  await prisma.publicToolUsage.updateMany({ where: { ipHash, tool, day, count: { gt: 0 } }, data: { count: { decrement: 1 } } });
+}

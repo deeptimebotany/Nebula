@@ -1,18 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { ATTRIBUTION_COOKIE, ATTRIBUTION_MAX_AGE_SECONDS, attributionFromSearchParams, parseAttributionCookie, serializeAttribution } from "@/lib/growth-attribution";
+import { buildCsp, isAppPath, usesStrictCsp } from "@/lib/csp";
 
-// Middleware (Lot 5) : deux rôles.
+// Middleware (Lot 5) : trois rôles.
 //
-// 1. Content-Security-Policy STRICTE, avec un nonce différent à chaque
-//    requête : seuls les scripts de Next.js (marqués du nonce, puis tout ce
-//    qu'ils chargent, via 'strict-dynamic') et le widget Cloudflare Turnstile
-//    peuvent s'exécuter. Un script injecté par une extension malveillante, une
-//    dépendance compromise ou une faille XSS serait bloqué par le navigateur.
-//    Avant : la politique n'était qu'en mode « rapport » (Lot 0).
-//    Next.js lit l'en-tête Content-Security-Policy de la REQUÊTE pour poser
-//    le nonce sur ses propres balises <script> — d'où sa présence dans
-//    requestHeaders ET dans la réponse.
+// 1. Content-Security-Policy, en deux niveaux depuis le lot 11 (voir
+//    src/lib/csp.ts) :
+//    - STRICTE, avec un nonce différent à chaque requête, pour l'application,
+//      la page bio, les pages client à jeton, la connexion et /api : seuls
+//      les scripts de Next.js (marqués du nonce, puis tout ce qu'ils
+//      chargent, via 'strict-dynamic') et le widget Cloudflare Turnstile
+//      peuvent s'exécuter. Un script injecté par une extension malveillante,
+//      une dépendance compromise ou une faille XSS serait bloqué.
+//      Next.js lit l'en-tête Content-Security-Policy de la REQUÊTE pour poser
+//      le nonce sur ses propres balises <script> — d'où sa présence dans
+//      requestHeaders ET dans la réponse.
+//    - VITRINE, sans nonce, pour les pages pré-générées (accueil, tarifs,
+//      outils…) : elles sont servies depuis le cache de Vercel, sans rendu
+//      ni base de données. Le middleware s'exécute quand même avant le
+//      cache : en-têtes, redirection et cookie d'attribution restent posés.
 //    Soupape : CSP_MODE=report-only (variable d'environnement Vercel) repasse
 //    en rapport seul sans redéploiement de code, si jamais quelque chose est
 //    bloqué en production. En développement, le mode rapport est automatique
@@ -20,7 +27,10 @@ import { ATTRIBUTION_COOKIE, ATTRIBUTION_MAX_AGE_SECONDS, attributionFromSearchP
 //
 // 2. Pages de l'application connectée : redirection vers /login sans
 //    session (auparavant next-auth/middleware, remplacé par getToken pour
-//    pouvoir poser les en-têtes ci-dessus sur la même réponse).
+//    pouvoir poser les en-têtes ci-dessus sur la même réponse). Et, depuis
+//    le lot 11, l'inverse pour l'accueil : un visiteur déjà connecté va
+//    directement au tableau de bord (la page d'accueil, pré-générée, ne
+//    peut plus lire la session elle-même).
 //
 // 3. Attribution d'acquisition (brief growth, lot G0) : si l'URL porte
 //    utm_source / utm_medium / utm_campaign / utm_content / via / ref, un
@@ -28,36 +38,6 @@ import { ATTRIBUTION_COOKIE, ATTRIBUTION_MAX_AGE_SECONDS, attributionFromSearchP
 //    contact — jamais écrasé ensuite, sauf pour compléter `ref` s'il
 //    manquait. /api/auth/register et la connexion rapide le lisent à la
 //    création du compte (voir src/lib/growth.ts).
-
-const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/calendar",
-  "/composer",
-  "/publications",
-  "/analytics",
-  "/accounts",
-  "/billing",
-  "/posts",
-  "/support",
-  "/community",
-  "/link-in-bio",
-  "/retention",
-  "/reports",
-  "/calendar-share",
-  "/settings",
-  "/interactions",
-  "/comments",
-  "/engagements",
-  "/succes",
-  "/reussites",
-  "/automatisations",
-  "/admin",
-  "/dev-preview"
-];
-
-function isProtected(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
 
 function makeNonce(): string {
   const bytes = new Uint8Array(16);
@@ -67,51 +47,10 @@ function makeNonce(): string {
   return btoa(binary);
 }
 
-function buildCsp(nonce: string, dev: boolean): string {
-  const directives = [
-    "default-src 'self'",
-    // 'strict-dynamic' : les scripts chargés par un script de confiance
-    // (les chunks de Next.js, le widget Turnstile injecté par next/script)
-    // héritent de la confiance ; l'hôte Cloudflare reste listé pour les
-    // navigateurs plus anciens. 'unsafe-eval' uniquement en développement.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com${dev ? " 'unsafe-eval'" : ""}`,
-    // Styles inline : styled-jsx, framer-motion et Recharts posent des
-    // attributs style — indispensable, et sans risque d'exécution de code.
-    "style-src 'self' 'unsafe-inline'",
-    // Images et médias : avatars des réseaux sociaux (CDN variés), Vercel
-    // Blob, aperçus locaux (blob:/data:).
-    "img-src 'self' data: blob: https:",
-    "media-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    // Appels réseau : API du site, envoi direct vers Vercel Blob, Turnstile ;
-    // le websocket de rechargement à chaud en développement.
-    // vercel.com : le SDK @vercel/blob (upload() côté navigateur) contacte
-    // https://vercel.com/api/blob pendant l'étape de génération du jeton,
-    // avant même le transfert vers *.blob.vercel-storage.com — sans cette
-    // entrée, la CSP bloque l'envoi de fichier dès le départ (constaté en
-    // production : erreur "Refused to connect" sur vercel.com/api/blob).
-    // Import de médias (lot 3) : le sélecteur Google Drive charge ses
-    // scripts depuis apis.google.com / accounts.google.com (autorisés par
-    // 'strict-dynamic', puisqu'ils sont injectés par notre propre code) et
-    // s'affiche dans une iframe docs.google.com ; Dropbox et Microsoft
-    // ouvrent des fenêtres séparées, non concernées. Les fichiers eux-mêmes
-    // sont téléchargés par le serveur, jamais par le navigateur.
-    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com${dev ? " ws: wss:" : ""}`,
-    "worker-src 'self' blob:",
-    "frame-src https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
-    "frame-ancestors 'self'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'"
-  ];
-  if (!dev) directives.push("upgrade-insecure-requests");
-  return directives.join("; ");
-}
-
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (isProtected(pathname)) {
+  if (isAppPath(pathname)) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) {
       const url = req.nextUrl.clone();
@@ -119,19 +58,33 @@ export async function middleware(req: NextRequest) {
       url.search = `?callbackUrl=${encodeURIComponent(pathname + search)}`;
       return NextResponse.redirect(url);
     }
+  } else if (pathname === "/" && (await getToken({ req, secret: process.env.NEXTAUTH_SECRET }))) {
+    // Déjà connecté : directement au tableau de bord (session révoquée
+    // entre-temps : le tableau de bord renvoie vers /login).
+    const url = req.nextUrl.clone();
+    url.pathname = "/dashboard";
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 
   const dev = process.env.NODE_ENV !== "production";
   const reportOnly = dev || process.env.CSP_MODE === "report-only";
-  const nonce = makeNonce();
-  const csp = buildCsp(nonce, dev);
   const headerName = reportOnly ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy";
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
-
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  let res: NextResponse;
+  let csp: string;
+  if (usesStrictCsp(pathname)) {
+    const nonce = makeNonce();
+    csp = buildCsp({ nonce, dev });
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-nonce", nonce);
+    requestHeaders.set("Content-Security-Policy", csp);
+    res = NextResponse.next({ request: { headers: requestHeaders } });
+  } else {
+    // Vitrine : aucun nonce transmis à Next.js (la page est pré-générée).
+    csp = buildCsp({ nonce: null, dev });
+    res = NextResponse.next();
+  }
   res.headers.set(headerName, csp);
 
   // Cookie d'attribution (premier contact conservé). Les routes API ne

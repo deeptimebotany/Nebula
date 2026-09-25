@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "id": "17858893269000001",
+      "text": "Trop bon !",
+      "username": "client.fidele",
+      "timestamp": "2026-09-24T09:00:00+0000",
+      "replies": {
+        "data": [
+          { "id": "17858893269000011", "from": { "id": "17841400000000999", "username": "voisin.gourmand" }, "username": "voisin.gourmand", "timestamp": "2026-09-24T09:30:00+0000" },
+          { "id": "17858893269000012", "from": { "id": "17841400000000001", "username": "cafe.nebula" }, "username": "cafe.nebula", "timestamp": "2026-09-24T10:05:00+0000" }
+        ]
+      }
+    },
+    {
+      "id": "17858893269000002",
+      "text": "Vous ouvrez le dimanche ?",
+      "username": "passant.curieux",
+      "timestamp": "2026-09-24T11:00:00+0000"
+    }
+  ]
+}

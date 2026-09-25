@@ -3,10 +3,13 @@ import { deletePostAndOrphanMedia } from "@/lib/posts/delete-post";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { publishPost } from "@/lib/publish";
+import { publishPost, PublishInProgressError, retryWaitingTargetsNow, stopWaitingTargets } from "@/lib/publish";
 import { ownedBy, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
-import { deleteUploadedFile } from "@/lib/storage";
+import { deleteBrandMediaFile } from "@/lib/media-files";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
+
+// Publication immédiate : jusqu'à 60 s (limite du plan Vercel Hobby).
+export const maxDuration = 60;
 
 // Toutes les actions ci-dessous commencent par retrouver le post PARMI LES
 // MARQUES DE L'UTILISATEUR (`brand: ownedBy(userId)`) : un identifiant de
@@ -41,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ post });
 }
 
-// POST /api/posts/[id] { action: "publish-now" | "cancel" | "duplicate" }
+// POST /api/posts/[id] { action: "publish-now" | "cancel" | "duplicate" | "retry-now" | "stop-retries" }
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -53,8 +56,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { action } = await req.json();
 
   if (action === "cancel") {
-    await prisma.post.update({ where: { id: own.id }, data: { status: "DRAFT", scheduledAt: null } });
+    // Jamais pendant un envoi en cours (lot 2) : seulement une publication
+    // programmée ou un brouillon.
+    const { count } = await prisma.post.updateMany({
+      where: { id: own.id, status: { in: ["SCHEDULED", "DRAFT"] } },
+      data: { status: "DRAFT", scheduledAt: null }
+    });
+    if (count === 0) return NextResponse.json({ error: "Cette publication est déjà en cours d'envoi ou terminée." }, { status: 409 });
     return NextResponse.json({ ok: true });
+  }
+
+  // Relances automatiques (lot 5) : les lancer tout de suite, ou les arrêter.
+  if (action === "retry-now") {
+    const result = await retryWaitingTargetsNow(own.id);
+    return NextResponse.json({ ok: true, ...result });
+  }
+  if (action === "stop-retries") {
+    const result = await stopWaitingTargets(own.id);
+    return NextResponse.json({ ok: true, ...result });
   }
 
   if (action === "publish-now") {
@@ -62,6 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const result = await publishPost(own.id);
       return NextResponse.json({ ok: true, ...result });
     } catch (err) {
+      if (err instanceof PublishInProgressError) return NextResponse.json({ error: err.message }, { status: 409 });
       return NextResponse.json({ error: (err as Error).message }, { status: 500 });
     }
   }
@@ -177,8 +197,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (orphaned.length > 0) {
         const assets = await prisma.mediaAsset.findMany({ where: { id: { in: orphaned } } });
         for (const asset of assets) {
-          await deleteUploadedFile(asset.url);
-          if (asset.thumbnailUrl) await deleteUploadedFile(asset.thumbnailUrl);
+          // Seulement les fichiers de cette marque (audit sécurité, lot 1).
+          await deleteBrandMediaFile(asset.url, asset.brandId);
+          await deleteBrandMediaFile(asset.thumbnailUrl, asset.brandId);
         }
         await prisma.mediaAsset.deleteMany({ where: { id: { in: orphaned } } });
       }

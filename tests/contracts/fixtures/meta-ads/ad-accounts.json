@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "account_id": "123456789012345", "name": "Café Nebula – publicité", "currency": "EUR", "account_status": 1, "id": "act_123456789012345" },
+    { "account_id": "222333444555666", "name": "Ancien compte", "currency": "EUR", "account_status": 101, "id": "act_222333444555666" }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD", "after": "MQZDZD" } }
+}

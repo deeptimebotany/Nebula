@@ -1,7 +1,16 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import type { MediaType } from "@/lib/types";
+
+// Le module d'envoi direct vers Vercel Blob (~33 Ko) n'est téléchargé qu'au
+// premier envoi de fichier, plus au chargement du calendrier ou de la page
+// Publier (audit performance, lot 4).
+function loadBlobClient() {
+  return import("@vercel/blob/client");
+}
+
+/** Avancement d'un envoi, de 0 à 100. */
+export type UploadProgressHandler = (percent: number) => void;
 
 export interface UploadedAssetResult {
   id: string;
@@ -26,11 +35,26 @@ async function isBlobConfigured(): Promise<boolean> {
   return blobConfiguredCache;
 }
 
-async function uploadDirectToBlob(file: File, brandId: string): Promise<UploadedAssetResult> {
-  const blob = await upload(file.name, file, {
+// Nom de fichier sûr pour le chemin de stockage (lettres, chiffres, - _ .).
+function storageName(name: string): string {
+  const cleaned = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^[-.]+/, "")
+    .slice(-80);
+  return cleaned || "fichier";
+}
+
+async function uploadDirectToBlob(file: File, brandId: string, onProgress?: UploadProgressHandler): Promise<UploadedAssetResult> {
+  const { upload } = await loadBlobClient();
+  // Rangé dans le dossier de la marque (b/<marque>/…) : exigé par
+  // /api/upload/blob-token et /api/upload/register (audit sécurité, lot 1).
+  const blob = await upload(`b/${brandId}/${storageName(file.name)}`, file, {
     access: "public",
     handleUploadUrl: "/api/upload/blob-token",
-    clientPayload: JSON.stringify({ brandId })
+    clientPayload: JSON.stringify({ brandId }),
+    onUploadProgress: onProgress ? ({ percentage }) => onProgress(Math.min(99, Math.round(percentage))) : undefined
   });
 
   const res = await fetch("/api/upload/register", {
@@ -85,12 +109,14 @@ async function uploadLegacy(file: File, brandId: string): Promise<UploadedAssetR
  * lourdes) sans message clair. Si Vercel Blob n'est pas configuré (ex : en
  * développement local), on repasse automatiquement sur l'envoi classique.
  */
-export async function uploadMediaFile(file: File, brandId: string): Promise<UploadedAssetResult> {
+export async function uploadMediaFile(file: File, brandId: string, onProgress?: UploadProgressHandler): Promise<UploadedAssetResult> {
   const direct = await isBlobConfigured();
   if (!direct) return uploadLegacy(file, brandId);
 
   try {
-    return await uploadDirectToBlob(file, brandId);
+    const asset = await uploadDirectToBlob(file, brandId, onProgress);
+    onProgress?.(100);
+    return asset;
   } catch (err) {
     // Si l'upload direct échoue pour une raison inattendue, on ne retente
     // l'envoi classique que si le fichier a une chance raisonnable de passer

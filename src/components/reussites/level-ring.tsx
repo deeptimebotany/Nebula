@@ -1,13 +1,33 @@
-// Jauge circulaire du niveau de créateur (bandeau Réussites, carte du
-// tableau de bord) : le numéro du niveau au centre, la progression vers le
-// niveau suivant sur le cercle.
+// Jauge circulaire du rang de créateur (bandeau Réussites, carte du tableau
+// de bord, menu, fenêtre des rangs) : l'emblème du rang au centre, la
+// progression dans le palier sur le cercle (Réussites v2 ; avant : le
+// numéro du niveau).
 import { useId } from "react";
+import { stepDef } from "@/lib/reussites/catalog";
+import { RankEmblem } from "./rank-emblem";
 
-export function LevelRing({ level, pct, size = 88, stroke = 7, label = true }: { level: number; pct: number; size?: number; stroke?: number; label?: boolean }) {
+export function LevelRing({
+  level,
+  pct,
+  size = 88,
+  stroke = 7,
+  label = true,
+  animated = false
+}: {
+  /** Palier de rang 1 à 15. */
+  level: number;
+  pct: number;
+  size?: number;
+  stroke?: number;
+  label?: boolean;
+  animated?: boolean;
+}) {
   const id = useId().replace(/:/g, "");
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, pct));
+  const step = stepDef(level);
+  const roman = ["I", "II", "III"][step.tier - 1];
   return (
     <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden="true">
@@ -31,10 +51,12 @@ export function LevelRing({ level, pct, size = 88, stroke = 7, label = true }: {
         />
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        {label && size >= 64 && <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">Niveau</span>}
-        <span className="font-display font-semibold text-white" style={{ fontSize: size * 0.3 }}>
-          {level}
-        </span>
+        <RankEmblem rankId={step.rankId} size={Math.round(size * (label && size >= 64 ? 0.5 : 0.62))} animated={animated} />
+        {label && size >= 64 && (
+          <span className="mt-0.5 font-display font-semibold text-white" style={{ fontSize: Math.max(10, size * 0.13) }}>
+            {roman}
+          </span>
+        )}
       </span>
     </span>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useBootstrap } from "@/components/bootstrap-provider";
 
 const STORAGE_KEY = "nebula:mode";
@@ -74,5 +74,6 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
     setMode(mode === "dark" ? "light" : "dark");
   }, [mode, setMode]);
 
-  return <ModeContext.Provider value={{ mode, setMode, toggleMode }}>{children}</ModeContext.Provider>;
+  const value = useMemo(() => ({ mode, setMode, toggleMode }), [mode, setMode, toggleMode]);
+  return <ModeContext.Provider value={value}>{children}</ModeContext.Provider>;
 }

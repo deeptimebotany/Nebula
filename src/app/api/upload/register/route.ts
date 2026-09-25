@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireBrandMembership } from "@/lib/brand-access";
-import { isAllowedMediaMime, isTrustedUploadUrl, MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
+import { brandUploadPrefix, isAllowedMediaMime, isOwnFileUnder, MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
 import type { MediaType } from "@/lib/types";
 import { z } from "zod";
 
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
-  // L'URL doit pointer vers NOTRE stockage (Vercel Blob) : sinon n'importe
-  // quelle adresse externe pourrait être enregistrée comme "média de la
-  // marque" puis publiée sur les réseaux.
-  if (!isTrustedUploadUrl(url)) {
+  // L'URL doit pointer vers NOTRE stockage (Vercel Blob), dans le dossier de
+  // CETTE marque (audit sécurité, lot 1) : sinon on pourrait enregistrer —
+  // puis faire supprimer — le fichier d'un autre client.
+  if (!isOwnFileUnder(url, [brandUploadPrefix(brandId)])) {
     return NextResponse.json({ error: "URL de média non reconnue." }, { status: 400 });
   }
   const mime = mimeType ?? "application/octet-stream";

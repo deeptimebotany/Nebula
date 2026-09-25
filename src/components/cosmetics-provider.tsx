@@ -59,8 +59,13 @@ export function CosmeticsProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
+  const value = useMemo(
+    () => ({ enabled, allowedKeys, loaded, has, setEnabled, refresh: doRefresh }),
+    [enabled, allowedKeys, loaded, has, setEnabled, doRefresh]
+  );
+
   return (
-    <CosmeticsContext.Provider value={{ enabled, allowedKeys, loaded, has, setEnabled, refresh: doRefresh }}>
+    <CosmeticsContext.Provider value={value}>
       {children}
     </CosmeticsContext.Provider>
   );

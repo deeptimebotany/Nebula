@@ -5,6 +5,7 @@
 // d'action collante (voir ComposerActionBar) qui garde le bouton principal
 // visible où que l'on soit dans la page. Extrait de composer/page.tsx au
 // Lot 4.
+import { useEffect } from "react";
 import { clsx } from "@/lib/clsx";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,13 @@ export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount,
         ? `Programmée le ${scheduledUtc.toLocaleString("fr-FR", { timeZone: timezone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
         : "Choisissez une date";
   const missing = !hasMedia ? "Ajoutez un média pour continuer" : selectedCount === 0 ? "Choisissez au moins un réseau" : null;
+
+  // Le bouton flottant de l'assistant remonte au-dessus de cette barre au
+  // lieu de cacher « Publier maintenant » (voir ai-assistant-lazy.tsx, lot 5).
+  useEffect(() => {
+    document.documentElement.classList.add("nebula-action-bar");
+    return () => document.documentElement.classList.remove("nebula-action-bar");
+  }, []);
 
   return (
     <div className="sticky bottom-[4.75rem] z-20 lg:bottom-4">

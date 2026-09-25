@@ -24,6 +24,7 @@ const PAGES = [
   { path: "/contact", title: /Contact/, contains: "Contact" },
   { path: "/legal", title: /Mentions|Légal|légal/i, contains: "Mentions" },
   { path: "/outils", title: /Outils/, contains: "Outils" },
+  { path: "/outils/audit", title: /Audit de présence/i, contains: "audit" },
   { path: "/outils/legendes", title: /Légendes|légendes/i, contains: "légende" },
   { path: "/outils/miniatures", title: /Miniatures|miniatures/i, contains: "miniature" },
   { path: "/outils/bio-instagram", title: /bio Instagram/i, contains: "bio" },
@@ -33,6 +34,7 @@ const PAGES = [
   { path: "/outils/meilleur-moment", title: /moment/i, contains: "publier" },
   { path: "/decouvrir/page-bio", title: /bio/i, contains: "link in bio" },
   { path: "/decouvrir/rapports-clients", title: /rapport/i, contains: "rapport" },
+  { path: "/decouvrir/media-kit", title: /media kit/i, contains: "media kit" },
   { path: "/alternatives", title: /Alternatives/i, contains: "Comparer" },
   { path: "/alternatives/hootsuite", title: /Alternative à Hootsuite/i, contains: "Prix constatés" },
   { path: "/alternatives/metricool", title: /Alternative à Metricool/i, contains: "Prix constatés" },
@@ -49,7 +51,9 @@ const PAGES = [
 const PROTECTED = ["/dashboard", "/composer", "/publications", "/calendar", "/settings"];
 
 const REQUIRED_HEADERS = [
-  ["content-security-policy", /script-src 'self' 'nonce-[^']+' 'strict-dynamic'/, "CSP stricte avec nonce (mode appliqué)"],
+  // Lot 11 : l'accueil est une page vitrine pré-générée (CSP sans nonce) ;
+  // la CSP stricte est vérifiée plus bas sur /login.
+  ["content-security-policy", /script-src 'self' 'unsafe-inline'/, "CSP vitrine (mode appliqué)"],
   ["strict-transport-security", /max-age=\d+/, "HSTS"],
   ["x-frame-options", /SAMEORIGIN|DENY/i, "X-Frame-Options"],
   ["referrer-policy", /strict-origin-when-cross-origin|no-referrer/, "Referrer-Policy"],
@@ -112,6 +116,12 @@ try {
   const csp = res.headers.get("content-security-policy") || "";
   if (csp && /'unsafe-eval'/.test(csp)) ko("CSP sans 'unsafe-eval'", "unsafe-eval présent en production");
   else if (csp) ok("CSP sans 'unsafe-eval'");
+  // Pages à contenu d'utilisateurs ou d'identifiants : CSP stricte avec nonce.
+  for (const path of ["/login", "/audit/jeton-de-test-inexistant", "/kit/marque-de-test-inexistante"]) {
+    const strict = (await get(path)).res.headers.get("content-security-policy") || "";
+    if (/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/.test(strict)) ok(`CSP stricte avec nonce sur ${path}`);
+    else ko(`CSP stricte avec nonce sur ${path}`, strict ? `valeur inattendue : ${strict.slice(0, 80)}` : "absente");
+  }
 } catch (err) {
   ko("En-têtes", String(err.message || err));
 }

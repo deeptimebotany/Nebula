@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { ownStoragePath } from "@/lib/upload-policy";
 
 /**
  * Dossier des médias enregistrés en local (hors Vercel) : UPLOAD_DIR, ou
@@ -46,20 +47,31 @@ export function localUploadPath(url: string): string {
  * Pour utiliser un autre stockage objet (S3, Cloudflare R2...), remplacez le
  * bloc "sinon" ci-dessous par l'appel au SDK correspondant.
  */
-export async function saveUploadedFile(file: File): Promise<{
+export async function saveUploadedFile(
+  file: File,
+  options: {
+    /** Dossier du propriétaire : b/<marque>/ ou u/<utilisateur>/ (voir upload-policy.ts). */
+    prefix?: string;
+    /** Type vérifié par l'appelant (prioritaire sur celui annoncé par le navigateur). */
+    mimeType?: string;
+  } = {}
+): Promise<{
   url: string;
   filename: string;
   mimeType: string;
   sizeBytes: number;
 }> {
-  const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+  const mimeType = options.mimeType || file.type || "application/octet-stream";
+  // Extension déduite du type quand il est connu (jamais d'extension « .html »
+  // venue du nom de fichier envoyé), sinon du nom, réduite à [a-z0-9].
+  const fromName = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) : "";
+  const ext = extensionForKnownMime(mimeType) ?? (fromName || "bin");
   const safeName = `${randomUUID()}.${ext}`;
-  const mimeType = file.type || "application/octet-stream";
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
     const buffer = Buffer.from(await file.arrayBuffer());
-    const blob = await put(safeName, buffer, {
+    const blob = await put(`${options.prefix ?? ""}${safeName}`, buffer, {
       access: "public",
       contentType: mimeType,
       token: process.env.BLOB_READ_WRITE_TOKEN
@@ -106,6 +118,8 @@ export async function saveUploadedFile(file: File): Promise<{
  * déjà nettoyé) ne doit pas faire échouer l'appelant.
  */
 export async function deleteUploadedFile(url: string): Promise<void> {
+  // Jamais de suppression hors de NOTRE stockage (audit sécurité, lot 1).
+  if (!ownStoragePath(url)) return;
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN && /^https?:\/\//.test(url)) {
       const { del } = await import("@vercel/blob");
@@ -120,6 +134,23 @@ export async function deleteUploadedFile(url: string): Promise<void> {
   } catch (err) {
     console.error(`[storage] suppression du fichier ${url} échouée (ignorée) :`, err);
   }
+}
+
+function extensionForKnownMime(mimeType: string): string | null {
+  const known: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/heic": "heic",
+    "image/avif": "avif",
+    "video/mp4": "mp4",
+    "video/quicktime": "mov",
+    "video/webm": "webm",
+    "video/x-m4v": "m4v"
+  };
+  return known[mimeType.toLowerCase()] ?? null;
 }
 
 function extensionForMimeType(mimeType: string): string {
@@ -145,6 +176,7 @@ export async function saveGeneratedImage(input: {
   base64: string;
   mimeType: string;
   baseName?: string;
+  prefix?: string;
 }): Promise<{ url: string }> {
   const ext = extensionForMimeType(input.mimeType);
   const prefix = input.baseName ? `${input.baseName}-` : "";
@@ -153,7 +185,7 @@ export async function saveGeneratedImage(input: {
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
-    const blob = await put(safeName, buffer, {
+    const blob = await put(`${input.prefix ?? ""}${safeName}`, buffer, {
       access: "public",
       contentType: input.mimeType,
       token: process.env.BLOB_READ_WRITE_TOKEN
@@ -184,14 +216,15 @@ export async function saveRemoteMedia(input: {
   body: ReadableStream<Uint8Array>;
   mimeType: string;
   filename: string;
+  prefix?: string;
 }): Promise<{ url: string }> {
-  const fromName = input.filename.includes(".") ? input.filename.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-  const ext = fromName || (input.mimeType.startsWith("video/") ? "mp4" : extensionForMimeType(input.mimeType));
+  const fromName = input.filename.includes(".") ? input.filename.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) : "";
+  const ext = extensionForKnownMime(input.mimeType) ?? (fromName || (input.mimeType.startsWith("video/") ? "mp4" : extensionForMimeType(input.mimeType)));
   const safeName = `${randomUUID()}.${ext}`;
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
-    const blob = await put(safeName, input.body, {
+    const blob = await put(`${input.prefix ?? ""}${safeName}`, input.body, {
       access: "public",
       contentType: input.mimeType,
       token: process.env.BLOB_READ_WRITE_TOKEN,

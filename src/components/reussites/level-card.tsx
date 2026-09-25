@@ -1,8 +1,9 @@
 "use client";
 
-// Carte « Niveau de créateur » de la Vue d'ensemble (option B validée par
-// Lucas) : niveau, jauge, et le défi de la semaine le plus proche d'être
-// réussi. Un clic ouvre la page Réussites.
+// Carte « Rang de créateur » de la Vue d'ensemble (option B validée par
+// Lucas ; rangs et missions de la semaine depuis Réussites v2) : rang,
+// jauge, et la mission de la semaine la plus proche d'être réussie. Un clic
+// ouvre la page Réussites.
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
@@ -10,11 +11,17 @@ import { SkeletonText } from "@/components/ui/skeleton";
 import { LevelRing } from "./level-ring";
 import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
 
-export function LevelCard() {
-  const [data, setData] = useState<ReussitesSummaryDTO | null>(null);
+export function LevelCard({ initial }: { initial?: ReussitesSummaryDTO }) {
+  // Lot 10 : résumé préparé par le serveur au premier affichage.
+  const [data, setData] = useState<ReussitesSummaryDTO | null>(initial ?? null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (initial) {
+      // Même vérification qu'après un chargement : l'évaluation a pu débloquer quelque chose.
+      window.dispatchEvent(new Event("nebula:reussites-check"));
+      return;
+    }
     let alive = true;
     fetch("/api/reussites/summary", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -28,6 +35,8 @@ export function LevelCard() {
     return () => {
       alive = false;
     };
+    // Une seule fois, au montage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const c = data?.focusChallenge ?? null;
@@ -35,8 +44,8 @@ export function LevelCard() {
 
   return (
     <MotionGlassCard className="h-full">
-      <Link href="/reussites" className="flex h-full flex-col" aria-label="Niveau de créateur — voir mes réussites">
-        <h2 className="mb-3 font-display text-base font-medium text-white">Niveau de créateur</h2>
+      <Link href="/reussites" className="flex h-full flex-col" aria-label="Rang de créateur — voir mes réussites">
+        <h2 className="mb-3 font-display text-base font-medium text-white">Rang de créateur</h2>
         {failed ? (
           <p className="text-sm text-slate-500">Indisponible pour le moment.</p>
         ) : !data ? (
@@ -50,7 +59,11 @@ export function LevelCard() {
                   {data.level.name} <span className="text-sm font-normal tabular-nums text-slate-400">· {data.level.pct} %</span>
                 </p>
                 <p className="text-xs tabular-nums text-slate-400">
-                  {data.level.nextXp !== null ? `${(data.level.nextXp - data.level.xp).toLocaleString("fr-FR")} XP avant « ${data.level.nextName} »` : "Niveau maximum"}
+                  {data.level.pending
+                    ? `« ${data.level.pending.name} » en attente : ${data.level.pending.missing[0]}`
+                    : data.level.nextXp !== null
+                      ? `${(data.level.nextXp - data.level.xp).toLocaleString("fr-FR")} XP avant « ${data.level.nextName} »`
+                      : "Dernier palier atteint"}
                 </p>
               </div>
             </div>
@@ -58,7 +71,7 @@ export function LevelCard() {
               {c ? (
                 <>
                   <p className="text-xs text-slate-300">
-                    <span aria-hidden="true">⚡ </span>Défi : {c.title.charAt(0).toLowerCase() + c.title.slice(1)}
+                    <span aria-hidden="true">⚡ </span>Mission : {c.title.charAt(0).toLowerCase() + c.title.slice(1)}
                     <span className="ml-1 tabular-nums text-slate-400">
                       ({c.value.toLocaleString("fr-FR")} / {c.target.toLocaleString("fr-FR")})
                     </span>
@@ -68,7 +81,7 @@ export function LevelCard() {
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-emerald-300">Tous les défis de la semaine sont réussis, bravo !</p>
+                <p className="text-xs text-emerald-300">{data.chestReady ? "3 missions sur 3 : votre coffre vous attend !" : "Toutes les missions de la semaine sont réussies, bravo !"}</p>
               )}
               <p className="mt-2 text-[11px] text-aurora-300">Voir mes réussites →</p>
             </div>

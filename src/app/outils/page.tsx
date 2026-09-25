@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconSparkle, IconMessage, IconUpload, IconChart, IconAvatar, IconHash, IconYouTube, IconClock } from "@/components/dashboard/icons";
+import { IconSparkle, IconMessage, IconUpload, IconChart, IconAvatar, IconHash, IconYouTube, IconClock, IconSearch } from "@/components/dashboard/icons";
 
 // Hub des outils IA gratuits, sans compte (voir la feuille de route —
 // produit n°2 : aimant à visiteurs qui redirige ensuite vers un compte
@@ -10,10 +10,16 @@ import { IconSparkle, IconMessage, IconUpload, IconChart, IconAvatar, IconHash, 
 export const metadata = {
   title: "Outils IA gratuits",
   description:
-    "Générateur de légendes, de miniatures, de bio Instagram et de hashtags, calculateur de taux d'engagement, testeur de titre YouTube, meilleur moment pour publier. Gratuit, sans compte."
+    "Audit de présence en ligne, générateur de légendes, de miniatures, de bio Instagram et de hashtags, calculateur de taux d'engagement, testeur de titre YouTube, meilleur moment pour publier. Gratuit, sans compte."
 };
 
 const TOOLS = [
+  {
+    href: "/outils/audit",
+    icon: IconSearch,
+    title: "Audit de présence en ligne",
+    desc: "Collez vos liens (YouTube, Instagram, TikTok, site) : un score sur 100, ce qui freine votre présence et quoi faire en premier."
+  },
   {
     href: "/outils/legendes",
     icon: IconMessage,

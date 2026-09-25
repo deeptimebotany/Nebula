@@ -813,7 +813,7 @@ export default function SettingsPage() {
             <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
               <IconTrophy className="h-4 w-4 text-amber-300" /> Réussites
             </h2>
-            <p className="mt-1 text-sm text-slate-400">Votre niveau de créateur, les défis de la semaine, vos accomplissements et les easter eggs trouvés.</p>
+            <p className="mt-1 text-sm text-slate-400">Votre rang de créateur, les missions de la semaine, vos accomplissements et les easter eggs trouvés.</p>
           </div>
           <ButtonLink href="/reussites" variant="outline">
             Voir mes réussites

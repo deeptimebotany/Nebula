@@ -8,7 +8,7 @@
 // chaque chargement — jamais un instantané figé au moment de l'envoi email.
 
 import { useEffect, useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { FollowersAreaChart } from "@/components/charts/lazy";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PoweredByNebula } from "@/components/marketing/powered-by";
 import { PublicConversionBlock } from "@/components/marketing/public-conversion-block";
@@ -147,20 +147,7 @@ export function RapportClient({ token }: { token: string }) {
               <h2 className="font-display text-base font-medium text-white">Croissance des abonnés</h2>
               {report.data.growthSeries.length >= 2 ? (
                 <div className="mt-4 h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={report.data.growthSeries}>
-                      <defs>
-                        <linearGradient id="growthFillPublic" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="rgb(129 140 248)" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="rgb(129 140 248)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} />
-                      <YAxis tick={{ fontSize: 11, fill: "#64748b" }} width={40} />
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} />
-                      <Area type="monotone" dataKey="followers" stroke="rgb(129 140 248)" fill="url(#growthFillPublic)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <FollowersAreaChart data={report.data.growthSeries} variant="public" />
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-slate-500">Pas encore assez de données collectées pour tracer une courbe.</p>

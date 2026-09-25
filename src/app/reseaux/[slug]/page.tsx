@@ -12,6 +12,10 @@ import { PLAN_LIMITS } from "@/lib/plans";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Page d'attente d'un réseau à venir (brief growth, lot G5.d).
+// Pages pré-générées (lot 11) : une adresse hors de la liste répond 404
+// directement, sans rendu à la demande.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return UPCOMING_NETWORKS.map((n) => ({ slug: n.slug }));
 }

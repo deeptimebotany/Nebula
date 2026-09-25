@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (job.status === "failed" || job.urls.length === 0) throw new ImportError(job.error || "Canva n'a pas pu exporter ce design.", 502);
     const res = await fetchFromAllowedHost(job.urls[0], ALLOWED_HOSTS.canva);
     const base = (parsed.data.title || "design-canva").replace(/[^\p{L}\p{N} _-]+/gu, "").trim().slice(0, 80) || "design-canva";
-    const asset = await storeDownloadedMedia(parsed.data.brandId, res, `${base}.${parsed.data.kind === "video" ? "mp4" : "png"}`, parsed.data.kind === "video" ? "video/mp4" : "image/png");
+    const asset = await storeDownloadedMedia(parsed.data.brandId, res, `${base}.${parsed.data.kind === "video" ? "mp4" : "png"}`, parsed.data.kind === "video" ? "video/mp4" : "image/png", "canva");
     return NextResponse.json({ status: "done", asset });
   } catch (err) {
     const status = err instanceof ImportError ? err.status : 500;

@@ -1,0 +1,50 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "etag-audit-5",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "etag": "v1",
+      "id": "vidA000003c",
+      "snippet": {
+        "publishedAt": "2026-09-08T16:00:00Z",
+        "channelId": "UCaudit1234567890abcdefg",
+        "title": "Le cappuccino parfait en 3 gestes",
+        "description": "Tout pour réussir la mousse de lait à la maison, sans machine professionnelle : température, pichet, geste.",
+        "thumbnails": { "medium": { "url": "https://i.ytimg.com/vi/vidA000003c/mqdefault.jpg", "width": 320, "height": 180 } },
+        "tags": ["café", "cappuccino"]
+      },
+      "contentDetails": { "duration": "PT8M12S", "dimension": "2d", "definition": "hd" },
+      "statistics": { "viewCount": "3200", "likeCount": "140", "favoriteCount": "0", "commentCount": "18" }
+    },
+    {
+      "kind": "youtube#video",
+      "etag": "v2",
+      "id": "vidA000001a",
+      "snippet": {
+        "publishedAt": "2026-09-22T16:00:00Z",
+        "channelId": "UCaudit1234567890abcdefg",
+        "title": "Latte art : le cœur en 30 secondes",
+        "description": "",
+        "thumbnails": { "medium": { "url": "https://i.ytimg.com/vi/vidA000001a/mqdefault.jpg", "width": 320, "height": 180 } }
+      },
+      "contentDetails": { "duration": "PT34S" },
+      "statistics": { "viewCount": "5100", "likeCount": "310", "favoriteCount": "0" }
+    },
+    {
+      "kind": "youtube#video",
+      "etag": "v3",
+      "id": "vidA000002b",
+      "snippet": {
+        "publishedAt": "2026-09-15T16:00:00Z",
+        "channelId": "UCaudit1234567890abcdefg",
+        "title": "Pourquoi votre café est amer (et comment corriger ça en changeant seulement la mouture)",
+        "description": "Mouture, température, dosage : les trois réglages qui changent tout, testés un par un.",
+        "thumbnails": {}
+      },
+      "contentDetails": { "duration": "PT12M" },
+      "statistics": { "viewCount": "2800", "likeCount": "95", "favoriteCount": "0", "commentCount": "11" }
+    }
+  ],
+  "pageInfo": { "totalResults": 3, "resultsPerPage": 3 }
+}

@@ -77,7 +77,7 @@ export function ToolLeadCapture({ tool, onDone, onSkip }: { tool: string; onDone
       <label className="mt-3 flex items-start gap-2 text-xs text-slate-400">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 rounded border-white/20 bg-transparent" />
         <span>
-          Recevoir les conseils Nebula (désinscription en un clic). Voir la{" "}
+          Recevoir les conseils Nebula (après confirmation par e-mail, désinscription en un clic). Voir la{" "}
           <Link href="/legal#confidentialite" className="text-aurora-300 hover:underline">
             politique de confidentialité
           </Link>

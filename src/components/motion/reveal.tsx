@@ -7,8 +7,9 @@
 // Volontairement discrètes (translation courte, easing doux) pour rester
 // dans l'esprit "épuré mais dense en valeur" plutôt que du motion gratuit.
 
-import { motion, useInView, type Variants } from "framer-motion";
+import { m as motion, useInView, type Variants } from "framer-motion";
 import { useRef, type ReactNode } from "react";
+import { MotionRoot } from "@/components/motion/motion-root";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -34,16 +35,18 @@ export function Reveal({
   className?: string;
 }) {
   return (
-    <motion.div
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-40px" }}
-      variants={revealVariants}
-      transition={{ delay }}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <MotionRoot>
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-40px" }}
+        variants={revealVariants}
+        transition={{ delay }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    </MotionRoot>
   );
 }
 
@@ -63,16 +66,20 @@ export function RevealGroup({ children, className }: { children: ReactNode; clas
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
-    <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerContainerVariants} className={className}>
-      {children}
-    </motion.div>
+    <MotionRoot>
+      <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerContainerVariants} className={className}>
+        {children}
+      </motion.div>
+    </MotionRoot>
   );
 }
 
 export function RevealItem({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <motion.div variants={revealVariants} className={className}>
-      {children}
-    </motion.div>
+    <MotionRoot>
+      <motion.div variants={revealVariants} className={className}>
+        {children}
+      </motion.div>
+    </MotionRoot>
   );
 }

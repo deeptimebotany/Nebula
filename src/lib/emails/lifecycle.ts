@@ -18,8 +18,10 @@
 // passe par escapeHtml.
 
 import { createHmac, timingSafeEqual } from "crypto";
+import { appSecret, deriveKey } from "@/lib/secrets";
+import { toolPathFor } from "@/lib/tool-leads";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { emailIdempotencyKey, sendEmail, escapeHtml } from "@/lib/email";
 import { emailLayout, emailPlainText, type EmailLayoutInput } from "@/lib/emails/layout";
 import { LIFECYCLE_KEYS, SERVICE_KEYS, type LifecycleKey } from "@/lib/emails/lifecycle-keys";
 import { PLAN_LIMITS, annualFreeMonths } from "@/lib/plans";
@@ -36,26 +38,35 @@ function appUrl(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Désinscription : jeton signé (HMAC-SHA256, NEXTAUTH_SECRET) contenant
-// l'email — vérifié par /api/email/unsubscribe.
+// Désinscription : jeton signé (HMAC-SHA256) contenant l'email — vérifié
+// par /api/email/unsubscribe. Clé dédiée dérivée de NEXTAUTH_SECRET (voir
+// lib/secrets.ts) ; plus de secret de secours codé en dur. Les liens des
+// e-mails déjà envoyés (signés directement avec NEXTAUTH_SECRET) restent
+// valables : un lien de désinscription doit toujours fonctionner.
 // ---------------------------------------------------------------------------
-function secret(): string {
-  return process.env.NEXTAUTH_SECRET || "nebula-dev-secret";
-}
-
 export function unsubscribeToken(email: string): string {
   const payload = Buffer.from(email.toLowerCase()).toString("base64url");
-  const sig = createHmac("sha256", secret()).update(payload).digest("base64url");
+  const sig = createHmac("sha256", deriveKey("unsubscribe")).update(payload).digest("base64url");
   return `${payload}.${sig}`;
+}
+
+function signatureMatches(sig: string, expected: string): boolean {
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function verifyUnsubscribeToken(token: string): string | null {
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
-  const expected = createHmac("sha256", secret()).update(payload).digest("base64url");
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  let valid = false;
+  try {
+    valid = signatureMatches(sig, createHmac("sha256", deriveKey("unsubscribe")).update(payload).digest("base64url"));
+    if (!valid) valid = signatureMatches(sig, createHmac("sha256", appSecret()).update(payload).digest("base64url"));
+  } catch {
+    return null;
+  }
+  if (!valid) return null;
   try {
     return Buffer.from(payload, "base64url").toString("utf8");
   } catch {
@@ -182,6 +193,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
       if (u) {
         if (u.scheduledPosts) used.push(`${u.scheduledPosts} publication(s) programmée(s)`);
         if (u.reportsPublished) used.push(`${u.reportsPublished} rapport(s) client publié(s)`);
+        if (u.mediaKitsPublished) used.push(`${u.mediaKitsPublished} media kit(s) publié(s)`);
         if (u.bioLinksBeyondFree) used.push(`${u.bioLinksBeyondFree} lien(s) de page bio au-delà de ${PLAN_LIMITS.FREE.maxBioLinks}`);
         if (u.retentionAnalyses) used.push(`${u.retentionAnalyses} analyse(s) de rétention`);
         if (u.brandsBeyondFree) used.push(`${u.brandsBeyondFree} marque(s) supplémentaire(s)`);
@@ -207,7 +219,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
         layout: {
           title: "Votre essai Pro est terminé",
           paragraphs: [
-            `Rien n'a été supprimé. En Gratuit : ${PLAN_LIMITS.FREE.maxBioLinks} liens actifs sur la page bio (les autres sont conservés, désactivés), ${PLAN_LIMITS.FREE.tiers[0].maxBrands} marque active (les autres en lecture seule), rapports et calendrier client dépubliés, assistant IA et Rétention IA en pause. Vos publications déjà programmées partiront normalement.`,
+            `Rien n'a été supprimé. En Gratuit : ${PLAN_LIMITS.FREE.maxBioLinks} liens actifs sur la page bio (les autres sont conservés, désactivés), ${PLAN_LIMITS.FREE.tiers[0].maxBrands} marque active (les autres en lecture seule), rapports, calendrier client et media kit dépubliés, assistant IA, Rétention IA et Studio IA en pause. Vos publications déjà programmées partiront normalement.`,
             `Pour reprendre là où vous en étiez : <strong>-50 % sur votre premier mois Pro</strong>, valable 48 heures depuis la page Facturation (mensuel uniquement).`
           ],
           cta: { label: "Profiter de l'offre", url: `${base}/billing` },
@@ -309,7 +321,10 @@ export async function sendLifecycleEmail(key: LifecycleKey, ctx: LifecycleContex
     to: ctx.email,
     subject: options?.preview ? `[Aperçu] ${rendered.subject}` : rendered.subject,
     html: emailLayout(layout),
-    text: emailPlainText(layout)
+    text: emailPlainText(layout),
+    // Lot 9 : un e-mail de cycle de vie ne part qu'une fois, même si le
+    // runner horaire le retente après une réponse trop lente de Resend.
+    idempotencyKey: options?.preview ? undefined : emailIdempotencyKey("lifecycle", ctx.email, key)
   });
   if (result.ok && options?.record !== false && !options?.preview) {
     await prisma.lifecycleEmail.create({ data: { email: ctx.email.toLowerCase(), key, userId: options?.userId ?? undefined } }).catch(() => undefined);
@@ -451,7 +466,18 @@ async function collectCandidates(now: Date): Promise<Candidate[]> {
 
   // Leads des outils gratuits : lead_t0 (immédiat), lead_t2 (J+2), lead_t5
   // (J+5) — arrêt dès qu'un compte existe avec la même adresse.
-  const leads = await prisma.toolLead.findMany({ where: { consent: true, createdAt: { gte: new Date(now.getTime() - 10 * DAY_MS) } }, orderBy: { createdAt: "asc" }, take: 2000 });
+  // Double confirmation (audit sécurité, lot 1, voir src/lib/tool-leads.ts) :
+  // seulement les inscriptions confirmées, et les anciennes (d'avant la
+  // confirmation : aucun e-mail de confirmation envoyé). L'âge part du clic.
+  const leads = await prisma.toolLead.findMany({
+    where: {
+      consent: true,
+      createdAt: { gte: new Date(now.getTime() - 10 * DAY_MS) },
+      OR: [{ confirmedAt: { not: null } }, { confirmationSentAt: null }]
+    },
+    orderBy: { createdAt: "asc" },
+    take: 2000
+  });
   const seen = new Set<string>();
   for (const lead of leads) {
     const email = lead.email.toLowerCase();
@@ -459,8 +485,8 @@ async function collectCandidates(now: Date): Promise<Candidate[]> {
     seen.add(email);
     const hasAccount = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (hasAccount) continue;
-    const age = now.getTime() - lead.createdAt.getTime();
-    const ctx: LifecycleContext = { firstName: "vous", email, brandName: "votre marque", network: null, trialEndsAt: null, toolPath: `/outils/${lead.tool}` };
+    const age = now.getTime() - (lead.confirmedAt ?? lead.createdAt).getTime();
+    const ctx: LifecycleContext = { firstName: "vous", email, brandName: "votre marque", network: null, trialEndsAt: null, toolPath: toolPathFor(lead.tool) };
     out.push({ key: "lead_t0", userId: null, email, ctx, timezone: DEFAULT_TIMEZONE });
     if (age >= 2 * DAY_MS) out.push({ key: "lead_t2", userId: null, email, ctx, timezone: DEFAULT_TIMEZONE });
     if (age >= 5 * DAY_MS) out.push({ key: "lead_t5", userId: null, email, ctx, timezone: DEFAULT_TIMEZONE });
@@ -533,8 +559,8 @@ export async function sendLifecyclePreview(key: LifecycleKey, to: string) {
       onTrial: true,
       paid: false,
       trialEndsAt: new Date(Date.now() + 2 * DAY_MS).toISOString(),
-      used: { scheduledPosts: 6, reportsPublished: 1, calendarSharesPublished: 1, bioLinks: 5, bioLinksBeyondFree: 2, retentionAnalyses: 2, brands: 2, brandsBeyondFree: 1 },
-      locked: { reports: true, calendarShare: true, ai: true, bioLinksLimit: PLAN_LIMITS.FREE.maxBioLinks, maxBrands: 1 }
+      used: { scheduledPosts: 6, reportsPublished: 1, calendarSharesPublished: 1, mediaKitsPublished: 1, bioLinks: 5, bioLinksBeyondFree: 2, retentionAnalyses: 2, brands: 2, brandsBeyondFree: 1 },
+      locked: { reports: true, calendarShare: true, mediaKit: true, ai: true, bioLinksLimit: PLAN_LIMITS.FREE.maxBioLinks, maxBrands: 1 }
     },
     annualMonths: annualFreeMonths(PLAN_LIMITS.PRO.tiers[0]),
     toolPath: "/outils/legendes"

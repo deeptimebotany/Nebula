@@ -1,0 +1,9 @@
+{
+  "results": [
+    { "customerClient": { "resourceName": "customers/9876543210/customerClients/9876543210", "id": "9876543210", "descriptiveName": "Agence Exemple (MCC)", "currencyCode": "EUR", "manager": true, "level": "0", "status": "ENABLED" } },
+    { "customerClient": { "resourceName": "customers/9876543210/customerClients/1112223334", "id": "1112223334", "descriptiveName": "Boulangerie cliente", "currencyCode": "EUR", "manager": false, "level": "1", "status": "ENABLED" } },
+    { "customerClient": { "resourceName": "customers/9876543210/customerClients/5556667778", "id": "5556667778", "descriptiveName": "Ancien client", "currencyCode": "EUR", "manager": false, "level": "1", "status": "CANCELED" } }
+  ],
+  "fieldMask": "customerClient.id,customerClient.descriptiveName,customerClient.currencyCode,customerClient.manager,customerClient.level,customerClient.status",
+  "requestId": "req-clients"
+}

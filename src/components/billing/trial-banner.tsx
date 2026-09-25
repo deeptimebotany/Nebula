@@ -22,13 +22,23 @@ import { useUpgradeModal } from "./upgrade-modal";
 import type { TrialSummary } from "@/lib/billing/trial-summary";
 
 function useCountdown(until: string | null): string | null {
-  const [now, setNow] = useState(() => Date.now());
+  // Heure lue après le montage (lot 10) : le bandeau peut être rendu par le
+  // serveur, et le décompte y serait déjà différent à l'hydratation.
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
+    setNow(Date.now());
     if (!until) return;
-    const id = window.setInterval(() => setNow(Date.now()), 30000);
+    const end = new Date(until).getTime();
+    // Offre expirée : plus besoin de réveiller la page toutes les 30 s.
+    if (end <= Date.now()) return;
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= end) window.clearInterval(id);
+    }, 30000);
     return () => window.clearInterval(id);
   }, [until]);
-  if (!until) return null;
+  if (!until || now === null) return null;
   const ms = new Date(until).getTime() - now;
   if (ms <= 0) return null;
   const h = Math.floor(ms / 3600000);
@@ -142,6 +152,7 @@ export function TrialEndedNotice() {
   if (u.scheduledPosts > 0) used.push(`${u.scheduledPosts} publication${u.scheduledPosts > 1 ? "s" : ""} programmée${u.scheduledPosts > 1 ? "s" : ""}`);
   if (u.reportsPublished > 0) used.push(`${u.reportsPublished} rapport${u.reportsPublished > 1 ? "s" : ""} client publié${u.reportsPublished > 1 ? "s" : ""}`);
   if (u.calendarSharesPublished > 0) used.push(`${u.calendarSharesPublished} calendrier${u.calendarSharesPublished > 1 ? "s" : ""} partagé${u.calendarSharesPublished > 1 ? "s" : ""}`);
+  if ((u.mediaKitsPublished ?? 0) > 0) used.push(`${u.mediaKitsPublished} media kit${(u.mediaKitsPublished ?? 0) > 1 ? "s" : ""} publié${(u.mediaKitsPublished ?? 0) > 1 ? "s" : ""}`);
   if (u.bioLinksBeyondFree > 0) used.push(`${u.bioLinksBeyondFree} lien${u.bioLinksBeyondFree > 1 ? "s" : ""} de page bio au-delà de ${summary.locked.bioLinksLimit}`);
   if (u.retentionAnalyses > 0) used.push(`${u.retentionAnalyses} analyse${u.retentionAnalyses > 1 ? "s" : ""} de rétention`);
   if (u.brandsBeyondFree > 0) used.push(`${u.brandsBeyondFree} marque${u.brandsBeyondFree > 1 ? "s" : ""} supplémentaire${u.brandsBeyondFree > 1 ? "s" : ""}`);
@@ -173,8 +184,9 @@ export function TrialEndedNotice() {
           <ul className="mt-1.5 space-y-1 text-sm text-slate-400">
             {u.bioLinksBeyondFree > 0 && <li>· Vos liens de page bio au-delà de {summary.locked.bioLinksLimit} sont désactivés (conservés, grisés « Pro »).</li>}
             {(u.reportsPublished > 0 || u.calendarSharesPublished > 0) && <li>· Vos rapports et calendriers clients sont dépubliés (« n&apos;est plus partagé »).</li>}
+            {(u.mediaKitsPublished ?? 0) > 0 && <li>· Votre media kit est retiré du lien public (vos réglages sont gardés).</li>}
             {u.brandsBeyondFree > 0 && <li>· Vos marques au-delà de {summary.locked.maxBrands} passent en lecture seule.</li>}
-            <li>· Assistant IA et Rétention IA ne sont plus disponibles.</li>
+            <li>· Assistant IA, Rétention IA et Studio IA ne sont plus disponibles (vos chiffres restent visibles).</li>
             <li>· Les publications déjà programmées partiront normalement.</li>
           </ul>
         </div>

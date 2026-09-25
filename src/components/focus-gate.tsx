@@ -7,10 +7,21 @@
 // faites par ailleurs (double-clic sur l'avatar, appui long sur le logo…)
 // restent enregistrées et visibles sur la page Réussites. Se désactive dans
 // Paramètres → Apparence & Succès, ou depuis la palette Cmd/Ctrl+K.
+//
+// Les trois modules sont chargés à la demande (audit performance, lot 4) :
+// en Mode focus, ils ne sont jamais téléchargés.
+import dynamic from "next/dynamic";
 import { useFocusMode } from "@/components/bootstrap-provider";
-import { EasterEggs } from "@/components/easter-eggs";
-import { AchievementToastListener } from "@/components/achievement-toast-listener";
-import { ReussitesCelebrationWatcher } from "@/components/reussites/celebration-watcher";
+
+const EasterEggs = dynamic(() => import("@/components/easter-eggs").then((m) => m.EasterEggs), { ssr: false });
+const AchievementToastListener = dynamic(
+  () => import("@/components/achievement-toast-listener").then((m) => m.AchievementToastListener),
+  { ssr: false }
+);
+const ReussitesCelebrationWatcher = dynamic(
+  () => import("@/components/reussites/celebration-watcher").then((m) => m.ReussitesCelebrationWatcher),
+  { ssr: false }
+);
 
 export function FocusGate() {
   const { focusMode, loaded } = useFocusMode();

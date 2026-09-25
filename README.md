@@ -54,8 +54,9 @@ cp .env.example .env
 # ouvrez .env et générez au moins NEXTAUTH_SECRET :
 #   openssl rand -base64 32
 
+# DATABASE_URL doit pointer sur un Postgres (local ou branche de dev Neon)
 npx prisma generate
-npx prisma db push      # crée dev.db (SQLite) à partir du schéma
+npx prisma migrate deploy   # crée toutes les tables à partir de prisma/migrations
 
 npm run dev
 ```
@@ -139,7 +140,7 @@ La page **Soutenir Nebula** (`/support`) de l'application détaille, dans sa sec
 
 ## 4. Déploiement en production
 
-1. **Base de données** : remplacez le provider `sqlite` de `prisma/schema.prisma` par `postgresql`, et `DATABASE_URL` par une base Postgres managée (Neon, Supabase, Railway...). Puis `npx prisma db push`.
+1. **Base de données** : Postgres managé (Neon). `DATABASE_URL` = l'adresse « pooled ». Le schéma est appliqué **automatiquement à chaque déploiement de production** par `scripts/db-migrate.mjs` (lancé par `npm run build`) — plus besoin de `prisma db push`. Voir la section « Migrations » ci-dessous.
 2. **Hébergement de l'app** : Vercel (recommandé pour Next.js), Railway ou tout serveur Node.
 3. **Stockage des médias** : par défaut les fichiers uploadés vont dans `./public/uploads`, ce qui ne fonctionne pas sur un hébergement serverless sans disque persistant (Vercel, entre autres). `src/lib/storage.ts` gère déjà ce cas automatiquement : dès que `BLOB_READ_WRITE_TOKEN` est renseigné dans les variables d'environnement, les uploads partent vers **Vercel Blob** au lieu du disque — aucun changement de code nécessaire. Créez un Blob Store dans votre projet Vercel (Storage → Create Database → Blob) pour obtenir ce token. Pour un autre stockage objet (S3, Cloudflare R2), adaptez ce même fichier.
 4. **Publication planifiée** : deux options interchangeables :
@@ -147,6 +148,32 @@ La page **Soutenir Nebula** (`/support`) de l'application détaille, dans sa sec
    - **Worker autonome** : `npm run worker` sur un service long-lived (Railway, Fly.io, VPS) si votre hébergement ne supporte pas les cron jobs serverless.
 5. **Polices** : `next/font/google` (Inter, Space Grotesk) est désactivé par défaut dans `src/app/layout.tsx` pour fonctionner même sans accès sortant à `fonts.googleapis.com`. Décommentez les imports indiqués dans ce fichier pour les réactiver — aucun autre changement nécessaire.
 6. **Secrets** : ne committez jamais `.env` (déjà exclu par `.gitignore`). Générez un `NEXTAUTH_SECRET` et un `CRON_SECRET` dédiés à la production, et mettez `NEXTAUTH_URL` à jour avec votre vrai domaine.
+7. **Chiffrement des jetons** : ajoutez `TOKEN_ENCRYPTION_KEY` (générée avec `openssl rand -base64 32`). Les jetons OAuth des réseaux, intégrations et comptes publicitaires ainsi que les secrets de webhooks sont alors chiffrés en AES-256-GCM (voir `src/lib/db/secret-fields.ts`) ; le cron chiffre les anciens en quelques minutes. Gardez cette clé en lieu sûr : sans elle, les comptes connectés devraient être reconnectés. Pour en changer, mettez l'ancienne dans `TOKEN_ENCRYPTION_KEY_PREVIOUS`.
+8. **Tests automatiques** : `npm test` lance les tests unitaires (`tests/security`, `tests/reliability`, `tests/quality`, `tests/resilience`, `tests/contracts`) — contrats des réseaux (une réponse type par appel, dans `tests/contracts/fixtures`), chiffrement, anti-SSRF, redirections, liens, e-mails, fichiers, publication, quotas, fuseaux horaires. `npm run test:integration` lance en plus les tests sur une vraie base Postgres **jetable** (variable `INTEGRATION_DATABASE_URL`, vidée à chaque test : jamais la production).
+9. **Rappels Meta** (exigés pour la validation de l'app) : dans le tableau de bord Meta, renseignez `https://votre-site/api/meta/deauthorize` (désautorisation) et `https://votre-site/api/meta/data-deletion` (suppression des données) ; pour l'app Threads, les mêmes adresses suivies de `?app=threads`.
+10. **Versions des API** : toutes dans `src/lib/social/versions.ts`, avec leur date de revue.
+11. **Région Vercel = région Neon** : dans Vercel → Settings → Functions → Function Region, choisissez la région la plus proche de votre base Neon (ex. Neon `eu-central-1` → Vercel `fra1` Francfort). Chaque page fait plusieurs requêtes en base : un aller-retour transatlantique par requête ralentit tout le site.
+12. **Incidents chez un réseau** : page `/admin/reseaux` (compte propriétaire) pour suspendre la publication ou la synchro d'un réseau, avec un message aux utilisateurs ; les publications concernées attendent et repartent seules à la reprise (24 h au plus). Un disjoncteur suspend aussi automatiquement un réseau 15 min après 5 pannes en 10 min, et vous prévient dans la cloche. Les limites de débit et pannes passagères sont relancées automatiquement (2, 10 puis 30 min). Un envoi resté sans réponse n'est jamais renvoyé à l'aveugle : Nebula cherche d'abord la publication sur le réseau (« déjà en ligne ? ») et la marque publiée s'il la trouve.
+13. **Changement d'API chez un service externe** : chaque réponse lue par Nebula est vérifiée (`src/lib/social/contract.ts`) — réseaux sociaux, Google Ads, Meta Ads, TikTok Ads, Unsplash, Canva, OneDrive, Gemini, Resend, Turnstile. La cloche vous prévient aussi quand la configuration bloque un service : modèle Gemini retiré par Google (réglez `GEMINI_MODEL`), clé Gemini refusée, e-mails bloqués chez Resend (clé, domaine non vérifié, quota), clé Turnstile refusée (inscriptions bloquées). Si un réseau change le format d'une réponse, l'appel échoue avec un message qui nomme le champ en cause, vous êtes prévenu dans la cloche (« … répond dans un nouveau format »), et la forme reçue (sans aucune donnée) est écrite dans les journaux Vercel, ligne `[contrat]`. Pour corriger : adapter le contrat du client concerné et remplacer la réponse type correspondante dans `tests/contracts/fixtures`, puis `npm test`. Une publication touchée n'est jamais renvoyée à l'aveugle : Nebula vérifie d'abord si elle est en ligne. Côté publicité, les dépenses déjà enregistrées ne sont jamais effacées par un rapport suspect.
+14. **Intégration continue** : `.github/workflows/ci.yml` vérifie chaque push sur GitHub (types, lint, tests unitaires, migrations sur un Postgres neuf, tests d'intégration, build). Résultat dans l'onglet **Actions** du dépôt ; gratuit pour un dépôt privé dans la limite du quota mensuel de GitHub.
+15. **Premier affichage** : l'application (menu, compte, marques) ainsi que la Vue d'ensemble et Analytics arrivent déjà remplies depuis le serveur, pour la marque choisie — mémorisée dans un cookie `nb_brand` (simple préférence, toujours revérifiée). Si une page reste sur des squelettes, regardez les journaux Vercel de la page elle-même (plus seulement ceux des routes `/api`).
+16. **Pages vitrine pré-générées** (accueil, tarifs, outils, comparatifs, légal…) : construites au déploiement et servies depuis le cache de Vercel, sans fonction ni base de données. Leur contenu (prix de `plans.ts` compris) change donc au prochain déploiement. Elles ont une CSP sans nonce ; l'application, la page bio, les pages client à jeton et la connexion gardent la CSP stricte avec nonce (`src/lib/csp.ts`). Soupape en cas de script bloqué en production : variable `CSP_MODE=report-only` sur Vercel.
+17. **Réussites v2** (`/reussites`) : 5 rangs à 3 paliers (Étincelle → Nébuleuse), trois missions par semaine (Habitude, Progression au choix, Mystère), un coffre quand les trois sont faites, une série de semaines actives protégée par des boucliers. Tout est calculé à partir de vraies publications et actions ; aucune récompense n'a de valeur marchande. La migration `20260926090000_reussites_missions` (tables `WeeklyMissions`, `ReussiteItem`, colonne `MediaAsset.importSource`) s'applique toute seule au déploiement. Les rappels (lundi matin, dimanche soir) partent avec les tâches de compte du cron, une seule fois par semaine.
+18. **Réussites v2, lot B** : constellation de 25 étoiles (Régularité, Formats vidéo, Portée, Communauté, Stratégie) avec une mini-leçon de 2 minutes chacune ; les rangs Étoile, Constellation et Nébuleuse demandent aussi des compétences variées (un rang déjà atteint n'est jamais retiré) ; bilan de la semaine ; vitrine de 3 badges visible dans la Communauté ; carte de créateur en image (aucune page publique). Au passage : la miniature choisie dans Publier est désormais envoyée à YouTube (chaîne vérifiée par téléphone requise par YouTube), les réponses du compte à ses commentaires sont repérées à l'actualisation (Instagram, Facebook, YouTube, sans nouvelle autorisation), et le « meilleur créneau » de la Vue d'ensemble est calculé à l'heure de la marque (avant : heure du serveur). Migration `20260927090000_reussites_constellation`, appliquée toute seule au déploiement.
+19. **Réussites v2, lot C** : défi collectif du mois (objectif automatique = mois précédent + 10 %, au moins 10 ; réglable dans `/admin/reussites` ; objectif atteint = badge collectif et +50 XP pour chaque participant), badge de saison (2 défis du mois réussis dans la saison), vidéo à la une dans la Communauté (3 places de 7 jours ; gagnée au rang Constellation I ou dans le coffre, 5 % ; seulement avec l'accord du créateur, retirable par lui ou par vous), rareté réelle des badges (part des créateurs, à partir de 20 créateurs), « Premier décollage » (5 étapes pendant les 7 premiers jours) et badge caché « Explorateur » (2 outils gratuits essayés avant l'inscription, via le petit cookie technique `nb_tools`, décrit dans les mentions légales). Migration `20260928090000_reussites_social`, appliquée toute seule au déploiement.
+20. **Audit de présence en ligne gratuit** (`/outils/audit`, produit n°8) : le visiteur colle ses liens (chaîne YouTube, compte Instagram professionnel, compte TikTok, site ou page bio) et obtient en quelques secondes un score sur 100 (profil, régularité, engagement, contenu, cohérence), les actions à faire en premier et trois paragraphes de conseils écrits par Gemini, sur un rapport partageable (`/audit/<jeton>`, image de partage, 30 jours, jamais indexé, supprimable par quiconque a le lien). Sans compte, 3 audits par jour et par IP, Turnstile. **À configurer sur Vercel** : `YOUTUBE_API_KEY` (clé d'API gratuite, sans elle le champ YouTube est masqué) et, facultatif, `IG_DISCOVERY_USER_ID` + `IG_DISCOVERY_TOKEN` (voir `.env.example`) ; redéployer après les avoir ajoutées. Migration `20260929090000_public_audit`, appliquée toute seule au déploiement.
+21. **Studio IA** (`/studio`, produit n°9) : des idées de vidéos avec leurs accroches (3 premières secondes) et des scripts complets (format court ou vidéo longue), écrits par Gemini à partir de ce qui marche déjà pour la marque : meilleures publications comparées aux habitudes de chaque réseau, meilleures heures, courbes de Rétention IA. Les chiffres montrés sont calculés par Nebula, jamais par l'IA ; les repères « relancez ici » d'un script viennent des vraies courbes. Une idée devient un script en un clic, et « Utiliser dans Publier » préremplit le titre, la légende et le réseau. En Gratuit, les chiffres restent visibles et la génération ouvre l'offre Pro ; 15 générations par jour en Pro, 40 en Agence, historique gratuit (50 par marque). Aucune nouvelle variable : utilise `GEMINI_API_KEY`. Migration `20260930090000_studio_ia`, appliquée toute seule au déploiement.
+22. **Media kit public** (`/media-kit` dans l'application, page publique `/kit/<marque>`, produit n°10) : la page que le créateur envoie aux marques et aux sponsors. Audience totale, vues sur 90 jours, engagement moyen, rythme de publication, et pour chaque compte abonnés, évolution sur 30 jours, vues par publication et taux d'engagement, relevés par Nebula (jamais saisis, jamais modifiables) ; publications à la une (automatiques ou choisies, 6 au plus) ; présentation, offres et e-mail de contact écrits par le créateur. Bouton « Télécharger en PDF » (impression du navigateur, en clair), image de partage, compteur d'ouvertures sans cookie. En Gratuit, le kit se prépare et s'affiche en aperçu ; le publier est réservé à Pro et Agence (dépublié à la fin de l'essai). Landing `/decouvrir/media-kit` pour le badge « Propulsé par Nebula ». Aucune nouvelle variable. Migration `20261001090000_media_kit`, appliquée toute seule au déploiement.
+
+### Migrations de la base (Prisma Migrate)
+
+- **Modifier le schéma** : éditez `prisma/schema.prisma`, puis sur une base de DEV : `npx prisma migrate dev --name ajout_truc`. Un dossier `prisma/migrations/<date>_ajout_truc/` est créé : committez-le avec le schéma.
+- **Déploiement** : `npm run build` appelle `scripts/db-migrate.mjs`, qui applique les migrations en attente (`prisma migrate deploy`). Au tout premier déploiement après l'adoption des migrations, la base existante est d'abord alignée (`db push`, sans suppression de données) puis les migrations sont marquées comme déjà appliquées ; ensuite seul `migrate deploy` est utilisé.
+- **Previews Vercel** : ignorés (ils ne touchent pas à la base de production). `MIGRATE_PREVIEW=true` force la migration sur un Preview qui a sa propre base.
+- **Neon** : les migrations passent par l'adresse directe. `DIRECT_URL` si elle est définie, sinon `DATABASE_URL` sans `-pooler`.
+- **À la main** : `npm run db:deploy` (même script).
+- **Une migration a échoué** : le build s'arrête et le site garde la version précédente. Corrigez la cause (souvent des doublons qui empêchent une contrainte `@unique`), puis `npx prisma migrate resolve --rolled-back <nom_du_dossier>` et redéployez.
+- **Ne jamais** modifier un dossier de migration déjà déployé : créez-en un nouveau.
 
 ---
 
@@ -171,15 +198,28 @@ src/
     social/                  → un client par réseau (OAuth + publication + analytics) + dispatcher
                                  (Instagram, Facebook, TikTok, YouTube)
     ai/                      → client Gemini (chat, génération de texte, analyse de rétention)
+    studio/                  → Studio IA : faits « ce qui marche » calculés sans IA, idées et scripts
+    media-kit/               → media kit public : chiffres recalculés, réglages, cache de la page /kit
+    audit/                   → audit de présence gratuit (sources publiques, score par règles)
     billing/                 → plan par compte (paliers + nombre de marques), quotas, client Stripe
     video/                   → extraction de frames vidéo (ffmpeg) pour miniatures et analyse
+    server-data/             → données préparées côté serveur (marques, statistiques…), partagées
+                                 par les pages et les routes /api
+    data/                    → cache partagé du navigateur (SWR) et données semées par le serveur
     plans.ts, prisma.ts, auth.ts, publish.ts, storage.ts, types.ts, providers.ts
 prisma/
   schema.prisma              → modèle de données (User, Subscription rattaché au User, Brand,
                                  SocialConnection, Post, PostTarget, AnalyticsSnapshot, VideoInsight,
                                  PostMessage, ForumThread, ForumReply, Guide, SharedVideo...)
+  migrations/                → historique versionné du schéma (appliqué au déploiement)
 scripts/
   worker.ts                  → publication planifiée en continu (alternative à /api/cron)
+  db-migrate.mjs             → application des migrations au build de production
+tests/
+  security/, reliability/, quality/  → tests unitaires (npm test)
+  integration/               → tests sur Postgres jetable (npm run test:integration)
+.github/workflows/ci.yml     → vérifications automatiques sur GitHub
+docs/ARCHITECTURE.md         → règles d'architecture et méthode de travail par module
 ```
 
 ---
@@ -188,8 +228,7 @@ scripts/
 
 - L'upload chunké pour les grosses vidéos n'est implémenté qu'en flux simple sur les réseaux qui le permettent nativement ; pour des vidéos très volumineuses sur TikTok/YouTube, vérifiez les limites de taille par requête de chaque API.
 - La publication de photos (hors vidéo) sur TikTok utilise un endpoint distinct (`/v2/post/publish/content/init/`, photo post) non encore branché.
-- Le chiffrement des jetons d'accès en base (actuellement en clair dans `SocialConnection.accessToken`) est recommandé avant toute mise en production réelle.
-- Aucune limite de débit (rate limiting) n'est appliquée sur les routes API : à ajouter avant une ouverture publique.
+- La limite de débit (`src/lib/rate-limit.ts`, compteurs en base) couvre l'inscription, la connexion et le mot de passe oublié ; elle laisse passer si la base est indisponible, et ne remplace pas un pare-feu contre une attaque distribuée.
 - L'analyse de rétention IA ne fonctionne que pour les vidéos YouTube publiées depuis assez longtemps pour avoir des données dans YouTube Analytics (généralement quelques heures, et un minimum de vues).
 - Sans ffmpeg installé sur le serveur, la génération de miniatures et l'extraction de frames pour l'analyse de rétention sont désactivées proprement (message explicite), sans bloquer le reste de l'app.
 - La Communauté (forum, guides, vidéos partagées) est volontairement globale et non modérée automatiquement : pour une ouverture publique réelle, ajoutez au minimum un signalement/une modération avant publication des messages.

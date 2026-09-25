@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
+// CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
+// rendu à chaque visite, jamais pré-généré.
+export const dynamic = "force-dynamic";
+
 // Composant serveur : si déjà connecté, inutile de repasser par ici.
 export default async function ForgotPasswordPage() {
   const session = await getServerSession(authOptions);

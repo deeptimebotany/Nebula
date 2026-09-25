@@ -8,11 +8,12 @@
 // Monté par <FocusGate /> : rien en Mode focus (les réussites restent
 // annoncées dans la cloche). Vérifie à l'ouverture, au retour sur l'onglet,
 // quand la cloche reçoit du nouveau, après une action qui peut débloquer
-// quelque chose (« nebula:reussites-check »), et toutes les 90 secondes.
+// quelque chose (« nebula:reussites-check »), et toutes les 5 minutes en
+// filet de sécurité (la cloche prévient déjà dès qu'une réussite arrive).
 import { useCallback, useEffect, useRef } from "react";
 import type { CelebrationDTO } from "@/lib/reussites/types";
 
-const POLL_MS = 90_000;
+const POLL_MS = 5 * 60_000;
 const MIN_GAP_MS = 10_000;
 
 export function ReussitesCelebrationWatcher() {

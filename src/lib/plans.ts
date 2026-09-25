@@ -32,6 +32,9 @@ export interface PlanLimits {
   maxConnections: number; // comptes réseaux connectés, PAR marque
   maxPostsPerMonth: number; // publications programmées/mois, PAR marque
   aiEnabled: boolean;
+  // Studio IA (produit n°9, /studio) : générations par jour et par compte
+  // (idées + accroches, scripts). 0 = aperçu seulement. Voir src/lib/studio.
+  studioDailyLimit: number;
   // Publier la même vidéo/post sur un ensemble de comptes choisis librement,
   // à travers TOUS les réseaux en même temps — réservé au palier Agence.
   massPublishEnabled: boolean;
@@ -52,6 +55,10 @@ export interface PlanLimits {
   // CalendarShare dans prisma/schema.prisma) — vue "vers l'avant" qui
   // complète les rapports (reportsEnabled). Réservé aux mêmes paliers.
   calendarShareEnabled: boolean;
+  // Media kit public (produit n°10, /media-kit et /kit/[slug]) : la page à
+  // envoyer aux sponsors, chiffres relevés par Nebula. En Gratuit : aperçu
+  // dans l'application, publication réservée aux paliers payants.
+  mediaKitEnabled: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
@@ -61,6 +68,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxConnections: 4,
     maxPostsPerMonth: 20,
     aiEnabled: false,
+    studioDailyLimit: 0,
     massPublishEnabled: false,
     maxBioLinks: 3,
     tiers: [{ maxBrands: 1, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
@@ -73,7 +81,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Page « link in bio » publique (3 liens)"
     ],
     reportsEnabled: false,
-    calendarShareEnabled: false
+    calendarShareEnabled: false,
+    mediaKitEnabled: false
   },
   PRO: {
     id: "PRO",
@@ -81,6 +90,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxConnections: 8,
     maxPostsPerMonth: 100,
     aiEnabled: true,
+    studioDailyLimit: 15,
     massPublishEnabled: false,
     maxBioLinks: 15,
     tiers: [
@@ -94,15 +104,18 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "100 publications programmées par mois et par marque",
       "Publications envoyées plus rapidement",
       "Assistant IA (titres, légendes, chat)",
+      "Studio IA : idées, accroches et scripts tirés de vos chiffres (15 par jour)",
       "Analyse de rétention vidéo par IA",
       "Génération de miniatures",
       "Page « link in bio » publique (15 liens)",
       "Thèmes exclusifs « Saphir », « Or Impérial » et « Aube »",
       "Rapports clients automatiques",
-      "Calendrier client public"
+      "Calendrier client public",
+      "Media kit public pour les sponsors, avec vos vrais chiffres"
     ],
     reportsEnabled: true,
-    calendarShareEnabled: true
+    calendarShareEnabled: true,
+    mediaKitEnabled: true
   },
   AGENCY: {
     id: "AGENCY",
@@ -110,6 +123,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxConnections: 9999,
     maxPostsPerMonth: 999999,
     aiEnabled: true,
+    studioDailyLimit: 40,
     massPublishEnabled: true,
     maxBioLinks: 9999,
     tiers: [
@@ -123,16 +137,19 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
       "Publications illimitées",
       "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
       "Assistant IA + analyse de rétention",
+      "Studio IA : 40 idées ou scripts par jour",
       "Publications prioritaires",
       "Support prioritaire",
       "Page « link in bio » publique (liens illimités)",
       "Tous les thèmes Pro + le thème exclusif « Éclipse totale »",
       "Rapports clients automatiques",
       "Calendrier client public",
+      "Media kit public pour chaque marque",
       "API et webhooks (n8n, Make, Zapier)"
     ],
     reportsEnabled: true,
-    calendarShareEnabled: true
+    calendarShareEnabled: true,
+    mediaKitEnabled: true
   }
 };
 

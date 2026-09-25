@@ -1,0 +1,47 @@
+{
+  "kind": "youtube#playlistItemListResponse",
+  "etag": "etag-6",
+  "nextPageToken": "EAAaBlBUOkNBVQ",
+  "pageInfo": { "totalResults": 87, "resultsPerPage": 10 },
+  "items": [
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "etag-7",
+      "id": "VVVhYmNkZWZnaGlqa2xtbm9wcXJzdHV2LmFiY2RlZg",
+      "snippet": {
+        "publishedAt": "2026-09-24T08:16:02Z",
+        "channelId": "UCabcdefghijklmnopqrstuv",
+        "title": "Nouveau menu d'automne",
+        "description": "Toutes les nouveautés de la saison.",
+        "thumbnails": {
+          "default": { "url": "https://i.ytimg.com/vi/aBcDeFgHiJk/default.jpg", "width": 120, "height": 90 },
+          "medium": { "url": "https://i.ytimg.com/vi/aBcDeFgHiJk/mqdefault.jpg", "width": 320, "height": 180 }
+        },
+        "channelTitle": "Café Nebula",
+        "playlistId": "UUabcdefghijklmnopqrstuv",
+        "position": 0,
+        "resourceId": { "kind": "youtube#video", "videoId": "aBcDeFgHiJk" },
+        "videoOwnerChannelTitle": "Café Nebula",
+        "videoOwnerChannelId": "UCabcdefghijklmnopqrstuv"
+      },
+      "contentDetails": { "videoId": "aBcDeFgHiJk", "videoPublishedAt": "2026-09-24T08:15:40Z" }
+    },
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "etag-8",
+      "id": "VVVhYmNkZWZnaGlqa2xtbm9wcXJzdHV2LmdoaWprbA",
+      "snippet": {
+        "publishedAt": "2026-09-18T12:00:00Z",
+        "channelId": "UCabcdefghijklmnopqrstuv",
+        "title": "Vidéo privée de test",
+        "description": "",
+        "thumbnails": {},
+        "channelTitle": "Café Nebula",
+        "playlistId": "UUabcdefghijklmnopqrstuv",
+        "position": 1,
+        "resourceId": { "kind": "youtube#video", "videoId": "lMnOpQrStUv" }
+      },
+      "contentDetails": { "videoId": "lMnOpQrStUv" }
+    }
+  ]
+}

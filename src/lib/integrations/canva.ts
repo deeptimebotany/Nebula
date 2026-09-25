@@ -10,13 +10,35 @@
 // Fonctionnement : la personne relie son compte Canva une fois (OAuth avec
 // PKCE), choisit un design dans Publier, Nebula lance l'export (PNG ou MP4)
 // et récupère le fichier quand il est prêt.
+import type { ZodType, ZodTypeDef } from "zod";
+import { idSchema, opt, soft, textSchema, z } from "@/lib/social/contract";
 import { integrationRedirectUri } from "./config";
-import { ImportError } from "./remote-media";
+import { ImportError } from "./errors";
+import { importJson, tokenRefusal } from "./http";
 import type { TokenSet } from "./oauth-accounts";
 
 const AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const API = "https://api.canva.com/rest/v1";
 export const CANVA_SCOPES = ["design:meta:read", "design:content:read", "profile:read"];
+
+// --- Contrat des réponses (lot 8, voir social/contract.ts) -------------------
+// Doc : https://www.canva.dev/docs/connect/api-reference/ (oauth/token,
+//       users/me/profile, designs, exports). Réponses types : tests/contracts/fixtures/canva.
+const tokenSchema = z.object({ access_token: z.string().min(1), refresh_token: opt(z.string().min(1)), expires_in: soft(z.number()) });
+const designSchema = z.object({
+  id: idSchema,
+  title: textSchema,
+  thumbnail: soft(z.object({ url: z.string(), width: soft(z.number()), height: soft(z.number()) })),
+  updated_at: soft(z.number())
+});
+const jobSchema = z.object({
+  job: z.object({
+    id: idSchema,
+    status: z.enum(["in_progress", "success", "failed"]),
+    urls: opt(z.array(z.string().url())),
+    error: soft(z.object({ code: textSchema, message: textSchema }))
+  })
+});
 
 function creds() {
   const id = process.env.CANVA_CLIENT_ID;
@@ -39,14 +61,17 @@ export function canvaAuthUrl(state: string, challenge: string): string {
 
 async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
   const { id, secret } = creds();
-  const res = await fetch(`${API}/oauth/token`, {
-    method: "POST",
-    headers: { Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(body),
-    cache: "no-store"
-  });
-  const json = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string };
-  if (!res.ok || !json.access_token) throw new ImportError(json.error_description || `Canva a refusé la connexion (${res.status}).`, 502);
+  const json = await importJson(
+    "CANVA",
+    `${API}/oauth/token`,
+    {
+      method: "POST",
+      headers: { Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(body),
+      schema: tokenSchema
+    },
+    tokenRefusal("CANVA")
+  );
   return { accessToken: json.access_token, refreshToken: json.refresh_token, expiresIn: json.expires_in };
 }
 
@@ -58,21 +83,17 @@ export function refreshCanvaToken(refreshToken: string) {
   return tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
 }
 
-async function api<T>(token: string, path: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
+function api<T>(token: string, path: string, schema: ZodType<T, ZodTypeDef, unknown>, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
+  return importJson("CANVA", `${API}${path}`, {
     method: init.method ?? "GET",
     headers: { Authorization: `Bearer ${token}`, ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-    cache: "no-store"
+    schema
   });
-  if (res.status === 401) throw new ImportError("Connexion Canva expirée : reliez à nouveau votre compte.", 401);
-  const json = (await res.json().catch(() => ({}))) as T & { message?: string };
-  if (!res.ok) throw new ImportError(json.message || `Canva a répondu ${res.status}.`, 502);
-  return json;
 }
 
 export async function canvaDisplayName(token: string): Promise<string | null> {
-  const me = await api<{ profile?: { display_name?: string } }>(token, "/users/me/profile").catch(() => null);
+  const me = await api(token, "/users/me/profile", z.object({ profile: soft(z.object({ display_name: textSchema })) })).catch(() => null);
   return me?.profile?.display_name ?? null;
 }
 
@@ -89,10 +110,7 @@ export async function listCanvaDesigns(token: string, opts: { query?: string; co
   const params = new URLSearchParams({ ownership: "any", sort_by: "modified_descending" });
   if (opts.query) params.set("query", opts.query);
   if (opts.continuation) params.set("continuation", opts.continuation);
-  const data = await api<{
-    items: { id: string; title?: string; thumbnail?: { url: string; width: number; height: number }; updated_at?: number }[];
-    continuation?: string;
-  }>(token, `/designs?${params.toString()}`);
+  const data = await api(token, `/designs?${params.toString()}`, z.object({ items: z.array(designSchema), continuation: textSchema }));
   return {
     designs: data.items.map((d) => ({
       id: d.id,
@@ -109,12 +127,12 @@ export async function listCanvaDesigns(token: string, opts: { query?: string; co
 /** Lance l'export de la première page d'un design, en image (PNG) ou en vidéo (MP4). */
 export async function startCanvaExport(token: string, designId: string, kind: "image" | "video", portrait: boolean): Promise<string> {
   const format = kind === "video" ? { type: "mp4", quality: portrait ? "vertical_1080p" : "horizontal_1080p", pages: [1] } : { type: "png", pages: [1] };
-  const data = await api<{ job: { id: string } }>(token, "/exports", { method: "POST", body: { design_id: designId, format } });
+  const data = await api(token, "/exports", jobSchema, { method: "POST", body: { design_id: designId, format } });
   return data.job.id;
 }
 
 export async function getCanvaExport(token: string, jobId: string): Promise<{ status: "in_progress" | "success" | "failed"; urls: string[]; error?: string }> {
   if (!/^[A-Za-z0-9_-]{3,100}$/.test(jobId)) throw new ImportError("Export introuvable.", 404);
-  const data = await api<{ job: { status: "in_progress" | "success" | "failed"; urls?: string[]; error?: { message?: string } } }>(token, `/exports/${jobId}`);
+  const data = await api(token, `/exports/${jobId}`, jobSchema);
   return { status: data.job.status, urls: data.job.urls ?? [], error: data.job.error?.message };
 }

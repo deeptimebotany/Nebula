@@ -16,7 +16,7 @@ import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL } from "@/lib/site"
 // renseignées, la page l'indique honnêtement plutôt que d'afficher des
 // valeurs inventées. Ceci n'est pas un avis juridique.
 
-const LAST_UPDATED = "23 septembre 2026";
+const LAST_UPDATED = "25 septembre 2026";
 
 export const metadata: Metadata = {
   title: "Mentions légales, conditions et confidentialité",
@@ -27,11 +27,11 @@ const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
   { name: "Vercel Inc.", role: "Hébergement du site et exécution du service", where: "États-Unis / Union européenne" },
   { name: "Neon Inc.", role: "Base de données (PostgreSQL)", where: "Selon la région choisie à la création" },
   { name: "Vercel Blob", role: "Stockage des médias importés (images, vidéos)", where: "États-Unis / Union européenne" },
-  { name: "Meta Platforms, TikTok, Google (YouTube)", role: "Publication et lecture des statistiques, uniquement sur les comptes que vous connectez", where: "Selon la plateforme" },
+  { name: "Meta Platforms, TikTok, Google (YouTube)", role: "Publication et lecture des statistiques, uniquement sur les comptes que vous connectez ; lecture des données publiques des comptes indiqués dans l'audit de présence", where: "Selon la plateforme" },
   { name: "Stripe", role: "Paiement des abonnements (Nebula ne voit jamais votre numéro de carte)", where: "Union européenne / États-Unis" },
   { name: "Resend", role: "Envoi des emails transactionnels (réinitialisation de mot de passe, rapports)", where: "États-Unis" },
   { name: "Cloudflare (Turnstile)", role: "Protection anti-robot des formulaires publics", where: "Réseau mondial" },
-  { name: "Google (Gemini)", role: "Assistant IA, uniquement si vous utilisez ces fonctions", where: "États-Unis / Union européenne" }
+  { name: "Google (Gemini)", role: "Assistant IA, uniquement si vous utilisez ces fonctions (dont les conseils de l'audit de présence, rédigés à partir des chiffres du rapport, et le Studio IA, qui reçoit les titres et les statistiques calculées de vos publications, jamais vos identifiants)", where: "États-Unis / Union européenne" }
 ];
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
@@ -205,6 +205,11 @@ export default function LegalPage() {
             Vous pouvez supprimer votre compte à tout moment depuis Paramètres → Compte &amp; confidentialité. Cette
             action est définitive et efface vos données conformément à la politique de confidentialité ci-dessous.
           </p>
+          <p>
+            Si vous retirez Nebula des réglages de Facebook, d&apos;Instagram ou de Threads, les comptes concernés sont
+            déconnectés ; si vous y demandez aussi la suppression de vos données, Nebula efface celles qui en
+            proviennent et vous donne un code de suivi (page <a href="/suppression-donnees" className="text-aurora-300 hover:underline">Suppression de vos données</a>).
+          </p>
         </Section>
 
         <Section title="10. Modification des conditions">
@@ -251,6 +256,13 @@ export default function LegalPage() {
             plateformes renvoient. Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
             plus deux jours, pour limiter les tentatives abusives sur les formulaires publics.
           </p>
+          <p>
+            Audit de présence en ligne (outil gratuit, sans compte) : les comptes et le site que vous indiquez, les
+            données publiques que ces plateformes et ce site affichent à tout le monde (profil, dernières publications
+            et leurs chiffres publics), et le rapport qui en résulte. L&apos;adresse email, facultative, sert
+            uniquement à vous envoyer le lien du rapport et n&apos;est pas conservée avec lui ; si vous cochez aussi
+            la case des conseils, elle est enregistrée après votre confirmation par email.
+          </p>
         </Section>
 
         <Section title="3. Finalités et bases légales">
@@ -260,6 +272,19 @@ export default function LegalPage() {
             protection contre les abus et la sécurité du Service relèvent de notre intérêt légitime. Les fonctions
             d&apos;assistant IA ne traitent vos textes et images que lorsque vous les déclenchez. Nous ne faisons ni
             profilage publicitaire, ni revente de données.
+          </p>
+          <p>
+            L&apos;audit de présence produit le rapport que vous demandez, à partir de données publiques ; il peut
+            porter sur le compte d&apos;une autre personne (intérêt légitime : analyse de présence publique). Le
+            rapport n&apos;est accessible que par son lien secret, n&apos;est pas indexé par les moteurs de recherche,
+            et toute personne qui a ce lien, dont la personne analysée, peut le supprimer depuis le rapport.
+          </p>
+          <p>
+            Le media kit d&apos;une marque n&apos;est public que si vous le publiez : il affiche les chiffres des comptes
+            que vous choisissez, votre texte et, si vous la renseignez, votre adresse e-mail de contact. Vous pouvez le
+            retirer à tout moment. Ses ouvertures sont comptées sans cookie : l&apos;empreinte de l&apos;adresse IP
+            d&apos;un visiteur sert seulement à ne le compter qu&apos;une fois par jour, et suit la même purge que les
+            autres empreintes anti-abus.
           </p>
         </Section>
 
@@ -300,7 +325,8 @@ export default function LegalPage() {
             Vos données sont conservées tant que votre compte est actif. En cas de suppression du compte (Paramètres
             → Compte &amp; confidentialité), vos données personnelles, vos contenus et les jetons de connexion sont
             effacés de nos systèmes ; les données de facturation sont conservées par Stripe et par nous le temps
-            requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours.
+            requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours. Les rapports
+            d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours.
           </p>
         </Section>
 
@@ -332,11 +358,14 @@ export default function LegalPage() {
 
         <Section id="cookies" title="8. Cookies et stockage local">
           <p>
-            {SITE_NAME} utilise uniquement des cookies strictement nécessaires : le cookie de session qui maintient
-            votre connexion, et un cookie technique pour retenir le compte actif si vous en utilisez plusieurs. Vos
-            préférences d&apos;affichage (thème, fond) sont mémorisées dans votre navigateur. Aucun cookie
-            publicitaire, de mesure d&apos;audience tierce ou de traçage n&apos;est déposé ; aucune bannière de
-            consentement n&apos;est donc nécessaire.
+            {SITE_NAME} utilise uniquement des cookies techniques : le cookie de session qui maintient
+            votre connexion, un cookie technique pour retenir le compte actif si vous en utilisez plusieurs, et un
+            cookie qui retient la marque que vous avez choisie dans l&apos;application (pour l&apos;afficher dès le
+            chargement). Sur les outils gratuits, un cookie « outils essayés » (30 jours) retient seulement le nom des
+            outils que vous avez utilisés, pour vous offrir le badge Explorateur si vous créez ensuite un compte ; il ne
+            contient aucun identifiant et ne sert à rien d&apos;autre. Vos préférences d&apos;affichage (thème, fond) sont
+            mémorisées dans votre navigateur. Aucun cookie publicitaire, de mesure d&apos;audience tierce ou de traçage
+            n&apos;est déposé ; aucune bannière de consentement n&apos;est donc nécessaire.
           </p>
         </Section>
 

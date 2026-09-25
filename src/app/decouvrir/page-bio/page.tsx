@@ -6,7 +6,7 @@ import { DashboardVisual } from "@/components/marketing/product-visuals";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
-import { getPublicLinkPage } from "@/lib/link-in-bio-public";
+import { getCachedPublicLinkPage } from "@/lib/link-in-bio-cache";
 import { PLAN_LIMITS } from "@/lib/plans";
 
 // Landing du badge « Propulsé par Nebula » des pages bio (brief growth,
@@ -29,7 +29,7 @@ const FAQ = [
 
 export default async function DecouvrirPageBio({ searchParams }: { searchParams: { via?: string } }) {
   const via = typeof searchParams.via === "string" && /^[\w.-]{1,80}$/.test(searchParams.via) ? searchParams.via : null;
-  const referrer = via ? await getPublicLinkPage(via).catch(() => null) : null;
+  const referrer = via ? await getCachedPublicLinkPage(via).catch(() => null) : null;
 
   return (
     <PublicShell width="max-w-5xl">

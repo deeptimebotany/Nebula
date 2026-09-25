@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "campaign_id": "120210000000000001", "campaign_name": "Automne 2026", "spend": "20.00", "impressions": "2500", "clicks": "70", "actions": [{ "action_type": "complete_registration", "value": "3" }], "date_start": "2026-08-26", "date_stop": "2026-09-24" }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD", "after": "MAZDZD" } }
+}

@@ -3,8 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createPost } from "@/lib/posts/create-post";
-import { requireBrandMembership, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
+import { requireBrandMembership } from "@/lib/brand-access";
+import { listBrandPosts, pageBrandPosts, parsePostListQuery, parsePostPageQuery, postPageSummary, PostListQueryError } from "@/lib/posts/list-posts";
 import { z } from "zod";
+
+// Publication immédiate depuis le Composer : jusqu'à 60 s (limite du plan
+// Vercel Hobby) ; au-delà, les vidéos encore en traitement sont terminées
+// par le cron (voir lib/publish.ts).
+export const maxDuration = 60;
 
 const targetSchema = z.object({
   connectionId: z.string(),
@@ -29,7 +35,9 @@ const bodySchema = z.object({
   publishNow: z.boolean().default(false)
 });
 
-// GET /api/posts?brandId=... — liste (utilisé par le calendrier)
+// GET /api/posts?brandId=...[&from=ISO&to=ISO][&view=light][&limit=N] —
+// liste (calendrier, Vue d'ensemble, Publications). Paramètres et formes de
+// réponse : voir src/lib/posts/list-posts.ts.
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -38,22 +46,30 @@ export async function GET(req: NextRequest) {
   if (!brandId) return NextResponse.json({ error: "brandId requis" }, { status: 400 });
 
   // Appartenance vérifiée côté serveur : sans ça, n'importe quel compte
-  // connecté pouvait lister les publications (et, avant le `select` ci-dessous,
+  // connecté pouvait lister les publications (et, avant le `select`,
   // les jetons OAuth) de n'importe quelle marque en devinant son brandId.
   const userId = (session.user as { id: string }).id;
   const denied = await requireBrandMembership(userId, brandId);
   if (denied) return denied;
 
-  const posts = await prisma.post.findMany({
-    where: { brandId },
-    include: {
-      media: { include: { mediaAsset: true } },
-      targets: { include: { connection: { select: PUBLIC_CONNECTION_SELECT } } }
-    },
-    orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }]
-  });
-
-  return NextResponse.json({ posts });
+  try {
+    // Page Publications (lot 5) : ?paginate=1[&status&network&q&cursor]. Le
+    // résumé (compteurs, réseaux) n'est calculé que pour la première page.
+    if (req.nextUrl.searchParams.get("paginate") === "1") {
+      const pageQuery = parsePostPageQuery(req.nextUrl.searchParams);
+      const [page, summary] = await Promise.all([
+        pageBrandPosts(brandId, pageQuery),
+        pageQuery.cursor ? Promise.resolve(null) : postPageSummary(brandId, pageQuery)
+      ]);
+      return NextResponse.json({ ...page, ...(summary ?? {}) });
+    }
+    const query = parsePostListQuery(req.nextUrl.searchParams);
+    const { posts, truncated } = await listBrandPosts(brandId, query);
+    return NextResponse.json({ posts, truncated });
+  } catch (err) {
+    if (err instanceof PostListQueryError) return NextResponse.json({ error: err.message }, { status: 400 });
+    throw err;
+  }
 }
 
 // POST /api/posts — crée UNE publication (éventuellement multi-médias pour

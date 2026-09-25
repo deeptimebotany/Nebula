@@ -25,7 +25,7 @@ export function GET() {
     "",
     `> ${SITE_DESCRIPTION}`,
     "",
-    `${SITE_NAME} est un outil de planification et de publication pour les réseaux sociaux, en français et en euros, édité en France. Il s'adresse aux créateurs, indépendants, petites marques et agences qui gèrent plusieurs comptes : programmation multi-réseaux, calendrier, analytics unifiées, rapports clients automatiques, calendrier client partagé, page « link in bio », assistant IA et analyse de rétention vidéo.`,
+    `${SITE_NAME} est un outil de planification et de publication pour les réseaux sociaux, en français et en euros, édité en France. Il s'adresse aux créateurs, indépendants, petites marques et agences qui gèrent plusieurs comptes : programmation multi-réseaux, calendrier, analytics unifiées, rapports clients automatiques, calendrier client partagé, page « link in bio », media kit pour les sponsors, assistant IA, Studio IA et analyse de rétention vidéo.`,
     "",
     "## Réseaux",
     "",
@@ -43,6 +43,8 @@ export function GET() {
     "",
     `- [Tarifs](${SITE_URL}/tarifs) : grille complète, comparatif des paliers, calculateur d'économies.`,
     `- [Sécurité et données](${SITE_URL}/securite) : hébergement, chiffrement, API officielles, RGPD.`,
+    `- [Audit de présence en ligne gratuit](${SITE_URL}/outils/audit) : score sur 100 d'une chaîne YouTube, d'un compte Instagram professionnel, d'un profil TikTok et d'un site (régularité, engagement, profil, contenu, cohérence), avec des conseils concrets. Données publiques, sans compte.`,
+    `- [Media kit](${SITE_URL}/decouvrir/media-kit) : page à envoyer aux marques, avec les vrais chiffres des comptes relevés automatiquement, présentation, tarifs, PDF. Aperçu gratuit, publication avec ${pro.label}.`,
     `- [Outils gratuits](${SITE_URL}/outils) : générateurs de légendes, miniatures, bio Instagram, hashtags ; testeur de titre YouTube ; calculateur de taux d'engagement ; meilleur moment pour publier. Sans compte.`,
     `- [Alternatives](${SITE_URL}/alternatives) : comparatifs avec ${COMPETITORS.map((c) => c.name).join(", ")} (prix constatés et datés).`,
     `- [Réseaux](${SITE_URL}/reseaux) : pris en charge et à venir.`,
@@ -55,7 +57,7 @@ export function GET() {
     "## Notes",
     "",
     "- Interface, support et documentation en français. Paiement par carte via Stripe, résiliable ou mettable en pause à tout moment.",
-    `- Les pages publiques générées par ${SITE_NAME} (rapports clients, calendriers partagés, pages bio) portent la mention « Propulsé par ${SITE_NAME} ».`,
+    `- Les pages publiques générées par ${SITE_NAME} (rapports clients, calendriers partagés, pages bio, media kits) portent la mention « Propulsé par ${SITE_NAME} ».`,
     ""
   ];
 

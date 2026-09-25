@@ -13,23 +13,60 @@
 // Jetons : l'échange du code donne un jeton court (1 h), aussitôt échangé
 // contre un jeton long (60 jours), rafraîchi automatiquement quand il
 // approche de l'expiration (voir freshToken).
+import type { ZodType, ZodTypeDef } from "zod";
 import { prisma } from "@/lib/prisma";
-import type { AnalyticsResult, PublishResult } from "@/lib/types";
+import type { AnalyticsResult } from "@/lib/types";
 import { oauthRedirectUri } from "@/lib/network-availability";
 import {
   SocialApiError,
   fetchJson,
+  pollUntil,
+  waitBudgetMs,
+  type PublishCheckpoint,
+  type PublishOutcome,
   type ConnectionLike,
   type EngagementItemInput,
   type OAuthTokenResult,
   type PostMetricInput,
+  type RecentPost,
   type PublishInput,
   type SocialClient
 } from "./base";
+import { countSchema, graphList, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
+import { API_VERSIONS } from "./versions";
 
 const AUTH_URL = "https://threads.net/oauth/authorize";
 const GRAPH = "https://graph.threads.net";
-const API = `${GRAPH}/v1.0`;
+// Version centralisée dans versions.ts (règle 4 : aucune version en dur).
+const API = `${GRAPH}/${API_VERSIONS.THREADS.version}`;
+
+// --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
+// Doc : https://developers.facebook.com/docs/threads/posts
+//       https://developers.facebook.com/docs/threads/insights
+// Réponses types : tests/contracts/fixtures/threads.
+const createdSchema = z.object({ id: idSchema });
+const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: soft(z.number()) });
+const containerSchema = z.object({ status: z.string(), error_message: textSchema });
+const insightsSchema = z.object({
+  data: z.array(
+    z.object({
+      name: z.string(),
+      values: soft(z.array(z.object({ value: countSchema }))),
+      total_value: soft(z.object({ value: countSchema }))
+    })
+  )
+});
+type Insights = z.output<typeof insightsSchema>;
+const threadSchema = z.object({
+  id: idSchema,
+  text: textSchema,
+  permalink: textSchema,
+  timestamp: textSchema,
+  media_type: textSchema,
+  media_url: textSchema,
+  thumbnail_url: textSchema
+});
+const replySchema = z.object({ id: idSchema, text: textSchema, username: textSchema, timestamp: textSchema, permalink: textSchema });
 const SCOPES = ["threads_basic", "threads_content_publish", "threads_manage_insights", "threads_manage_replies", "threads_read_replies"];
 const MAX_CAROUSEL = 20;
 
@@ -41,11 +78,15 @@ function requireEnv(name: string): string {
 
 const redirectUri = () => oauthRedirectUri("threads", "THREADS_REDIRECT_URI");
 
-async function graph<T>(path: string, token: string, init: { method?: "GET" | "POST"; params?: Record<string, string | undefined> } = {}): Promise<T> {
+async function graph<T = unknown>(
+  path: string,
+  token: string,
+  init: { method?: "GET" | "POST"; params?: Record<string, string | undefined>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
+): Promise<T> {
   const url = new URL(path.startsWith("http") ? path : `${API}${path}`);
   for (const [k, v] of Object.entries(init.params ?? {})) if (v !== undefined) url.searchParams.set(k, v);
   url.searchParams.set("access_token", token);
-  return fetchJson<T>("THREADS", url.toString(), { method: init.method ?? "GET", cache: "no-store" });
+  return fetchJson("THREADS", url.toString(), { method: init.method ?? "GET", cache: "no-store", schema: init.schema });
 }
 
 /** Jeton valide : rafraîchi (et enregistré) s'il expire dans moins de 7 jours. */
@@ -56,12 +97,12 @@ async function freshToken(connection: ConnectionLike): Promise<string> {
   }
   if (expires === null || expires - Date.now() > 7 * 86_400_000) return connection.accessToken;
   try {
-    const refreshed = await fetchJson<{ access_token: string; expires_in: number }>(
+    const refreshed = await fetchJson(
       "THREADS",
       `${GRAPH}/refresh_access_token?grant_type=th_refresh_token&access_token=${encodeURIComponent(connection.accessToken)}`,
-      { cache: "no-store" }
+      { cache: "no-store", schema: tokenSchema }
     );
-    const tokenExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
+    const tokenExpiresAt = new Date(Date.now() + (refreshed.expires_in ?? 60 * 86_400) * 1000);
     await prisma.socialConnection.update({ where: { id: connection.id }, data: { accessToken: refreshed.access_token, tokenExpiresAt } });
     connection.accessToken = refreshed.access_token;
     connection.tokenExpiresAt = tokenExpiresAt;
@@ -72,17 +113,56 @@ async function freshToken(connection: ConnectionLike): Promise<string> {
   }
 }
 
-/** Attend qu'un conteneur média soit prêt (vidéos surtout), max ~5 min. */
-async function waitForContainer(id: string, token: string): Promise<void> {
-  for (let i = 0; i < 60; i++) {
-    const s = await graph<{ status: string; error_message?: string }>(`/${id}`, token, { params: { fields: "status,error_message" } });
-    if (s.status === "FINISHED" || s.status === "PUBLISHED") return;
-    if (s.status === "ERROR" || s.status === "EXPIRED") {
-      throw new SocialApiError("THREADS", `Threads n'a pas pu traiter le média${s.error_message ? ` : ${s.error_message}` : "."}`);
-    }
-    await new Promise((r) => setTimeout(r, 5000));
+/**
+ * Vrai quand le conteneur est prêt, faux si le budget d'attente est épuisé
+ * (lot 2 : plus d'attente de 5 minutes dans une requête que Vercel coupe).
+ */
+async function containerReady(id: string, token: string, budgetMs: number): Promise<boolean> {
+  const ready = await pollUntil(
+    async () => {
+      const s = await graph(`/${id}`, token, { params: { fields: "status,error_message" }, schema: containerSchema });
+      if (s.status === "FINISHED" || s.status === "PUBLISHED") return true;
+      if (s.status === "ERROR" || s.status === "EXPIRED") {
+        throw new SocialApiError("THREADS", `Threads n'a pas pu traiter le média${s.error_message ? ` : ${s.error_message}` : "."}`, 400);
+      }
+      return undefined;
+    },
+    budgetMs,
+    3000
+  );
+  return ready === true;
+}
+
+/** Publie un conteneur prêt, ou renvoie un point de reprise pour le cron. */
+async function finishThreadsContainer(connection: ConnectionLike, token: string, containerId: string, input: PublishInput): Promise<PublishOutcome> {
+  if (!(await containerReady(containerId, token, waitBudgetMs(input)))) {
+    return { pending: true, checkpoint: { step: "threads_container", containerId }, retryInMs: 30_000 };
   }
-  throw new SocialApiError("THREADS", "Threads met trop de temps à traiter le média : réessayez dans quelques minutes.");
+  const published = await graph(`/${connection.externalAccountId}/threads_publish`, token, {
+    method: "POST",
+    params: { creation_id: containerId },
+    schema: createdSchema
+  });
+  const details = await graph(`/${published.id}`, token, { params: { fields: "permalink" }, schema: z.object({ permalink: textSchema }) }).catch(() => ({
+    permalink: undefined
+  }));
+  return { externalPostId: published.id, externalUrl: details.permalink };
+}
+
+/** Carrousel : attend que chaque élément (vidéos surtout) soit prêt, puis crée le conteneur parent. */
+async function finishThreadsCarousel(connection: ConnectionLike, token: string, children: string[], input: PublishInput): Promise<PublishOutcome> {
+  for (const child of children) {
+    if (!(await containerReady(child, token, waitBudgetMs(input)))) {
+      return { pending: true, checkpoint: { step: "threads_carousel", children: children.join(",") }, retryInMs: 30_000 };
+    }
+  }
+  const text = input.caption.trim();
+  const { id: containerId } = await graph(`/${connection.externalAccountId}/threads`, token, {
+    method: "POST",
+    params: { media_type: "CAROUSEL", children: children.join(","), text: text || undefined },
+    schema: createdSchema
+  });
+  return finishThreadsContainer(connection, token, containerId, input);
 }
 
 function isVideoUrl(url: string, fallback: "VIDEO" | "IMAGE"): boolean {
@@ -107,30 +187,35 @@ export const threadsClient: SocialClient = {
   async exchangeCodeForToken(code) {
     const appId = requireEnv("THREADS_APP_ID");
     const secret = requireEnv("THREADS_APP_SECRET");
-    const short = await fetchJson<{ access_token: string; user_id: string | number }>("THREADS", `${GRAPH}/oauth/access_token`, {
+    const short = await fetchJson("THREADS", `${GRAPH}/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: redirectUri(), code })
+      body: new URLSearchParams({ client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: redirectUri(), code }),
+      schema: z.object({ access_token: z.string().min(1), user_id: opt(idSchema) })
     });
-    const long = await fetchJson<{ access_token: string; expires_in: number }>(
+    const long = await fetchJson(
       "THREADS",
-      `${GRAPH}/access_token?grant_type=th_exchange_token&client_secret=${encodeURIComponent(secret)}&access_token=${encodeURIComponent(short.access_token)}`
+      `${GRAPH}/access_token?grant_type=th_exchange_token&client_secret=${encodeURIComponent(secret)}&access_token=${encodeURIComponent(short.access_token)}`,
+      { schema: tokenSchema }
     );
-    const me = await graph<{ id: string; username: string; name?: string; threads_profile_picture_url?: string }>("/me", long.access_token, {
-      params: { fields: "id,username,name,threads_profile_picture_url" }
+    const me = await graph("/me", long.access_token, {
+      params: { fields: "id,username,name,threads_profile_picture_url" },
+      schema: z.object({ id: idSchema, username: z.string().min(1), name: textSchema, threads_profile_picture_url: textSchema })
     });
     return {
       accessToken: long.access_token,
-      expiresAt: new Date(Date.now() + long.expires_in * 1000),
+      expiresAt: new Date(Date.now() + (long.expires_in ?? 60 * 86_400) * 1000),
       externalAccountId: me.id,
       displayName: me.name || me.username,
       handle: `@${me.username}`,
       avatarUrl: me.threads_profile_picture_url,
-      scopes: SCOPES.join(",")
+      scopes: SCOPES.join(","),
+      // Identifiant utilisé par les rappels « application retirée » de Threads.
+      authUserId: me.id
     } satisfies OAuthTokenResult;
   },
 
-  async publishPost(connection: ConnectionLike, input: PublishInput): Promise<PublishResult> {
+  async publishPost(connection: ConnectionLike, input: PublishInput): Promise<PublishOutcome> {
     const token = await freshToken(connection);
     const userId = connection.externalAccountId;
     const text = input.caption.trim();
@@ -139,47 +224,57 @@ export const threadsClient: SocialClient = {
     }
     const media = input.mediaUrls.slice(0, MAX_CAROUSEL);
 
-    let containerId: string;
-    if (media.length === 0) {
-      ({ id: containerId } = await graph<{ id: string }>(`/${userId}/threads`, token, { method: "POST", params: { media_type: "TEXT", text } }));
-    } else if (media.length === 1) {
-      const video = isVideoUrl(media[0], input.mediaType);
-      ({ id: containerId } = await graph<{ id: string }>(`/${userId}/threads`, token, {
-        method: "POST",
-        params: { media_type: video ? "VIDEO" : "IMAGE", [video ? "video_url" : "image_url"]: media[0], text: text || undefined }
-      }));
-    } else {
+    if (media.length > 1) {
       const children: string[] = [];
       for (const url of media) {
         const video = isVideoUrl(url, input.mediaType);
-        const child = await graph<{ id: string }>(`/${userId}/threads`, token, {
+        const child = await graph(`/${userId}/threads`, token, {
           method: "POST",
-          params: { media_type: video ? "VIDEO" : "IMAGE", [video ? "video_url" : "image_url"]: url, is_carousel_item: "true" }
+          params: { media_type: video ? "VIDEO" : "IMAGE", [video ? "video_url" : "image_url"]: url, is_carousel_item: "true" },
+          schema: createdSchema
         });
-        if (video) await waitForContainer(child.id, token);
         children.push(child.id);
       }
-      ({ id: containerId } = await graph<{ id: string }>(`/${userId}/threads`, token, {
-        method: "POST",
-        params: { media_type: "CAROUSEL", children: children.join(","), text: text || undefined }
-      }));
+      return finishThreadsCarousel(connection, token, children, input);
     }
 
-    await waitForContainer(containerId, token);
-    const published = await graph<{ id: string }>(`/${userId}/threads_publish`, token, { method: "POST", params: { creation_id: containerId } });
-    const details = await graph<{ permalink?: string }>(`/${published.id}`, token, { params: { fields: "permalink" } }).catch(() => ({ permalink: undefined }));
-    return { externalPostId: published.id, externalUrl: details.permalink };
+    let containerId: string;
+    if (media.length === 0) {
+      ({ id: containerId } = await graph(`/${userId}/threads`, token, { method: "POST", params: { media_type: "TEXT", text }, schema: createdSchema }));
+    } else {
+      const video = isVideoUrl(media[0], input.mediaType);
+      ({ id: containerId } = await graph(`/${userId}/threads`, token, {
+        method: "POST",
+        params: { media_type: video ? "VIDEO" : "IMAGE", [video ? "video_url" : "image_url"]: media[0], text: text || undefined },
+        schema: createdSchema
+      }));
+    }
+    return finishThreadsContainer(connection, token, containerId, input);
+  },
+
+  async resumePublish(connection: ConnectionLike, input: PublishInput, checkpoint: PublishCheckpoint): Promise<PublishOutcome> {
+    const token = await freshToken(connection);
+    if (checkpoint.step === "threads_container" && typeof checkpoint.containerId === "string") {
+      return finishThreadsContainer(connection, token, checkpoint.containerId, input);
+    }
+    if (checkpoint.step === "threads_carousel" && typeof checkpoint.children === "string") {
+      return finishThreadsCarousel(connection, token, checkpoint.children.split(","), input);
+    }
+    throw new SocialApiError("THREADS", "Reprise de publication inconnue.");
   },
 
   // Premier commentaire = réponse publiée sous le post.
   async postComment(connection: ConnectionLike, externalPostId: string, comment: string) {
     const token = await freshToken(connection);
     const userId = connection.externalAccountId;
-    const container = await graph<{ id: string }>(`/${userId}/threads`, token, {
+    const container = await graph(`/${userId}/threads`, token, {
       method: "POST",
-      params: { media_type: "TEXT", text: comment.trim(), reply_to_id: externalPostId }
+      params: { media_type: "TEXT", text: comment.trim(), reply_to_id: externalPostId },
+      schema: createdSchema
     });
-    await waitForContainer(container.id, token);
+    if (!(await containerReady(container.id, token, 20_000))) {
+      throw new SocialApiError("THREADS", "Threads met trop de temps à préparer la réponse.");
+    }
     await graph(`/${userId}/threads_publish`, token, { method: "POST", params: { creation_id: container.id } });
   },
 
@@ -188,20 +283,23 @@ export const threadsClient: SocialClient = {
     const userId = connection.externalAccountId;
     const since = Math.floor((Date.now() - 28 * 86_400_000) / 1000);
     const until = Math.floor(Date.now() / 1000);
-    type Insights = { data: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] };
     // Abonnés : valeur totale, demandée à part (pas de fenêtre de dates).
-    const followersRes = await graph<Insights>(`/${userId}/threads_insights`, token, { params: { metric: "followers_count" } });
-    const activity = await graph<Insights>(`/${userId}/threads_insights`, token, {
-      params: { metric: "views,likes,replies,reposts,quotes", since: String(since), until: String(until) }
+    const followersRes = await graph(`/${userId}/threads_insights`, token, { params: { metric: "followers_count" }, schema: insightsSchema });
+    const activity = await graph(`/${userId}/threads_insights`, token, {
+      params: { metric: "views,likes,replies,reposts,quotes", since: String(since), until: String(until) },
+      schema: insightsSchema
     }).catch(() => ({ data: [] }) as Insights);
     const insights = { data: [...followersRes.data, ...activity.data] };
     const metric = (name: string) => {
       const m = insights.data.find((d) => d.name === name);
       if (!m) return 0;
-      if (m.total_value) return m.total_value.value;
+      if (m.total_value) return m.total_value.value ?? 0;
       return (m.values ?? []).reduce((sum, v) => sum + (v.value ?? 0), 0);
     };
-    const threads = await graph<{ data: { id: string }[] }>(`/${userId}/threads`, token, { params: { fields: "id", limit: "50", since: String(since) } }).catch(() => ({ data: [] }));
+    const threads = await graph(`/${userId}/threads`, token, {
+      params: { fields: "id", limit: "50", since: String(since) },
+      schema: graphList(z.object({ id: idSchema }))
+    }).catch(() => ({ data: [] }));
     const followers = metric("followers_count");
     const interactions = metric("likes") + metric("replies") + metric("reposts") + metric("quotes");
     const posts = threads.data.length;
@@ -216,18 +314,34 @@ export const threadsClient: SocialClient = {
     };
   },
 
+  // Dernières publications, sans statistiques (vérification « déjà en ligne ? », lot 6).
+  async listRecentPosts(connection: ConnectionLike): Promise<RecentPost[]> {
+    const token = await freshToken(connection);
+    // Liste stricte : illisible, elle ne doit jamais passer pour « aucune publication ».
+    const list = await graph(`/${connection.externalAccountId}/threads`, token, {
+      params: { fields: "id,text,permalink,timestamp", limit: "10" },
+      schema: graphList(threadSchema)
+    });
+    return list.data.map((t) => ({
+      externalPostId: t.id,
+      text: t.text,
+      permalink: t.permalink,
+      publishedAt: toDate(t.timestamp)
+    }));
+  },
+
   async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
     const token = await freshToken(connection);
-    const list = await graph<{ data: { id: string; text?: string; permalink?: string; timestamp?: string; media_type?: string; media_url?: string; thumbnail_url?: string }[] }>(
-      `/${connection.externalAccountId}/threads`,
-      token,
-      { params: { fields: "id,text,permalink,timestamp,media_type,media_url,thumbnail_url", limit: "25" } }
-    );
+    const list = await graph(`/${connection.externalAccountId}/threads`, token, {
+      params: { fields: "id,text,permalink,timestamp,media_type,media_url,thumbnail_url", limit: "25" },
+      schema: graphList(threadSchema)
+    });
     const out: PostMetricInput[] = [];
     for (const t of list.data) {
-      const ins = await graph<{ data: { name: string; values?: { value: number }[] }[] }>(`/${t.id}/insights`, token, {
-        params: { metric: "views,likes,replies,reposts,quotes" }
-      }).catch(() => ({ data: [] as { name: string; values?: { value: number }[] }[] }));
+      const ins = await graph(`/${t.id}/insights`, token, {
+        params: { metric: "views,likes,replies,reposts,quotes" },
+        schema: insightsSchema
+      }).catch(() => ({ data: [] }) as Insights);
       const v = (name: string) => ins.data.find((d) => d.name === name)?.values?.[0]?.value ?? null;
       const reposts = v("reposts");
       const quotes = v("quotes");
@@ -236,7 +350,7 @@ export const threadsClient: SocialClient = {
         title: (t.text ?? "").split("\n")[0].slice(0, 120),
         permalink: t.permalink,
         thumbnailUrl: t.media_type === "VIDEO" ? t.thumbnail_url : t.media_url,
-        publishedAt: t.timestamp ? new Date(t.timestamp) : undefined,
+        publishedAt: toDate(t.timestamp),
         views: v("views"),
         likes: v("likes"),
         comments: v("replies"),
@@ -249,14 +363,16 @@ export const threadsClient: SocialClient = {
 
   async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
     const token = await freshToken(connection);
-    const list = await graph<{ data: { id: string; permalink?: string }[] }>(`/${connection.externalAccountId}/threads`, token, {
-      params: { fields: "id,permalink", limit: "10" }
+    const list = await graph(`/${connection.externalAccountId}/threads`, token, {
+      params: { fields: "id,permalink", limit: "10" },
+      schema: graphList(z.object({ id: idSchema, permalink: textSchema }))
     });
     const items: EngagementItemInput[] = [];
     for (const t of list.data) {
-      const replies = await graph<{ data: { id: string; text?: string; username?: string; timestamp?: string; permalink?: string }[] }>(`/${t.id}/replies`, token, {
-        params: { fields: "id,text,username,timestamp,permalink" }
-      }).catch(() => ({ data: [] as { id: string; text?: string; username?: string; timestamp?: string; permalink?: string }[] }));
+      const replies = await graph(`/${t.id}/replies`, token, {
+        params: { fields: "id,text,username,timestamp,permalink" },
+        schema: graphList(replySchema)
+      }).catch(() => ({ data: [] as z.output<typeof replySchema>[] }));
       for (const r of replies.data) {
         items.push({
           type: "COMMENT",
@@ -266,7 +382,7 @@ export const threadsClient: SocialClient = {
           authorName: r.username ? `@${r.username}` : undefined,
           text: r.text,
           permalink: r.permalink,
-          publishedAt: r.timestamp ? new Date(r.timestamp) : undefined
+          publishedAt: toDate(r.timestamp)
         });
       }
     }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +10,16 @@ import { AuthShell, OAuthButtons } from "@/components/auth/auth-shell";
 
 interface LoginFormProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
+  /** Chemin interne où revenir après connexion (déjà vérifié côté serveur). */
+  callbackUrl?: string;
+  initialError?: string | null;
+  info?: string | null;
 }
 
-export function LoginForm({ oauth }: LoginFormProps) {
-  const router = useRouter();
+export function LoginForm({ oauth, callbackUrl = "/dashboard", initialError = null, info = null }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -33,13 +35,22 @@ export function LoginForm({ oauth }: LoginFormProps) {
       setError("Email ou mot de passe incorrect. Après plusieurs essais rapides, patientez quelques minutes.");
       return;
     }
-    router.push("/dashboard");
-    router.refresh();
+    // Navigation complète : le retour peut viser une route serveur (ex.
+    // confirmation de l'adresse e-mail), et l'application reçoit sa CSP
+    // stricte même si l'onglet a été ouvert sur la vitrine (lot 11, voir
+    // src/lib/csp.ts).
+    window.location.assign(callbackUrl);
   }
 
   return (
     <AuthShell title="Bon retour" subtitle="Connectez-vous à votre espace Nebula.">
-      <OAuthButtons oauth={oauth} onPick={(p) => signIn(p, { callbackUrl: "/dashboard" })} separatorLabel="ou avec votre email" />
+      <OAuthButtons oauth={oauth} onPick={(p) => signIn(p, { callbackUrl })} separatorLabel="ou avec votre email" />
+
+      {info && (
+        <p role="status" className="mt-4 rounded-xl border border-aurora-300/30 bg-aurora-500/10 px-3 py-2 text-sm text-aurora-100">
+          {info}
+        </p>
+      )}
 
       <form onSubmit={onSubmit} className="mt-4 space-y-4" noValidate>
         <Input

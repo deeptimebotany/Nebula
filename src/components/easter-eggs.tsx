@@ -270,19 +270,29 @@ export function EasterEggs() {
       // stockage indisponible — l'egg "marathon" ne pourra pas se déclencher
     }
 
+    // Curseur immobile : un mouvement de souris note seulement l'heure (pas
+    // de minuterie recréée des dizaines de fois par seconde) ; une seule
+    // minuterie vérifie ensuite si le seuil est atteint (lot 4).
     let statueTimer: number | null = null;
     let statueFired = false;
-    function armStatueTimer() {
-      if (statueTimer) window.clearTimeout(statueTimer);
+    let lastMove = Date.now();
+    function onMouseMove() {
+      lastMove = Date.now();
+    }
+    function checkStatue() {
       if (statueFired) return;
-      statueTimer = window.setTimeout(() => {
+      const idle = Date.now() - lastMove;
+      if (idle >= STATUE_THRESHOLD_MS && document.visibilityState === "visible") {
         statueFired = true;
+        window.removeEventListener("mousemove", onMouseMove);
         toast.info("💤 Toujours là ?");
         reportEasterEggFound("cursor-statue");
-      }, STATUE_THRESHOLD_MS);
+        return;
+      }
+      statueTimer = window.setTimeout(checkStatue, Math.max(1000, STATUE_THRESHOLD_MS - idle));
     }
-    armStatueTimer();
-    window.addEventListener("mousemove", armStatueTimer);
+    statueTimer = window.setTimeout(checkStatue, STATUE_THRESHOLD_MS);
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
 
     let zoomFired = false;
     function checkZoom() {
@@ -315,7 +325,7 @@ export function EasterEggs() {
 
     return () => {
       if (statueTimer) window.clearTimeout(statueTimer);
-      window.removeEventListener("mousemove", armStatueTimer);
+      window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("resize", checkZoom);
       window.clearInterval(marathonInterval);
     };
@@ -323,55 +333,48 @@ export function EasterEggs() {
   }, []);
 
   // Easter egg "Multi-fenêtres" : 5 onglets Nebula ouverts EN MÊME TEMPS.
-  // Chaque onglet s'enregistre dans localStorage (partagé entre tous les
-  // onglets du même site) avec un battement de cœur régulier ; les entrées
-  // trop vieilles (onglet fermé sans prévenir, ex. crash) sont ignorées
-  // plutôt que nettoyées activement, pour rester simple.
+  // Chaque onglet qui s'ouvre (ou redevient visible) demande « qui est là ? »
+  // sur un canal partagé entre les onglets du site ; les autres répondent.
+  // Aucune minuterie : l'ancienne version écrivait dans localStorage toutes
+  // les 4 secondes dans chaque onglet (audit performance, lot 4).
   useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
     const tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const STORE_KEY = "nebula:open-tabs";
-    const HEARTBEAT_MS = 4000;
-    const STALE_MS = 10000;
+    const channel = new BroadcastChannel("nebula:tabs");
+    const seen = new Set<string>();
     let fired = false;
+    let collectTimer: number | null = null;
 
-    function heartbeat() {
-      try {
-        const raw = localStorage.getItem(STORE_KEY);
-        const entries: Record<string, number> = raw ? JSON.parse(raw) : {};
-        const now = Date.now();
-        entries[tabId] = now;
-        for (const id of Object.keys(entries)) {
-          if (now - entries[id] > STALE_MS) delete entries[id];
-        }
-        localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-        if (!fired && Object.keys(entries).length >= 5) {
+    channel.onmessage = (e: MessageEvent<{ type?: string; id?: string }>) => {
+      const msg = e.data;
+      if (!msg || typeof msg.id !== "string" || msg.id === tabId) return;
+      if (msg.type === "hello") channel.postMessage({ type: "here", id: tabId });
+      if (msg.type === "here" || msg.type === "hello") seen.add(msg.id);
+    };
+
+    function ask() {
+      if (fired) return;
+      seen.clear();
+      channel.postMessage({ type: "hello", id: tabId });
+      if (collectTimer) window.clearTimeout(collectTimer);
+      collectTimer = window.setTimeout(() => {
+        // Cet onglet + au moins 4 autres qui ont répondu.
+        if (!fired && seen.size + 1 >= 5) {
           fired = true;
           reportEasterEggFound("multi-tab");
         }
-      } catch {
-        // stockage indisponible — l'egg "multi-tab" ne pourra pas se déclencher
-      }
+      }, 800);
     }
-    heartbeat();
-    const heartbeatInterval = window.setInterval(heartbeat, HEARTBEAT_MS);
-
-    function removeSelf() {
-      try {
-        const raw = localStorage.getItem(STORE_KEY);
-        if (!raw) return;
-        const entries: Record<string, number> = JSON.parse(raw);
-        delete entries[tabId];
-        localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-      } catch {
-        // ignore
-      }
+    function onVisible() {
+      if (document.visibilityState === "visible") ask();
     }
-    window.addEventListener("beforeunload", removeSelf);
+    ask();
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      window.clearInterval(heartbeatInterval);
-      window.removeEventListener("beforeunload", removeSelf);
-      removeSelf();
+      if (collectTimer) window.clearTimeout(collectTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      channel.close();
     };
   }, []);
 
@@ -410,6 +413,7 @@ export function EasterEggs() {
   // est rechargée plusieurs fois dans la journée.
   useEffect(() => {
     function checkDateEggs() {
+      if (document.visibilityState !== "visible") return;
       const now = new Date();
       const isMidnight = now.getHours() === 0 && now.getMinutes() < 2;
       const isFriday13 = now.getDay() === 5 && now.getDate() === 13;

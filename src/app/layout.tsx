@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_THEME_COLOR, SITE_URL } from "@/lib/site";
+import { CspDocumentGuard } from "@/components/csp-document-guard";
 
 // Polices AUTO-HÉBERGÉES (fichiers dans src/fonts, voir LICENSES.md) :
 // servies par le site lui-même, sans aucun appel à Google Fonts ni au build
@@ -26,12 +27,13 @@ const spaceGrotesk = localFont({
   display: "swap"
 });
 
-// Rendu à la demande pour TOUTES les pages (Lot 5) : la Content-Security-Policy
-// stricte (voir src/middleware.ts) marque chaque balise <script> d'un nonce
-// différent à chaque requête — une page pré-générée au build n'en aurait
-// pas, et ses scripts seraient bloqués. Les pages de la vitrine sont légères
-// et sans base de données : les rendre à chaque visite ne coûte presque rien.
-export const dynamic = "force-dynamic";
+// Pas de rendu forcé à chaque visite ici (lot 11) : les pages de la vitrine
+// (src/lib/csp.ts, STATIC_PAGES) sont pré-générées au build et servies
+// depuis le cache de Vercel, avec une CSP sans nonce. Les pages à CSP
+// stricte (nonce différent à chaque requête) déclarent elles-mêmes
+// `dynamic = "force-dynamic"`, dans la page ou leur layout — vérifié par
+// tests/quality/csp.test.ts. (Lot 5 → 10 : toutes les pages étaient rendues
+// à chaque visite.)
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -83,7 +85,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${inter.variable} ${spaceGrotesk.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        {children}
+        <CspDocumentGuard />
+      </body>
     </html>
   );
 }

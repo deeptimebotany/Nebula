@@ -4,7 +4,8 @@
 // LOCAL (longueur, chiffre, mot fort, question, majuscules) toujours
 // disponible, et trois reformulations IA (quota public) — si le quota est
 // atteint, le score seul reste.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { markToolExplored } from "@/lib/tools-explored";
 import { ToolPage } from "@/components/tools/tool-page";
 import { ToolLeadCapture } from "@/components/tools/tool-lead-capture";
 import { useToolGeneration } from "@/components/tools/use-tool-generation";
@@ -42,6 +43,11 @@ export default function TitreYoutubePage() {
   const [topic, setTopic] = useState("");
   const gen = useToolGeneration<string[]>("titre-youtube");
   const result = useMemo(() => (title.trim().length >= 3 ? scoreTitle(title) : null), [title]);
+  // Badge Explorateur (Réussites, lot C) : un vrai titre testé.
+  const tested = title.trim().length >= 10;
+  useEffect(() => {
+    if (tested) markToolExplored();
+  }, [tested]);
 
   function run() {
     if (title.trim().length < 3) {
@@ -62,6 +68,7 @@ export default function TitreYoutubePage() {
       }
       faq={FAQ}
       related={[
+        { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/miniatures", title: "Générateur de miniatures" },
         { href: "/outils/legendes", title: "Générateur de légendes" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" }

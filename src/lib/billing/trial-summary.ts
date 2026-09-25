@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { getUserPlan } from "@/lib/billing/plan";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { mediaKitDb } from "@/lib/media-kit/load";
 
 export type TrialSummary = Awaited<ReturnType<typeof computeTrialSummary>>;
 
@@ -15,12 +16,13 @@ export async function computeTrialSummary(userId: string) {
   ]);
   const brandIds = user?.memberships.map((m) => m.brandId) ?? [];
   const since = user?.createdAt ?? new Date(0);
-  const [scheduledPosts, reports, calendarShares, bioLinks, retentionAnalyses] = await Promise.all([
+  const [scheduledPosts, reports, calendarShares, bioLinks, retentionAnalyses, mediaKits] = await Promise.all([
     prisma.post.count({ where: { brandId: { in: brandIds }, createdAt: { gte: since }, status: { in: ["SCHEDULED", "PUBLISHED", "PUBLISHING"] } } }),
     prisma.brandReport.count({ where: { brandId: { in: brandIds }, enabled: true } }),
     prisma.calendarShare.count({ where: { brandId: { in: brandIds }, enabled: true } }),
     prisma.linkItem.count({ where: { linkPage: { brandId: { in: brandIds } } } }),
-    prisma.videoInsight.count({ where: { connection: { brandId: { in: brandIds } } } }).catch(() => 0)
+    prisma.videoInsight.count({ where: { connection: { brandId: { in: brandIds } } } }).catch(() => 0),
+    mediaKitDb.count({ where: { brandId: { in: brandIds }, published: true } }).catch(() => 0)
   ]);
   const freeLinks = PLAN_LIMITS.FREE.maxBioLinks;
   return {
@@ -31,6 +33,7 @@ export async function computeTrialSummary(userId: string) {
       scheduledPosts,
       reportsPublished: reports,
       calendarSharesPublished: calendarShares,
+      mediaKitsPublished: mediaKits,
       bioLinks,
       bioLinksBeyondFree: Math.max(0, bioLinks - freeLinks),
       retentionAnalyses,
@@ -40,6 +43,7 @@ export async function computeTrialSummary(userId: string) {
     locked: {
       reports: PLAN_LIMITS.FREE.reportsEnabled === false,
       calendarShare: PLAN_LIMITS.FREE.calendarShareEnabled === false,
+      mediaKit: PLAN_LIMITS.FREE.mediaKitEnabled === false,
       ai: PLAN_LIMITS.FREE.aiEnabled === false,
       bioLinksLimit: freeLinks,
       maxBrands: PLAN_LIMITS.FREE.tiers[0].maxBrands

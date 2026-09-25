@@ -50,6 +50,7 @@ const ROWS: { label: string; cells: Record<Plan, Cell>; hint?: string }[] = [
   { label: "Génération de miniatures par IA", cells: { FREE: PLAN_LIMITS.FREE.aiEnabled, PRO: PLAN_LIMITS.PRO.aiEnabled, AGENCY: PLAN_LIMITS.AGENCY.aiEnabled } },
   { label: "Rapports clients automatiques", cells: { FREE: PLAN_LIMITS.FREE.reportsEnabled, PRO: PLAN_LIMITS.PRO.reportsEnabled, AGENCY: PLAN_LIMITS.AGENCY.reportsEnabled } },
   { label: "Calendrier client en lecture seule", cells: { FREE: PLAN_LIMITS.FREE.calendarShareEnabled, PRO: PLAN_LIMITS.PRO.calendarShareEnabled, AGENCY: PLAN_LIMITS.AGENCY.calendarShareEnabled } },
+  { label: "Media kit public pour les sponsors", cells: { FREE: PLAN_LIMITS.FREE.mediaKitEnabled, PRO: PLAN_LIMITS.PRO.mediaKitEnabled, AGENCY: PLAN_LIMITS.AGENCY.mediaKitEnabled }, hint: "Vos vrais chiffres, relevés par Nebula, avec PDF et image de partage. Aperçu gratuit." },
   { label: "Publication en masse (1 vidéo → tous les comptes)", cells: { FREE: PLAN_LIMITS.FREE.massPublishEnabled, PRO: PLAN_LIMITS.PRO.massPublishEnabled, AGENCY: PLAN_LIMITS.AGENCY.massPublishEnabled } },
   { label: "Liens d'approbation client", cells: { FREE: false, PRO: false, AGENCY: true }, hint: "Vos clients valident ou commentent les publications à venir, sans compte." },
   { label: "Marque blanche (votre logo, votre nom dans l'application)", cells: { FREE: false, PRO: false, AGENCY: true } },

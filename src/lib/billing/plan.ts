@@ -147,22 +147,30 @@ export async function getBrandPlan(brandId: string): Promise<UserPlanInfo> {
 
 // Instagram et Facebook passent tous les deux par la connexion "Meta" et sont
 // comptés comme UN SEUL "compte" pour les quotas (au lieu de 2), puisqu'on
-// les connecte ensemble depuis la même page. TikTok et YouTube comptent,
-// eux, chacun pour un compte à part entière.
+// les connecte ensemble depuis la même page. Tous les autres réseaux
+// comptent chacun pour un compte.
+//
+// Correctif du lot 3 (qualité) : seuls Instagram, Facebook, TikTok et
+// YouTube étaient comptés — Bluesky, Threads, Pinterest et LinkedIn
+// échappaient au quota de comptes connectés. Bug trouvé par le premier test
+// automatique écrit pour cette fonction (tests/quality/plan.test.ts).
+export function connectionSlotsFor(networks: string[]): number {
+  const instagramCount = networks.filter((n) => n === "INSTAGRAM").length;
+  const facebookCount = networks.filter((n) => n === "FACEBOOK").length;
+  // Une connexion Meta ajoute généralement un compte Instagram ET une page
+  // Facebook en même temps : on prend le plus grand des deux plutôt que
+  // d'additionner, pour ne compter cette paire qu'une fois.
+  const metaSlots = Math.max(instagramCount, facebookCount);
+  const otherSlots = networks.filter((n) => n !== "INSTAGRAM" && n !== "FACEBOOK").length;
+  return metaSlots + otherSlots;
+}
+
 export async function countConnectionSlots(brandId: string): Promise<number> {
   const connections: { network: string }[] = await prisma.socialConnection.findMany({
     where: { brandId, status: { not: "DISCONNECTED" } },
     select: { network: true }
   });
-  const instagramCount = connections.filter((c) => c.network === "INSTAGRAM").length;
-  const facebookCount = connections.filter((c) => c.network === "FACEBOOK").length;
-  const tiktokCount = connections.filter((c) => c.network === "TIKTOK").length;
-  const youtubeCount = connections.filter((c) => c.network === "YOUTUBE").length;
-  // Une connexion Meta ajoute généralement un compte Instagram ET une page
-  // Facebook en même temps : on prend le plus grand des deux plutôt que
-  // d'additionner, pour ne compter cette paire qu'une fois.
-  const metaSlots = Math.max(instagramCount, facebookCount);
-  return metaSlots + tiktokCount + youtubeCount;
+  return connectionSlotsFor(connections.map((c) => c.network));
 }
 
 export async function assertConnectionQuota(brandId: string) {

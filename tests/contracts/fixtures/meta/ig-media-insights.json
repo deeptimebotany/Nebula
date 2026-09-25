@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "name": "shares", "period": "lifetime", "values": [{ "value": 3 }], "title": "Partages", "description": "Nombre de partages.", "id": "17920238422030506/insights/shares/lifetime" },
+    { "name": "saved", "period": "lifetime", "values": [{ "value": 9 }], "title": "Enregistrements", "description": "Nombre d'enregistrements.", "id": "17920238422030506/insights/saved/lifetime" },
+    { "name": "views", "period": "lifetime", "values": [{ "value": 1234 }], "title": "Vues", "description": "Nombre de vues.", "id": "17920238422030506/insights/views/lifetime" }
+  ]
+}

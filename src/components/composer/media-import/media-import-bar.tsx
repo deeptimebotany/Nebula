@@ -9,7 +9,14 @@ import { useCallback, useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import type { UploadedAssetResult } from "@/lib/upload-client";
 import { preloadDropbox, preloadGoogleDrive, pickFromDropbox, pickFromGoogleDrive } from "./browser-pickers";
-import { CanvaDialog, OneDriveDialog, UnsplashDialog, type UnsplashCredit } from "./import-dialogs";
+import dynamic from "next/dynamic";
+import type { UnsplashCredit } from "./import-dialogs";
+
+// Fenêtres d'import (Unsplash, Canva, OneDrive : ~600 lignes) téléchargées à
+// la première ouverture seulement (lot 5).
+const UnsplashDialog = dynamic(() => import("./import-dialogs").then((m) => m.UnsplashDialog), { ssr: false });
+const CanvaDialog = dynamic(() => import("./import-dialogs").then((m) => m.CanvaDialog), { ssr: false });
+const OneDriveDialog = dynamic(() => import("./import-dialogs").then((m) => m.OneDriveDialog), { ssr: false });
 
 interface Sources {
   gdrive: { apiKey: string; clientId: string; appId: string } | null;
@@ -86,6 +93,11 @@ export function MediaImportBar({
   const [sources, setSources] = useState<Sources | null>(null);
   const [busy, setBusy] = useState<SourceId | null>(null);
   const [dialog, setDialog] = useState<"unsplash" | "canva" | "onedrive" | null>(null);
+  // Fenêtres déjà ouvertes une fois : gardées montées (recherche, sélection).
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (dialog) setOpened((prev) => (prev.has(dialog) ? prev : new Set(prev).add(dialog)));
+  }, [dialog]);
 
   const refreshSources = useCallback(async () => {
     try {
@@ -191,7 +203,7 @@ export function MediaImportBar({
         ))}
       </div>
 
-      {brandId && sources.unsplash && (
+      {brandId && sources.unsplash && (dialog === "unsplash" || opened.has("unsplash")) && (
         <UnsplashDialog
           open={dialog === "unsplash"}
           onClose={() => setDialog(null)}
@@ -199,7 +211,7 @@ export function MediaImportBar({
           onImported={(asset, credit, creditInCaption) => onImported(asset, { credit, creditInCaption, source: "unsplash" })}
         />
       )}
-      {brandId && sources.canva && (
+      {brandId && sources.canva && (dialog === "canva" || opened.has("canva")) && (
         <CanvaDialog
           open={dialog === "canva"}
           onClose={() => setDialog(null)}
@@ -212,7 +224,7 @@ export function MediaImportBar({
           onImported={(asset) => onImported(asset, { source: "canva" })}
         />
       )}
-      {brandId && sources.onedrive && (
+      {brandId && sources.onedrive && (dialog === "onedrive" || opened.has("onedrive")) && (
         <OneDriveDialog
           open={dialog === "onedrive"}
           onClose={() => setDialog(null)}

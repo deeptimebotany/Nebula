@@ -16,9 +16,10 @@
 //  - en vue Mois, toutes les semaines du mois affiché sont surlignées ;
 //  - les noms de mois sous la bande sont cliquables.
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { useMemo } from "react";
 import { clsx } from "@/lib/clsx";
+import { MotionRoot } from "@/components/motion/motion-root";
 
 const MONTH_SHORT = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 
@@ -87,61 +88,63 @@ export function WeekScrubber({
   const maxCount = Math.max(1, ...weeks.map((w) => w.count));
 
   return (
-    <div className="glass-panel rounded-xl px-3 pb-1.5 pt-2.5">
-      <div className="flex items-end gap-1">
-        {weeks.map((w) => {
-          const isActive = mode === "week" ? w.monday.getTime() === activeMonday : sameMonth(w.month, activeDate);
-          const heightPct = 20 + (w.count / maxCount) * 80;
-          return (
-            <button
-              key={w.monday.toISOString()}
-              type="button"
-              onClick={() => onSelectWeek(w.monday)}
-              title={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${w.count} publication${w.count === 1 ? "" : "s"}`}
-              aria-label={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, ${w.count} publication${w.count === 1 ? "" : "s"}`}
-              aria-pressed={isActive}
-              className="group relative flex h-10 flex-1 items-end"
-            >
-              <div
-                className={clsx(
-                  "w-full rounded-sm transition-all",
-                  isActive ? "bg-aurora-400" : w.count > 0 ? "bg-white/25 group-hover:bg-white/40" : "bg-white/[0.06] group-hover:bg-white/15"
-                )}
-                style={{ height: `${heightPct}%` }}
-              />
-              {mode === "week" && isActive && (
-                <motion.div
-                  layoutId="week-scrubber-playhead"
-                  className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-aurora-300"
-                  style={{ boxShadow: "0 0 6px rgb(var(--c-aurora-400))" }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+    <MotionRoot>
+      <div className="glass-panel rounded-xl px-3 pb-1.5 pt-2.5">
+        <div className="flex items-end gap-1">
+          {weeks.map((w) => {
+            const isActive = mode === "week" ? w.monday.getTime() === activeMonday : sameMonth(w.month, activeDate);
+            const heightPct = 20 + (w.count / maxCount) * 80;
+            return (
+              <button
+                key={w.monday.toISOString()}
+                type="button"
+                onClick={() => onSelectWeek(w.monday)}
+                title={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${w.count} publication${w.count === 1 ? "" : "s"}`}
+                aria-label={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, ${w.count} publication${w.count === 1 ? "" : "s"}`}
+                aria-pressed={isActive}
+                className="group relative flex h-10 flex-1 items-end"
+              >
+                <div
+                  className={clsx(
+                    "w-full rounded-sm transition-all",
+                    isActive ? "bg-aurora-400" : w.count > 0 ? "bg-white/25 group-hover:bg-white/40" : "bg-white/[0.06] group-hover:bg-white/15"
+                  )}
+                  style={{ height: `${heightPct}%` }}
                 />
-              )}
-            </button>
-          );
-        })}
+                {mode === "week" && isActive && (
+                  <motion.div
+                    layoutId="week-scrubber-playhead"
+                    className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-aurora-300"
+                    style={{ boxShadow: "0 0 6px rgb(var(--c-aurora-400))" }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {/* Noms de mois, alignés sur leur première semaine — cliquables. */}
+        <div className="relative mt-1 h-5">
+          {monthMarks.map((m) => {
+            const active = mode === "month" && sameMonth(m.month, activeDate);
+            return (
+              <button
+                key={m.month.toISOString()}
+                type="button"
+                onClick={() => onSelectMonth(m.month)}
+                className={clsx(
+                  "absolute top-0 rounded px-1 text-[11px] leading-5 transition",
+                  active ? "font-semibold text-aurora-300" : "text-slate-500 hover:text-white"
+                )}
+                style={{ left: `${(m.index / weeks.length) * 100}%` }}
+                aria-label={`Afficher ${m.month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
+              >
+                {MONTH_SHORT[m.month.getMonth()]}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      {/* Noms de mois, alignés sur leur première semaine — cliquables. */}
-      <div className="relative mt-1 h-5">
-        {monthMarks.map((m) => {
-          const active = mode === "month" && sameMonth(m.month, activeDate);
-          return (
-            <button
-              key={m.month.toISOString()}
-              type="button"
-              onClick={() => onSelectMonth(m.month)}
-              className={clsx(
-                "absolute top-0 rounded px-1 text-[11px] leading-5 transition",
-                active ? "font-semibold text-aurora-300" : "text-slate-500 hover:text-white"
-              )}
-              style={{ left: `${(m.index / weeks.length) * 100}%` }}
-              aria-label={`Afficher ${m.month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
-            >
-              {MONTH_SHORT[m.month.getMonth()]}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    </MotionRoot>
   );
 }

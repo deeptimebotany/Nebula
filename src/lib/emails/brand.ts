@@ -25,14 +25,33 @@ export function emailLogoUrl(): string {
   return `${SITE_URL}/email/nebula-logo.png`;
 }
 
+/**
+ * Adresse d'un lien d'e-mail, sûre à placer dans href="…" (audit sécurité,
+ * lot 1) : http(s) ou mailto uniquement, guillemets et chevrons échappés.
+ * Avant, une adresse construite avec une valeur envoyée par un visiteur
+ * pouvait fermer l'attribut et injecter ses propres liens dans un e-mail
+ * parti de Nebula. Une adresse refusée devient le site Nebula.
+ */
+export function safeEmailHref(url: string): string {
+  let ok = false;
+  try {
+    const parsed = new URL(url);
+    ok = parsed.protocol === "https:" || parsed.protocol === "http:" || parsed.protocol === "mailto:";
+  } catch {
+    ok = false;
+  }
+  const value = ok ? url : SITE_URL;
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 /** Bouton d'appel à l'action (libellé déjà échappé). */
 export function emailButton(label: string, url: string): string {
-  return `<a href="${url}" style="display:inline-block;background:${EMAIL_COLORS.button};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;font-size:15px">${label}</a>`;
+  return `<a href="${safeEmailHref(url)}" style="display:inline-block;background:${EMAIL_COLORS.button};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;font-size:15px">${label}</a>`;
 }
 
 /** Lien dans le texte, à la couleur de la marque. */
 export function emailLink(label: string, url: string): string {
-  return `<a href="${url}" style="color:${EMAIL_COLORS.link}">${label}</a>`;
+  return `<a href="${safeEmailHref(url)}" style="color:${EMAIL_COLORS.link}">${label}</a>`;
 }
 
 /**

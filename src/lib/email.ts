@@ -15,7 +15,28 @@
  * Tant que RESEND_API_KEY est absent, les emails ne partent pas : on le
  * signale clairement plutôt que d'échouer silencieusement.
  */
+import { createHash } from "crypto";
 import { EMAIL_COLORS, emailButton, emailFrame, emailLink } from "@/lib/emails/brand";
+import { SocialApiError, fetchJson } from "@/lib/social/base";
+import { classifyProviderError } from "@/lib/social/errors";
+import { textSchema, z } from "@/lib/social/contract";
+import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
+
+// Contrat de la réponse de Resend (lot 9) — doc : https://resend.com/docs/api-reference/emails/send-email.
+// Réponses types : tests/contracts/fixtures/resend.
+const sentSchema = z.object({ id: z.string().min(1) });
+const errorSchema = z.object({ name: textSchema, message: textSchema });
+
+/**
+ * Clé d'idempotence (lot 9) : avec la même clé, Resend n'envoie le même
+ * e-mail qu'UNE fois pendant 24 h, même si Nebula réessaie après un délai
+ * dépassé (l'e-mail était peut-être parti). Le destinataire est haché : il
+ * n'apparaît pas en clair dans l'en-tête.
+ */
+export function emailIdempotencyKey(kind: string, recipient: string, discriminator = ""): string {
+  const hash = createHash("sha256").update(recipient.trim().toLowerCase()).digest("hex").slice(0, 32);
+  return `${kind}:${discriminator}:${hash}`.slice(0, 256);
+}
 
 export async function sendEmail(params: {
   to: string;
@@ -25,7 +46,12 @@ export async function sendEmail(params: {
   text?: string;
   /** Adresse à laquelle « Répondre » répondra (ex. formulaire de contact). */
   replyTo?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+  /**
+   * Pour les envois automatiques qui peuvent être retentés (cron) : voir
+   * emailIdempotencyKey. Sans clé, chaque appel est un nouvel envoi.
+   */
+  idempotencyKey?: string;
+}): Promise<{ ok: boolean; error?: string; retryable?: boolean }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY absent : configurez l'envoi d'email (voir .env.example)." };
@@ -33,11 +59,13 @@ export async function sendEmail(params: {
   const from = process.env.EMAIL_FROM || "Nebula <onboarding@resend.dev>";
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    // Porte commune (lot 9) : délai garanti (avant : aucun), panne classée.
+    await fetchJson("RESEND", "https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...(params.idempotencyKey ? { "Idempotency-Key": params.idempotencyKey } : {})
       },
       body: JSON.stringify({
         from,
@@ -46,16 +74,64 @@ export async function sendEmail(params: {
         html: params.html,
         ...(params.text ? { text: params.text } : {}),
         ...(params.replyTo ? { reply_to: params.replyTo } : {})
-      })
+      }),
+      cache: "no-store",
+      timeoutMs: 15_000,
+      schema: sentSchema
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { ok: false, error: `Resend a refusé l'envoi (${res.status}): ${body}` };
-    }
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    if (!(err instanceof SocialApiError)) return { ok: false, error: (err as Error).message };
+    return resendFailure(err);
   }
+}
+
+/**
+ * Refus de Resend : message clair, et le propriétaire prévenu quand c'est la
+ * configuration qui bloque TOUS les envois (clé refusée, domaine non
+ * vérifié, quota du jour ou du mois atteint) — avant le lot 9, les e-mails
+ * de réinitialisation de mot de passe pouvaient échouer en silence.
+ */
+function resendFailure(err: SocialApiError): { ok: boolean; error?: string; retryable?: boolean } {
+  const body = errorSchema.safeParse(err.raw);
+  const name = body.success ? body.data.name ?? "" : "";
+  const detail = (body.success ? body.data.message : undefined) || err.message.replace(/^\[RESEND\] /, "");
+  const { category } = classifyProviderError(err);
+
+  // Même clé, contenu légèrement différent : l'e-mail est déjà parti avec cette clé.
+  if (name === "invalid_idempotent_request") return { ok: true };
+  if (name === "concurrent_idempotent_requests") return { ok: false, error: "Envoi déjà en cours : nouvel essai plus tard.", retryable: true };
+
+  if (category === "UNEXPECTED_RESPONSE") {
+    void alertOwnerFormatChange("Resend", "format:resend", err.message, { where: "src/lib/email.ts" });
+    return { ok: false, error: "Resend a répondu dans un format inattendu.", retryable: false };
+  }
+  if (category === "TIMEOUT") {
+    // L'e-mail est peut-être parti : un nouvel essai AVEC la même clé
+    // d'idempotence ne l'enverra pas deux fois.
+    return { ok: false, error: "Resend n'a pas répondu à temps (l'e-mail est peut-être parti).", retryable: true };
+  }
+  const blocking =
+    err.status === 401 ||
+    name === "missing_api_key" ||
+    name === "invalid_api_key" ||
+    name === "restricted_api_key" ||
+    name === "daily_quota_exceeded" ||
+    name === "monthly_quota_exceeded" ||
+    /verify a domain|testing emails to your own email address/i.test(detail);
+  if (blocking) {
+    void alertOwner({
+      title: "E-mails bloqués chez Resend",
+      // Conséquence d'abord : la cloche coupe les messages trop longs.
+      body: `Aucun e-mail ne part (réinitialisations de mot de passe comprises) tant que ce n'est pas réglé : clé RESEND_API_KEY, domaine vérifié ou quota. Resend : ${name || `erreur ${err.status}`} — ${detail}`,
+      dedupeKey: `resend:${name || err.status}`
+    });
+  }
+  return {
+    ok: false,
+    error: `Resend a refusé l'envoi (${err.status ?? "?"}${name ? ` ${name}` : ""}) : ${detail}`,
+    retryable: category === "RATE_LIMITED" || category === "TRANSIENT"
+  };
 }
 
 export function escapeHtml(input: string): string {
@@ -63,7 +139,8 @@ export function escapeHtml(input: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<{ ok: boolean; error?: string }> {
@@ -98,6 +175,8 @@ export async function sendReportEmail(params: {
   /** Slug de la marque : alimente le lien « Créez le vôtre » du pied de
    *  page (attribution `via`, brief growth lot G1.c). */
   brandSlug?: string | null;
+  /** Envoi automatique : voir emailIdempotencyKey (lot 9). */
+  idempotencyKey?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const sign = params.followersDelta >= 0 ? "+" : "";
   const appUrl = process.env.NEXTAUTH_URL || "https://nebulahub.space";
@@ -128,7 +207,8 @@ export async function sendReportEmail(params: {
       <p style="margin:26px 0 0;padding-top:14px;border-top:1px solid ${EMAIL_COLORS.border};color:${EMAIL_COLORS.muted};font-size:12px">
         Rapport généré par Nebula — ${emailLink("Créez le vôtre en 2 minutes", discoverUrl)}
       </p>
-    `)
+    `),
+    idempotencyKey: params.idempotencyKey
   });
 }
 

@@ -1,7 +1,7 @@
 // Suppression d'une publication et des fichiers qu'elle seule utilisait —
 // partagée par /api/posts/[id] et l'API publique v1 (lot 4).
 import { prisma } from "@/lib/prisma";
-import { deleteUploadedFile } from "@/lib/storage";
+import { deleteBrandMediaFile } from "@/lib/media-files";
 
 export async function deletePostAndOrphanMedia(postId: string): Promise<void> {
   // Fichiers potentiellement libérés, capturés AVANT la suppression (un même
@@ -22,8 +22,9 @@ export async function deletePostAndOrphanMedia(postId: string): Promise<void> {
     if (orphaned.length > 0) {
       const assets = await prisma.mediaAsset.findMany({ where: { id: { in: orphaned } } });
       for (const asset of assets) {
-        await deleteUploadedFile(asset.url);
-        if (asset.thumbnailUrl) await deleteUploadedFile(asset.thumbnailUrl);
+        // Seulement les fichiers de cette marque (audit sécurité, lot 1).
+        await deleteBrandMediaFile(asset.url, asset.brandId);
+        await deleteBrandMediaFile(asset.thumbnailUrl, asset.brandId);
       }
       await prisma.mediaAsset.deleteMany({ where: { id: { in: orphaned } } });
     }

@@ -7,11 +7,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { encodeOAuthState, decodeOAuthState } from "@/lib/connections";
 import { createPkce, saveIntegration, type IntegrationProvider, type TokenSet } from "./oauth-accounts";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 const PKCE_COOKIE = "nb_int_pkce";
 
+// Chemin interne uniquement (voir lib/safe-redirect.ts) : « /\evil.com »
+// passait l'ancienne vérification et renvoyait vers un autre site.
 function safeReturnTo(value: string | null | undefined): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/composer";
+  return safeRelativePath(value, "/composer");
 }
 
 export async function startIntegrationOAuth(

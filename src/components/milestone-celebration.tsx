@@ -12,7 +12,7 @@
 // plus longtemps), de plus en plus impressionnante à mesure qu'on monte —
 // jusqu'au message plein écran pour le millionième post.
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/toast";
 
 interface ConfettiPiece {
@@ -147,8 +147,10 @@ export function MilestoneCelebrationProvider({ children }: { children: React.Rea
     [toast]
   );
 
+  const value = useMemo(() => ({ celebrateMilestone }), [celebrateMilestone]);
+
   return (
-    <MilestoneContext.Provider value={{ celebrateMilestone }}>
+    <MilestoneContext.Provider value={value}>
       {children}
       {flash && (
         <div

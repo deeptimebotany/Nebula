@@ -1,0 +1,5 @@
+{
+  "data": [
+    { "name": "views", "period": "day", "title": "Vues", "description": "Nombre de vues.", "total_value": { "value": 5230 }, "id": "17841400000000001/insights/views/day" }
+  ]
+}

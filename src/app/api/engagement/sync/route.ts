@@ -5,6 +5,8 @@ import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
+import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
+import { refreshReussites } from "@/lib/reussites/engine";
 
 // Interroge la vraie API du réseau pour rafraîchir les commentaires reçus
 // sur les publications récentes, et les enregistre (déduplication via la
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
   if (connections.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
   const results: { connectionId: string; network: string; count: number; error?: string; unsupported?: boolean }[] = [];
+  let sawOwnerReply = false;
 
   for (const connection of connections) {
     const client = getSocialClient(connection.network as Network);
@@ -37,8 +40,14 @@ export async function POST(req: NextRequest) {
       results.push({ connectionId: connection.id, network: connection.network, count: 0, unsupported: true });
       continue;
     }
+    const blocked = await syncBlockedReason(connection.network);
+    if (blocked) {
+      results.push({ connectionId: connection.id, network: connection.network, count: 0, error: blocked });
+      continue;
+    }
     try {
       const items = await client.fetchEngagement(connection);
+      if (items.some((i) => i.ownerRepliedAt)) sawOwnerReply = true;
       for (const item of items) {
         await prisma.engagementItem.upsert({
           where: { connectionId_externalId: { connectionId: connection.id, externalId: item.externalId } },
@@ -53,25 +62,33 @@ export async function POST(req: NextRequest) {
             authorAvatarUrl: item.authorAvatarUrl,
             text: item.text,
             permalink: item.permalink,
-            publishedAt: item.publishedAt
+            publishedAt: item.publishedAt,
+            ownerRepliedAt: item.ownerRepliedAt ?? null
           },
           // Un commentaire déjà connu ne redevient jamais "non lu" au fil des
           // resynchronisations — seul son contenu peut évoluer (édité côté
           // réseau) ; `read` n'est donc volontairement pas dans `update`.
+          // Réponse du compte (Réussites, lot B) : enregistrée dès qu'elle
+          // est vue, jamais effacée (le réseau ne renvoie que les dernières).
           update: {
             text: item.text,
             authorName: item.authorName,
             authorAvatarUrl: item.authorAvatarUrl,
-            permalink: item.permalink
+            permalink: item.permalink,
+            ...(item.ownerRepliedAt ? { ownerRepliedAt: item.ownerRepliedAt } : {})
           }
         });
       }
       await prisma.socialConnection.update({ where: { id: connection.id }, data: { lastEngagementSyncedAt: new Date() } });
+      await onSyncSuccess(connection);
       results.push({ connectionId: connection.id, network: connection.network, count: items.length });
     } catch (err) {
-      results.push({ connectionId: connection.id, network: connection.network, count: 0, error: (err as Error).message });
+      results.push({ connectionId: connection.id, network: connection.network, count: 0, error: await onSyncError(connection, err) });
     }
   }
+
+  // Réponses du compte repérées : étoiles Communauté à jour tout de suite.
+  if (sawOwnerReply) await refreshReussites(userId);
 
   // Un seul compte demandé et en échec : on garde le comportement historique
   // (erreur HTTP), pour que le bouton « Actualiser » l'affiche clairement.

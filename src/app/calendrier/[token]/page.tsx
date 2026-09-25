@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
+// CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
+// rendu à chaque visite, jamais pré-généré.
+export const dynamic = "force-dynamic";
+
 export default function CalendrierPage({ params }: { params: { token: string } }) {
   return <CalendrierClient token={params.token} />;
 }

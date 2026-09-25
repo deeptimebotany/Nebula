@@ -1,13 +1,15 @@
-// Catalogue des Réussites (25/09/2026) : niveaux de créateur,
-// accomplissements, défis de la semaine et du mois, récompenses. Importable
+// Catalogue des Réussites (25/09/2026, v2 le 26/09/2026) : rangs de
+// créateur, accomplissements, défis du mois, récompenses (les missions de
+// la semaine sont dans missions.ts). Importable
 // côté client ET serveur (aucune dépendance à Prisma). Le calcul réel des
 // progrès vit dans engine.ts (serveur uniquement).
 //
 // Règles posées avec Lucas : seules les vraies données comptent
 // (publications réellement en ligne, statistiques des comptes connectés,
-// forum, page bio) ; rien ne se perd (pas de niveau qui baisse, pas de
-// série punitive : c'est la meilleure série qui compte) ; les défis sont les
-// mêmes pour tout le monde.
+// forum, page bio) ; rien ne se perd (pas de rang qui baisse, pas de
+// série punitive : c'est la meilleure série qui compte, et les boucliers
+// protègent la série en cours). Les défis du mois sont les mêmes pour tout
+// le monde ; les missions de la semaine sont personnelles (v2).
 //
 // Les clés (accomplissements, récompenses) sont stockées en base : ne
 // jamais les renommer. Ajouter un palier = ajouter une entrée.
@@ -22,61 +24,138 @@ export const CATEGORIES: { id: ReussiteCategory; label: string; emoji: string }[
   { id: "bio", label: "Page bio", emoji: "🔗" }
 ];
 
-// --- Niveaux --------------------------------------------------------------
+// --- Rangs (Réussites v2, 26/09/2026) --------------------------------------
+//
+// 5 rangs de 3 paliers (15 paliers) : une victoire toutes les une à deux
+// semaines au début, puis plus espacées. Remplacent les 8 niveaux du
+// 25/09/2026 avec les mêmes XP : Comète I = 300 XP (ancien niveau 3),
+// Constellation II = 3 000 (ancien 7), Nébuleuse I = 5 000 (ancien 8).
+// Les clés « level-N » déjà en base restent valables pour les récompenses.
+// Lot B : condition de variété (compétences) pour entrer dans les rangs
+// Étoile, Constellation et Nébuleuse — voir skills.ts → gatedRank.
 
-export interface LevelDef {
-  level: number;
+export type RankId = "etincelle" | "comete" | "etoile" | "constellation" | "nebuleuse";
+
+export interface RankDef {
+  rank: number;
+  id: RankId;
   name: string;
-  minXp: number;
-  /** Phrase d'encouragement du bandeau. */
   tagline: string;
-  /** Récompense affichée (texte) ; la clé correspondante est dans REWARDS. */
-  reward: string | null;
-  /** Titre affiché sous le prénom dans la Communauté, à partir de ce niveau. */
-  title?: string;
+  /** XP de début des paliers I, II et III. */
+  tiers: [number, number, number];
 }
 
-export const LEVELS: LevelDef[] = [
-  { level: 1, name: "Débutant", minXp: 0, tagline: "Chaque créateur commence ici. Votre première publication vous fera décoller.", reward: null },
-  { level: 2, name: "Lancé", minXp: 100, tagline: "Vous êtes lancé·e : gardez le rythme, les prochains paliers arrivent vite.", reward: "Titre « Créateur lancé »", title: "Créateur lancé" },
-  { level: 3, name: "Actif", minXp: 300, tagline: "Vous publiez, vous progressez : c'est comme ça qu'une audience se construit.", reward: "Fond « Première lumière »" },
-  { level: 4, name: "Régulier", minXp: 600, tagline: "Vous publiez chaque semaine depuis un moment. Continuez comme ça !", reward: "Titre « Créateur régulier »", title: "Créateur régulier" },
-  { level: 5, name: "Confirmé", minXp: 1000, tagline: "Un vrai rythme de créateur confirmé : votre régularité paie.", reward: "Anneau d'avatar argent" },
-  { level: 6, name: "Étoile montante", minXp: 1800, tagline: "On commence à vous remarquer. Visez les accomplissements de croissance.", reward: "Titre « Étoile montante »", title: "Étoile montante" },
-  { level: 7, name: "Astre", minXp: 3000, tagline: "Votre présence brille sur vos réseaux. Le dernier niveau est en vue.", reward: "Cadre de page bio « Astre »" },
-  { level: 8, name: "Légende", minXp: 5000, tagline: "Niveau maximum : une vraie légende de Nebula.", reward: "Anneau stellaire animé", title: "Légende" }
+export const RANKS: RankDef[] = [
+  { rank: 1, id: "etincelle", name: "Étincelle", tagline: "Tout commence par une étincelle : chaque publication vous fait avancer.", tiers: [0, 60, 150] },
+  { rank: 2, id: "comete", name: "Comète", tagline: "Vous publiez régulièrement : votre trajectoire se dessine.", tiers: [300, 450, 650] },
+  { rank: 3, id: "etoile", name: "Étoile", tagline: "Votre régularité paie : on commence à vous remarquer.", tiers: [900, 1250, 1700] },
+  { rank: 4, id: "constellation", name: "Constellation", tagline: "Vos formats, votre rythme et votre audience forment un tout.", tiers: [2300, 3000, 3800] },
+  { rank: 5, id: "nebuleuse", name: "Nébuleuse", tagline: "Le sommet de Nebula : vous inspirez les autres créateurs.", tiers: [5000, 6500, 8500] }
 ];
 
-export const MAX_LEVEL = LEVELS.length;
+const ROMAN = ["I", "II", "III"];
+
+/** Récompenses de palier (texte) ; les clés correspondantes sont dans REWARDS. */
+const STEP_REWARDS: Record<number, string> = {
+  4: "Emblème Comète et fond « Première lumière »",
+  7: "Emblème Étoile et anneau d'avatar argent",
+  10: "Emblème Constellation et une vidéo à la une 7 jours",
+  11: "Cadre de page bio « Astre »",
+  13: "Emblème Nébuleuse et anneau stellaire animé"
+};
+
+export interface StepDef {
+  /** Palier 1 à 15 (stocké dans User.creatorLevel). */
+  step: number;
+  rank: number;
+  tier: number;
+  rankId: RankId;
+  rankName: string;
+  /** « Comète II ». */
+  name: string;
+  minXp: number;
+  tagline: string;
+  reward: string | null;
+}
+
+export const STEPS: StepDef[] = RANKS.flatMap((r) =>
+  r.tiers.map((minXp, i) => ({
+    step: (r.rank - 1) * 3 + i + 1,
+    rank: r.rank,
+    tier: i + 1,
+    rankId: r.id,
+    rankName: r.name,
+    name: `${r.name} ${ROMAN[i]}`,
+    minXp,
+    tagline: r.tagline,
+    reward: STEP_REWARDS[(r.rank - 1) * 3 + i + 1] ?? null
+  }))
+);
+
+export const MAX_STEP = STEPS.length;
+/** Compatibilité : « niveau » = palier de rang. */
+export const MAX_LEVEL = MAX_STEP;
 
 export interface LevelProgress {
+  /** Palier 1 à 15. */
   level: number;
+  /** Rang 1 à 5 et palier dans le rang (1 à 3). */
+  rank: number;
+  tier: number;
+  rankId: RankId;
+  rankName: string;
+  /** « Comète II ». */
   name: string;
   xp: number;
-  /** XP du début du niveau actuel. */
+  /** XP du début du palier actuel. */
   levelXp: number;
-  /** XP du niveau suivant (null au niveau maximum). */
+  /** XP du palier suivant (null au dernier palier). */
   nextXp: number | null;
   nextName: string | null;
   nextReward: string | null;
-  /** Progression vers le niveau suivant (XP ÷ XP du niveau suivant), 0–100. */
+  /** Progression dans le palier actuel, 0–100. */
   pct: number;
   tagline: string;
-  /** Titre le plus élevé atteint (Communauté). */
+  /** Titre dans la Communauté : le rang s'affiche désormais dans la pastille (voir LevelPill). */
   title: string | null;
+  /** XP suffisants pour le palier suivant, mais pas la variété des compétences (lot B). */
+  pending: PendingRank | null;
 }
 
-export function levelFor(xp: number): LevelProgress {
+/** « Rang en attente » : ce qui manque pour entrer dans le rang suivant. */
+export interface PendingRank {
+  step: number;
+  /** « Étoile I ». */
+  name: string;
+  /** « 2 compétences au niveau 2 ». */
+  condition: string;
+  /** « 1 compétence de plus au niveau 2 », puis les compétences les plus proches. */
+  missing: string[];
+}
+
+export function rankFor(xp: number): LevelProgress {
   const safe = Math.max(0, Math.floor(xp));
-  let current = LEVELS[0];
-  for (const l of LEVELS) if (safe >= l.minXp) current = l;
-  const next = LEVELS.find((l) => l.level === current.level + 1) ?? null;
-  // Comme sur la maquette validée : part de l'XP totale dans l'XP du niveau
-  // suivant (620 / 1 000 XP → 62 %).
-  const pct = next ? Math.min(99, Math.floor((safe / next.minXp) * 100)) : 100;
-  const title = [...LEVELS].reverse().find((l) => l.level <= current.level && l.title)?.title ?? null;
+  let current = STEPS[0];
+  for (const s of STEPS) if (safe >= s.minXp) current = s;
+  return rankAt(safe, current.step, null);
+}
+
+/**
+ * Progression affichée pour un palier donné (celui enregistré dans
+ * User.creatorLevel, retenu par la condition de variété). XP au-delà du
+ * palier suivant : barre pleine (« Rang en attente »).
+ */
+export function rankAt(xp: number, step: number, pending: PendingRank | null = null): LevelProgress {
+  const safe = Math.max(0, Math.floor(xp));
+  const current = stepDef(Math.max(1, Math.min(MAX_STEP, Math.floor(step) || 1)));
+  const next = STEPS.find((s) => s.step === current.step + 1) ?? null;
+  const pct = next ? (safe >= next.minXp ? 100 : Math.max(0, Math.min(99, Math.floor(((safe - current.minXp) / (next.minXp - current.minXp)) * 100)))) : 100;
   return {
-    level: current.level,
+    level: current.step,
+    rank: current.rank,
+    tier: current.tier,
+    rankId: current.rankId,
+    rankName: current.rankName,
     name: current.name,
     xp: safe,
     levelXp: current.minXp,
@@ -85,13 +164,35 @@ export function levelFor(xp: number): LevelProgress {
     nextReward: next?.reward ?? null,
     pct,
     tagline: current.tagline,
-    title
+    title: null,
+    pending
   };
 }
 
-export function levelName(level: number): string {
-  return LEVELS.find((l) => l.level === level)?.name ?? LEVELS[0].name;
+/** Compatibilité avec le code des niveaux (même calcul). */
+export const levelFor = rankFor;
+
+export function stepDef(step: number): StepDef {
+  return STEPS.find((s) => s.step === step) ?? STEPS[0];
 }
+
+export function levelName(step: number): string {
+  return stepDef(step).name;
+}
+
+export const rankKey = (step: number) => `rank-${step}`;
+
+// Anciens niveaux (25/09/2026) : leurs clés « level-N » restent en base et
+// accordent toujours leurs récompenses ; noms gardés pour l'historique.
+export const LEGACY_LEVEL_NAMES: Record<number, string> = {
+  2: "Lancé",
+  3: "Actif",
+  4: "Régulier",
+  5: "Confirmé",
+  6: "Étoile montante",
+  7: "Astre",
+  8: "Légende"
+};
 
 export const levelKey = (level: number) => `level-${level}`;
 
@@ -117,7 +218,10 @@ export type MetricId =
   | "reactionsReceived"
   | "confirmedReferrals"
   | "bioPublished"
-  | "bioClicks";
+  | "bioClicks"
+  | "starFragments"
+  | "launchSteps"
+  | "toolsExplored";
 
 export interface TierDef {
   /** Clé stable stockée en base (AchievementUnlock.key). */
@@ -143,19 +247,47 @@ export interface SeriesDef {
   unit: string;
   /** Précision affichée sous la barre (ex. « sur n'importe lequel de vos comptes »). */
   note?: string;
+  /** Absente de l'album tant qu'elle n'est pas gagnée (badge qui ne se gagne plus après coup). */
+  hiddenUntilUnlocked?: boolean;
   tiers: TierDef[];
 }
 
 export const SERIES: SeriesDef[] = [
   // Publication (12)
   {
+    // Nom « Première publication » depuis le lot C (« Premier décollage » est
+    // devenu le parcours des 7 premiers jours) ; la clé ne change pas.
     id: "first-post",
     category: "publication",
     emoji: "🚀",
-    name: "Premier décollage",
+    name: "Première publication",
     metric: "publishedPosts",
     unit: "publication",
     tiers: [{ key: "first-post", target: 1, xp: 50, description: "Publier votre première publication" }]
+  },
+  {
+    // Lot C : les 5 étapes du Premier décollage (7 premiers jours).
+    id: "launch",
+    category: "publication",
+    emoji: "🛰️",
+    name: "Décollage réussi",
+    metric: "launchSteps",
+    unit: "étapes",
+    note: "Connecter un réseau, ajouter une vidéo, programmer, publier, synchroniser ses statistiques.",
+    tiers: [{ key: "launch", target: 5, xp: 100, description: "Terminer les 5 étapes du Premier décollage" }]
+  },
+  {
+    // Lot C : outils gratuits essayés AVANT l'inscription (cookie « outils
+    // essayés », lu à la création du compte). Ne se gagne plus ensuite :
+    // invisible dans l'album pour les autres comptes.
+    id: "explorer",
+    category: "publication",
+    emoji: "🔭",
+    name: "Explorateur",
+    metric: "toolsExplored",
+    unit: "outils",
+    hiddenUntilUnlocked: true,
+    tiers: [{ key: "explorer", target: 2, xp: 50, description: "Essayer 2 outils gratuits de Nebula avant de vous inscrire" }]
   },
   {
     id: "posts",
@@ -248,10 +380,23 @@ export const SERIES: SeriesDef[] = [
     emoji: "⚡",
     name: "Défis",
     metric: "weeklyChallengesDone",
-    unit: "défis",
+    unit: "missions",
     tiers: [
-      { key: "challenges-10", target: 10, xp: 100, description: "Réussir 10 défis de la semaine" },
-      { key: "challenges-30", target: 30, xp: 200, description: "Réussir 30 défis de la semaine" }
+      { key: "challenges-10", target: 10, xp: 100, description: "Réussir 10 missions de la semaine" },
+      { key: "challenges-30", target: 30, xp: 200, description: "Réussir 30 missions de la semaine" }
+    ]
+  },
+  {
+    id: "shooting-star",
+    category: "regularite",
+    emoji: "🌠",
+    name: "Étoile filante",
+    metric: "starFragments",
+    unit: "fragments",
+    note: "Fragments trouvés dans les coffres de la semaine.",
+    tiers: [
+      { key: "shooting-star", target: 3, xp: 100, description: "Réunir 3 fragments d'étoile filante" },
+      { key: "shooting-star-9", target: 9, xp: 200, description: "Réunir 9 fragments d'étoile filante" }
     ]
   },
 
@@ -440,14 +585,16 @@ export interface RewardDef {
 
 export const REWARDS: RewardDef[] = [
   { key: "ach:ring-bronze", label: "Anneau d'avatar bronze", kind: "ring", grantedBy: ["envol"], autoCosmetic: "anneau-bronze-avatar" },
-  { key: "ach:ring-argent", label: "Anneau d'avatar argent", kind: "ring", grantedBy: [levelKey(5)], autoCosmetic: "anneau-argent-avatar" },
+  { key: "ach:ring-argent", label: "Anneau d'avatar argent", kind: "ring", grantedBy: [levelKey(5), rankKey(7)], autoCosmetic: "anneau-argent-avatar" },
   { key: "ach:ring-or", label: "Anneau d'avatar or", kind: "ring", grantedBy: ["posts-100"], autoCosmetic: "anneau-or-avatar" },
-  { key: "ach:ring-stellaire", label: "Anneau stellaire animé", kind: "ring", grantedBy: [levelKey(8)], autoCosmetic: "anneau-stellaire-avatar" },
-  { key: "ach:bg-premiere-lumiere", label: "Fond « Première lumière »", kind: "background", grantedBy: ["posts-10", levelKey(3)] },
+  { key: "ach:ring-stellaire", label: "Anneau stellaire animé", kind: "ring", grantedBy: [levelKey(8), rankKey(13)], autoCosmetic: "anneau-stellaire-avatar" },
+  { key: "ach:bg-premiere-lumiere", label: "Fond « Première lumière »", kind: "background", grantedBy: ["posts-10", levelKey(3), rankKey(4)] },
   { key: "ach:bg-constellation", label: "Fond « Constellation »", kind: "background", grantedBy: ["videos-25"] },
   { key: "ach:bg-galaxie-spirale", label: "Fond « Galaxie spirale »", kind: "background", grantedBy: ["streak-8"] },
   { key: "ach:frame-carrefour", label: "Cadre de page bio « Carrefour »", kind: "frame", grantedBy: ["bio-clicks-1000"] },
-  { key: "ach:frame-astre", label: "Cadre de page bio « Astre »", kind: "frame", grantedBy: [levelKey(7)] }
+  { key: "ach:frame-astre", label: "Cadre de page bio « Astre »", kind: "frame", grantedBy: [levelKey(7), rankKey(11)] },
+  // Lot B : étoile Communauté ★3 « Conversation » (20 réponses aux commentaires).
+  { key: "ach:frame-halo", label: "Cadre de page bio « Halo »", kind: "frame", grantedBy: ["star-communaute-3"] }
 ];
 
 export const ALL_REWARD_KEYS = REWARDS.map((r) => r.key);
@@ -520,9 +667,9 @@ export const WEEKLY_CHALLENGES: ChallengeDef[] = [
   { key: "first-comment", kind: "WEEKLY", title: "Lancer la conversation", description: "Publier avec un premier commentaire", metric: "firstComments", target: 1, xp: 30 }
 ];
 
-// Trois défis par semaine, en rotation fixe (les mêmes pour tout le monde) :
-// toujours un défi de publication, un de format, un d'organisation ou de
-// communauté.
+// Historique (jusqu'au 26/09/2026) : trois défis par semaine, en rotation
+// fixe, les mêmes pour tout le monde. Remplacés par les missions de la
+// semaine (missions.ts) ; gardés pour afficher les défis déjà réussis.
 const WEEKLY_ROTATION: [string, string, string][] = [
   ["publish-3", "publish-video", "schedule-weekend"],
   ["two-days", "publish-photo", "community-reply"],

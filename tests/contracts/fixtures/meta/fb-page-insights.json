@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "name": "page_media_view",
+      "period": "day",
+      "values": [
+        { "value": 120, "end_time": "2026-09-23T07:00:00+0000" },
+        { "value": 140, "end_time": "2026-09-24T07:00:00+0000" }
+      ],
+      "title": "Vues des contenus",
+      "description": "Nombre de fois où les contenus de la Page ont été vus.",
+      "id": "101010101010101/insights/page_media_view/day"
+    }
+  ]
+}

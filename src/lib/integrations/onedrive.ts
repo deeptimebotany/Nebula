@@ -9,8 +9,11 @@
 //
 // Plutôt que le sélecteur de fichiers de Microsoft (lourd à intégrer),
 // Nebula affiche lui-même les dossiers et fichiers du OneDrive relié.
+import type { ZodType, ZodTypeDef } from "zod";
+import { idSchema, opt, soft, textSchema, z } from "@/lib/social/contract";
 import { integrationRedirectUri } from "./config";
-import { ImportError } from "./remote-media";
+import { ImportError } from "./errors";
+import { importJson, tokenRefusal } from "./http";
 import type { TokenSet } from "./oauth-accounts";
 
 const LOGIN = "https://login.microsoftonline.com/common/oauth2/v2.0";
@@ -36,32 +39,48 @@ export function oneDriveAuthUrl(state: string): string {
   return url.toString();
 }
 
+// --- Contrat des réponses (lot 8, voir social/contract.ts) -------------------
+// Doc : https://learn.microsoft.com/graph/api/driveitem-list-children et
+//       https://learn.microsoft.com/entra/identity-platform/v2-oauth2-auth-code-flow
+// Réponses types : tests/contracts/fixtures/onedrive.
+const tokenSchema = z.object({ access_token: z.string().min(1), refresh_token: opt(z.string().min(1)), expires_in: soft(z.number()) });
+const itemSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  size: soft(z.number()),
+  folder: soft(z.object({ childCount: soft(z.number()) })),
+  file: soft(z.object({ mimeType: textSchema })),
+  image: soft(z.object({}).passthrough()),
+  video: soft(z.object({}).passthrough()),
+  thumbnails: soft(z.array(z.object({ medium: soft(z.object({ url: z.string() })), large: soft(z.object({ url: z.string() })) })))
+});
+type GraphItem = z.output<typeof itemSchema>;
+
 async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
   const { id, secret } = creds();
-  const res = await fetch(`${LOGIN}/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: id, client_secret: secret, scope: SCOPES.join(" "), redirect_uri: integrationRedirectUri("onedrive"), ...body }),
-    cache: "no-store"
-  });
-  const json = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string };
-  if (!res.ok || !json.access_token) throw new ImportError(json.error_description?.split("\r\n")[0] || `Microsoft a refusé la connexion (${res.status}).`, 502);
+  const json = await importJson(
+    "ONEDRIVE",
+    `${LOGIN}/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: id, client_secret: secret, scope: SCOPES.join(" "), redirect_uri: integrationRedirectUri("onedrive"), ...body }),
+      schema: tokenSchema
+    },
+    tokenRefusal("ONEDRIVE")
+  );
   return { accessToken: json.access_token, refreshToken: json.refresh_token, expiresIn: json.expires_in };
 }
 
 export const exchangeOneDriveCode = (code: string) => tokenRequest({ grant_type: "authorization_code", code });
 export const refreshOneDriveToken = (refreshToken: string) => tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
 
-async function graph<T>(token: string, path: string): Promise<T> {
-  const res = await fetch(`${GRAPH}${path}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-  if (res.status === 401) throw new ImportError("Connexion OneDrive expirée : reliez à nouveau votre compte.", 401);
-  const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-  if (!res.ok) throw new ImportError(json.error?.message || `OneDrive a répondu ${res.status}.`, 502);
-  return json;
+function graph<T>(token: string, path: string, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
+  return importJson("ONEDRIVE", `${GRAPH}${path}`, { headers: { Authorization: `Bearer ${token}` }, schema });
 }
 
 export async function oneDriveDisplayName(token: string): Promise<string | null> {
-  const me = await graph<{ displayName?: string; userPrincipalName?: string }>(token, "/me").catch(() => null);
+  const me = await graph(token, "/me", z.object({ displayName: textSchema, userPrincipalName: textSchema })).catch(() => null);
   return me?.displayName || me?.userPrincipalName || null;
 }
 
@@ -73,17 +92,6 @@ export interface OneDriveItem {
   thumbnailUrl: string | null;
   size: number;
   mimeType: string | null;
-}
-
-interface GraphItem {
-  id: string;
-  name: string;
-  size?: number;
-  folder?: { childCount: number };
-  file?: { mimeType?: string };
-  image?: object;
-  video?: object;
-  thumbnails?: { medium?: { url: string }; large?: { url: string } }[];
 }
 
 function toItem(i: GraphItem): OneDriveItem {
@@ -101,12 +109,13 @@ export async function listOneDrive(token: string, opts: { folderId?: string; que
     : opts.folderId
       ? `/me/drive/items/${opts.folderId}/children?${SELECT}`
       : `/me/drive/root/children?${SELECT}`;
-  const data = await graph<{ value: GraphItem[] }>(token, path);
+  // Liste stricte : « value » obligatoire (Microsoft Graph renvoie [] pour un dossier vide).
+  const data = await graph(token, path, z.object({ value: z.array(itemSchema) }));
   const items = data.value.map(toItem).filter((i) => i.kind !== "other");
   return items.sort((a, b) => (a.kind === "folder" ? 0 : 1) - (b.kind === "folder" ? 0 : 1) || a.name.localeCompare(b.name, "fr"));
 }
 
 export async function oneDriveItem(token: string, id: string): Promise<OneDriveItem> {
   if (!/^[A-Za-z0-9!_.-]{1,200}$/.test(id)) throw new ImportError("Fichier introuvable.", 404);
-  return toItem(await graph<GraphItem>(token, `/me/drive/items/${id}?$select=id,name,size,folder,file,image,video`));
+  return toItem(await graph(token, `/me/drive/items/${id}?$select=id,name,size,folder,file,image,video`, itemSchema));
 }

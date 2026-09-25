@@ -1,0 +1,9 @@
+{
+  "data": [
+    { "name": "views", "period": "lifetime", "values": [{ "value": 100 }], "title": "Vues", "description": "Vues.", "id": "18000000000000001/insights/views/lifetime" },
+    { "name": "likes", "period": "lifetime", "values": [{ "value": 5 }], "title": "J'aime", "description": "J'aime.", "id": "18000000000000001/insights/likes/lifetime" },
+    { "name": "replies", "period": "lifetime", "values": [{ "value": 2 }], "title": "Réponses", "description": "Réponses.", "id": "18000000000000001/insights/replies/lifetime" },
+    { "name": "reposts", "period": "lifetime", "values": [{ "value": 1 }], "title": "Republications", "description": "Republications.", "id": "18000000000000001/insights/reposts/lifetime" },
+    { "name": "quotes", "period": "lifetime", "values": [{ "value": 0 }], "title": "Citations", "description": "Citations.", "id": "18000000000000001/insights/quotes/lifetime" }
+  ]
+}

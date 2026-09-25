@@ -41,6 +41,8 @@ interface CommentRow {
   postPermalink: string | null;
   publishedAt: string | null;
   read: boolean;
+  /** Réponse du compte repérée à la synchro (Réussites, lot B). */
+  ownerRepliedAt?: string | null;
 }
 
 interface ConnectionInfo {
@@ -399,6 +401,11 @@ function CommentCard({
         </div>
         {item.text && <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-slate-300">{item.text}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-3">
+          {item.ownerRepliedAt && (
+            <span className="inline-flex items-center rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300" title="Réponse de votre compte repérée à la dernière actualisation">
+              Vous avez répondu
+            </span>
+          )}
           {(item.permalink || item.postPermalink) && (
             <a
               href={item.permalink || item.postPermalink || "#"}

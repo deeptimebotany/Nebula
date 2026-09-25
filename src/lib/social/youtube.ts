@@ -1,15 +1,25 @@
 import { prisma } from "@/lib/prisma";
-import type { AnalyticsResult, PublishResult } from "@/lib/types";
+import type { AnalyticsResult, PublishResult, ThumbnailStatus } from "@/lib/types";
 import {
   SocialApiError,
+  checkShape,
+  downloadMedia,
+  earliest,
+  errorFromResponse,
   fetchJson,
+  parseRetryAfter,
+  readBody,
+  sendRequest,
+  throwUnexpected,
   type ConnectionLike,
   type EngagementItemInput,
   type OAuthTokenResult,
   type PublishInput,
   type SocialClient,
-  type PostMetricInput
+  type PostMetricInput, type RecentPost
 } from "./base";
+import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
+import { adoptConcurrentRefresh } from "./tokens";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -17,6 +27,9 @@ const AUTH_BASE = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API_BASE = "https://www.googleapis.com/youtube/v3";
 const UPLOAD_BASE = "https://www.googleapis.com/upload/youtube/v3/videos";
+const THUMBNAIL_URL = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
+/** Limite de YouTube pour une miniature personnalisée : 2 Mo, JPEG ou PNG. */
+const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
 const ANALYTICS_BASE = "https://youtubeanalytics.googleapis.com/v2";
 
 function requireEnv(name: string): string {
@@ -26,6 +39,67 @@ function requireEnv(name: string): string {
 }
 
 const EXPIRED_MESSAGE = "Connexion YouTube expirée : reconnectez la chaîne depuis la page Comptes.";
+const NO_CHANNEL_MESSAGE = "Ce compte Google n'a pas de chaîne YouTube : créez-la sur youtube.com, puis reconnectez.";
+
+// --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
+// Doc : https://developers.google.com/youtube/v3/docs (channels, playlistItems,
+//       videos, commentThreads) et https://developers.google.com/youtube/analytics/reference/reports
+// Réponses types : tests/contracts/fixtures/youtube.
+const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: soft(z.number()), refresh_token: opt(z.string().min(1)) });
+const thumbnailsSchema = soft(
+  z.object({ default: soft(z.object({ url: z.string() })), medium: soft(z.object({ url: z.string() })), high: soft(z.object({ url: z.string() })) })
+);
+// Liste : `items` est absent quand il n'y a rien (compte Google sans chaîne…).
+function ytList<T extends z.ZodTypeAny>(item: T) {
+  return z.object({ items: opt(z.array(item)), nextPageToken: textSchema });
+}
+const playlistItemSchema = z.object({
+  snippet: z.object({
+    title: textSchema,
+    publishedAt: textSchema,
+    thumbnails: thumbnailsSchema,
+    resourceId: z.object({ videoId: opt(z.string().min(1)) })
+  }),
+  contentDetails: soft(z.object({ videoId: textSchema, videoPublishedAt: textSchema }))
+});
+const uploadedVideoSchema = z.object({ id: idSchema });
+// thumbnails.set : on ne lit rien d'indispensable dans la réponse (succès = 200).
+const thumbnailSetSchema = z.object({ items: soft(z.array(z.object({ default: soft(z.object({ url: textSchema })) }))) });
+
+/** Type d'image d'après ses premiers octets (le stockage ne donne pas toujours le bon en-tête). */
+function imageMime(bytes: ArrayBuffer): "image/jpeg" | "image/png" | null {
+  const b = new Uint8Array(bytes.slice(0, 8));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  return null;
+}
+
+/**
+ * Applique la miniature choisie dans Publier à une vidéo déjà en ligne
+ * (thumbnails.set, 50 unités de quota, autorisée par youtube.upload).
+ * Best-effort, comme la playlist : ne lève jamais, la vidéo est déjà
+ * publiée. YouTube refuse (403) les miniatures personnalisées des chaînes
+ * non vérifiées par téléphone. Jamais relancée automatiquement.
+ */
+export async function applyYoutubeThumbnail(connection: ConnectionLike, videoId: string, url: string): Promise<ThumbnailStatus> {
+  try {
+    const image = await downloadMedia("YOUTUBE", url, 15_000);
+    const mime = imageMime(image.bytes);
+    if (!mime || image.bytes.byteLength > THUMBNAIL_MAX_BYTES) return "UNSUPPORTED";
+    await fetchJson("YOUTUBE", `${THUMBNAIL_URL}?videoId=${encodeURIComponent(videoId)}&uploadType=media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${connection.accessToken}`, "Content-Type": mime },
+      body: Buffer.from(image.bytes),
+      timeoutMs: 20_000,
+      schema: thumbnailSetSchema
+    });
+    return "APPLIED";
+  } catch (err) {
+    if (err instanceof SocialApiError && err.status === 403) return "REFUSED";
+    console.error(`[youtube] miniature non appliquée à la vidéo ${videoId} :`, (err as Error).message);
+    return "FAILED";
+  }
+}
 
 /**
  * Jeton d'accès valide pour les appels à YouTube (24/09/2026).
@@ -50,39 +124,45 @@ export async function freshYoutubeToken(connection: ConnectionLike): Promise<str
     if (expires === null) return connection.accessToken;
     throw new SocialApiError("YOUTUBE", EXPIRED_MESSAGE, 401);
   }
-  const res = await fetch(TOKEN_URL, {
+  const usedRefreshToken = connection.refreshToken;
+  // Porte commune (lot 7) : délai garanti et panne classée (sans réponse :
+  // TIMEOUT/UNREACHABLE, jamais « connexion expirée »).
+  const res = await sendRequest("YOUTUBE", TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       client_id: requireEnv("YOUTUBE_CLIENT_ID"),
       client_secret: requireEnv("YOUTUBE_CLIENT_SECRET"),
-      refresh_token: connection.refreshToken,
+      refresh_token: usedRefreshToken,
       grant_type: "refresh_token"
     }),
-    cache: "no-store"
+    cache: "no-store",
+    timeoutMs: 20_000,
+    readOnly: true
   });
-  const json = (await res.json().catch(() => ({}))) as {
-    access_token?: string;
-    expires_in?: number;
-    refresh_token?: string;
-    error?: string;
-    error_description?: string;
-  };
-  if (!res.ok || !json.access_token) {
+  const body = (await readBody("YOUTUBE", res, "POST", true)).json as { error?: string; error_description?: string } | undefined;
+  const refused = res.ok ? null : (body ?? {});
+  if (refused) {
+    const json = refused;
     if (json.error === "invalid_grant") {
+      // Déjà renouvelé par un autre traitement ? On prend le nouveau jeton (lot 2).
+      if (await adoptConcurrentRefresh(connection, usedRefreshToken)) return connection.accessToken;
       await prisma.socialConnection
         .update({ where: { id: connection.id }, data: { refreshToken: null, tokenExpiresAt: new Date() } })
         .catch(() => undefined);
       connection.refreshToken = null;
       throw new SocialApiError("YOUTUBE", EXPIRED_MESSAGE, 401, json);
     }
-    throw new SocialApiError(
+    const failure = new SocialApiError(
       "YOUTUBE",
       `Google n'a pas pu renouveler la connexion YouTube (${json.error_description || json.error || res.status}). Réessayez dans quelques minutes.`,
       res.status,
       json
     );
+    failure.retryAfterMs = parseRetryAfter(res.headers.get("retry-after"));
+    throw failure;
   }
+  const json = checkShape("YOUTUBE", tokenSchema, body, endpointLabel("POST", TOKEN_URL), res.status);
   const tokenExpiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000);
   await prisma.socialConnection.update({
     where: { id: connection.id },
@@ -127,11 +207,7 @@ export const youtubeClient: SocialClient = {
     const clientSecret = requireEnv("YOUTUBE_CLIENT_SECRET");
     const redirectUri = requireEnv("YOUTUBE_REDIRECT_URI");
 
-    const token = await fetchJson<{
-      access_token: string;
-      refresh_token: string;
-      expires_in: number;
-    }>("YOUTUBE", TOKEN_URL, {
+    const token = await fetchJson("YOUTUBE", TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -140,23 +216,25 @@ export const youtubeClient: SocialClient = {
         client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: "authorization_code"
-      })
+      }),
+      schema: tokenSchema
     });
 
-    const channel = await fetchJson<{
-      items: { id: string; snippet: { title: string; thumbnails: { default: { url: string } } } }[];
-    }>("YOUTUBE", `${API_BASE}/channels?part=snippet&mine=true`, {
-      headers: { Authorization: `Bearer ${token.access_token}` }
+    const channel = await fetchJson("YOUTUBE", `${API_BASE}/channels?part=snippet&mine=true`, {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+      schema: ytList(z.object({ id: idSchema, snippet: z.object({ title: z.string(), thumbnails: thumbnailsSchema }) }))
     });
-    const me = channel.items[0];
+    // Compte Google sans chaîne : YouTube renvoie une liste vide (avant : plantage).
+    const me = channel.items?.[0];
+    if (!me) throw new SocialApiError("YOUTUBE", NO_CHANNEL_MESSAGE, 403);
 
     return {
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
-      expiresAt: new Date(Date.now() + token.expires_in * 1000),
+      expiresAt: new Date(Date.now() + (token.expires_in ?? 3600) * 1000),
       externalAccountId: me.id,
       displayName: me.snippet.title,
-      avatarUrl: me.snippet.thumbnails.default.url,
+      avatarUrl: me.snippet.thumbnails?.default?.url,
       scopes: "youtube.upload,youtube.readonly"
     } satisfies OAuthTokenResult;
   },
@@ -170,11 +248,8 @@ export const youtubeClient: SocialClient = {
     // On récupère le fichier depuis son URL publique (ex : /public/uploads/xxx.mp4
     // servi par Next.js, ou une URL S3 en production) puis on l'upload en
     // "resumable" (recommandé par Google pour les fichiers volumineux).
-    const sourceRes = await fetch(input.mediaUrls[0]);
-    if (!sourceRes.ok || !sourceRes.body) {
-      throw new Error("Impossible de lire le fichier vidéo source pour l'upload YouTube.");
-    }
-    const videoBuffer = Buffer.from(await sourceRes.arrayBuffer());
+    const source = await downloadMedia("YOUTUBE", input.mediaUrls[0], 45_000);
+    const videoBuffer = Buffer.from(source.bytes);
 
     const title = (input.title || input.caption).slice(0, 100) || "Nouvelle vidéo";
     // Réglages "Préréglages YouTube" du composer (voir composer-types.ts →
@@ -186,8 +261,11 @@ export const youtubeClient: SocialClient = {
     // la recherche de lieux les a fournies.
     const loc = input.location;
     const hasCoords = typeof loc?.latitude === "number" && typeof loc?.longitude === "number";
-    const initRes = await fetch(
-      `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status${hasCoords ? ",recordingDetails" : ""}&notifySubscribers=${notifySubscribers}`,
+    // Ouverture de la session d'envoi : rien n'est encore publié.
+    const initUrl = `${UPLOAD_BASE}?uploadType=resumable&part=snippet,status${hasCoords ? ",recordingDetails" : ""}&notifySubscribers=${notifySubscribers}`;
+    const initRes = await sendRequest(
+      "YOUTUBE",
+      initUrl,
       {
         method: "POST",
         headers: {
@@ -218,16 +296,24 @@ export const youtubeClient: SocialClient = {
         })
       }
     );
+    if (!initRes.ok) {
+      const { text, json } = await readBody("YOUTUBE", initRes, "POST");
+      throw errorFromResponse("YOUTUBE", initRes, text, json);
+    }
     const uploadUrl = initRes.headers.get("location");
-    if (!uploadUrl) throw new Error("YouTube n'a pas renvoyé d'URL d'upload resumable.");
+    if (!uploadUrl) throwUnexpected("YOUTUBE", `réponse dans un format inattendu (${endpointLabel("POST", initUrl)} : en-tête « Location » absent).`, initRes.status);
 
-    const uploadRes = await fetch(uploadUrl, {
+    // Envoi du fichier : c'est lui qui crée la vidéo. Sans réponse (délai
+    // dépassé), elle est peut-être en ligne : vérification, jamais renvoyée.
+    const uploadRes = await sendRequest("YOUTUBE", uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": "video/*", "Content-Length": String(videoBuffer.byteLength) },
-      body: videoBuffer
+      body: videoBuffer,
+      timeoutMs: 50_000
     });
-    const video = (await uploadRes.json()) as { id: string };
-    if (!uploadRes.ok) throw new Error("Échec de l'upload vidéo vers YouTube.");
+    const uploaded = await readBody("YOUTUBE", uploadRes, "PUT");
+    if (!uploadRes.ok) throw errorFromResponse("YOUTUBE", uploadRes, uploaded.text, uploaded.json);
+    const video = checkShape("YOUTUBE", uploadedVideoSchema, uploaded.json, endpointLabel("PUT", UPLOAD_BASE), uploadRes.status);
 
     // Playlist : appel séparé (playlistItems.insert), best-effort — un échec
     // ici (playlist supprimée entre-temps, id invalide, etc.) ne doit pas
@@ -246,7 +332,10 @@ export const youtubeClient: SocialClient = {
       }
     }
 
-    return { externalPostId: video.id, externalUrl: `https://youtube.com/watch?v=${video.id}` };
+    // Miniature choisie dans Publier (Réussites, lot B) : best-effort aussi.
+    const thumbnail = input.thumbnailUrl ? await applyYoutubeThumbnail(connection, video.id, input.thumbnailUrl) : undefined;
+
+    return { externalPostId: video.id, externalUrl: `https://youtube.com/watch?v=${video.id}`, ...(thumbnail ? { thumbnail } : {}) };
   },
 
   /**
@@ -276,27 +365,30 @@ export const youtubeClient: SocialClient = {
     const perVideo = await Promise.all(
       videos.map(async (video) => {
         try {
-          const threads = await fetchJson<{
-            items: {
-              id: string;
-              snippet: {
-                videoId: string;
-                topLevelComment: {
-                  id: string;
-                  snippet: {
-                    textDisplay: string;
-                    authorDisplayName: string;
-                    authorProfileImageUrl: string;
-                    publishedAt: string;
-                  };
-                };
-              };
-            }[];
-          }>(
-            "YOUTUBE",
-            `${API_BASE}/commentThreads?part=snippet&videoId=${video.videoId}&maxResults=25&order=time`,
-            { headers: { Authorization: `Bearer ${connection.accessToken}` } }
-          );
+          // part=replies (même coût de quota) : les réponses du fil, pour
+          // repérer celles de la chaîne elle-même (Réussites, lot B).
+          const threads = await fetchJson("YOUTUBE", `${API_BASE}/commentThreads?part=snippet,replies&videoId=${video.videoId}&maxResults=25&order=time`, {
+            headers: { Authorization: `Bearer ${connection.accessToken}` },
+            schema: ytList(
+              z.object({
+                id: idSchema,
+                snippet: z.object({
+                  videoId: textSchema,
+                  topLevelComment: z.object({
+                    id: idSchema,
+                    snippet: z.object({ textDisplay: textSchema, authorDisplayName: textSchema, authorProfileImageUrl: textSchema, publishedAt: textSchema })
+                  })
+                }),
+                replies: soft(
+                  z.object({
+                    comments: soft(
+                      z.array(z.object({ snippet: soft(z.object({ authorChannelId: soft(z.object({ value: textSchema })), publishedAt: textSchema })) }))
+                    )
+                  })
+                )
+              })
+            )
+          });
           return threads.items ?? [];
         } catch (err) {
           // Commentaires désactivés sur cette vidéo, ou vidéo trop récente :
@@ -309,9 +401,11 @@ export const youtubeClient: SocialClient = {
 
     const items = perVideo.flat().map((item) => {
       const c = item.snippet.topLevelComment.snippet;
-      const videoId = item.snippet.videoId;
+      const videoId = item.snippet.videoId ?? "";
+      const own = (item.replies?.comments ?? []).filter((r) => r.snippet?.authorChannelId?.value === connection.externalAccountId);
       return {
         type: "COMMENT" as const,
+        ownerRepliedAt: earliest(own.map((r) => toDate(r.snippet?.publishedAt) ?? new Date())),
         externalId: item.snippet.topLevelComment.id,
         postExternalId: videoId,
         postPermalink: videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined,
@@ -319,7 +413,7 @@ export const youtubeClient: SocialClient = {
         authorAvatarUrl: c.authorProfileImageUrl,
         text: c.textDisplay,
         permalink: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${item.snippet.topLevelComment.id}` : undefined,
-        publishedAt: c.publishedAt ? new Date(c.publishedAt) : undefined
+        publishedAt: toDate(c.publishedAt)
       };
     });
 
@@ -332,29 +426,44 @@ export const youtubeClient: SocialClient = {
    * part=statistics, scope youtube.readonly déjà demandé). YouTube n'expose
    * ni les partages ni les enregistrements via l'API Data : laissés à null.
    */
+  // Dernières vidéos mises en ligne (vérification « déjà en ligne ? », lot 6) :
+  // liste « uploads » de la chaîne — 2 unités de quota, contre 100 pour une
+  // recherche — y compris les vidéos privées ou programmées.
+  async listRecentPosts(connection: ConnectionLike): Promise<RecentPost[]> {
+    // Liste stricte (lot 7) : une chaîne ou une liste illisible est une
+    // erreur, jamais « aucune vidéo » (une relance ferait un doublon).
+    const videos = await fetchRecentVideos(connection, 10);
+    return videos.map((v) => ({
+      externalPostId: v.videoId,
+      text: v.title,
+      permalink: `https://www.youtube.com/watch?v=${v.videoId}`,
+      publishedAt: toDate(v.publishedAt)
+    }));
+  },
+
   async fetchPostMetrics(connection: ConnectionLike): Promise<PostMetricInput[]> {
     await freshYoutubeToken(connection);
     const videos = await fetchRecentVideos(connection, 15);
     if (videos.length === 0) return [];
     const ids = videos.map((v) => v.videoId).join(",");
-    const data = await fetchJson<{
-      items: { id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }[];
-    }>("YOUTUBE", `${API_BASE}/videos?part=statistics&id=${ids}&maxResults=50`, {
-      headers: { Authorization: `Bearer ${connection.accessToken}` }
+    const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=statistics&id=${ids}&maxResults=50`, {
+      headers: { Authorization: `Bearer ${connection.accessToken}` },
+      // Compteurs en texte chez YouTube (« "1234" »), absents quand la chaîne
+      // les masque (mentions J'aime désactivées…) : affichés « — ».
+      schema: ytList(z.object({ id: idSchema, statistics: soft(z.object({ viewCount: countSchema, likeCount: countSchema, commentCount: countSchema })) }))
     });
     const statsById = new Map((data.items ?? []).map((item) => [item.id, item.statistics ?? {}]));
-    const num = (value: string | undefined) => (value === undefined ? null : Number(value));
     return videos.map((v) => {
-      const st = statsById.get(v.videoId) ?? {};
+      const st: { viewCount?: number; likeCount?: number; commentCount?: number } = statsById.get(v.videoId) ?? {};
       return {
         postExternalId: v.videoId,
         title: v.title,
         permalink: `https://www.youtube.com/watch?v=${v.videoId}`,
         thumbnailUrl: v.thumbnailUrl,
-        publishedAt: v.publishedAt ? new Date(v.publishedAt) : undefined,
-        views: num(st.viewCount),
-        likes: num(st.likeCount),
-        comments: num(st.commentCount),
+        publishedAt: toDate(v.publishedAt),
+        views: st.viewCount ?? null,
+        likes: st.likeCount ?? null,
+        comments: st.commentCount ?? null,
         shares: null,
         saves: null
       };
@@ -363,20 +472,24 @@ export const youtubeClient: SocialClient = {
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {
     await freshYoutubeToken(connection);
-    const channel = await fetchJson<{
-      items: { statistics: { subscriberCount: string; viewCount: string; videoCount: string } }[];
-    }>("YOUTUBE", `${API_BASE}/channels?part=statistics&mine=true`, {
-      headers: { Authorization: `Bearer ${connection.accessToken}` }
+    const channel = await fetchJson("YOUTUBE", `${API_BASE}/channels?part=statistics&mine=true`, {
+      headers: { Authorization: `Bearer ${connection.accessToken}` },
+      schema: ytList(
+        z.object({
+          statistics: z.object({ subscriberCount: countSchema, hiddenSubscriberCount: soft(z.boolean()), viewCount: countSchema, videoCount: countSchema })
+        })
+      )
     });
-    const stats = channel.items[0]?.statistics;
+    const stats = channel.items?.[0]?.statistics;
+    if (!stats) throw new SocialApiError("YOUTUBE", NO_CHANNEL_MESSAGE, 403);
 
     return {
-      followers: Number(stats?.subscriberCount ?? 0),
+      followers: stats.subscriberCount ?? 0,
       followersDelta: 0,
       engagementRate: 0,
-      impressions: Number(stats?.viewCount ?? 0),
+      impressions: stats.viewCount ?? 0,
       reach: 0,
-      postsCount: Number(stats?.videoCount ?? 0)
+      postsCount: stats.videoCount ?? 0
     };
   }
 };
@@ -415,11 +528,11 @@ export async function fetchRetention(
     filters: `video==${videoId}`
   });
 
-  const data = await fetchJson<{ rows?: [number, number][] }>(
-    "YOUTUBE",
-    `${ANALYTICS_BASE}/reports?${params.toString()}`,
-    { headers: { Authorization: `Bearer ${connection.accessToken}` } }
-  );
+  const data = await fetchJson("YOUTUBE", `${ANALYTICS_BASE}/reports?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${connection.accessToken}` },
+    // rows absent : pas encore de données pour cette vidéo.
+    schema: z.object({ rows: opt(z.array(z.tuple([z.number(), z.number()]).rest(z.unknown()))) })
+  });
 
   if (!data.rows?.length) {
     throw new Error(
@@ -427,7 +540,7 @@ export async function fetchRetention(
     );
   }
 
-  return data.rows.map(([timeRatio, watchRatio]) => ({ timeRatio, watchRatio }));
+  return data.rows.map((row) => ({ timeRatio: row[0], watchRatio: row[1] }));
 }
 
 export interface YoutubeVideoSummary {
@@ -439,29 +552,45 @@ export interface YoutubeVideoSummary {
 
 /**
  * Liste les vidéos les plus récentes de la chaîne connectée (scope
- * youtube.readonly, déjà demandé — voir getAuthUrl ci-dessus), pour le
- * sélecteur de l'outil autonome de rétention (/retention) : n'importe quelle
- * vidéo de la chaîne, publiée ou non via Nebula, pas seulement celles créées
- * depuis le Composer.
+ * youtube.readonly, déjà demandé — voir getAuthUrl ci-dessus) : sélecteur
+ * de l'outil de rétention (/retention), commentaires, statistiques par
+ * vidéo et vérification « déjà en ligne ? ». N'importe quelle vidéo de la
+ * chaîne, publiée ou non via Nebula (y compris privée ou programmée).
+ *
+ * Lot 7 : liste « uploads » de la chaîne (channels + playlistItems, 2 unités
+ * de quota) au lieu d'une recherche (search.list : 100 unités, et limitée à
+ * 100 appels par jour depuis juin 2026). La synchro des commentaires et des
+ * statistiques en faisait une à chaque passage.
  */
 export async function fetchRecentVideos(connection: ConnectionLike, maxResults = 12): Promise<YoutubeVideoSummary[]> {
   await freshYoutubeToken(connection);
-  const data = await fetchJson<{
-    items: { id: { videoId: string }; snippet: { title: string; publishedAt: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
-  }>(
+  const headers = { Authorization: `Bearer ${connection.accessToken}` };
+  const channel = await fetchJson("YOUTUBE", `${API_BASE}/channels?part=contentDetails&mine=true`, {
+    headers,
+    schema: ytList(z.object({ contentDetails: z.object({ relatedPlaylists: z.object({ uploads: z.string().min(1) }) }) }))
+  });
+  const uploads = channel.items?.[0]?.contentDetails.relatedPlaylists.uploads;
+  if (!uploads) throw new SocialApiError("YOUTUBE", NO_CHANNEL_MESSAGE, 403);
+  const data = await fetchJson(
     "YOUTUBE",
-    `${API_BASE}/search?part=snippet&forMine=true&type=video&order=date&maxResults=${maxResults}`,
-    { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+    `${API_BASE}/playlistItems?part=snippet,contentDetails&maxResults=${Math.min(Math.max(maxResults, 1), 50)}&playlistId=${encodeURIComponent(uploads)}`,
+    { headers, schema: z.object({ items: z.array(playlistItemSchema) }) }
   );
 
-  return (data.items ?? [])
-    .filter((item) => item.id?.videoId)
-    .map((item) => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title,
-      thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default.url,
-      publishedAt: item.snippet.publishedAt
-    }));
+  return data.items
+    .map((item) => {
+      const videoId = item.snippet.resourceId.videoId ?? item.contentDetails?.videoId;
+      if (!videoId) return null;
+      const thumbs = item.snippet.thumbnails;
+      return {
+        videoId,
+        title: item.snippet.title ?? "",
+        thumbnailUrl: thumbs?.medium?.url ?? thumbs?.default?.url ?? thumbs?.high?.url ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+        // Date de mise en ligne de la vidéo (celle de l'ajout à la liste sinon).
+        publishedAt: item.contentDetails?.videoPublishedAt ?? item.snippet.publishedAt ?? ""
+      };
+    })
+    .filter((v): v is YoutubeVideoSummary => v !== null);
 }
 
 export interface YoutubeVideoMetadata {
@@ -473,18 +602,18 @@ export interface YoutubeVideoMetadata {
 /** Métadonnées publiques d'une vidéo précise (titre, description, miniature). */
 export async function fetchVideoMetadata(connection: ConnectionLike, videoId: string): Promise<YoutubeVideoMetadata> {
   await freshYoutubeToken(connection);
-  const data = await fetchJson<{
-    items: { snippet: { title: string; description: string; thumbnails: { medium?: { url: string }; default: { url: string } } } }[];
-  }>("YOUTUBE", `${API_BASE}/videos?part=snippet&id=${videoId}`, {
-    headers: { Authorization: `Bearer ${connection.accessToken}` }
+  const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=snippet&id=${encodeURIComponent(videoId)}`, {
+    headers: { Authorization: `Bearer ${connection.accessToken}` },
+    schema: ytList(z.object({ snippet: z.object({ title: z.string(), description: z.string().default(""), thumbnails: thumbnailsSchema }) }))
   });
 
   const item = data.items?.[0];
   if (!item) throw new Error("Vidéo introuvable sur cette chaîne YouTube.");
 
+  const thumbs = item.snippet.thumbnails;
   return {
     title: item.snippet.title,
     description: item.snippet.description,
-    thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default.url
+    thumbnailUrl: thumbs?.medium?.url ?? thumbs?.default?.url ?? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`
   };
 }

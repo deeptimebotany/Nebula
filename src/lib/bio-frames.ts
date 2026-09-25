@@ -12,7 +12,7 @@
 //    Or Impérial, éclipse partout ailleurs).
 //  - Cadres ultimes Nacre (1 M de j'aime) et Prisme (1 M d'abonnés) : tous
 //    thèmes, avec leur propre univers visuel.
-//  - Carrefour et Astre : récompenses de la page Réussites, tous thèmes.
+//  - Carrefour, Astre et Halo : récompenses de la page Réussites, tous thèmes.
 //
 // LinkPage.frame vaut null (= automatique : halo sur Or/Éclipse, rien
 // ailleurs), "none" (aucun cadre) ou l'une des clés ci-dessous.
@@ -48,7 +48,10 @@ export const BIO_FRAMES: BioFrameDef[] = [
   // un objectif : « Carrefour » (1 000 clics sur la page bio) et « Astre »
   // (niveau 7). Tous thèmes.
   { key: "carrefour", label: "Carrefour", style: "carrefour", requiresEgg: "ach:frame-carrefour" },
-  { key: "astre", label: "Astre", style: "astre", requiresEgg: "ach:frame-astre" }
+  { key: "astre", label: "Astre", style: "astre", requiresEgg: "ach:frame-astre" },
+  // Lot B des Réussites : étoile Communauté ★3 « Conversation » — le halo
+  // qui respire, sur tous les thèmes classiques.
+  { key: "halo", label: "Halo", style: "halo", requiresEgg: "ach:frame-halo" }
 ];
 
 export const FRAME_NONE = "none";

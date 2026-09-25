@@ -1,0 +1,16 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users('exemple')/drive/root/children",
+  "value": [
+    { "id": "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", "name": "Photos", "size": 1048576, "folder": { "childCount": 12 }, "thumbnails": [] },
+    {
+      "id": "01BYE5RZ4MYJ4TQOZPGNE3NBNWM2SHBO2W",
+      "name": "menu.jpg",
+      "size": 204800,
+      "file": { "mimeType": "image/jpeg", "hashes": { "quickXorHash": "exemple" } },
+      "image": { "height": 1080, "width": 1080 },
+      "thumbnails": [{ "id": "0", "small": { "height": 96, "url": "https://exemple-my.sharepoint.com/thumb-s.jpg", "width": 96 }, "medium": { "height": 176, "url": "https://exemple-my.sharepoint.com/thumb-m.jpg", "width": 176 }, "large": { "height": 800, "url": "https://exemple-my.sharepoint.com/thumb-l.jpg", "width": 800 } }]
+    },
+    { "id": "01BYE5RZ5EXEMPLENOTESDOCX0000000000", "name": "notes.docx", "size": 5120, "file": { "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }, "thumbnails": [] },
+    { "id": "01BYE5RZ7VIDEOEXEMPLE0000000000000000", "name": "coulisses.mp4", "size": 10485760, "file": { "mimeType": "video/mp4" }, "video": { "duration": 12000, "height": 1920, "width": 1080 }, "thumbnails": [] }
+  ]
+}

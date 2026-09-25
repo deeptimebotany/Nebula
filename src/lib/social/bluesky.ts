@@ -13,26 +13,72 @@
 // Publication : texte (300 caractères) + jusqu'à 4 images (1 Mo chacune),
 // liens, hashtags et mentions rendus cliquables. La vidéo n'est pas encore
 // branchée (elle passe par un service d'encodage séparé côté Bluesky).
+import type { ZodType, ZodTypeDef } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
 import {
   SocialApiError,
+  checkShape,
+  downloadMedia,
+  parseRetryAfter,
+  readBody,
+  sendRequest,
+  withReadRetries,
   type ConnectionLike,
   type EngagementItemInput,
   type OAuthTokenResult,
   type PostMetricInput,
+  type RecentPost,
   type PublishInput,
   type SocialClient
 } from "./base";
+import { countSchema, endpointLabel, soft, textSchema, toDate, z } from "./contract";
+import { adoptConcurrentRefresh } from "./tokens";
 
 const ENTRYWAY = "https://bsky.social";
 const APPVIEW = "https://public.api.bsky.app";
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 1_000_000;
 
+// --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
+// Doc : lexiques du protocole AT (https://docs.bsky.app/docs/api/) —
+// com.atproto.server.createSession, com.atproto.repo.createRecord,
+// app.bsky.feed.getAuthorFeed… Réponses types : tests/contracts/fixtures/bluesky.
+const sessionSchema = z.object({ did: z.string().min(1), handle: z.string().min(1), accessJwt: z.string().min(1), refreshJwt: z.string().min(1) });
+const didSchema = z.object({ did: z.string().min(1) });
+const feedPostSchema = z.object({
+  uri: z.string().min(1),
+  cid: z.string().min(1),
+  author: z.object({ did: z.string().min(1), handle: z.string(), displayName: textSchema, avatar: textSchema }),
+  record: z.object({ text: textSchema, createdAt: textSchema }),
+  embed: soft(z.object({ images: soft(z.array(z.object({ thumb: textSchema }))), thumbnail: textSchema })),
+  likeCount: countSchema,
+  replyCount: countSchema,
+  repostCount: countSchema,
+  quoteCount: countSchema,
+  indexedAt: textSchema
+});
+const authorFeedSchema = z.object({ feed: z.array(z.object({ post: feedPostSchema, reason: z.unknown().optional() })), cursor: textSchema });
+const profileSchema = z.object({ handle: z.string(), displayName: textSchema, avatar: textSchema, followersCount: countSchema, postsCount: countSchema });
+const threadSchema = z.object({
+  thread: z.object({ replies: soft(z.array(z.object({ post: soft(feedPostSchema) }).passthrough())) }).passthrough()
+});
+
 // --- Petits outils ---------------------------------------------------------
 
-async function xrpc<T>(base: string, method: string, init: { query?: Record<string, string | string[]>; body?: unknown; token?: string; raw?: { data: ArrayBuffer; mime: string }; post?: boolean } = {}): Promise<T> {
+async function xrpc<T = unknown>(
+  base: string,
+  method: string,
+  init: {
+    query?: Record<string, string | string[]>;
+    body?: unknown;
+    token?: string;
+    raw?: { data: ArrayBuffer; mime: string };
+    post?: boolean;
+    /** Contrat de la réponse (lot 7). Sans : réponse non lue. */
+    schema?: ZodType<T, ZodTypeDef, unknown>;
+  } = {}
+): Promise<T> {
   const url = new URL(`${base}/xrpc/${method}`);
   for (const [k, v] of Object.entries(init.query ?? {})) {
     for (const item of Array.isArray(v) ? v : [v]) url.searchParams.append(k, item);
@@ -47,28 +93,31 @@ async function xrpc<T>(base: string, method: string, init: { query?: Record<stri
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(init.body);
   }
-  const res = await fetch(url, { method: init.post || init.body !== undefined || init.raw ? "POST" : "GET", headers, body, cache: "no-store" });
-  const text = await res.text();
-  let json: unknown;
-  try {
-    json = text ? JSON.parse(text) : undefined;
-  } catch {
-    json = undefined;
-  }
-  if (!res.ok) {
-    const err = json as { error?: string; message?: string } | undefined;
-    const code = err?.error ?? "";
-    const message =
-      code === "ExpiredToken" || code === "InvalidToken"
-        ? "Session Bluesky expirée : reconnectez le compte."
-        : method === "com.atproto.server.createSession" && (code === "AuthenticationRequired" || res.status === 401)
-          ? "Identifiant ou mot de passe d'application Bluesky incorrect."
-          : res.status === 401
-            ? "Session Bluesky expirée : reconnectez le compte."
-            : err?.message || code || res.statusText;
-    throw new SocialApiError("BLUESKY", message, res.status, json);
-  }
-  return json as T;
+  const httpMethod = init.post || init.body !== undefined || init.raw ? "POST" : "GET";
+  const endpoint = endpointLabel(httpMethod, url.toString());
+  const once = async (): Promise<T> => {
+    // Porte commune (lot 7) : délai garanti, absence de réponse classée.
+    const res = await sendRequest("BLUESKY", url.toString(), { method: httpMethod, headers, body, cache: "no-store", timeoutMs: 30_000 });
+    const { json } = await readBody("BLUESKY", res, httpMethod);
+    if (!res.ok) {
+      const err = json as { error?: string; message?: string } | undefined;
+      const code = err?.error ?? "";
+      const message =
+        code === "ExpiredToken" || code === "InvalidToken"
+          ? "Session Bluesky expirée : reconnectez le compte."
+          : method === "com.atproto.server.createSession" && (code === "AuthenticationRequired" || res.status === 401)
+            ? "Identifiant ou mot de passe d'application Bluesky incorrect."
+            : res.status === 401
+              ? "Session Bluesky expirée : reconnectez le compte."
+              : err?.message || code || res.statusText;
+      const apiError = new SocialApiError("BLUESKY", message, res.status, json);
+      apiError.retryAfterMs = parseRetryAfter(res.headers.get("retry-after"));
+      throw apiError;
+    }
+    return init.schema ? checkShape("BLUESKY", init.schema, json, endpoint, res.status) : (json as T);
+  };
+  // Lectures : relancées après une panne passagère ; écritures : jamais (lot 5).
+  return httpMethod === "GET" ? withReadRetries(once) : once();
 }
 
 function pdsOf(connection: { scopes?: string | null }): string {
@@ -86,22 +135,18 @@ function jwtExpiry(jwt: string): Date | undefined {
   }
 }
 
-interface SessionResult {
-  did: string;
-  handle: string;
-  accessJwt: string;
-  refreshJwt: string;
-}
+type SessionResult = z.output<typeof sessionSchema>;
 
 /** Trouve le serveur de données (PDS) d'un compte à partir de son pseudo. */
 async function resolvePds(identifier: string): Promise<string> {
   if (identifier.includes("@") || !identifier.includes(".")) return ENTRYWAY;
   try {
-    const { did } = await xrpc<{ did: string }>(APPVIEW, "com.atproto.identity.resolveHandle", { query: { handle: identifier } });
+    const { did } = await xrpc(APPVIEW, "com.atproto.identity.resolveHandle", { query: { handle: identifier }, schema: didSchema });
     const docUrl = did.startsWith("did:web:") ? `https://${did.slice("did:web:".length)}/.well-known/did.json` : `https://plc.directory/${did}`;
-    const res = await fetch(docUrl, { cache: "no-store" });
+    const res = await sendRequest("BLUESKY", docUrl, { cache: "no-store", timeoutMs: 10_000 });
     if (!res.ok) return ENTRYWAY;
-    const doc = (await res.json()) as { service?: { id: string; type: string; serviceEndpoint: string }[] };
+    const doc = (await readBody("BLUESKY", res)).json as { service?: { id: string; type: string; serviceEndpoint: string }[] } | undefined;
+    if (!doc || !Array.isArray(doc.service)) return ENTRYWAY;
     const pds = doc.service?.find((s) => s.id === "#atproto_pds" || s.type === "AtprotoPersonalDataServer")?.serviceEndpoint;
     return pds?.replace(/\/$/, "") || ENTRYWAY;
   } catch {
@@ -117,8 +162,8 @@ async function resolvePds(identifier: string): Promise<string> {
 export async function connectWithAppPassword(identifierRaw: string, appPassword: string): Promise<OAuthTokenResult> {
   const identifier = identifierRaw.trim().replace(/^@/, "");
   const pds = await resolvePds(identifier);
-  const session = await xrpc<SessionResult>(pds, "com.atproto.server.createSession", { body: { identifier, password: appPassword.trim() } });
-  const profile = await xrpc<{ displayName?: string; avatar?: string; handle: string }>(APPVIEW, "app.bsky.actor.getProfile", { query: { actor: session.did } }).catch(() => null);
+  const session = await xrpc(pds, "com.atproto.server.createSession", { body: { identifier, password: appPassword.trim() }, schema: sessionSchema });
+  const profile = await xrpc(APPVIEW, "app.bsky.actor.getProfile", { query: { actor: session.did }, schema: profileSchema }).catch(() => null);
   return {
     accessToken: session.accessJwt,
     refreshToken: session.refreshJwt,
@@ -141,7 +186,16 @@ async function accessTokenFor(connection: BlueskyConnection): Promise<string> {
   if (exp && exp.getTime() - Date.now() > 5 * 60_000) return connection.accessToken;
   if (!connection.refreshToken) throw new SocialApiError("BLUESKY", "Session Bluesky expirée : reconnectez le compte.", 401);
   // refreshSession : POST sans corps, authentifié par le jeton de rafraîchissement.
-  const session = await xrpc<SessionResult>(pdsOf(connection), "com.atproto.server.refreshSession", { token: connection.refreshToken, post: true });
+  const usedRefreshToken = connection.refreshToken;
+  let session: SessionResult;
+  try {
+    session = await xrpc(pdsOf(connection), "com.atproto.server.refreshSession", { token: usedRefreshToken, post: true, schema: sessionSchema });
+  } catch (err) {
+    // Bluesky remplace le jeton de rafraîchissement à chaque utilisation : si
+    // un autre traitement vient de le faire, on reprend sa session (lot 2).
+    if (await adoptConcurrentRefresh(connection, usedRefreshToken)) return connection.accessToken;
+    throw err;
+  }
   await prisma.socialConnection.update({
     where: { id: connection.id },
     data: { accessToken: session.accessJwt, refreshToken: session.refreshJwt, tokenExpiresAt: jwtExpiry(session.refreshJwt) ?? null, status: "CONNECTED", lastError: null }
@@ -149,6 +203,16 @@ async function accessTokenFor(connection: BlueskyConnection): Promise<string> {
   connection.accessToken = session.accessJwt;
   connection.refreshToken = session.refreshJwt;
   return session.accessJwt;
+}
+
+/**
+ * Ferme la session Bluesky de cette connexion (déconnexion dans Nebula) :
+ * le jeton ne peut plus servir, les autres sessions du compte ne sont pas
+ * touchées.
+ */
+export async function deleteBlueskySession(connection: BlueskyConnection): Promise<void> {
+  if (!connection.refreshToken) return;
+  await xrpc(pdsOf(connection), "com.atproto.server.deleteSession", { token: connection.refreshToken, post: true });
 }
 
 // --- Images : Bluesky refuse tout fichier de plus de 1 Mo ------------------
@@ -202,7 +266,7 @@ async function buildFacets(text: string): Promise<Facet[]> {
   const mentionRe = /(^|\s)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
   for (const m of Array.from(text.matchAll(mentionRe))) {
     try {
-      const { did } = await xrpc<{ did: string }>(APPVIEW, "com.atproto.identity.resolveHandle", { query: { handle: m[2] } });
+      const { did } = await xrpc(APPVIEW, "com.atproto.identity.resolveHandle", { query: { handle: m[2] }, schema: didSchema });
       const start = m.index! + m[1].length;
       facets.push({ index: byteRange(text, start, start + m[2].length + 1), features: [{ $type: "app.bsky.richtext.facet#mention", did }] });
     } catch {
@@ -220,22 +284,13 @@ function postUrl(handle: string | null | undefined, did: string, uri: string): s
   return `https://bsky.app/profile/${who}/post/${rkey}`;
 }
 
-interface FeedPost {
-  uri: string;
-  cid: string;
-  author: { did: string; handle: string };
-  record: { text?: string; createdAt?: string };
-  embed?: { images?: { thumb?: string }[]; thumbnail?: string };
-  likeCount?: number;
-  replyCount?: number;
-  repostCount?: number;
-  quoteCount?: number;
-  indexedAt?: string;
-}
+type FeedPost = z.output<typeof feedPostSchema>;
 
 async function recentOwnPosts(did: string, limit = 30): Promise<FeedPost[]> {
-  const feed = await xrpc<{ feed: { post: FeedPost; reason?: unknown }[] }>(APPVIEW, "app.bsky.feed.getAuthorFeed", {
-    query: { actor: did, limit: String(limit), filter: "posts_no_replies" }
+  // Liste stricte : illisible, elle ne doit jamais passer pour « aucune publication ».
+  const feed = await xrpc(APPVIEW, "app.bsky.feed.getAuthorFeed", {
+    query: { actor: did, limit: String(limit), filter: "posts_no_replies" },
+    schema: authorFeedSchema
   });
   return feed.feed.filter((f) => !f.reason && f.post.author.did === did).map((f) => f.post);
 }
@@ -273,11 +328,14 @@ export const blueskyClient: SocialClient = {
     if (imageUrls.length > 0) {
       const images = [];
       for (const url of imageUrls) {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new SocialApiError("BLUESKY", `Image inaccessible (${res.status}).`);
-        const mime = (res.headers.get("content-type") || "image/jpeg").split(";")[0];
-        const fitted = await fitImage(await res.arrayBuffer(), mime);
-        const { blob } = await xrpc<{ blob: unknown }>(pds, "com.atproto.repo.uploadBlob", { token, raw: fitted });
+        const media = await downloadMedia("BLUESKY", url);
+        const mime = media.type.startsWith("image/") ? media.type : "image/jpeg";
+        const fitted = await fitImage(media.bytes, mime);
+        const { blob } = await xrpc(pds, "com.atproto.repo.uploadBlob", {
+          token,
+          raw: fitted,
+          schema: z.object({ blob: z.object({ ref: z.unknown(), mimeType: z.string() }).passthrough() })
+        });
         images.push({ alt: "", image: blob });
       }
       embed = { $type: "app.bsky.embed.images", images };
@@ -295,9 +353,10 @@ export const blueskyClient: SocialClient = {
       // Bluesky, rien n'est ajouté.
     };
 
-    const created = await xrpc<{ uri: string; cid: string }>(pds, "com.atproto.repo.createRecord", {
+    const created = await xrpc(pds, "com.atproto.repo.createRecord", {
       token,
-      body: { repo: did, collection: "app.bsky.feed.post", record }
+      body: { repo: did, collection: "app.bsky.feed.post", record },
+      schema: z.object({ uri: z.string().min(1), cid: z.string().min(1) })
     });
     const handle = (await prisma.socialConnection.findUnique({ where: { id: connection.id }, select: { handle: true } }).catch(() => null))?.handle;
     return { externalPostId: created.uri, externalUrl: postUrl(handle, did, created.uri) };
@@ -305,7 +364,10 @@ export const blueskyClient: SocialClient = {
 
   async postComment(connection: BlueskyConnection, externalPostId: string, comment: string) {
     const token = await accessTokenFor(connection);
-    const { posts } = await xrpc<{ posts: { uri: string; cid: string }[] }>(APPVIEW, "app.bsky.feed.getPosts", { query: { uris: [externalPostId] } });
+    const { posts } = await xrpc(APPVIEW, "app.bsky.feed.getPosts", {
+      query: { uris: [externalPostId] },
+      schema: z.object({ posts: z.array(z.object({ uri: z.string().min(1), cid: z.string().min(1) })) })
+    });
     const parent = posts[0];
     if (!parent) throw new SocialApiError("BLUESKY", "Publication introuvable pour ajouter le commentaire.");
     const facets = await buildFacets(comment);
@@ -330,7 +392,7 @@ export const blueskyClient: SocialClient = {
     // Vérifie au passage que la session est toujours valide (sinon l'erreur
     // remonte et la page Comptes invite à reconnecter).
     await accessTokenFor(connection);
-    const profile = await xrpc<{ followersCount?: number; postsCount?: number }>(APPVIEW, "app.bsky.actor.getProfile", { query: { actor: connection.externalAccountId } });
+    const profile = await xrpc(APPVIEW, "app.bsky.actor.getProfile", { query: { actor: connection.externalAccountId }, schema: profileSchema });
     const posts = await recentOwnPosts(connection.externalAccountId, 30).catch(() => [] as FeedPost[]);
     const followers = profile.followersCount ?? 0;
     const interactions = posts.reduce((sum, p) => sum + (p.likeCount ?? 0) + (p.replyCount ?? 0) + (p.repostCount ?? 0) + (p.quoteCount ?? 0), 0);
@@ -347,6 +409,18 @@ export const blueskyClient: SocialClient = {
     };
   },
 
+  // Dernières publications (vérification « déjà en ligne ? », lot 6).
+  async listRecentPosts(connection: BlueskyConnection): Promise<RecentPost[]> {
+    const handle = (await prisma.socialConnection.findUnique({ where: { id: connection.id }, select: { handle: true } }).catch(() => null))?.handle;
+    const posts = await recentOwnPosts(connection.externalAccountId, 10);
+    return posts.map((p) => ({
+      externalPostId: p.uri,
+      text: p.record.text,
+      permalink: postUrl(handle, connection.externalAccountId, p.uri),
+      publishedAt: toDate(p.record.createdAt)
+    }));
+  },
+
   async fetchPostMetrics(connection: BlueskyConnection): Promise<PostMetricInput[]> {
     const handle = (await prisma.socialConnection.findUnique({ where: { id: connection.id }, select: { handle: true } }).catch(() => null))?.handle;
     const posts = await recentOwnPosts(connection.externalAccountId, 30);
@@ -355,7 +429,7 @@ export const blueskyClient: SocialClient = {
       title: (p.record.text ?? "").split("\n")[0].slice(0, 120),
       permalink: postUrl(handle, connection.externalAccountId, p.uri),
       thumbnailUrl: p.embed?.images?.[0]?.thumb ?? p.embed?.thumbnail,
-      publishedAt: p.record.createdAt ? new Date(p.record.createdAt) : undefined,
+      publishedAt: toDate(p.record.createdAt),
       views: null,
       likes: p.likeCount ?? 0,
       comments: p.replyCount ?? 0,
@@ -369,11 +443,7 @@ export const blueskyClient: SocialClient = {
     const posts = (await recentOwnPosts(connection.externalAccountId, 10)).filter((p) => (p.replyCount ?? 0) > 0);
     const items: EngagementItemInput[] = [];
     for (const post of posts) {
-      const thread = await xrpc<{ thread: { replies?: { post?: FeedPost & { author: { did: string; handle: string; displayName?: string; avatar?: string } } }[] } }>(
-        APPVIEW,
-        "app.bsky.feed.getPostThread",
-        { query: { uri: post.uri, depth: "1" } }
-      ).catch(() => null);
+      const thread = await xrpc(APPVIEW, "app.bsky.feed.getPostThread", { query: { uri: post.uri, depth: "1" }, schema: threadSchema }).catch(() => null);
       for (const reply of thread?.thread.replies ?? []) {
         const r = reply.post;
         if (!r || r.author.did === connection.externalAccountId) continue;
@@ -386,7 +456,7 @@ export const blueskyClient: SocialClient = {
           authorAvatarUrl: r.author.avatar,
           text: r.record.text,
           permalink: postUrl(r.author.handle, r.author.did, r.uri),
-          publishedAt: r.record.createdAt ? new Date(r.record.createdAt) : undefined
+          publishedAt: toDate(r.record.createdAt)
         });
       }
     }

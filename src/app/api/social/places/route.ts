@@ -3,8 +3,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireBrandMembership } from "@/lib/brand-access";
-import { fetchJson } from "@/lib/social/base";
-import { GRAPH_BASE } from "@/lib/social/meta";
+import { graph, PAGE_TOKEN_MARKER } from "@/lib/social/meta";
+import { graphList, idSchema, soft, textSchema, z } from "@/lib/social/contract";
+
+// Page Facebook d'un lieu (contrat de la réponse, lot 7).
+const placeSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  location: soft(
+    z.object({ street: textSchema, city: textSchema, zip: textSchema, country: textSchema, latitude: soft(z.number()), longitude: soft(z.number()) })
+  )
+});
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +49,17 @@ export async function GET(req: NextRequest) {
   const pageLink = (req.nextUrl.searchParams.get("page") ?? "").trim().slice(0, 300);
   if (!pageLink && q.length < 2) return NextResponse.json({ places: [] });
 
-  const connections: { network: string; accessToken: string }[] = await prisma.socialConnection.findMany({
+  const connections: { network: string; accessToken: string; scopes: string }[] = await prisma.socialConnection.findMany({
     where: { brandId, status: "CONNECTED", network: { in: ["FACEBOOK", "INSTAGRAM"] } },
-    select: { network: true, accessToken: true }
+    select: { network: true, accessToken: true, scopes: true }
   });
-  const connection = connections.find((c) => c.network === "FACEBOOK") ?? connections[0];
+  // La recherche de lieux demande un jeton d'UTILISATEUR Meta : celui des
+  // connexions Instagram (les Pages Facebook ont désormais leur propre jeton
+  // de Page, voir social/meta.ts), sinon celui d'une ancienne connexion Facebook.
+  const connection =
+    connections.find((c) => !c.scopes.split(",").includes(PAGE_TOKEN_MARKER) && c.network === "INSTAGRAM") ??
+    connections.find((c) => !c.scopes.split(",").includes(PAGE_TOKEN_MARKER)) ??
+    connections[0];
   if (!connection) {
     return NextResponse.json({ places: [], unavailable: true, reason: "no_connection", message: "Connectez un compte Facebook ou Instagram pour rechercher un lieu." });
   }
@@ -54,10 +69,10 @@ export async function GET(req: NextRequest) {
     const ref = pageRefFromLink(pageLink);
     if (!ref) return NextResponse.json({ error: "Lien de Page Facebook non reconnu." }, { status: 400 });
     try {
-      const page = await fetchJson<{ id: string; name: string; location?: { street?: string; city?: string; zip?: string; country?: string; latitude?: number; longitude?: number } }>(
-        connection.network === "FACEBOOK" ? "FACEBOOK" : "INSTAGRAM",
-        `${GRAPH_BASE}/${encodeURIComponent(ref)}?fields=id,name,location&access_token=${encodeURIComponent(connection.accessToken)}`
-      );
+      const page = await graph(connection.network === "FACEBOOK" ? "FACEBOOK" : "INSTAGRAM", `/${encodeURIComponent(ref)}`, connection.accessToken, {
+        params: { fields: "id,name,location" },
+        schema: placeSchema
+      });
       const place: PlaceResult = {
         id: page.id,
         name: page.name,
@@ -80,16 +95,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const params = new URLSearchParams({
-      q,
-      fields: "id,name,location",
-      limit: "10",
-      access_token: connection.accessToken
+    const data = await graph(connection.network === "FACEBOOK" ? "FACEBOOK" : "INSTAGRAM", "/pages/search", connection.accessToken, {
+      params: { q, fields: "id,name,location", limit: "10" },
+      schema: graphList(placeSchema)
     });
-    const data = await fetchJson<{
-      data?: { id: string; name: string; location?: { street?: string; city?: string; zip?: string; country?: string; latitude?: number; longitude?: number } }[];
-    }>(connection.network === "FACEBOOK" ? "FACEBOOK" : "INSTAGRAM", `${GRAPH_BASE}/pages/search?${params.toString()}`);
-    const places: PlaceResult[] = (data.data ?? [])
+    const places: PlaceResult[] = data.data
       .filter((p) => p.location && (p.location.city || p.location.street || typeof p.location.latitude === "number"))
       .map((p) => ({
         id: p.id,

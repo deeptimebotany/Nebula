@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { recordToolLead, TOOL_SLUGS } from "@/lib/tool-leads";
 import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import { grantLeadBonus, ipHashFromRequest, LEAD_BONUS_GENERATIONS } from "@/lib/public-tools-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
@@ -13,7 +13,8 @@ import { trackGrowth } from "@/lib/growth";
 // de cycle de vie faire le reste (voir src/lib/emails/lifecycle.ts).
 const bodySchema = z.object({
   email: z.string().trim().email().max(200),
-  tool: z.string().max(40),
+  // Liste fermée (audit sécurité, lot 1 — voir src/lib/tool-leads.ts).
+  tool: z.enum(TOOL_SLUGS),
   consent: z.boolean().default(false),
   turnstileToken: z.string().optional()
 });
@@ -30,7 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
   }
 
-  await prisma.toolLead.create({ data: { email: email.toLowerCase(), tool, consent, ipHash: ipHashFromRequest(req) } });
+  // Avec consentement : e-mail de confirmation avant tout conseil (double
+  // confirmation, voir src/lib/tool-leads.ts).
+  await recordToolLead({ email, tool, consent, ipHash: ipHashFromRequest(req) });
   await grantLeadBonus(req);
   await trackGrowth("tool_lead", { tool, consent });
   return NextResponse.json({ ok: true, bonus: LEAD_BONUS_GENERATIONS });

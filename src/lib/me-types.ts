@@ -4,7 +4,7 @@ import type { Plan } from "@/lib/plans";
 import type { Network } from "@/lib/types";
 
 export interface MeResponse {
-  user: { id: string; name: string; email: string; avatarUrl: string | null };
+  user: { id: string; name: string; email: string; avatarUrl: string | null; emailVerified: boolean };
   plan: Plan;
   maxBrands: number;
   brandsOwned: number;

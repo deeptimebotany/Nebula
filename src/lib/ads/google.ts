@@ -11,13 +11,34 @@
 // URL de retour <site>/api/ads/callback/google ; scope adwords (lecture et
 // gestion des campagnes — Nebula ne fait que lire).
 import { adsRedirectUri, googleAdsClientId, googleAdsClientSecret } from "./config";
+import { adsJson } from "./http";
 import { AdsError, isoDay, num, type AdAccountChoice, type AdAccountRef, type AdReport, type AdTokens } from "./types";
+import type { SocialApiError } from "@/lib/social/base";
+import { countSchema, idSchema, opt, soft, textSchema, z } from "@/lib/social/contract";
+import { googleAdsApiVersion } from "@/lib/social/versions";
 
-// Les versions de l'API Google Ads sont retirées environ un an après leur
-// sortie : GOOGLE_ADS_API_VERSION permet de passer à la suivante sans
-// attendre une mise à jour du code.
-const VERSION = () => process.env.GOOGLE_ADS_API_VERSION || "v25";
-const API = () => `https://googleads.googleapis.com/${VERSION()}`;
+// Version centralisée dans social/versions.ts (lot 8) ; GOOGLE_ADS_API_VERSION
+// permet de passer à la suivante sans attendre une mise à jour du code.
+const API = () => `https://googleads.googleapis.com/${googleAdsApiVersion()}`;
+
+// --- Contrats des réponses (lot 8, voir social/contract.ts) ------------------
+// Doc : https://developers.google.com/google-ads/api/rest/reference/rest (googleAds:search,
+//       customers:listAccessibleCustomers) et https://developers.google.com/identity/protocols/oauth2/web-server
+// Réponses types : tests/contracts/fixtures/google-ads. En JSON, Google omet
+// les valeurs nulles (0, liste vide) : un compteur absent vaut 0, une liste
+// absente est vide.
+const tokenSchema = z.object({ access_token: z.string().min(1), refresh_token: opt(z.string().min(1)), expires_in: soft(z.number()) });
+const metricsSchema = soft(z.object({ costMicros: countSchema, impressions: countSchema, clicks: countSchema, conversions: countSchema }));
+const dailyRowSchema = z.object({ segments: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }), metrics: metricsSchema });
+const campaignRowSchema = z.object({ campaign: z.object({ id: idSchema, name: textSchema, status: textSchema }), metrics: metricsSchema });
+const customerRowSchema = z.object({
+  customer: soft(z.object({ id: textSchema, descriptiveName: textSchema, currencyCode: textSchema, manager: soft(z.boolean()), testAccount: soft(z.boolean()) }))
+});
+const clientRowSchema = z.object({
+  customerClient: soft(
+    z.object({ id: textSchema, descriptiveName: textSchema, currencyCode: textSchema, manager: soft(z.boolean()), level: soft(z.union([z.string(), z.number()])), status: textSchema })
+  )
+});
 
 export function googleAdsAuthUrl(state: string): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -33,14 +54,22 @@ export function googleAdsAuthUrl(state: string): string {
 }
 
 async function tokenRequest(body: Record<string, string>): Promise<AdTokens> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: googleAdsClientId(), client_secret: googleAdsClientSecret(), ...body }),
-    cache: "no-store"
-  });
-  const json = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string };
-  if (!res.ok || !json.access_token) throw new AdsError(json.error_description || "Google a refusé la connexion.", 401);
+  const json = await adsJson(
+    "GOOGLE_ADS",
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: googleAdsClientId(), client_secret: googleAdsClientSecret(), ...body }),
+      schema: tokenSchema
+    },
+    // Refus de Google (autorisation retirée, code déjà utilisé…) : connexion à refaire.
+    (err: SocialApiError) => {
+      const raw = err.raw as { error?: unknown; error_description?: unknown } | undefined;
+      if (typeof raw?.error !== "string") return null;
+      return new AdsError(typeof raw.error_description === "string" && raw.error_description ? raw.error_description : "Google a refusé la connexion.", 401, "AUTH_EXPIRED");
+    }
+  );
   return { accessToken: json.access_token, refreshToken: json.refresh_token ?? null, expiresAt: new Date(Date.now() + (json.expires_in ?? 3600) * 1000) };
 }
 
@@ -59,18 +88,19 @@ function headers(token: string, loginCustomerId?: string | null): Record<string,
   };
 }
 
-async function search<T>(token: string, customerId: string, query: string, loginCustomerId?: string | null): Promise<T[]> {
+/** Requête GAQL paginée ; chaque ligne est vérifiée par `row`. */
+async function search<T>(token: string, customerId: string, query: string, row: z.ZodType<T, z.ZodTypeDef, unknown>, loginCustomerId?: string | null): Promise<T[]> {
   const out: T[] = [];
   let pageToken: string | undefined;
+  const schema = z.object({ results: opt(z.array(row)), nextPageToken: textSchema });
   for (let page = 0; page < 10; page++) {
-    const res = await fetch(`${API()}/customers/${customerId}/googleAds:search`, {
-      method: "POST",
-      headers: headers(token, loginCustomerId),
-      body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }),
-      cache: "no-store"
-    });
-    const json = (await res.json().catch(() => ({}))) as { results?: T[]; nextPageToken?: string; error?: GoogleApiError };
-    if (!res.ok) throw googleAdsError(res.status, json.error);
+    // Lecture (POST sans effet) : relancée comme une lecture.
+    const json = await adsJson(
+      "GOOGLE_ADS",
+      `${API()}/customers/${customerId}/googleAds:search`,
+      { method: "POST", headers: headers(token, loginCustomerId), body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }), readOnly: true, schema },
+      googleAdsError
+    );
     out.push(...(json.results ?? []));
     if (!json.nextPageToken) break;
     pageToken = json.nextPageToken;
@@ -78,59 +108,51 @@ async function search<T>(token: string, customerId: string, query: string, login
   return out;
 }
 
-interface GoogleApiError {
-  message?: string;
-  status?: string;
-  details?: unknown[];
-}
-
 /**
- * Traduit les refus de l'API en message clair. Les codes précis (ex.
+ * Refus propres à Google Ads, en message clair. Les codes précis (ex.
  * CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION) sont dans error.details : on
- * cherche dans toute la réponse.
+ * cherche dans toute la réponse. Les autres erreurs sont classées par la
+ * porte commune (connexion expirée, limite, panne…).
  */
-function googleAdsError(status: number, error: GoogleApiError | undefined): AdsError {
-  const raw = JSON.stringify(error ?? {});
-  if (status === 401) return new AdsError("Connexion Google Ads expirée : reconnectez le compte.", 401);
+function googleAdsError(err: SocialApiError): AdsError | null {
+  const raw = JSON.stringify(err.raw ?? {});
   if (/CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION|DEVELOPER_TOKEN_NOT_APPROVED|not approved/i.test(raw)) {
     return new AdsError(
       "Le projet Google Cloud de Nebula n'a encore que l'accès « Test » à l'API Google Ads : seuls les comptes de test répondent. Demandez l'accès Explorer (console Google Cloud → Google Ads API → Apply for access).",
-      403
+      403,
+      "PERMISSION_MISSING"
     );
   }
   if (/SERVICE_DISABLED|has not been used in project|is disabled/i.test(raw)) {
-    return new AdsError("L'API Google Ads n'est pas activée dans le projet Google Cloud de Nebula.", 403);
+    return new AdsError("L'API Google Ads n'est pas activée dans le projet Google Cloud de Nebula.", 403, "PERMISSION_MISSING");
   }
-  return new AdsError(error?.message || `Google Ads a répondu ${status}.`, status);
-}
-
-interface CustomerRow {
-  customer?: { id?: string; descriptiveName?: string; currencyCode?: string; manager?: boolean; testAccount?: boolean };
-}
-interface ClientRow {
-  customerClient?: { id?: string; descriptiveName?: string; currencyCode?: string; manager?: boolean; level?: string | number; status?: string };
+  return null;
 }
 
 /** Comptes accessibles : comptes directs + clients des comptes administrateurs. */
 export async function listGoogleAdsAccounts(tokens: AdTokens): Promise<AdAccountChoice[]> {
-  const res = await fetch(`${API()}/customers:listAccessibleCustomers`, { headers: headers(tokens.accessToken), cache: "no-store" });
-  const json = (await res.json().catch(() => ({}))) as { resourceNames?: string[]; error?: GoogleApiError };
-  if (!res.ok) throw googleAdsError(res.status, json.error ?? { message: "Impossible de lister vos comptes Google Ads." });
+  const json = await adsJson(
+    "GOOGLE_ADS",
+    `${API()}/customers:listAccessibleCustomers`,
+    { headers: headers(tokens.accessToken), schema: z.object({ resourceNames: opt(z.array(z.string())) }) },
+    googleAdsError
+  );
   const ids = (json.resourceNames ?? []).map((r) => r.split("/")[1]).filter(Boolean).slice(0, 20);
   const out = new Map<string, AdAccountChoice>();
   for (const id of ids) {
     try {
-      const [row] = await search<CustomerRow>(tokens.accessToken, id, "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.manager FROM customer LIMIT 1");
+      const [row] = await search(tokens.accessToken, id, "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.manager FROM customer LIMIT 1", customerRowSchema);
       const c = row?.customer;
       if (!c) continue;
       if (!c.manager) {
         out.set(id, { externalId: id, name: c.descriptiveName || `Compte ${id}`, currency: c.currencyCode || "EUR", loginCustomerId: null });
         continue;
       }
-      const clients = await search<ClientRow>(
+      const clients = await search(
         tokens.accessToken,
         id,
         "SELECT customer_client.id, customer_client.descriptive_name, customer_client.currency_code, customer_client.manager, customer_client.level, customer_client.status FROM customer_client WHERE customer_client.level <= 1",
+        clientRowSchema,
         id
       );
       for (const cl of clients) {
@@ -145,39 +167,37 @@ export async function listGoogleAdsAccounts(tokens: AdTokens): Promise<AdAccount
   return Array.from(out.values());
 }
 
-interface ReportRow {
-  segments?: { date?: string };
-  campaign?: { id?: string; name?: string; status?: string };
-  metrics?: { costMicros?: string; impressions?: string; clicks?: string; conversions?: number | string };
-}
-
 export async function fetchGoogleAdsReport(account: AdAccountRef, accessToken: string, start: Date, end: Date, withCampaigns = true): Promise<AdReport> {
   const range = `segments.date BETWEEN '${isoDay(start)}' AND '${isoDay(end)}'`;
-  const daily = await search<ReportRow>(
+  const daily = await search(
     accessToken,
     account.externalId,
     `SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions FROM customer WHERE ${range}`,
+    dailyRowSchema,
     account.loginCustomerId
   );
-  const campaigns = !withCampaigns ? [] : await search<ReportRow>(
-    accessToken,
-    account.externalId,
-    `SELECT campaign.id, campaign.name, campaign.status, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions FROM campaign WHERE ${range} AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC LIMIT 50`,
-    account.loginCustomerId
-  );
+  const campaigns = !withCampaigns
+    ? []
+    : await search(
+        accessToken,
+        account.externalId,
+        `SELECT campaign.id, campaign.name, campaign.status, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions FROM campaign WHERE ${range} AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC LIMIT 50`,
+        campaignRowSchema,
+        account.loginCustomerId
+      );
   const STATUS: Record<string, string> = { ENABLED: "Active", PAUSED: "En pause" };
   return {
     days: daily.map((r) => ({
-      date: r.segments?.date ?? "",
+      date: r.segments.date,
       spend: num(r.metrics?.costMicros) / 1_000_000,
       impressions: num(r.metrics?.impressions),
       clicks: num(r.metrics?.clicks),
       conversions: num(r.metrics?.conversions)
     })),
     campaigns: campaigns.map((r) => ({
-      id: r.campaign?.id ?? "",
-      name: r.campaign?.name ?? "Campagne",
-      status: r.campaign?.status ? STATUS[r.campaign.status] ?? r.campaign.status : null,
+      id: r.campaign.id,
+      name: r.campaign.name ?? "Campagne",
+      status: r.campaign.status ? STATUS[r.campaign.status] ?? r.campaign.status : null,
       spend: num(r.metrics?.costMicros) / 1_000_000,
       impressions: num(r.metrics?.impressions),
       clicks: num(r.metrics?.clicks),

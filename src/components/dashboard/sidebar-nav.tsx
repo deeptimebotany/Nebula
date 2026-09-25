@@ -251,13 +251,13 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         ))}
       </nav>
 
-      {/* Pied : niveau de créateur, mode clair/sombre, déconnexion, version */}
+      {/* Pied : rang de créateur, mode clair/sombre, déconnexion, version */}
       <div className={clsx("shrink-0 border-t border-white/[0.06] py-2", collapsed ? "px-2" : "px-3")}>
         {showLevelGauge && reussites && (
           <Link
             href="/reussites"
             onClick={onClose}
-            title={collapsed ? `Niveau ${reussites.level} · ${reussites.name} — ${reussites.pct} %` : "Voir mes réussites"}
+            title={collapsed ? `${reussites.name} — ${reussites.pct} %` : "Voir mes réussites"}
             className={clsx(
               "mb-2 block rounded-xl border border-white/[0.07] bg-white/[0.02] transition hover:border-aurora-400/40",
               collapsed ? "flex justify-center py-1.5" : "px-3 py-2"
@@ -269,7 +269,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
               <>
                 <span className="flex items-center justify-between gap-2 text-[11px]">
                   <span className="truncate text-slate-300">
-                    Niveau {reussites.level} · <span className="font-medium text-white">{reussites.name}</span>
+                    Rang · <span className="font-medium text-white">{reussites.name}</span>
                   </span>
                   <span className="tabular-nums text-slate-400">{reussites.pct} %</span>
                 </span>

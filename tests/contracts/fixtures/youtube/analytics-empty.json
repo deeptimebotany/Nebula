@@ -1,0 +1,1 @@
+{"kind":"youtubeAnalytics#resultTable","columnHeaders":[{"name":"elapsedVideoTimeRatio","columnType":"DIMENSION","dataType":"FLOAT"},{"name":"audienceWatchRatio","columnType":"METRIC","dataType":"FLOAT"}]}

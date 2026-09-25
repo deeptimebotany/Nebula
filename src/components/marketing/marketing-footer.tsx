@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
+import { networkInkStyle } from "@/components/ui/network-badge";
 import { SITE_NAME } from "@/lib/site";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
@@ -68,8 +69,10 @@ export function MarketingFooter() {
               {LAUNCHED_NETWORKS.map((n) => (
                 <li
                   key={n}
-                  className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
-                  style={{ borderColor: `${NETWORK_META[n].color}44`, color: NETWORK_META[n].color }}
+                  // network-ink : couleur du réseau en sombre, version assombrie en
+                  // mode clair (TikTok cyan sur blanc était à 1,9:1).
+                  className="network-ink rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                  style={{ borderColor: `${NETWORK_META[n].color}44`, ...networkInkStyle(n) }}
                 >
                   {NETWORK_META[n].label}
                 </li>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useAvailableNetworks } from "@/lib/use-available-networks";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { composerDraftFrom, type StudioOutput } from "@/lib/studio/types";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
@@ -21,18 +22,16 @@ import {
 } from "@/lib/ai/thumbnail-brief-bridge";
 import { useToast } from "@/components/dashboard/toast";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
-import { LoadingMiniGame } from "@/components/mini-game/loading-mini-game";
 import { useFocusMode } from "@/components/bootstrap-provider";
-import { RepurposePanel } from "@/components/composer/repurpose-panel";
-import { ComposerPreview, type PreviewAccount } from "@/components/composer/composer-preview";
+import type { PreviewAccount } from "@/components/composer/composer-preview";
+// Aperçu, panneaux et voile d'envoi chargés à la demande (lot 5).
+import { CampaignLinkBuilder, ComposerPreview, LoadingMiniGame, LocationPicker, PublishOverlay, RepurposePanel } from "@/components/composer/lazy";
 import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
 import { ComposerTips } from "@/components/composer/composer-tips";
-import { PublishOverlay } from "@/components/composer/publish-overlay";
 import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
 import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/composer/composer-types";
 import { InfoTip } from "@/components/ui/info-tip";
-import { CampaignLinkBuilder } from "@/components/composer/campaign-link-builder";
-import { LocationPicker, type PickedLocation } from "@/components/composer/location-picker";
+import type { PickedLocation } from "@/components/composer/location-picker";
 import { PinterestOptions, DEFAULT_PINTEREST_OPTIONS, type PinterestComposerOptions } from "@/components/composer/pinterest-options";
 import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
@@ -48,6 +47,8 @@ import { uploadMediaFile, type UploadedAssetResult } from "@/lib/upload-client";
 import { MediaImportBar } from "@/components/composer/media-import/media-import-bar";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
+import { NetworkPauseNotice } from "@/components/composer/network-pause-notice";
+import { refreshUsage, useConnections } from "@/lib/data/hooks";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
@@ -196,6 +197,41 @@ async function captureVideoFrames(sourceUrl: string, count: number): Promise<Blo
   return blobs;
 }
 
+/**
+ * Largeur et hauteur réelles d'un média, lues dans le navigateur (vidéo :
+ * métadonnées seulement, rotation du téléphone comprise). null si illisible.
+ */
+function measureMedia(asset: { type: "VIDEO" | "IMAGE"; previewUrl: string }): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), 15_000);
+    const done = (w: number, h: number) => {
+      window.clearTimeout(timer);
+      resolve(w > 0 && h > 0 ? { width: Math.round(w), height: Math.round(h) } : null);
+    };
+    const fail = () => {
+      window.clearTimeout(timer);
+      resolve(null);
+    };
+    if (asset.type === "VIDEO") {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        done(v.videoWidth, v.videoHeight);
+        v.removeAttribute("src");
+        v.load();
+      };
+      v.onerror = fail;
+      v.src = asset.previewUrl;
+    } else {
+      const img = new Image();
+      img.onload = () => done(img.naturalWidth, img.naturalHeight);
+      img.onerror = fail;
+      img.src = asset.previewUrl;
+    }
+  });
+}
+
 async function uploadThumbnailBlob(blob: Blob): Promise<string> {
   const form = new FormData();
   form.append("file", new File([blob], "frame.jpg", { type: blob.type || "image/jpeg" }));
@@ -288,6 +324,10 @@ function ComposerPageInner() {
   // Brouillon venu d'un outil gratuit (« Programmer cette publication avec
   // Nebula », brief growth lot G4.a) : /composer?draft=<id>.
   const publicDraftId = searchParams.get("draft");
+  // Résultat du Studio IA (produit n°9, « Utiliser dans Publier ») :
+  // /composer?studio=<génération>&i=<numéro de l'idée>.
+  const studioId = searchParams.get("studio");
+  const studioIndex = Math.max(0, Number(searchParams.get("i") ?? "0") || 0);
   const prefilledDate = searchParams.get("date"); // depuis un clic sur une case du calendrier (YYYY-MM-DD)
   const prefilledTime = searchParams.get("time"); // optionnel, depuis la vue heures du calendrier (HH:mm)
   // Depuis le "+" d'un compte précis sur la page Comptes (voir accounts/page.tsx)
@@ -296,8 +336,23 @@ function ComposerPageInner() {
   const targetConnectionId = searchParams.get("connectionId");
   const aiStatus = useAiStatus(activeBrand?.id);
 
-  const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  // Comptes connectés : cache partagé avec l'en-tête et les autres pages (lot 6).
+  const cachedConnections = useConnections<ConnectionRow>(activeBrand?.id).connections;
+  const connections = useMemo(() => cachedConnections ?? [], [cachedConnections]);
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
+  // Dimensions des médias (Réussites, lot B : étoile « Vertical natif ») :
+  // lues une fois dans le navigateur, enregistrées si elles manquent encore.
+  const measuredMedia = useRef(new Set<string>());
+  useEffect(() => {
+    for (const a of assets) {
+      if (!a.previewUrl || measuredMedia.current.has(a.id)) continue;
+      measuredMedia.current.add(a.id);
+      void measureMedia(a).then((dims) => {
+        if (!dims) return;
+        fetch(`/api/media/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dims) }).catch(() => undefined);
+      });
+    }
+  }, [assets]);
   // Easter egg "Son Décollage" (voir /api/settings/publish-sound) : préférence
   // lue une fois au montage — jamais recalculée pendant l'édition, un simple
   // agrément sonore n'a pas besoin d'être temps réel.
@@ -311,6 +366,9 @@ function ComposerPageInner() {
       .catch(() => undefined);
   }, []);
   const [uploading, setUploading] = useState(false);
+  // Avancement de l'envoi direct (Vercel Blob), null si inconnu (envoi
+  // classique ou import depuis une URL).
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   // Mini-jeu d'attente (voir loading-mini-game.tsx) : jamais en Mode focus.
   const { focusMode } = useFocusMode();
   // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
@@ -325,6 +383,9 @@ function ComposerPageInner() {
   // Générateur de liens de campagne (UTM), bouton « lien » de la carte
   // « 3. Description ».
   const [campaignLinkOpen, setCampaignLinkOpen] = useState(false);
+  // Panneau téléchargé à la première ouverture, puis gardé (il retient les
+  // champs saisis) — lot 5.
+  const campaignLinkUsed = useStickyTrue(campaignLinkOpen);
   // Lieu de la publication (Instagram, Facebook photo, YouTube), carte
   // « 4. Réseaux cibles ».
   const [location, setLocation] = useState<PickedLocation | null>(null);
@@ -415,6 +476,7 @@ function ComposerPageInner() {
   // Recyclage de contenu automatisé (Auto-Repurpose).
   const [repurposeOpen, setRepurposeOpen] = useState(false);
   const [repurposeLoading, setRepurposeLoading] = useState(false);
+  const repurposeUsed = useStickyTrue(repurposeOpen || repurposeLoading);
   const [repurposeResult, setRepurposeResult] = useState<RepurposedContent | null>(null);
 
   // Bulle émojis + insertion au curseur pour Titre/Description. Un seul
@@ -538,13 +600,6 @@ function ComposerPageInner() {
     setShortcutLabel(navigator.platform?.toLowerCase().includes("mac") ? "⌘" : "Ctrl");
   }, []);
 
-  useEffect(() => {
-    if (!activeBrand) return;
-    fetch(`/api/connections?brandId=${activeBrand.id}`)
-      .then((r) => r.json())
-      .then((d) => setConnections(d.connections ?? []));
-  }, [activeBrand]);
-
   // Pré-remplissage depuis le "+" d'un compte sur la page Comptes : une fois
   // les connexions chargées, ne garde que ce réseau sélectionné et ce compte
   // précis choisi pour lui (au cas où plusieurs comptes du même réseau sont
@@ -627,8 +682,30 @@ function ComposerPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicDraftId, activeBrand]);
 
+  const studioConsumed = useRef(false);
   useEffect(() => {
-    if (!activeBrand || duplicateId || publicDraftId || draftRestored.current) return;
+    if (!studioId || !activeBrand || studioConsumed.current) return;
+    studioConsumed.current = true;
+    (async () => {
+      const res = await fetch(`/api/studio/generations/${encodeURIComponent(studioId)}?brandId=${encodeURIComponent(activeBrand.id)}`, { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) {
+        toast.error("Ce résultat du Studio IA n'est plus disponible.");
+        return;
+      }
+      const { generation } = (await res.json()) as { generation: { output: StudioOutput } };
+      const draft = composerDraftFrom(generation.output, studioIndex);
+      if (!draft) return;
+      setTitle(draft.title);
+      setCaption(draft.caption);
+      if (draft.network) setSelectedNetworks([draft.network]);
+      toast.success("Repris du Studio IA : ajoutez votre vidéo, relisez et programmez.");
+    })();
+    // Une seule reprise par visite, dès que la marque est connue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studioId, activeBrand]);
+
+  useEffect(() => {
+    if (!activeBrand || duplicateId || publicDraftId || studioId || draftRestored.current) return;
     draftRestored.current = true;
     try {
       const raw = localStorage.getItem(DRAFT_KEY_PREFIX + activeBrand.id);
@@ -766,6 +843,7 @@ function ComposerPageInner() {
     async (files: FileList | null) => {
       if (!files || !files.length || !activeBrand) return;
       setUploading(true);
+      setUploadPercent(null);
       setUploadError(null);
 
       // Un seul média à la fois : un nouveau fichier remplace le précédent.
@@ -773,12 +851,13 @@ function ComposerPageInner() {
       const results = await Promise.allSettled(
         fileList.map(async (f) => {
           const previewUrl = URL.createObjectURL(f);
-          const asset = await uploadMediaFile(f, activeBrand.id);
+          const asset = await uploadMediaFile(f, activeBrand.id, setUploadPercent);
           return { asset, previewUrl };
         })
       );
 
       setUploading(false);
+      setUploadPercent(null);
 
       const newAssets: UploadedAsset[] = [];
       const errors: string[] = [];
@@ -1229,6 +1308,9 @@ function ComposerPageInner() {
     // (PublishOverlay) disparaîtrait et le formulaire redeviendrait cliquable
     // pendant la demi-seconde de chargement de la fiche de la publication.
 
+    // Compteur « publications ce mois » à jour partout (cache partagé, lot 6).
+    void refreshUsage();
+
     try {
       if (activeBrand) localStorage.removeItem(DRAFT_KEY_PREFIX + activeBrand.id);
     } catch {
@@ -1307,8 +1389,10 @@ function ComposerPageInner() {
     return { name, handle, avatarUrl: activeBrand?.logoUrl ?? conn?.avatarUrl ?? null };
   };
   const previewOverride = effectivePreviewNetwork ? overrides[effectivePreviewNetwork] : undefined;
-  const previewTitle = previewOverride?.open && previewOverride.title ? previewOverride.title : title;
-  const previewCaption = previewOverride?.open && previewOverride.caption ? previewOverride.caption : caption;
+  // Aperçu mis à jour « en différé » (lot 5) : la frappe dans la légende
+  // reste fluide, l'aperçu suit dès que le navigateur a le temps.
+  const previewTitle = useDeferredValue(previewOverride?.open && previewOverride.title ? previewOverride.title : title);
+  const previewCaption = useDeferredValue(previewOverride?.open && previewOverride.caption ? previewOverride.caption : caption);
   const previewAsset = assets[0];
 
   const noConnections = connections.length === 0;
@@ -1349,7 +1433,9 @@ function ComposerPageInner() {
         }
       />
 
-      <RepurposePanel open={repurposeOpen} loading={repurposeLoading} result={repurposeResult} onClose={() => setRepurposeOpen(false)} onApply={applyRepurposed} />
+      {repurposeUsed && (
+        <RepurposePanel open={repurposeOpen} loading={repurposeLoading} result={repurposeResult} onClose={() => setRepurposeOpen(false)} onApply={applyRepurposed} />
+      )}
 
       {activeBrand && aiStatus && !aiStatus.enabled && (
         <GlassCard className="border-white/10 bg-white/[0.02]">
@@ -1425,7 +1511,21 @@ function ComposerPageInner() {
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-void-950/70 backdrop-blur-sm"
                 >
                   <NebulaIcon size={44} tone="onDark" />
-                  <p className="text-sm font-medium text-aurora-300">Envoi en cours...</p>
+                  <p className="text-sm font-medium text-aurora-300">
+                    Envoi en cours{uploadPercent !== null ? ` : ${uploadPercent} %` : "..."}
+                  </p>
+                  {uploadPercent !== null && (
+                    <div
+                      role="progressbar"
+                      aria-label="Avancement de l'envoi"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={uploadPercent}
+                      className="h-1.5 w-40 overflow-hidden rounded-full bg-white/10"
+                    >
+                      <div className="h-full rounded-full bg-aurora-400 transition-[width] duration-200" style={{ width: `${uploadPercent}%` }} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1439,7 +1539,7 @@ function ComposerPageInner() {
               }}
               onBusyChange={setUploading}
             />
-            {!focusMode && <LoadingMiniGame active={uploading} />}
+            {!focusMode && uploading && <LoadingMiniGame active />}
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
                 <p className="font-medium">Échec de l&apos;envoi</p>
@@ -1598,6 +1698,11 @@ function ComposerPageInner() {
                     ))}
                   </div>
                 )}
+                {videoAsset.thumbnailUrl && selectedNetworks.includes("YOUTUBE") && (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    La miniature choisie est envoyée à YouTube avec la vidéo (JPEG ou PNG de 2 Mo au plus ; chaîne vérifiée par téléphone requise par YouTube).
+                  </p>
+                )}
               </div>
             )}
 
@@ -1700,6 +1805,7 @@ function ComposerPageInner() {
               placeholder="Légende / description commune à tous les réseaux sélectionnés..."
               className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
             />
+            {campaignLinkUsed && (
             <CampaignLinkBuilder
               open={campaignLinkOpen}
               onClose={() => setCampaignLinkOpen(false)}
@@ -1730,6 +1836,7 @@ function ComposerPageInner() {
                 }
               ]}
             />
+            )}
             <div className="mt-1.5 flex items-center justify-between text-xs">
               <span className={clsx(tightestLimit && caption.length > tightestLimit ? "text-red-400" : "text-slate-500")}>
                 {caption.length} caractère{caption.length !== 1 ? "s" : ""}
@@ -1759,6 +1866,7 @@ function ComposerPageInner() {
           <GlassCard>
               <h2 className="mb-3 font-display text-base font-medium text-white">4. Réseaux cibles</h2>
               <div className="space-y-3">
+                <NetworkPauseNotice networks={selectedNetworks} />
                 <div className="flex flex-wrap gap-2">
                   {NETWORKS.filter((n) => offeredNetworks.includes(n) || availableNetworks.includes(n)).map((n) => {
                     const connected = availableNetworks.includes(n);
@@ -2111,7 +2219,7 @@ function ComposerPageInner() {
 
       {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et
           inutilisable tant que « Envoi... » tourne — voir publish-overlay.tsx. */}
-      <PublishOverlay active={submitting} networks={selectedNetworks} mode={mode} mediaType={assets[0]?.type} />
+      {submitting && <PublishOverlay active networks={selectedNetworks} mode={mode} mediaType={assets[0]?.type} />}
 
       {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
         ? createPortal(
@@ -2159,4 +2267,13 @@ function AiContentMaster({ checked, onChange, exceptions }: { checked: boolean; 
       </div>
     </div>
   );
+}
+
+/** Vrai dès que `value` a été vrai une fois (monter un panneau à sa première ouverture). */
+function useStickyTrue(value: boolean): boolean {
+  const [seen, setSeen] = useState(value);
+  useEffect(() => {
+    if (value) setSeen(true);
+  }, [value]);
+  return seen || value;
 }

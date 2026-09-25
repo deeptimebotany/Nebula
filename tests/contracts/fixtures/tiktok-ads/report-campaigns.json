@@ -1,0 +1,11 @@
+{
+  "code": 0,
+  "message": "OK",
+  "request_id": "20260924081533C0FFEE",
+  "data": {
+    "list": [
+      { "dimensions": { "campaign_id": "1790000000000000001" }, "metrics": { "campaign_name": "Automne 2026", "spend": "15.50", "impressions": "1900", "clicks": "35", "conversion": "2" } }
+    ],
+    "page_info": { "page": 1, "page_size": 50, "total_number": 1, "total_page": 1 }
+  }
+}

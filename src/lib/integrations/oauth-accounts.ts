@@ -2,7 +2,7 @@
 // enregistrement et renouvellement automatique des jetons.
 import { createHash, randomBytes } from "crypto";
 import { integrationAccountDb, type IntegrationAccountRow } from "@/lib/prisma-extra";
-import { ImportError } from "./remote-media";
+import { ImportError } from "./errors";
 
 export type IntegrationProvider = "canva" | "onedrive";
 
@@ -56,11 +56,15 @@ export async function freshIntegrationToken(
   const expires = account.expiresAt ? new Date(account.expiresAt).getTime() : null;
   if (expires === null || expires - Date.now() > 120_000) return account.accessToken;
   if (!account.refreshToken) throw new ImportError("Connexion expirée : reliez à nouveau votre compte.", 401);
+  let next: TokenSet;
   try {
-    const next = await refresh(account.refreshToken);
-    await saveIntegration(userId, provider, { ...next, refreshToken: next.refreshToken ?? account.refreshToken });
-    return next.accessToken;
-  } catch {
+    next = await refresh(account.refreshToken);
+  } catch (err) {
+    // Lot 8 : seul un REFUS du service (401) signifie un compte à relier ;
+    // une panne ou un délai dépassé demande seulement de réessayer.
+    if (err instanceof ImportError && err.status !== 401) throw err;
     throw new ImportError("Connexion expirée : reliez à nouveau votre compte.", 401);
   }
+  await saveIntegration(userId, provider, { ...next, refreshToken: next.refreshToken ?? account.refreshToken });
+  return next.accessToken;
 }

@@ -81,6 +81,9 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
       caption,
       firstComment: firstComment?.trim() || null,
       status,
+      // Publication immédiate : la publication est « prise » dès sa création
+      // (voir claimPostForPublishing dans lib/publish.ts).
+      ...(status === "PUBLISHING" ? { publishingStartedAt: new Date() } : {}),
       scheduledAt: scheduledDate,
       media: { create: mediaAssetIds.map((id, order) => ({ mediaAssetId: id, order })) },
       targets: {
@@ -108,7 +111,7 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
   let publishedStatus: string | null = null;
   if (!scheduledDate && publishNow) {
     // Erreurs déjà enregistrées par cible (voir publishPost).
-    await publishPost(post.id)
+    await publishPost(post.id, { alreadyClaimed: true })
       .then((r) => {
         milestone = r.milestone;
         publishedStatus = r.status;

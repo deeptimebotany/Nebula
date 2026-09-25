@@ -39,11 +39,22 @@ function collectFromJson(node: unknown, out: ExtractedLink[], depth = 0) {
 }
 
 export function extractLinktreeLinks(html: string): ExtractedLink[] {
+  return extractLinktreeLinksDetailed(html).links;
+}
+
+/**
+ * Comme extractLinktreeLinks, en disant si le bloc de données de la page
+ * (__NEXT_DATA__) a été lu (lot 9) : `structured: false` = Linktree a
+ * changé sa page, l'extraction est passée par la méthode de secours.
+ */
+export function extractLinktreeLinksDetailed(html: string): { links: ExtractedLink[]; structured: boolean } {
   const found: ExtractedLink[] = [];
+  let structured = false;
   const nextData = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
   if (nextData) {
     try {
       collectFromJson(JSON.parse(nextData[1]), found);
+      structured = true;
     } catch {
       // JSON illisible : on retombe sur les balises <a>
     }
@@ -59,10 +70,11 @@ export function extractLinktreeLinks(html: string): ExtractedLink[] {
     }
   }
   const seen = new Set<string>();
-  return found.filter((l) => {
+  const links = found.filter((l) => {
     if (seen.has(l.url)) return false;
     seen.add(l.url);
     return true;
   });
+  return { links, structured };
 }
 

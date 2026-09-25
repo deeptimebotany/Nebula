@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { rememberCurrentSession } from "@/lib/multi-account";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 // Page de retour utilisée comme callbackUrl après une connexion Google
 // déclenchée depuis le "+" du sélecteur de comptes (voir
@@ -15,7 +16,8 @@ export async function GET(req: NextRequest) {
   const uid = (session?.user as { id?: string } | undefined)?.id;
   if (uid) rememberCurrentSession(uid);
 
-  const next = req.nextUrl.searchParams.get("next") || "/dashboard";
+  // Chemin interne uniquement : ?next=//autre-site.com redirigeait ailleurs.
+  const next = safeRelativePath(req.nextUrl.searchParams.get("next"), "/dashboard");
   return NextResponse.redirect(new URL(next, req.url));
 }
 

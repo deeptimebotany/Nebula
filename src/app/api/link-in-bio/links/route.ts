@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { getOrCreateLinkPage, assertBrandMembership, assertBioLinkQuota } from "@/lib/link-in-bio";
+import { linkUrlSchema } from "@/lib/safe-url-schema";
+import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
 
 // POST /api/link-in-bio/links { brandId, label, url } — ajoute un bouton de
 // lien à la page publique de la marque, gardé par le quota du palier (voir
@@ -11,7 +13,7 @@ import { getOrCreateLinkPage, assertBrandMembership, assertBioLinkQuota } from "
 const bodySchema = z.object({
   brandId: z.string().min(1),
   label: z.string().min(1).max(60),
-  url: z.string().url().max(500)
+  url: linkUrlSchema(500)
 });
 
 export async function POST(req: NextRequest) {
@@ -40,5 +42,6 @@ export async function POST(req: NextRequest) {
     data: { linkPageId: linkPage.id, label, url, order: lastOrder + 1 }
   });
 
+  await invalidateLinkPage(brandId);
   return NextResponse.json({ ok: true, link });
 }

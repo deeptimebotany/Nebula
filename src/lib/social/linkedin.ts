@@ -14,9 +14,44 @@
 // demandent la Community Management API (validation LinkedIn) : plus tard,
 // pour les paliers Pro et Agence. Jeton valable 60 jours, sans
 // rafraîchissement : la page Comptes prévient avant l'expiration.
+import type { ZodType, ZodTypeDef } from "zod";
 import type { AnalyticsResult, PublishResult } from "@/lib/types";
 import { oauthRedirectUri } from "@/lib/network-availability";
-import { SocialApiError, fetchJson, type ConnectionLike, type OAuthTokenResult, type PublishInput, type SocialClient } from "./base";
+import {
+  SocialApiError,
+  checkShape,
+  downloadMedia,
+  errorFromResponse,
+  fetchJson,
+  readBody,
+  sendRequest,
+  throwUnexpected,
+  pollUntil,
+  waitBudgetMs,
+  type ConnectionLike,
+  type OAuthTokenResult,
+  type PublishCheckpoint,
+  type PublishInput,
+  type PublishOutcome,
+  type SocialClient
+} from "./base";
+import { endpointLabel, opt, soft, textSchema, z } from "./contract";
+import { linkedinApiVersion } from "./versions";
+
+// --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
+// Doc : https://learn.microsoft.com/linkedin/marketing/community-management/shares/posts-api
+//       https://learn.microsoft.com/linkedin/marketing/community-management/shares/images-api
+//       https://learn.microsoft.com/linkedin/marketing/community-management/shares/videos-api
+// Réponses types : tests/contracts/fixtures/linkedin.
+const imageInitSchema = z.object({ value: z.object({ uploadUrl: z.string().url(), image: z.string().min(1) }) });
+const videoInitSchema = z.object({
+  value: z.object({
+    video: z.string().min(1),
+    uploadToken: textSchema,
+    uploadInstructions: z.array(z.object({ uploadUrl: z.string().url(), firstByte: z.number().int(), lastByte: z.number().int() })).min(1)
+  })
+});
+const videoStatusSchema = z.object({ status: z.string() });
 
 const AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -33,16 +68,13 @@ const redirectUri = () => oauthRedirectUri("linkedin", "LINKEDIN_REDIRECT_URI");
 
 /**
  * Version de l'API REST (en-tête LinkedIn-Version, format AAAAMM). LinkedIn
- * retire les versions au bout d'environ un an : par défaut, on prend le mois
- * d'il y a deux mois, toujours publié et jamais retiré. LINKEDIN_API_VERSION
- * permet de la figer si besoin.
+ * retire les versions au bout d'environ un an. LINKEDIN_API_VERSION permet
+ * de la changer sans toucher au code.
  */
+// Lot 2 : version FIXE (voir social/versions.ts) au lieu de « il y a deux
+// mois », qui changeait toute seule chaque mois sans avoir été testée.
 function apiVersion(): string {
-  if (process.env.LINKEDIN_API_VERSION) return process.env.LINKEDIN_API_VERSION;
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCMonth(d.getUTCMonth() - 2);
-  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  return linkedinApiVersion();
 }
 
 function restHeaders(token: string, json = true): Record<string, string> {
@@ -54,26 +86,34 @@ function restHeaders(token: string, json = true): Record<string, string> {
   };
 }
 
+/**
+ * Appel à l'API REST de LinkedIn par la porte commune (lot 7) : délai
+ * garanti (avant : aucun, la fonction pouvait attendre jusqu'à être coupée)
+ * et absence de réponse classée. Renvoie la réponse OK (en-têtes utiles :
+ * x-restli-id) ; lève une SocialApiError sinon.
+ */
 async function rest(path: string, token: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<Response> {
-  const res = await fetch(`${REST}${path}`, {
-    method: init.method ?? "GET",
+  const method = init.method ?? "GET";
+  const res = await sendRequest("LINKEDIN", `${REST}${path}`, {
+    method,
     headers: restHeaders(token),
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     cache: "no-store"
   });
   if (!res.ok) {
-    const text = await res.text();
-    let message = text || res.statusText;
-    try {
-      const json = JSON.parse(text) as { message?: string };
-      if (json.message) message = json.message;
-    } catch {
-      // réponse non JSON
-    }
-    if (res.status === 401) message = "Connexion LinkedIn expirée : reconnectez le compte.";
-    throw new SocialApiError("LINKEDIN", message, res.status);
+    const { text, json } = await readBody("LINKEDIN", res, method);
+    if (res.status === 401) throw new SocialApiError("LINKEDIN", "Connexion LinkedIn expirée : reconnectez le compte.", 401, json);
+    throw errorFromResponse("LINKEDIN", res, text, json);
   }
   return res;
+}
+
+/** Appel REST dont la réponse JSON est vérifiée par son contrat. */
+async function restJson<T>(path: string, token: string, schema: ZodType<T, ZodTypeDef, unknown>, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T> {
+  const method = init.method ?? "GET";
+  const res = await rest(path, token, init);
+  const { json } = await readBody("LINKEDIN", res, method);
+  return checkShape("LINKEDIN", schema, json, endpointLabel(method, `${REST}${path}`), res.status);
 }
 
 function checkExpiry(connection: ConnectionLike) {
@@ -98,49 +138,83 @@ export function toLinkedInCommentary(text: string): string {
     .join("");
 }
 
-async function download(url: string): Promise<{ bytes: ArrayBuffer; type: string }> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new SocialApiError("LINKEDIN", `Média inaccessible (${res.status}).`);
-  return { bytes: await res.arrayBuffer(), type: res.headers.get("content-type") || "application/octet-stream" };
+/** Envoi d'un fichier vers l'adresse fournie par LinkedIn (rien n'est encore publié). */
+async function putFile(url: string, headers: Record<string, string>, body: ArrayBuffer): Promise<Response> {
+  const put = await sendRequest("LINKEDIN", url, { method: "PUT", headers, body, timeoutMs: 50_000 });
+  if (!put.ok) {
+    const { text, json } = await readBody("LINKEDIN", put, "PUT");
+    throw errorFromResponse("LINKEDIN", put, text, json);
+  }
+  return put;
 }
 
 async function uploadImage(token: string, owner: string, url: string): Promise<string> {
-  const init = (await (await rest("/images?action=initializeUpload", token, { method: "POST", body: { initializeUploadRequest: { owner } } })).json()) as {
-    value: { uploadUrl: string; image: string };
-  };
-  const { bytes, type } = await download(url);
-  const put = await fetch(init.value.uploadUrl, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": type }, body: bytes });
-  if (!put.ok) throw new SocialApiError("LINKEDIN", `Envoi de l'image refusé (${put.status}).`);
+  const init = await restJson("/images?action=initializeUpload", token, imageInitSchema, { method: "POST", body: { initializeUploadRequest: { owner } } });
+  const { bytes, type } = await downloadMedia("LINKEDIN", url);
+  await putFile(init.value.uploadUrl, { Authorization: `Bearer ${token}`, "Content-Type": type }, bytes);
   return init.value.image;
 }
 
 async function uploadVideo(token: string, owner: string, url: string): Promise<string> {
-  const { bytes } = await download(url);
-  const init = (await (
-    await rest("/videos?action=initializeUpload", token, {
-      method: "POST",
-      body: { initializeUploadRequest: { owner, fileSizeBytes: bytes.byteLength, uploadCaptions: false, uploadThumbnail: false } }
-    })
-  ).json()) as { value: { video: string; uploadToken?: string; uploadInstructions: { uploadUrl: string; firstByte: number; lastByte: number }[] } };
+  const { bytes } = await downloadMedia("LINKEDIN", url);
+  const init = await restJson("/videos?action=initializeUpload", token, videoInitSchema, {
+    method: "POST",
+    body: { initializeUploadRequest: { owner, fileSizeBytes: bytes.byteLength, uploadCaptions: false, uploadThumbnail: false } }
+  });
 
   const etags: string[] = [];
   for (const part of init.value.uploadInstructions) {
     const chunk = bytes.slice(part.firstByte, part.lastByte + 1);
-    const put = await fetch(part.uploadUrl, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: chunk });
-    if (!put.ok) throw new SocialApiError("LINKEDIN", `Envoi de la vidéo refusé (${put.status}).`);
+    const put = await putFile(part.uploadUrl, { "Content-Type": "application/octet-stream" }, chunk);
     etags.push(put.headers.get("etag") ?? "");
   }
   await rest("/videos?action=finalizeUpload", token, {
     method: "POST",
     body: { finalizeUploadRequest: { video: init.value.video, uploadToken: init.value.uploadToken ?? "", uploadedPartIds: etags } }
   });
-  for (let i = 0; i < 60; i++) {
-    const status = (await (await rest(`/videos/${encodeURIComponent(init.value.video)}`, token)).json()) as { status?: string };
-    if (status.status === "AVAILABLE") return init.value.video;
-    if (status.status === "PROCESSING_FAILED") throw new SocialApiError("LINKEDIN", "LinkedIn n'a pas pu traiter la vidéo.");
-    await new Promise((r) => setTimeout(r, 5000));
-  }
-  throw new SocialApiError("LINKEDIN", "LinkedIn met trop de temps à traiter la vidéo : réessayez dans quelques minutes.");
+  return init.value.video;
+}
+
+/**
+ * Attend (dans la limite du temps disponible) que LinkedIn ait traité la
+ * vidéo, puis publie le post. Sinon : point de reprise pour le cron (lot 2 —
+ * avant, l'attente pouvait durer 5 minutes dans une requête coupée par Vercel).
+ */
+async function finishLinkedInVideo(connection: ConnectionLike, video: string, input: PublishInput): Promise<PublishOutcome> {
+  const token = connection.accessToken;
+  const ready = await pollUntil(
+    async () => {
+      const status = await restJson(`/videos/${encodeURIComponent(video)}`, token, videoStatusSchema);
+      if (status.status === "AVAILABLE") return true;
+      if (status.status === "PROCESSING_FAILED") throw new SocialApiError("LINKEDIN", "LinkedIn n'a pas pu traiter la vidéo.", 400);
+      return undefined;
+    },
+    waitBudgetMs(input),
+    4000
+  );
+  if (!ready) return { pending: true, checkpoint: { step: "linkedin_video", video }, retryInMs: 30_000 };
+  return createLinkedInPost(connection, input, { media: { id: video, ...(input.title ? { title: input.title.slice(0, 200) } : {}) } });
+}
+
+async function createLinkedInPost(connection: ConnectionLike, input: PublishInput, content: Record<string, unknown> | undefined): Promise<PublishResult> {
+  const res = await rest("/posts", connection.accessToken, {
+    method: "POST",
+    body: {
+      author: personUrn(connection),
+      commentary: toLinkedInCommentary(input.caption.trim()),
+      visibility: "PUBLIC",
+      distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
+      lifecycleState: "PUBLISHED",
+      isReshareDisabledByAuthor: false,
+      ...(content ? { content } : {})
+    }
+  });
+  const urn = res.headers.get("x-restli-id") || res.headers.get("x-linkedin-id") || "";
+  // Réponse « créé » sans identifiant : le post est PROBABLEMENT en ligne.
+  // Avant le lot 7, classé « contenu refusé » (et donc relancé à la main,
+  // en doublon) ; maintenant « réponse inattendue » : à vérifier d'abord.
+  if (!urn) throwUnexpected("LINKEDIN", "réponse dans un format inattendu (POST api.linkedin.com/rest/posts : en-tête « x-restli-id » absent).", res.status);
+  return { externalPostId: urn, externalUrl: `https://www.linkedin.com/feed/update/${urn}/` };
 }
 
 function isVideoUrl(url: string, fallback: "VIDEO" | "IMAGE"): boolean {
@@ -163,7 +237,7 @@ export const linkedinClient: SocialClient = {
   },
 
   async exchangeCodeForToken(code) {
-    const token = await fetchJson<{ access_token: string; expires_in: number; refresh_token?: string; scope?: string }>("LINKEDIN", TOKEN_URL, {
+    const token = await fetchJson("LINKEDIN", TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -172,18 +246,18 @@ export const linkedinClient: SocialClient = {
         redirect_uri: redirectUri(),
         client_id: requireEnv("LINKEDIN_CLIENT_ID"),
         client_secret: requireEnv("LINKEDIN_CLIENT_SECRET")
-      })
+      }),
+      schema: z.object({ access_token: z.string().min(1), expires_in: soft(z.number()), refresh_token: opt(z.string().min(1)), scope: textSchema })
     });
-    const me = await fetchJson<{ sub: string; name?: string; given_name?: string; family_name?: string; picture?: string }>(
-      "LINKEDIN",
-      "https://api.linkedin.com/v2/userinfo",
-      { headers: { Authorization: `Bearer ${token.access_token}` } }
-    );
+    const me = await fetchJson("LINKEDIN", "https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+      schema: z.object({ sub: z.string().min(1), name: textSchema, given_name: textSchema, family_name: textSchema, picture: textSchema })
+    });
     const name = me.name || [me.given_name, me.family_name].filter(Boolean).join(" ") || "Profil LinkedIn";
     return {
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
-      expiresAt: new Date(Date.now() + token.expires_in * 1000),
+      expiresAt: new Date(Date.now() + (token.expires_in ?? 60 * 86_400) * 1000),
       externalAccountId: me.sub,
       displayName: name,
       avatarUrl: me.picture,
@@ -191,7 +265,7 @@ export const linkedinClient: SocialClient = {
     } satisfies OAuthTokenResult;
   },
 
-  async publishPost(connection: ConnectionLike, input: PublishInput): Promise<PublishResult> {
+  async publishPost(connection: ConnectionLike, input: PublishInput): Promise<PublishOutcome> {
     checkExpiry(connection);
     const token = connection.accessToken;
     const author = personUrn(connection);
@@ -204,7 +278,7 @@ export const linkedinClient: SocialClient = {
     const media = input.mediaUrls;
     if (media.length > 0 && isVideoUrl(media[0], input.mediaType)) {
       const video = await uploadVideo(token, author, media[0]);
-      content = { media: { id: video, ...(input.title ? { title: input.title.slice(0, 200) } : {}) } };
+      return finishLinkedInVideo(connection, video, input);
     } else if (media.length === 1) {
       content = { media: { id: await uploadImage(token, author, media[0]), altText: "" } };
     } else if (media.length > 1) {
@@ -212,22 +286,15 @@ export const linkedinClient: SocialClient = {
       for (const url of media.filter((u) => !isVideoUrl(u, "IMAGE")).slice(0, 20)) images.push({ id: await uploadImage(token, author, url), altText: "" });
       content = images.length > 1 ? { multiImage: { images } } : { media: images[0] };
     }
+    return createLinkedInPost(connection, input, content);
+  },
 
-    const res = await rest("/posts", token, {
-      method: "POST",
-      body: {
-        author,
-        commentary: toLinkedInCommentary(text),
-        visibility: "PUBLIC",
-        distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-        lifecycleState: "PUBLISHED",
-        isReshareDisabledByAuthor: false,
-        ...(content ? { content } : {})
-      }
-    });
-    const urn = res.headers.get("x-restli-id") || res.headers.get("x-linkedin-id") || "";
-    if (!urn) throw new SocialApiError("LINKEDIN", "LinkedIn n'a pas renvoyé l'identifiant du post.");
-    return { externalPostId: urn, externalUrl: `https://www.linkedin.com/feed/update/${urn}/` };
+  async resumePublish(connection: ConnectionLike, input: PublishInput, checkpoint: PublishCheckpoint): Promise<PublishOutcome> {
+    checkExpiry(connection);
+    if (checkpoint.step === "linkedin_video" && typeof checkpoint.video === "string") {
+      return finishLinkedInVideo(connection, checkpoint.video, input);
+    }
+    throw new SocialApiError("LINKEDIN", "Reprise de publication inconnue.");
   },
 
   async postComment(connection: ConnectionLike, externalPostId: string, comment: string) {
