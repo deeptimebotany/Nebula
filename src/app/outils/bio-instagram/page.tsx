@@ -1,10 +1,13 @@
 "use client";
 
-// Générateur de bio Instagram (brief growth, lot G4.c) — IA, quota public.
-import { useState } from "react";
+// Générateur de bio Instagram (brief growth, lot G4.c). 29/09/2026 : démo
+// sans IA pour les visiteurs, vraie génération avec un compte.
+import { useEffect, useState } from "react";
 import { ToolPage } from "@/components/tools/tool-page";
-import { ToolLeadCapture } from "@/components/tools/tool-lead-capture";
+import { ToolDemoNotice, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { saveToolDraft, takeToolDraft } from "@/components/tools/use-tool-access";
 import { useToolGeneration } from "@/components/tools/use-tool-generation";
+import { DEMO_BIO_INSTAGRAM } from "@/lib/tools/demo";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconAvatar, IconSparkle } from "@/components/dashboard/icons";
@@ -21,7 +24,8 @@ const FAQ = [
   { q: "Combien de caractères pour une bio Instagram ?", a: "150 caractères maximum, sauts de ligne compris. Chaque proposition générée respecte cette limite ; les émojis comptent pour un ou deux caractères selon les cas." },
   { q: "Que mettre dans une bio Instagram efficace ?", a: "Ce que vous faites, pour qui, et une raison d'agir (lien, offre, nouveauté). Un mot-clé sur votre activité aide la recherche Instagram ; l'appel à l'action pointe vers le lien de votre bio." },
   { q: "Où mettre plusieurs liens dans ma bio ?", a: "Instagram n'affiche qu'un lien principal. Une page « link in bio » regroupe tous vos liens sur une page : Nebula en propose une, gratuite, avec le suivi des clics." },
-  { q: "Ces bios sont-elles uniques ?", a: "Elles sont générées à la demande à partir de votre description : deux personnes n'obtiennent pas la même. Relisez et adaptez avant de publier." }
+  { q: "Ces bios sont-elles uniques ?", a: "Avec un compte (gratuit), elles sont générées par l'IA à partir de votre description : deux personnes n'obtiennent pas la même. Sans compte, la page montre une démo préparée à l'avance. Relisez et adaptez avant de publier." },
+  { q: "Faut-il un compte ?", a: "Pour générer vos bios avec l'IA, oui : un compte gratuit suffit, avec 10 générations par jour. Sans compte, vous voyez un exemple préparé à l'avance, sans IA." }
 ];
 
 export default function BioInstagramPage() {
@@ -30,9 +34,24 @@ export default function BioInstagramPage() {
   const [keywords, setKeywords] = useState("");
   const [cta, setCta] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
-  const gen = useToolGeneration<string[]>("bio-instagram");
+  const gen = useToolGeneration<string[]>("bio-instagram", DEMO_BIO_INSTAGRAM.result);
+  const member = gen.access.status === "member";
+
+  // Retour après la création du compte : on remet ce qui avait été saisi.
+  useEffect(() => {
+    const draft = takeToolDraft("bio-instagram");
+    if (!draft) return;
+    setActivity(draft.activity ?? "");
+    setKeywords(draft.keywords ?? "");
+    setCta(draft.cta ?? "");
+    if (TONES.some(([id]) => id === draft.tone)) setTone(draft.tone as (typeof TONES)[number][0]);
+  }, []);
 
   function run() {
+    if (!member) {
+      void gen.generate({}, () => []);
+      return;
+    }
     if (activity.trim().length < 3) {
       gen.setError("Décrivez votre activité en quelques mots.");
       return;
@@ -52,7 +71,7 @@ export default function BioInstagramPage() {
       title="Générateur de bio Instagram"
       intro={
         <p>
-          Votre bio Instagram est lue en une seconde : elle doit dire ce que vous faites, pour qui, et donner une raison de cliquer. Décrivez votre activité, choisissez un ton, ajoutez éventuellement des mots-clés et un appel à l&apos;action : l&apos;IA propose cinq bios de 150 caractères maximum, prêtes à coller. Gratuit et sans compte, avec quelques générations par jour. Et si votre bio mérite plusieurs liens, Nebula vous offre une page « link in bio » gratuite avec suivi des clics.
+          Votre bio Instagram est lue en une seconde : elle doit dire ce que vous faites, pour qui, et donner une raison de cliquer. Décrivez votre activité, choisissez un ton, ajoutez éventuellement des mots-clés et un appel à l&apos;action : l&apos;IA propose cinq bios de 150 caractères maximum, prêtes à coller. Sans compte, la page montre une démo préparée à l&apos;avance ; avec un compte gratuit, l&apos;IA écrit vos bios (10 générations par jour). Et si votre bio mérite plusieurs liens, Nebula vous offre une page « link in bio » gratuite avec suivi des clics.
         </p>
       }
       faq={FAQ}
@@ -85,11 +104,12 @@ export default function BioInstagramPage() {
             <input value={cta} onChange={(e) => setCta(e.target.value)} maxLength={120} placeholder="Ex : Programme gratuit ci-dessous" className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60" />
           </label>
         </div>
-        <Button onClick={run} disabled={gen.loading || activity.trim().length < 3} className="mt-4 w-full">
-          <IconSparkle className="h-4 w-4" /> {gen.loading ? "Génération…" : "Générer 5 bios"}
+        <Button onClick={run} disabled={gen.loading || gen.access.status === "loading" || (member && activity.trim().length < 3)} className="mt-4 w-full">
+          <IconSparkle className="h-4 w-4" /> {gen.loading ? "Génération…" : member ? "Générer 5 bios" : "Voir un exemple (démo sans IA)"}
         </Button>
+        <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
         {gen.error && <p className="mt-3 text-sm text-red-300">{gen.error}</p>}
-        {gen.leadStep === "ask" && <ToolLeadCapture {...gen.leadProps} />}
+        {gen.isDemo && gen.result && <ToolDemoNotice slug="bio-instagram" input={DEMO_BIO_INSTAGRAM.input} onBeforeLeave={() => saveToolDraft("bio-instagram", { activity, tone, keywords, cta })} />}
         {gen.result && (
           <ul className="mt-4 space-y-2">
             {gen.result.map((bio, i) => (
@@ -105,7 +125,6 @@ export default function BioInstagramPage() {
             ))}
           </ul>
         )}
-        {gen.remaining !== null && <p className="mt-3 text-right text-[11px] text-slate-500">{gen.remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</p>}
       </GlassCard>
     </ToolPage>
   );

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_DISCOVER } from "@/lib/seo-pages";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { TrackView } from "@/components/marketing/track-view";
@@ -14,11 +16,7 @@ import type { PublicKitData } from "@/lib/media-kit/types";
 // (données déjà publiques sur /kit/[slug]) ; le cookie d'attribution est
 // posé par le middleware avant l'affichage. L'exemple est un kit fictif,
 // signalé comme tel.
-export const metadata: Metadata = {
-  title: "Créez votre media kit avec vos vrais chiffres",
-  description: "Un media kit toujours à jour pour démarcher les marques : abonnés, engagement et meilleures publications relevés automatiquement, présentation, tarifs, PDF. Aperçu gratuit.",
-  alternates: { canonical: "/decouvrir/media-kit" }
-};
+export const metadata = pageMetadata(SEO_DISCOVER["media-kit"]);
 
 export const dynamic = "force-dynamic";
 

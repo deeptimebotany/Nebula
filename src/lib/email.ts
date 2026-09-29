@@ -134,6 +134,11 @@ function resendFailure(err: SocialApiError): { ok: boolean; error?: string; retr
   };
 }
 
+/** Vrai si l'envoi d'e-mails est configuré (clé Resend présente). */
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
 export function escapeHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")
@@ -153,6 +158,26 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
       <p style="margin:22px 0">${emailButton("Choisir un nouveau mot de passe", resetUrl)}</p>
       <p style="margin:0 0 8px;color:${EMAIL_COLORS.muted};font-size:13px;line-height:1.5">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email — votre mot de passe ne changera pas.</p>
       <p style="margin:0;color:#9ca3af;font-size:12px;word-break:break-all">Lien direct : ${resetUrl}</p>
+    `)
+  });
+}
+
+/**
+ * Alerte de sécurité (29/09/2026) : le mot de passe vient d'être défini ou
+ * changé depuis Paramètres. Si ce n'est pas la personne, « Mot de passe
+ * oublié » lui rend la main (les autres sessions sont déjà coupées).
+ */
+export async function sendPasswordChangedEmail(to: string, opts: { firstTime: boolean; forgotUrl: string }): Promise<{ ok: boolean; error?: string }> {
+  const what = opts.firstTime ? "Un mot de passe vient d'être défini" : "Votre mot de passe vient d'être changé";
+  return sendEmail({
+    to,
+    subject: opts.firstTime ? "Mot de passe Nebula défini" : "Votre mot de passe Nebula a été changé",
+    html: emailFrame(`
+      <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827">${what}</h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">${what} pour votre compte Nebula (${escapeHtml(to)}), depuis les paramètres du compte. Par sécurité, les autres appareils connectés ont été déconnectés.</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">Si ce n'est pas vous, choisissez tout de suite un nouveau mot de passe :</p>
+      <p style="margin:22px 0">${emailButton("Reprendre la main sur mon compte", opts.forgotUrl)}</p>
+      <p style="margin:0;color:${EMAIL_COLORS.muted};font-size:13px;line-height:1.5">Si c'est bien vous, vous n'avez rien à faire.</p>
     `)
   });
 }

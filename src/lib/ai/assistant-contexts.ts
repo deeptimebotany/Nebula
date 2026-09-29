@@ -46,7 +46,7 @@ export function isAssistantContextKey(value: unknown): value is AssistantContext
 }
 
 export interface AssistantContextDef {
-  /** Nom court affiché dans la puce « Contexte : … » de l'en-tête du tiroir. */
+  /** Nom court du contexte (plus affiché dans le tiroir depuis le 29/09/2026 ; gardé pour les consignes).*/
   label: string;
   /** Phrase d'accueil sous « Bonjour {prénom} » — dit ce que l'assistant sait
    *  faire ICI, pour que l'utilisateur comprenne d'un coup d'œil pourquoi les

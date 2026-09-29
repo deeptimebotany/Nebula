@@ -143,7 +143,7 @@ export function KitView({ data, actions, className, nested = false }: { data: Pu
         <div className="flex min-w-0 items-center gap-4">
           <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
             {data.logoUrl ? (
-              <RemoteImage src={data.logoUrl} alt="" className="h-full w-full" sizes="72px" priority />
+              <RemoteImage src={data.logoUrl} alt={`Logo de ${data.brandName}`} className="h-full w-full" sizes="72px" priority />
             ) : (
               <span className="flex h-full w-full items-center justify-center font-display text-2xl font-semibold text-white">{data.brandName.charAt(0).toUpperCase()}</span>
             )}

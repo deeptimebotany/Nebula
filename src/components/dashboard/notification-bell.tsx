@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 interface NotificationItem {
   id: string;
@@ -42,7 +43,7 @@ const FIX_KINDS = new Set(["publish_failed", "reconnect"]);
 
 function readSeenAt(): string | null {
   try {
-    return localStorage.getItem(SEEN_KEY);
+    return getPref(SEEN_KEY);
   } catch {
     return null;
   }
@@ -50,7 +51,7 @@ function readSeenAt(): string | null {
 
 function writeSeenAt(value: string) {
   try {
-    localStorage.setItem(SEEN_KEY, value);
+    setPref(SEEN_KEY, value);
   } catch {
     // Stockage indisponible (navigation privée…) : le compteur se remettra
     // simplement à jour au prochain chargement.

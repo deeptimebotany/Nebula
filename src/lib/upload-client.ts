@@ -1,6 +1,7 @@
 "use client";
 
 import type { MediaType } from "@/lib/types";
+import { cleanMediaFile } from "@/lib/media-metadata-client";
 
 // Le module d'envoi direct vers Vercel Blob (~33 Ko) n'est téléchargé qu'au
 // premier envoi de fichier, plus au chargement du calendrier ou de la page
@@ -109,7 +110,10 @@ async function uploadLegacy(file: File, brandId: string): Promise<UploadedAssetR
  * lourdes) sans message clair. Si Vercel Blob n'est pas configuré (ex : en
  * développement local), on repasse automatiquement sur l'envoi classique.
  */
-export async function uploadMediaFile(file: File, brandId: string, onProgress?: UploadProgressHandler): Promise<UploadedAssetResult> {
+export async function uploadMediaFile(original: File, brandId: string, onProgress?: UploadProgressHandler): Promise<UploadedAssetResult> {
+  // Position GPS, appareil, auteur… retirés avant l'envoi (29/09/2026, voir
+  // lib/media-metadata.ts) : le fichier part directement vers le stockage.
+  const file = await cleanMediaFile(original);
   const direct = await isBlobConfigured();
   if (!direct) return uploadLegacy(file, brandId);
 

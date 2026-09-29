@@ -1,6 +1,8 @@
 "use client";
 
-// Générateur gratuit de miniatures, sans compte (voir /api/public/tools/thumbnail).
+// Générateur de miniatures (voir /api/public/tools/thumbnail). 29/09/2026 :
+// démo illustrée, sans IA, pour les visiteurs ; vraie génération avec un
+// compte (quota par compte).
 import { useRef, useState } from "react";
 import { markToolExplored } from "@/lib/tools-explored";
 import Link from "next/link";
@@ -9,7 +11,10 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { IconUpload, IconSparkle } from "@/components/dashboard/icons";
 import { ScheduleWithNebula } from "@/components/tools/schedule-with-nebula";
-import { ToolLeadCapture, hasToolLead } from "@/components/tools/tool-lead-capture";
+import { ToolDemoNotice, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { DemoThumbnailPair } from "@/components/tools/demo-thumbnail";
+import { useToolAccess } from "@/components/tools/use-tool-access";
+import { DEMO_MINIATURE } from "@/lib/tools/demo";
 
 function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
@@ -32,11 +37,10 @@ export default function FreeThumbnailToolPage() {
   const [loading, setLoading] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [generated, setGenerated] = useState<{ base64: string; mimeType: string } | null>(null);
-  // Capture d'email après la 2e génération du jour (lot G4.b).
-  const [used, setUsed] = useState(0);
-  const [leadStep, setLeadStep] = useState<"idle" | "ask" | "done" | "skipped">("idle");
+  const [showDemo, setShowDemo] = useState(false);
+  const access = useToolAccess();
+  const member = access.status === "member";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function onFileChosen(file: File) {
@@ -56,12 +60,13 @@ export default function FreeThumbnailToolPage() {
   }
 
   async function generate() {
-    if (!imageData) {
-      setError("Envoyez d'abord une photo.");
+    if (!member) {
+      setError(null);
+      setShowDemo(true);
       return;
     }
-    if (used >= 2 && leadStep === "idle" && !hasToolLead()) {
-      setLeadStep("ask");
+    if (!imageData) {
+      setError("Envoyez d'abord une photo.");
       return;
     }
     setLoading(true);
@@ -78,7 +83,12 @@ export default function FreeThumbnailToolPage() {
           network: network || undefined
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && data.signupRequired) {
+        access.becomeVisitor();
+        setShowDemo(true);
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? "Une erreur est survenue.");
         return;
@@ -86,8 +96,7 @@ export default function FreeThumbnailToolPage() {
       setResultUrl(`data:${data.imageMimeType};base64,${data.imageBase64}`);
       markToolExplored();
       setGenerated({ base64: data.imageBase64, mimeType: data.imageMimeType });
-      setRemaining(data.remaining ?? null);
-      if (typeof data.used === "number") setUsed(data.used);
+      if (typeof data.remaining === "number") access.setRemaining("thumbnail", data.remaining);
     } catch {
       setError("Impossible de contacter le générateur pour le moment.");
     } finally {
@@ -108,7 +117,7 @@ export default function FreeThumbnailToolPage() {
           <IconUpload className="h-6 w-6 text-aurora-300" /> Générateur de miniatures
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">
-          Envoyez une photo, l&apos;IA la rend plus percutante façon miniature YouTube/TikTok. Gratuit, sans compte.
+          Envoyez une photo, l&apos;IA la rend plus percutante façon miniature YouTube/TikTok. Avec un compte gratuit (2 miniatures par jour) ; sans compte, une démo illustrée, sans IA.
         </p>
       </section>
 
@@ -126,13 +135,13 @@ export default function FreeThumbnailToolPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-1.5 text-center text-xs uppercase tracking-wide text-slate-500">Original</p>
-                <img loading="lazy" decoding="async" src={preview} alt="" className="aspect-video w-full rounded-xl border border-white/10 object-cover" />
+                <img loading="lazy" decoding="async" src={preview} alt="Votre photo d'origine" className="aspect-video w-full rounded-xl border border-white/10 object-cover" />
               </div>
               <div>
                 <p className="mb-1.5 text-center text-xs uppercase tracking-wide text-slate-500">Résultat IA</p>
                 <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.02]">
                   {resultUrl ? (
-                    <img loading="lazy" decoding="async" src={resultUrl} alt="" className="h-full w-full rounded-xl object-cover" />
+                    <img loading="lazy" decoding="async" src={resultUrl} alt="Miniature générée par l'IA à partir de votre photo" className="h-full w-full rounded-xl object-cover" />
                   ) : (
                     <span className="text-xs text-slate-500">{loading ? "Génération..." : "En attente"}</span>
                   )}
@@ -185,21 +194,18 @@ export default function FreeThumbnailToolPage() {
             </div>
           </div>
 
-          <Button onClick={generate} disabled={loading || !imageData} className="mt-4 w-full">
-            <IconSparkle className="h-4 w-4" /> {loading ? "Génération..." : "Générer la miniature"}
+          <Button onClick={generate} disabled={loading || access.status === "loading" || (member && !imageData)} className="mt-4 w-full">
+            <IconSparkle className="h-4 w-4" /> {loading ? "Génération..." : member ? "Générer la miniature" : "Voir un exemple (démo sans IA)"}
           </Button>
+          <ToolQuotaLine status={access.status} remaining={access.remaining?.thumbnail ?? null} kind="thumbnail" />
 
           {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
-          {leadStep === "ask" && (
-            <ToolLeadCapture
-              tool="miniatures"
-              onDone={(bonus) => {
-                setLeadStep("done");
-                setRemaining((r) => (r === null ? null : r + bonus));
-              }}
-              onSkip={() => setLeadStep("skipped")}
-            />
+          {showDemo && !member && (
+            <div className="mt-4">
+              <DemoThumbnailPair title={DEMO_MINIATURE.title} />
+              <ToolDemoNotice slug="miniatures" input={DEMO_MINIATURE.input} />
+            </div>
           )}
 
           {resultUrl && (
@@ -208,9 +214,6 @@ export default function FreeThumbnailToolPage() {
                 <a href={resultUrl} download="miniature-nebula.png" className="text-xs font-medium text-aurora-300 hover:underline">
                   Télécharger l&apos;image
                 </a>
-                {remaining !== null && (
-                  <span className="text-[11px] text-slate-500">{remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</span>
-                )}
               </div>
               {generated && (
                 <ScheduleWithNebula

@@ -105,7 +105,7 @@ export default function SupportPage() {
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           Nebula est développé et hébergé par une seule personne. Si le site vous est utile, un petit coup de pouce
           aide à financer l&apos;hébergement, les API et le temps passé à l&apos;améliorer. Un immense merci à celles
-          et ceux qui soutiennent déjà le projet — chaque contribution compte.
+          et ceux qui soutiennent le projet — chaque contribution compte.
         </p>
       </div>
 

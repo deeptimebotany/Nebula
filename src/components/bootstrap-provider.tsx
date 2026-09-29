@@ -9,6 +9,7 @@
 // création de marque…) ; `patch()` met à jour localement sans attendre le
 // serveur (après un PATCH réussi sur un réglage).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { seedUiPrefs } from "@/lib/ui-prefs-client";
 import type { MeResponse } from "@/lib/me-types";
 
 export type BootstrapData = MeResponse;
@@ -36,6 +37,14 @@ export function useBootstrap() {
 export function BootstrapProvider({ children, initialData }: { children: React.ReactNode; initialData?: BootstrapData }) {
   // Lot 10 : données préparées par le layout (serveur) au premier affichage.
   const [data, setData] = useState<BootstrapData | null>(initialData ?? null);
+  // Préférences d'affichage du compte (29/09/2026, voir lib/ui-prefs-client.ts) :
+  // chargées AVANT le premier rendu des pages, qui les lisent à leur montage.
+  // Jamais côté serveur (l'état du module serait partagé entre requêtes).
+  const prefsSeeded = useRef(false);
+  if (!prefsSeeded.current && data && typeof window !== "undefined") {
+    prefsSeeded.current = true;
+    seedUiPrefs(data.uiPrefs);
+  }
   const [loaded, setLoaded] = useState(Boolean(initialData));
   const inflight = useRef<Promise<void> | null>(null);
 

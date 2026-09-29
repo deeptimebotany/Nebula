@@ -22,6 +22,9 @@ import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
 // Réponses types : tests/contracts/fixtures/turnstile.
 const verifySchema = z.object({ success: z.boolean(), "error-codes": soft(z.array(z.string())), hostname: textSchema, action: textSchema });
 
+/** Réponse commune quand la vérification échoue (jeton absent, expiré ou déjà utilisé). */
+export const TURNSTILE_FAILED_MESSAGE = "La vérification anti-robot n'a pas abouti : cochez à nouveau la case « Vérifiez que vous êtes humain », puis réessayez.";
+
 /** Codes qui signalent une MAUVAISE CONFIGURATION : tout le monde serait refusé. */
 const CONFIG_ERRORS = new Set(["missing-input-secret", "invalid-input-secret"]);
 

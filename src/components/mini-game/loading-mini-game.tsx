@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 const BEST_SCORE_KEY = "nebula:minigame-best";
 
@@ -32,14 +33,14 @@ interface Obstacle {
 
 function readBestScore(): number {
   try {
-    return Number(localStorage.getItem(BEST_SCORE_KEY)) || 0;
+    return Number(getPref(BEST_SCORE_KEY)) || 0;
   } catch {
     return 0;
   }
 }
 function writeBestScore(score: number) {
   try {
-    localStorage.setItem(BEST_SCORE_KEY, String(score));
+    setPref(BEST_SCORE_KEY, String(score));
   } catch {
     // stockage indisponible — le record ne sera juste pas retenu
   }

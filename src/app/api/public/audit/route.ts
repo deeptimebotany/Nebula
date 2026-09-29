@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { consumePublicQuota, ipHashFromRequest, releasePublicQuota } from "@/lib/public-tools-limit";
 import { parseAuditInput } from "@/lib/audit/parse-input";
 import { AUDIT_MISS_LIMIT, createAudit } from "@/lib/audit/run";
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (!input.ok) return NextResponse.json({ error: input.message, errors: input.errors }, { status: 400 });
 
   if (!(await verifyTurnstileToken(body.turnstileToken))) {
-    return NextResponse.json({ error: "Vérification anti-robot échouée : rechargez la page et réessayez." }, { status: 403 });
+    return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 403 });
   }
 
   const result = await createAudit({

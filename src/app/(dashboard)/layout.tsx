@@ -26,6 +26,10 @@ import { resolveActiveBrand } from "@/lib/server-data/brands";
 import { asJson, getAiStatus, getConnectionsList } from "@/lib/server-data/brand-data";
 import { SeededData } from "@/lib/data/swr-config";
 import { aiStatusKey, connectionsKey } from "@/lib/data/keys";
+import { cookies, headers } from "next/headers";
+import { accountModeScript } from "@/lib/color-mode";
+import { WELCOME_INTRO_COOKIE } from "@/lib/intro/welcome";
+import { WelcomeIntro } from "@/components/intro/welcome-intro";
 
 // CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
 // rendu à chaque visite, jamais pré-généré.
@@ -57,17 +61,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const [connections, aiStatus] = brandId ? await Promise.all([getConnectionsList(brandId), getAiStatus(brandId)]) : [null, null];
   const seeds: Record<string, unknown> =
     brandId && connections && aiStatus ? { [connectionsKey(brandId)]: asJson(connections), [aiStatusKey(brandId)]: aiStatus } : {};
+  // Compte tout juste créé avec Google / Apple / Facebook : intro de
+  // création de compte, une fois (cookie posé par lib/auth.ts).
+  const welcome = cookies().get(WELCOME_INTRO_COOKIE)?.value === "1";
+  // Mode clair/sombre du COMPTE, appliqué avant l'affichage (avec le nonce
+  // de la page), même sur un appareil qui n'a encore rien mémorisé.
+  const nonce = headers().get("x-nonce") ?? undefined;
 
   return (
     // Providers (session + bootstrap /api/me + thème + fond + thème étoilé +
     // cosmétiques + mode clair) : montés ICI et non dans la mise en page
     // racine, pour que les pages publiques restent stables et légères.
     <Providers session={asJson(session)} me={me}>
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: accountModeScript(me?.mode ?? "light") }} />
       <SeededData entries={seeds} at={Date.now()}>
       <BrandProvider initialBrands={shell.brands} initialActiveBrandId={brandId} activeFromCookie={shell.fromCookie}>
         <ToastProvider>
           <MilestoneCelebrationProvider>
             <ConfirmProvider>
+              {/* En tête du HTML : le voile blanc couvre la page dès la
+                  première image, avant même la fin du chargement. */}
+              {welcome && <WelcomeIntro />}
               {/* Lien « Aller au contenu » : premier élément focusable,
                   visible uniquement au focus (voir .skip-link). */}
               <a href="#contenu" className="skip-link">

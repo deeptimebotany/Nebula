@@ -15,6 +15,7 @@ import { trialEndDate } from "@/lib/trial";
 import { assertSecretConfig } from "@/lib/secrets";
 import { currentSessionVersion, forgetSessionCache, isPrivilegedEmail, providerEmailVerified, sendVerificationEmail } from "@/lib/account-security";
 import { notify } from "@/lib/notifications";
+import { WELCOME_INTRO_COOKIE, WELCOME_INTRO_MAX_AGE } from "@/lib/intro/welcome";
 
 // Refuse un NEXTAUTH_SECRET resté à la valeur d'exemple (voir lib/secrets.ts).
 assertSecretConfig();
@@ -168,6 +169,14 @@ async function createOAuthUser(
     }
   });
   await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrerCode), oauth: true }, user.id);
+  // Intro de création de compte au premier affichage du tableau de bord
+  // (lib/intro/welcome.ts) : ce callback s'exécute dans la route handler de
+  // NextAuth, et Next ajoute le cookie à la redirection de retour.
+  try {
+    cookies().set(WELCOME_INTRO_COOKIE, "1", { maxAge: WELCOME_INTRO_MAX_AGE, path: "/", sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+  } catch {
+    // Appel hors requête (tests) : pas d'intro, rien d'autre ne change.
+  }
   // Accès offert en attente pour cet email (partenaires, /admin/partenaires) :
   // seulement si l'adresse est garantie, sinon à la confirmation.
   if (input.emailVerified) await applyPendingPartnerGrant(user.id, user.email).catch(() => undefined);

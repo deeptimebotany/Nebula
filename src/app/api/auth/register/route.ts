@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { passwordTooLong } from "@/lib/password-rules";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
 import { TOOLS_COOKIE, toolsExploredCount } from "@/lib/tools-explored";
@@ -18,12 +19,18 @@ import { REFERRED_TRIAL_DAYS, TRIAL_DAYS, trialEndDate } from "@/lib/trial";
 const schema = z.object({
   name: z.string().trim().min(2, "Indiquez votre nom (2 caractères minimum).").max(80, "Nom trop long."),
   email: z.string().trim().email("Adresse email invalide."),
-  password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères.").max(200),
+  password: z
+    .string()
+    .min(8, "Le mot de passe doit contenir au moins 8 caractères.")
+    .refine((v) => !passwordTooLong(v), "Le mot de passe est trop long (72 caractères au plus)."),
   brandName: z.string().trim().max(80, "Nom de marque trop long.").optional(),
   referralCode: z.string().trim().toUpperCase().max(20).optional(),
   // Consentement explicite aux conditions et à la politique de
   // confidentialité (RGPD) — vérifié aussi côté serveur.
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "Vous devez accepter les conditions d'utilisation pour créer un compte." }) }),
+  // Statistiques anonymes (29/09/2026) : case FACULTATIVE, décochée par
+  // défaut ; absente = refus.
+  statsConsent: z.boolean().optional().default(false),
   turnstileToken: z.string().optional()
 });
 
@@ -56,7 +63,7 @@ export async function POST(req: Request) {
 
   const humanVerified = await verifyTurnstileToken(turnstileToken);
   if (!humanVerified) {
-    return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
+    return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
@@ -117,6 +124,9 @@ export async function POST(req: Request) {
       trialEndsAt,
       // Badge Explorateur (Réussites, lot C) : outils gratuits essayés avant l'inscription.
       toolsExplored: toolsExploredCount(cookieStore.get(TOOLS_COOKIE)?.value),
+      // Accord facultatif aux statistiques anonymes, daté (preuve du choix).
+      statsConsent: body.data.statsConsent === true,
+      statsConsentAt: body.data.statsConsent === true ? new Date() : null,
       ...attributionToUserFields(attribution)
     }
   });

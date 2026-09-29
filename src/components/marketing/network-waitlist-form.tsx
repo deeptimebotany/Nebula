@@ -5,12 +5,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
 
 export function NetworkWaitlistForm({ network, label }: { network: string; label: string }) {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  // Jeton anti-robot à usage unique : nouveau jeton après chaque envoi.
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,10 @@ export function NetworkWaitlistForm({ network, label }: { network: string; label
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError("Adresse email invalide.");
+      return;
+    }
+    if (TURNSTILE_ENABLED && !token) {
+      setError(TURNSTILE_PENDING_MESSAGE);
       return;
     }
     setBusy(true);
@@ -32,6 +38,7 @@ export function NetworkWaitlistForm({ network, label }: { network: string; label
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      setTurnstileReset((k) => k + 1);
     }
   }
 
@@ -63,7 +70,7 @@ export function NetworkWaitlistForm({ network, label }: { network: string; label
           .
         </span>
       </label>
-      <TurnstileWidget onVerify={setToken} />
+      <TurnstileWidget onVerify={setToken} resetKey={turnstileReset} />
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
     </form>
   );

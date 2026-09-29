@@ -1,7 +1,8 @@
 "use client";
 
 // Page 404 — un vaisseau perdu qui dérive dans le vide, plutôt qu'un message
-// d'erreur générique. Rendue pour toute route qui ne correspond à rien
+// d'erreur générique. Suit le mode clair/sombre (fond et étoiles : classes
+// .nb-404 / .nb-404-star de globals.css). Rendue pour toute route qui ne correspond à rien
 // (publique ou dans le tableau de bord), et déjà entourée par <Providers>
 // depuis le layout racine, donc le thème de couleurs choisi s'applique aussi
 // ici.
@@ -55,12 +56,12 @@ export default function NotFound() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0e0e10] px-6 py-16">
+    <div className="nb-404 relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
       <div aria-hidden="true" className="absolute inset-0">
         {STARS.map((s, i) => (
           <span
             key={i}
-            className="absolute rounded-full bg-white"
+            className="nb-404-star absolute rounded-full"
             style={{
               top: `${s.top}%`,
               left: `${s.left}%`,

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL } from "@/lib/site";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_LEGAL } from "@/lib/seo-pages";
 
 // Page publique combinée (aucune authentification requise) : mentions
 // légales, conditions d'utilisation et politique de confidentialité sur une
@@ -16,12 +17,9 @@ import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL } from "@/lib/site"
 // renseignées, la page l'indique honnêtement plutôt que d'afficher des
 // valeurs inventées. Ceci n'est pas un avis juridique.
 
-const LAST_UPDATED = "25 septembre 2026";
+const LAST_UPDATED = "29 septembre 2026";
 
-export const metadata: Metadata = {
-  title: "Mentions légales, conditions et confidentialité",
-  description: `Mentions légales, conditions d'utilisation et politique de confidentialité du service ${SITE_NAME}.`
-};
+export const metadata = pageMetadata(SEO_LEGAL);
 
 const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
   { name: "Vercel Inc.", role: "Hébergement du site et exécution du service", where: "États-Unis / Union européenne" },
@@ -149,6 +147,13 @@ export default function LegalPage() {
             responsable de la confidentialité de votre mot de passe et de toute activité effectuée depuis votre
             compte. Vous devez fournir une adresse email valide et nous informer de toute utilisation non autorisée.
           </p>
+          <p>
+            Statistiques anonymes (facultatif) : à l&apos;inscription ou dans Paramètres → Compte, vous pouvez accepter
+            que votre usage de {SITE_NAME} contribue à des statistiques de groupe anonymes, qui pourront être partagées
+            avec des partenaires, y compris à titre payant. La case est décochée par défaut ; refuser ou retirer votre
+            accord à tout moment n&apos;a aucun effet sur votre accès au Service. Le détail figure dans la politique de
+            confidentialité (« Statistiques anonymes »).
+          </p>
         </Section>
 
         <Section title="4. Connexion à des plateformes tierces">
@@ -254,7 +259,12 @@ export default function LegalPage() {
             compte de réseau social — un jeton d&apos;accès permettant à {SITE_NAME} d&apos;agir en votre nom sur ce
             compte dans la limite des permissions accordées, ainsi que les statistiques et commentaires que ces
             plateformes renvoient. Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
-            plus deux jours, pour limiter les tentatives abusives sur les formulaires publics.
+            plus deux jours, pour limiter les tentatives abusives sur les formulaires publics. Votre choix concernant
+            les statistiques anonymes, avec sa date.
+          </p>
+          <p>
+            Formulaire de contact : votre nom, votre adresse e-mail, le sujet et votre message, uniquement pour vous
+            répondre.
           </p>
           <p>
             Audit de présence en ligne (outil gratuit, sans compte) : les comptes et le site que vous indiquez, les
@@ -270,8 +280,8 @@ export default function LegalPage() {
             Ces données servent à faire fonctionner le Service que vous avez demandé (exécution du contrat) : vous
             authentifier, publier ou planifier votre contenu, afficher vos statistiques, partager vos rapports. La
             protection contre les abus et la sécurité du Service relèvent de notre intérêt légitime. Les fonctions
-            d&apos;assistant IA ne traitent vos textes et images que lorsque vous les déclenchez. Nous ne faisons ni
-            profilage publicitaire, ni revente de données.
+            d&apos;assistant IA ne traitent vos textes et images que lorsque vous les déclenchez. Nous ne vendons aucune
+            donnée personnelle et ne faisons pas de profilage publicitaire.
           </p>
           <p>
             L&apos;audit de présence produit le rapport que vous demandez, à partir de données publiques ; il peut
@@ -288,10 +298,31 @@ export default function LegalPage() {
           </p>
         </Section>
 
+        <Section id="statistiques" title="3 bis. Statistiques anonymes (facultatif)">
+          <p>
+            Si vous l&apos;acceptez (case facultative, décochée par défaut, à l&apos;inscription ou dans Paramètres →
+            Compte), votre usage de {SITE_NAME} contribue à des statistiques de groupe : par exemple la part des
+            publications programmées sur chaque réseau, les créneaux et les formats les plus programmés, la longueur
+            médiane des textes, ou la part des comptes qui utilisent une fonction. Base légale : votre consentement
+            (article 6.1.a du RGPD), que vous pouvez retirer à tout moment, sans aucun effet sur votre utilisation du
+            Service ; le retrait vaut pour tous les calculs suivants.
+          </p>
+          <p>
+            Ces statistiques sont calculées sur nos serveurs, uniquement à partir de ce que vous faites dans{" "}
+            {SITE_NAME} (réseaux visés, dates programmées, types de médias, longueur des textes, fonctions utilisées).
+            Elles n&apos;utilisent jamais les données reçues des réseaux sociaux (vues, abonnés, commentaires,
+            statistiques), ni le contenu de vos textes, ni aucun identifiant. Un chiffre n&apos;est calculé que s&apos;il
+            regroupe au moins 20 comptes différents : aucune personne, aucune marque et aucun compte ne peut y être
+            reconnu. Ces statistiques anonymes pourront être partagées avec des partenaires, par exemple sous forme de
+            rapports de tendances, y compris à titre payant. Aucune donnée personnelle n&apos;est jamais vendue ni
+            transmise à cette occasion.
+          </p>
+        </Section>
+
         <Section title="4. Destinataires et sous-traitants">
           <p>
-            Vos données ne sont jamais vendues. Elles sont transmises aux prestataires suivants, uniquement dans la
-            mesure nécessaire à leur fonction :
+            Vos données personnelles ne sont jamais vendues. Elles sont transmises aux prestataires suivants,
+            uniquement dans la mesure nécessaire à leur fonction :
           </p>
           <div className="overflow-x-auto">
             <table className="mt-2 w-full text-left text-xs">
@@ -326,7 +357,9 @@ export default function LegalPage() {
             → Compte &amp; confidentialité), vos données personnelles, vos contenus et les jetons de connexion sont
             effacés de nos systèmes ; les données de facturation sont conservées par Stripe et par nous le temps
             requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours. Les rapports
-            d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours.
+            d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
+            contact sont supprimés 12 mois après leur réception. Les statistiques de groupe anonymes ne sont pas des
+            données personnelles et peuvent être conservées sans limite.
           </p>
         </Section>
 
@@ -335,7 +368,9 @@ export default function LegalPage() {
             Les mots de passe sont hachés (bcrypt) et ne sont jamais stockés ni transmis en clair. Les échanges avec
             le Service sont chiffrés (HTTPS, HSTS). Les jetons d&apos;accès aux réseaux sociaux ne sont jamais
             renvoyés au navigateur et ne servent qu&apos;aux opérations que vous initiez. L&apos;accès aux données
-            d&apos;une marque est réservé aux membres de cette marque.
+            d&apos;une marque est réservé aux membres de cette marque. Les photos et vidéos que vous envoyez depuis
+            votre appareil sont débarrassées de leurs métadonnées cachées (position GPS, modèle d&apos;appareil,
+            auteur) avant d&apos;être enregistrées ; les photos importées depuis un autre service aussi.
           </p>
         </Section>
 
@@ -363,8 +398,12 @@ export default function LegalPage() {
             cookie qui retient la marque que vous avez choisie dans l&apos;application (pour l&apos;afficher dès le
             chargement). Sur les outils gratuits, un cookie « outils essayés » (30 jours) retient seulement le nom des
             outils que vous avez utilisés, pour vous offrir le badge Explorateur si vous créez ensuite un compte ; il ne
-            contient aucun identifiant et ne sert à rien d&apos;autre. Vos préférences d&apos;affichage (thème, fond) sont
-            mémorisées dans votre navigateur. Aucun cookie publicitaire, de mesure d&apos;audience tierce ou de traçage
+            contient aucun identifiant et ne sert à rien d&apos;autre. Juste après une inscription avec Google, Apple ou
+            Facebook, un cookie « bienvenue » (10 minutes au plus, sans identifiant) sert seulement à jouer une fois
+            l&apos;animation d&apos;accueil ; il est effacé dès qu&apos;elle est finie. Vos préférences d&apos;affichage (thème, fond,
+            vue du calendrier, menu replié…) et le brouillon en cours du Composer sont enregistrés dans votre compte,
+            avec une copie dans votre navigateur pour un affichage immédiat. Sur les pages publiques, le mode clair ou
+            sombre choisi avec le bouton soleil/lune est gardé seulement dans votre navigateur. Aucun cookie publicitaire, de mesure d&apos;audience tierce ou de traçage
             n&apos;est déposé ; aucune bannière de consentement n&apos;est donc nécessaire.
           </p>
         </Section>

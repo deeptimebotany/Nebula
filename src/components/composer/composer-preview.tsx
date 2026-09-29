@@ -24,6 +24,7 @@ import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import type { UploadedAsset } from "./composer-types";
 import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, type MediaShape, type PreviewDevice, type PreviewPost } from "./preview-network-ui";
 import { MotionRoot } from "@/components/motion/motion-root";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 export interface PreviewAccount {
   name: string;
@@ -202,7 +203,7 @@ export function ComposerPreview({
   // Dernier mode choisi (Mobile / Ordinateur), mémorisé dans ce navigateur.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(DEVICE_KEY);
+      const saved = getPref(DEVICE_KEY);
       if (saved === "mobile" || saved === "desktop") setDevice(saved);
     } catch {
       // stockage indisponible : on reste en mobile
@@ -211,7 +212,7 @@ export function ComposerPreview({
   function pickDevice(next: PreviewDevice) {
     setDevice(next);
     try {
-      localStorage.setItem(DEVICE_KEY, next);
+      setPref(DEVICE_KEY, next);
     } catch {
       // sans gravité
     }

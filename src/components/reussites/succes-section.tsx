@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { clsx } from "@/lib/clsx";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 interface EggStatus {
   number: number;
@@ -33,7 +34,7 @@ export function SuccesSection({ forceOpen = false }: { forceOpen?: boolean }) {
 
   useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "1");
+      setCollapsed(getPref(COLLAPSED_KEY) === "1");
     } catch {
       // stockage indisponible : déplié par défaut
     }
@@ -56,7 +57,7 @@ export function SuccesSection({ forceOpen = false }: { forceOpen?: boolean }) {
   function toggle() {
     setCollapsed((v) => {
       try {
-        localStorage.setItem(COLLAPSED_KEY, v ? "0" : "1");
+        setPref(COLLAPSED_KEY, v ? "0" : "1");
       } catch {
         // pas grave
       }

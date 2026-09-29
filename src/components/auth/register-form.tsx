@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { safeRelativePath } from "@/lib/safe-redirect";
@@ -8,9 +8,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
 import { AuthShell, OAuthButtons } from "@/components/auth/auth-shell";
 import { clsx } from "@/lib/clsx";
+import { IntroOverlay, preloadAccountIntro } from "@/components/intro/intro-overlay";
+import { unlockIntroAudio } from "@/lib/intro/audio-unlock";
 
 interface RegisterFormProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
@@ -34,11 +36,22 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
+  // Statistiques anonymes (29/09/2026) : facultatif, décoché par défaut.
+  const [statsConsent, setStatsConsent] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Jeton anti-robot à usage unique : nouveau jeton après chaque essai refusé.
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "terms", string>>>({});
   const [loading, setLoading] = useState(false);
+  // Intro de création de compte (29/09/2026) : jouée dès que le compte est
+  // créé ; on part vers l'application quand elle est finie ET la connexion
+  // ouverte (les deux se font en parallèle).
+  const [intro, setIntro] = useState(false);
+  const audioRef = useRef<AudioContext | null>(null);
+  const introDoneRef = useRef(false);
+  const signedInRef = useRef(false);
 
   // Retour après inscription : ?next=/composer?draft=… (outils gratuits,
   // lot G4.a) — chemin relatif uniquement, jamais une URL externe.
@@ -72,10 +85,26 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     return Object.keys(next).length === 0;
   }
 
+  function goToApp() {
+    if (!introDoneRef.current || !signedInRef.current) return;
+    // Chargement complet : l'application reçoit sa CSP stricte même si
+    // l'onglet a été ouvert sur la vitrine (lot 11, voir src/lib/csp.ts).
+    window.location.assign(nextPath);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!validate()) return;
+    if (TURNSTILE_ENABLED && !turnstileToken) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+    // Son de l'intro : le navigateur ne l'autorise que pendant le clic,
+    // donc avant le premier `await` (Safari). L'intro se télécharge en même
+    // temps que la création du compte.
+    audioRef.current = unlockIntroAudio(audioRef.current);
+    preloadAccountIntro();
     setLoading(true);
 
     const res = await fetch("/api/auth/register", {
@@ -88,31 +117,36 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
         brandName: form.brandName.trim() || undefined,
         referralCode: form.referralCode.trim() || undefined,
         acceptTerms,
+        statsConsent,
         turnstileToken: turnstileToken ?? undefined
       })
     }).catch(() => null);
 
     if (!res) {
       setLoading(false);
+      setTurnstileReset((k) => k + 1);
       setError("Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.");
       return;
     }
     if (!res.ok) {
+      setTurnstileReset((k) => k + 1);
       const data = await res.json().catch(() => ({}));
       setError(typeof data.error === "string" ? data.error : "Impossible de créer le compte pour le moment.");
       setLoading(false);
       return;
     }
 
-    const signInRes = await signIn("credentials", { email: form.email.trim(), password: form.password, redirect: false });
-    setLoading(false);
-    if (signInRes?.error) {
+    // Compte créé : page blanche et intro, pendant que la connexion s'ouvre.
+    setIntro(true);
+    const signInRes = await signIn("credentials", { email: form.email.trim(), password: form.password, redirect: false }).catch(() => null);
+    if (!signInRes || signInRes.error) {
+      setIntro(false);
+      setLoading(false);
       router.push("/login");
       return;
     }
-    // Chargement complet : l'application reçoit sa CSP stricte même si
-    // l'onglet a été ouvert sur la vitrine (lot 11, voir src/lib/csp.ts).
-    window.location.assign(nextPath);
+    signedInRef.current = true;
+    goToApp();
   }
 
   return (
@@ -226,7 +260,27 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           </p>
         )}
 
-        <TurnstileWidget onVerify={setTurnstileToken} />
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm transition">
+          <input
+            type="checkbox"
+            name="statsConsent"
+            checked={statsConsent}
+            onChange={(e) => setStatsConsent(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/[0.03] accent-aurora-400"
+            aria-describedby="register-stats-hint"
+          />
+          <span className="text-slate-300">
+            <span className="font-medium text-white">Facultatif :</span> j&apos;accepte que mon usage de Nebula contribue à des statistiques anonymes.
+            <span id="register-stats-hint" className="mt-1 block text-xs text-slate-500">
+              Uniquement des chiffres de groupe (20 comptes minimum), calculés à partir de ce que vous faites dans Nebula, jamais des données de vos réseaux. Modifiable à tout moment dans les paramètres.{" "}
+              <Link href="/legal#statistiques" target="_blank" className="text-aurora-300 hover:underline">
+                En savoir plus
+              </Link>
+            </span>
+          </span>
+        </label>
+
+        <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileReset} />
         {error && (
           <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
             {error}
@@ -236,6 +290,16 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           {loading ? "Création..." : "Créer mon espace gratuitement"}
         </Button>
       </form>
+
+      {intro && (
+        <IntroOverlay
+          audio={audioRef.current}
+          onDone={() => {
+            introDoneRef.current = true;
+            goToApp();
+          }}
+        />
+      )}
 
       <p className="mt-6 text-center text-sm text-slate-400">
         Déjà un compte ?{" "}

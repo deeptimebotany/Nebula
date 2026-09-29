@@ -5,6 +5,8 @@
 // interaction utilisateur préalable échouent silencieusement (catch vide),
 // ce qui est le comportement souhaité pour un simple agrément sonore.
 
+import { getPref, setPref } from "@/lib/ui-prefs-client";
+
 function getCtx(): AudioContext | null {
   try {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -93,7 +95,7 @@ const ACHIEVEMENT_SOUND_KEY = "nebula:achievement-sound";
 /** Son des succès : activé sauf si coupé dans Paramètres (réglage de cet appareil). */
 export function isAchievementSoundOn(): boolean {
   try {
-    return localStorage.getItem(ACHIEVEMENT_SOUND_KEY) !== "off";
+    return getPref(ACHIEVEMENT_SOUND_KEY) !== "off";
   } catch {
     return true;
   }
@@ -101,7 +103,7 @@ export function isAchievementSoundOn(): boolean {
 
 export function setAchievementSoundOn(on: boolean): void {
   try {
-    localStorage.setItem(ACHIEVEMENT_SOUND_KEY, on ? "on" : "off");
+    setPref(ACHIEVEMENT_SOUND_KEY, on ? "on" : "off");
   } catch {
     // stockage indisponible : le son reste au réglage par défaut
   }

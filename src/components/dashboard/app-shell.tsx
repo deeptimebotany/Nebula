@@ -14,6 +14,7 @@ import { AppHeader } from "./app-header";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import { useAiAssistant } from "./ai-assistant-context";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 // Largeur du tiroir « Demander à Nebula » sur ordinateur (voir
 // ai-assistant.tsx, sm:w-[420px]) : la colonne de contenu se rétrécit
@@ -76,7 +77,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
 
   useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "1");
+      setCollapsed(getPref(COLLAPSED_KEY) === "1");
     } catch {
       // stockage indisponible — colonne dépliée
     }
@@ -86,7 +87,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
     setCollapsed((v) => {
       const next = !v;
       try {
-        localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+        setPref(COLLAPSED_KEY, next ? "1" : "0");
       } catch {
         // ignore
       }

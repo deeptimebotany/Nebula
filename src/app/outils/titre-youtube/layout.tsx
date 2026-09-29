@@ -1,13 +1,20 @@
-import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { pageMetadata, toolStructuredData } from "@/lib/seo";
+import { SEO_TOOLS } from "@/lib/seo-pages";
 
-// Métadonnées de l’outil (la page est un composant client) — voir
-// outils/legendes/layout.tsx pour le contexte.
-export const metadata: Metadata = {
-  title: "Testeur de titre YouTube gratuit",
-  description: "Notez votre titre YouTube (longueur, chiffre, mot fort, question) et obtenez trois reformulations plus accrocheuses par l’IA. Gratuit, sans compte.",
-  alternates: { canonical: "/outils/titre-youtube" }
-};
+// La page de l'outil est un composant client : ce layout porte ses
+// métadonnées (titre, description, canonique, aperçus de partage) et ses
+// données structurées (WebApplication + fil d'Ariane), définies dans
+// src/lib/seo-pages.ts (SEO technique, 29/09/2026).
+const PAGE = SEO_TOOLS["titre-youtube"];
+
+export const metadata = pageMetadata(PAGE);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <JsonLd nodes={toolStructuredData(PAGE)} />
+      {children}
+    </>
+  );
 }

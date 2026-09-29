@@ -1,47 +1,47 @@
 "use client";
 
-// État commun des micro-outils IA (brief growth, lot G4.c) : appel à
-// /api/public/tools/generate, quota restant, et déclenchement de la capture
-// d'email après la 2e génération du jour (voir tool-lead-capture.tsx).
+// État commun des micro-outils IA de /outils (brief growth, lot G4.c).
+// 29/09/2026 : sans compte, `generate` affiche la démo préparée à l'avance
+// (aucun appel à l'IA) ; avec un compte, vraie génération via
+// /api/public/tools/generate, avec le quota du jour du compte.
 import { useState } from "react";
-import { hasToolLead } from "@/components/tools/tool-lead-capture";
 import { markToolExplored } from "@/lib/tools-explored";
+import { useToolAccess } from "@/components/tools/use-tool-access";
 
-export type LeadStep = "idle" | "ask" | "done" | "skipped";
-
-export function useToolGeneration<T>(tool: string) {
+export function useToolGeneration<T>(tool: string, demo: T) {
+  const access = useToolAccess();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [used, setUsed] = useState(0);
-  const [leadStep, setLeadStep] = useState<LeadStep>("idle");
   const [result, setResult] = useState<T | null>(null);
-
-  /** Renvoie true si la capture d'email doit s'afficher d'abord. */
-  function shouldAskLead(): boolean {
-    if (used >= 2 && leadStep === "idle" && !hasToolLead()) {
-      setLeadStep("ask");
-      return true;
-    }
-    return false;
-  }
+  /** Vrai quand le résultat affiché est la démo (et non une vraie génération). */
+  const [isDemo, setIsDemo] = useState(false);
 
   async function generate(body: Record<string, unknown>, pick: (data: Record<string, unknown>) => T) {
-    if (shouldAskLead()) return;
-    setLoading(true);
     setError(null);
+    if (access.status !== "member") {
+      setResult(demo);
+      setIsDemo(true);
+      return;
+    }
+    setLoading(true);
     try {
       const res = await fetch("/api/public/tools/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool, ...body }) });
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (res.status === 401 && data.signupRequired) {
+        access.becomeVisitor();
+        setResult(demo);
+        setIsDemo(true);
+        return;
+      }
       if (!res.ok) {
         setError(typeof data.error === "string" ? data.error : "Une erreur est survenue.");
         return;
       }
       setResult(pick(data));
+      setIsDemo(false);
       // Badge Explorateur (Réussites, lot C) : un vrai résultat obtenu.
       markToolExplored();
-      if (typeof data.remaining === "number") setRemaining(data.remaining);
-      if (typeof data.used === "number") setUsed(data.used);
+      if (typeof data.remaining === "number") access.setRemaining("text", data.remaining);
     } catch {
       setError("Impossible de contacter le générateur pour le moment.");
     } finally {
@@ -49,14 +49,5 @@ export function useToolGeneration<T>(tool: string) {
     }
   }
 
-  const leadProps = {
-    tool,
-    onDone: (bonus: number) => {
-      setLeadStep("done");
-      setRemaining((r) => (r === null ? null : r + bonus));
-    },
-    onSkip: () => setLeadStep("skipped")
-  };
-
-  return { loading, error, remaining, result, leadStep, generate, leadProps, setError };
+  return { access, loading, error, result, isDemo, generate, setError };
 }

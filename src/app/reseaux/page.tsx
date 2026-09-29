@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_NETWORKS } from "@/lib/seo-pages";
 import Link from "next/link";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { TrackView } from "@/components/marketing/track-view";
@@ -9,11 +10,7 @@ import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
 // Index des réseaux (brief growth, lot G5.d) : pris en charge aujourd'hui,
 // et à venir avec leur liste d'attente.
-export const metadata: Metadata = {
-  title: "Réseaux pris en charge et à venir",
-  description: "Nebula publie sur Instagram, TikTok, YouTube, Facebook et Bluesky. Threads, LinkedIn et Pinterest arrivent : inscrivez-vous pour être prévenu.",
-  alternates: { canonical: "/reseaux" }
-};
+export const metadata = pageMetadata(SEO_NETWORKS);
 
 export default function ReseauxIndexPage() {
   return (

@@ -4,26 +4,33 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
 import { AuthShell } from "@/components/auth/auth-shell";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Jeton anti-robot à usage unique : nouveau jeton après chaque envoi.
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    if (TURNSTILE_ENABLED && !turnstileToken) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+    setLoading(true);
     const res = await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim(), turnstileToken })
     }).catch(() => null);
     setLoading(false);
+    setTurnstileReset((k) => k + 1);
     if (!res) {
       setError("Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.");
       return;
@@ -63,7 +70,7 @@ export function ForgotPasswordForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="vous@marque.com"
           />
-          <TurnstileWidget onVerify={setTurnstileToken} />
+          <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileReset} />
           {error && (
             <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
               {error}

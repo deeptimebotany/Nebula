@@ -1,17 +1,14 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { IconCheck, IconDownload, IconLock, IconShield, IconUsers } from "@/components/dashboard/icons";
-import { SITE_CONTACT_EMAIL, SITE_NAME } from "@/lib/site";
+import { SITE_NAME } from "@/lib/site";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { SEO_SECURITY } from "@/lib/seo-pages";
 
-export const metadata: Metadata = {
-  title: "Sécurité et données",
-  description:
-    "Comment Nebula protège vos comptes et vos données : connexion officielle OAuth, jetons jamais exposés, chiffrement, export et suppression à tout moment.",
-  alternates: { canonical: "/securite" }
-};
+export const metadata = pageMetadata(SEO_SECURITY);
 
 // Chaque affirmation de cette page correspond à un mécanisme réellement en
 // place dans le code (voir les fichiers cités en commentaire), pas à une
@@ -75,7 +72,9 @@ const MEASURES: { title: string; items: string[] }[] = [
   {
     title: "Données et vie privée",
     items: [
-      "Aucune revente de données, aucun profilage publicitaire, aucun traceur tiers.",
+      "Aucune revente de données personnelles, aucun profilage publicitaire, aucun traceur tiers.",
+      "Statistiques anonymes seulement si vous l'acceptez (case facultative, décochée par défaut) : des chiffres de groupe d'au moins 20 comptes, jamais les données de vos réseaux.",
+      "Les photos que vous envoyez sont débarrassées de leurs métadonnées cachées (position GPS, appareil) avant d'être enregistrées.",
       "Uniquement des cookies strictement nécessaires : pas de bannière de consentement parce qu'il n'y a rien à consentir.",
       "Les fonctions d'IA ne traitent vos textes et images que lorsque vous les utilisez.",
       "Les empreintes d'adresse IP servant à limiter les abus sont purgées automatiquement sous deux jours."
@@ -86,6 +85,14 @@ const MEASURES: { title: string; items: string[] }[] = [
 export default function SecuritePage() {
   return (
     <PublicShell width="max-w-5xl">
+      <JsonLd
+        nodes={[
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Sécurité et données", "/securite"]
+          ])
+        ]}
+      />
       <PublicPageHeading
         eyebrow="Sécurité et données"
         title="Vos comptes restent les vôtres"
@@ -141,10 +148,7 @@ export default function SecuritePage() {
               </p>
             </div>
             <div className="flex flex-col gap-3">
-              <ButtonLink href={`mailto:${SITE_CONTACT_EMAIL}?subject=S%C3%A9curit%C3%A9%20Nebula`} variant="outline">
-                Signaler un problème de sécurité
-              </ButtonLink>
-              <ButtonLink href="/contact" variant="ghost">
+              <ButtonLink href="/contact" variant="outline">
                 Nous contacter
               </ButtonLink>
             </div>

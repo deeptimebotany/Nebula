@@ -12,6 +12,7 @@ import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconCheck } from "@/components/dashboard/icons";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 export interface ChecklistStep {
   key: string;
@@ -28,7 +29,7 @@ export function OnboardingChecklist({ brandId, steps }: { brandId: string; steps
 
   useEffect(() => {
     try {
-      setDismissed(localStorage.getItem(DISMISS_PREFIX + brandId) === "1");
+      setDismissed(getPref(DISMISS_PREFIX + brandId) === "1");
     } catch {
       setDismissed(false);
     }
@@ -41,7 +42,7 @@ export function OnboardingChecklist({ brandId, steps }: { brandId: string; steps
   function dismiss() {
     setDismissed(true);
     try {
-      localStorage.setItem(DISMISS_PREFIX + brandId, "1");
+      setPref(DISMISS_PREFIX + brandId, "1");
     } catch {
       // ignore
     }

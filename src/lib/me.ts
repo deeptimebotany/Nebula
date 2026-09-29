@@ -4,6 +4,7 @@
 // l'application au premier affichage (plus d'appel /api/me à attendre :
 // thème, fond et cosmétiques justes dès la première image).
 import type { Session } from "next-auth";
+import { sanitizeUiPrefs } from "@/lib/ui-prefs";
 import { prisma } from "@/lib/prisma";
 import { countOwnedBrands, getUserPlan } from "@/lib/billing/plan";
 import { getAppearanceAccess } from "@/lib/appearance-access";
@@ -33,6 +34,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         email: true,
         avatarUrl: true,
         emailVerifiedAt: true,
+        passwordHash: true,
         themePreference: true,
         backgroundPreference: true,
         colorMode: true,
@@ -50,6 +52,9 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         bonusMonths: true,
         paidInvoices: true,
         lifecycleEmails: true,
+        statsConsent: true,
+        statsConsentAt: true,
+        uiPrefs: true,
         referralPromptsSeen: true,
         referralCode: true
       }
@@ -91,7 +96,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     // Pas encore de photo en base : celle du compte Google/Apple de la
     // session, pour que « Mon profil » affiche la même que le sélecteur de
     // compte en haut à droite.
-    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, emailVerified: Boolean(user.emailVerifiedAt) },
+    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, emailVerified: Boolean(user.emailVerifiedAt), hasPassword: Boolean(user.passwordHash) },
     plan: planInfo.plan,
     maxBrands: planInfo.maxBrands,
     brandsOwned,
@@ -105,7 +110,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     // Fond retiré lors du tri du 24/09/2026 → son remplaçant ; fond de
     // palier non couvert par le palier actuel → fond par défaut.
     background: effectiveBackground,
-    mode: user.colorMode === "light" ? "light" : "dark",
+    mode: user.colorMode === "dark" ? "dark" : "light",
     // Colonne ajoutée au Lot 3 : `?? true` couvre une base pas encore migrée.
     focusMode: (user.focusMode as boolean | null | undefined) ?? true,
     notifyOnFailure: (user.notifyOnFailure as boolean | null | undefined) ?? true,
@@ -127,6 +132,9 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     bonusMonths: user.bonusMonths ?? 0,
     annualNudge: planInfo.paid && planInfo.interval === "month" && (user.paidInvoices ?? 0) >= 3,
     lifecycleEmails: (user.lifecycleEmails as boolean | null | undefined) ?? true,
+    statsConsent: Boolean(user.statsConsent),
+    statsConsentAt: user.statsConsentAt ? user.statsConsentAt.toISOString() : null,
+    uiPrefs: sanitizeUiPrefs(user.uiPrefs),
     referralPromptsSeen: Array.isArray(user.referralPromptsSeen) ? (user.referralPromptsSeen as string[]) : [],
     referralCode: user.referralCode ?? null,
     networks: availableNetworks()

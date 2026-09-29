@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
@@ -24,12 +23,13 @@ import {
   IconUpload,
   IconUsers
 } from "@/components/dashboard/icons";
+import { JsonLd } from "@/components/seo/json-ld";
+import { organizationLd, pageMetadata, softwareApplicationLd, websiteLd } from "@/lib/seo";
+import { SEO_HOME } from "@/lib/seo-pages";
 
 // L'accueil garde le titre par défaut du site (voir layout.tsx) et déclare
 // son adresse canonique : c'est LA page à référencer.
-export const metadata: Metadata = {
-  alternates: { canonical: "/" }
-};
+export const metadata = pageMetadata({ ...SEO_HOME, absoluteTitle: true });
 
 // Étapes, fonctionnalités et arguments de confiance : tout ce qui est
 // affiché ici correspond à une fonction réellement présente dans
@@ -130,6 +130,9 @@ export default function LandingPage() {
     <>
       <MarketingNav />
       <main id="contenu" className="relative overflow-hidden">
+        {/* Données structurées de l'accueil (SEO, 29/09/2026) : l'éditeur, le
+            site et l'application avec ses prix réels. */}
+        <JsonLd nodes={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
         {/* Fond commun à toute la page : étoiles très discrètes + deux halos
             bas de page, pour que les sections après le hero ne tombent pas
             sur un noir plat. */}
@@ -301,7 +304,7 @@ export default function LandingPage() {
                   Créer mon espace gratuitement
                 </ButtonLink>
                 <ButtonLink href="/outils" variant="ghost" className="w-full px-7 py-3.5 text-base sm:w-auto">
-                  Essayer les outils gratuits, sans compte
+                  Essayer les outils gratuits
                 </ButtonLink>
               </div>
             </GlassCard>

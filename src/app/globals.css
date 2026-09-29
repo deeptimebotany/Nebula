@@ -145,6 +145,13 @@ body {
   --l-accent: rgb(var(--c-accent-ink));
 }
 
+/* Bouton soleil/lune (mode-toggle.tsx) : la bonne icône dès la première
+   image, sans attendre React. */
+[data-mode="dark"] .nb-when-light,
+:root:not([data-mode="dark"]) .nb-when-dark {
+  display: none;
+}
+
 [data-mode="light"] body {
   background-color: var(--l-page);
   background-image: none;
@@ -209,6 +216,25 @@ body {
 [data-mode="light"] .text-nebula-300,
 [data-mode="light"] .hover\:text-aurora-300:hover,
 [data-mode="light"] .hover\:text-aurora-200:hover { color: var(--l-accent); }
+/* Teintes claires ajoutées après la création du mode clair (relevées au
+   passage au clair par défaut, 29/09/2026) : encadrés d'information sur
+   fond teinté, boutons « supprimer » au survol, pastilles de notification. */
+[data-mode="light"] .text-amber-100,
+[data-mode="light"] .text-amber-200\/80,
+[data-mode="light"] .text-amber-300\/90 { color: var(--l-warning); }
+[data-mode="light"] .text-emerald-100,
+[data-mode="light"] .text-emerald-200\/80 { color: var(--l-success); }
+[data-mode="light"] .text-red-200\/80,
+[data-mode="light"] .text-red-200\/90,
+[data-mode="light"] .text-red-300\/90,
+[data-mode="light"] .hover\:text-red-200:hover,
+[data-mode="light"] .hover\:text-red-300:hover { color: var(--l-danger); }
+[data-mode="light"] .text-aurora-100,
+[data-mode="light"] .text-aurora-200\/80,
+[data-mode="light"] .text-aurora-300\/70,
+[data-mode="light"] .text-aurora-300\/90 { color: var(--l-accent); }
+[data-mode="light"] .text-cyan-300 { color: var(--l-info); }
+[data-mode="light"] .text-pink-300 { color: #be185d; /* pink-700 — 6,0:1 sur blanc */ }
 /* Liens dans du texte courant : l'accent seul ne suffit plus à les
    distinguer du texte voisin sur fond clair → soulignés en permanence. */
 [data-mode="light"] .text-aurora-300.hover\:underline,
@@ -239,6 +265,33 @@ body {
   border-color: var(--l-border);
   box-shadow: var(--l-panel-shadow);
 }
+/* Carte « Succès débloqué » et barre « Mode test » : fond sombre écrit en
+   dur → version claire (leur texte suit déjà les couleurs du mode clair). */
+[data-mode="light"] .nebula-achievement-card {
+  background-color: #ffffff;
+  border-color: var(--l-border);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+}
+[data-mode="light"] .nebula-achievement-card .text-\[\#f2cf6b\] { color: #a16207; /* yellow-700 */ }
+[data-mode="light"] .nb-test-bar {
+  background-color: rgb(255 251 235 / 0.96); /* amber-50 */
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.25);
+}
+[data-mode="light"] .nb-test-bar .hover\:text-white:hover { color: #78350f; }
+/* Aperçu au design propre dans l'application en clair (page bio,
+   link-in-bio/page.tsx) : couleurs d'origine, comme sur la vraie page
+   publique, qui reste toujours en sombre (voir src/lib/color-mode.ts). */
+[data-mode="light"] .nb-own-design .text-white { color: #ffffff; }
+[data-mode="light"] .nb-own-design .text-white\/70 { color: rgb(255 255 255 / 0.7); }
+[data-mode="light"] .nb-own-design .text-white\/40 { color: rgb(255 255 255 / 0.4); }
+[data-mode="light"] .nb-own-design .border-white\/10 { border-color: rgb(255 255 255 / 0.1); }
+[data-mode="light"] .nb-own-design .border-white\/20 { border-color: rgb(255 255 255 / 0.2); }
+[data-mode="light"] .nb-own-design .bg-white\/10 { background-color: rgb(255 255 255 / 0.1); }
+/* Page 404 : ciel étoilé en sombre, ciel clair aux étoiles violettes en clair. */
+.nb-404 { background-color: #0e0e10; }
+.nb-404-star { background-color: #ffffff; }
+[data-mode="light"] .nb-404 { background-color: var(--l-page); }
+[data-mode="light"] .nb-404-star { background-color: rgb(var(--c-nebula-500) / 0.55); }
 /* Fonds bleutés translucides (option retenue, ligne de la vue Liste) :
    30 % de nebula-700 sur blanc donne un bleu moyen qui écrase le texte. */
 [data-mode="light"] .bg-nebula-700\/30,
@@ -1679,7 +1732,6 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
 .nb-word {
   filter: drop-shadow(0 0 12px rgb(var(--c-accent-violet) / 0.45));
 }
-.nb-word-spark { fill: #ffffff; }
 .nb-word-star {
   fill: #ffffff;
   opacity: 0.2;
@@ -1696,8 +1748,7 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
    mot assombri pour rester lisible sur blanc (le cyan pur y fait 1,4:1),
    sans halo ni étoiles scintillantes. tone="onDark" garde la version sombre
    pour un logo posé sur un fond qui reste sombre. */
-[data-mode="light"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star,
-[data-mode="light"] .nb-word:not(.nb-logo--on-dark) .nb-word-spark {
+[data-mode="light"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star {
   fill: rgb(var(--c-accent-ink));
 }
 [data-mode="light"] .nb-word:not(.nb-logo--on-dark) {
@@ -1877,3 +1928,24 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   @page { margin: 14mm 12mm; }
   .kit-print { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Intro de création de compte (29/09/2026, voir components/intro/) : voile
+   blanc plein écran, au-dessus de tout, qui accueille l'animation. Il apparaît
+   en fondu après « Créer mon espace », ou d'emblée à l'arrivée après une
+   inscription Google (rendu par le serveur, pour que le tableau de bord ne
+   se montre pas avant). Le reste du style est dans account-intro.module.css. */
+.nb-intro-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  background: #fbfbfa;
+  animation: nb-intro-cover-in 0.3s ease-out both;
+}
+.nb-intro-cover--instant { animation: none; }
+.nb-intro-cover--exit {
+  animation: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.7s ease;
+}
+@keyframes nb-intro-cover-in { from { opacity: 0; } to { opacity: 1; } }

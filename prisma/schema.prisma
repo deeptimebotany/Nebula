@@ -28,6 +28,7 @@ model User {
   avatarUrl    String?
   createdAt    DateTime      @default(now())
   memberships  Membership[]
+  composerDrafts ComposerDraft[]
   posts        Post[]
   forumThreads ForumThread[]
   forumReplies ForumReply[]
@@ -113,10 +114,11 @@ model User {
   sameHourLoginStreak Int @default(0)
 
   // Mode clair/sombre choisi via la bulle de profil (voir mode-provider.tsx).
-  // "dark" = défaut d'origine (Nébuleuse bleu foncé). Indépendant du thème
+  // "light" = défaut depuis le 29/09/2026 (avant : "dark", la Nébuleuse bleu
+  // foncé d'origine, toujours au choix — voir src/lib/color-mode.ts). Indépendant du thème
   // de couleurs (themePreference) : le mode inverse simplement les surfaces
   // (fond/texte/panneaux) par-dessus n'importe quel thème choisi.
-  colorMode String @default("dark")
+  colorMode String @default("light")
 
   // Mode focus (Lot 3 de la refonte) : vrai par défaut pour tout le monde.
   // Quand il est actif, l'application ne montre ni easter eggs ambiants
@@ -167,6 +169,16 @@ model User {
   // Augmenté à la réinitialisation du mot de passe et quand un compte non
   // confirmé est repris par le vrai propriétaire de l'adresse.
   sessionVersion            Int       @default(0)
+  // Statistiques anonymes (29/09/2026) : accord FACULTATIF, décoché par
+  // défaut (inscription ou Paramètres → Compte), retirable à tout moment.
+  // statsConsentAt : date du dernier choix (accord ou retrait). Voir
+  // src/lib/anon-stats/ et la politique de confidentialité.
+  statsConsent              Boolean   @default(false)
+  statsConsentAt            DateTime?
+  // Préférences d'affichage suivies d'un appareil à l'autre (29/09/2026) :
+  // vue du calendrier, menu replié, son des succès… Clés autorisées :
+  // src/lib/ui-prefs.ts (le navigateur ne sert plus que de cache).
+  uiPrefs                   Json      @default("{}")
   // Identifiant Facebook du compte qui s'est connecté via « Continuer avec
   // Meta » : Facebook ne garantit pas que l'adresse e-mail transmise a été
   // vérifiée, on ne relie donc un compte existant QUE par cet identifiant.
@@ -329,6 +341,7 @@ model Brand {
   adAccounts     AdAccount[]
   studioGenerations StudioGeneration[]
   mediaKit       MediaKit?
+  composerDrafts ComposerDraft[]
 }
 
 // Calendrier client en lecture seule (produit n°7 de la feuille de route) :
@@ -1576,4 +1589,60 @@ model NetworkControl {
   lastFailureMessage  String?
   lastSuccessAt       DateTime?
   updatedAt           DateTime  @updatedAt
+}
+
+// Messages du formulaire de contact (29/09/2026) : enregistrés AVANT l'envoi
+// de l'e-mail, pour qu'aucun message ne se perde si l'envoi échoue (clé
+// Resend absente, domaine non vérifié…). Lus dans /admin/messages ; purgés
+// 12 mois après réception (voir growth-jobs.ts et les mentions légales).
+model ContactMessage {
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  // Vrai si l'e-mail de notification est bien parti chez Resend.
+  emailSent Boolean   @default(false)
+  handledAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+// Statistiques de groupe anonymes (29/09/2026) : calculées sur le serveur à
+// partir des SEULES données propres à Nebula (créneaux et formats
+// programmés, longueur des textes, fonctions utilisées) des comptes qui ont
+// donné leur accord — jamais des données reçues des API des réseaux. Une
+// valeur n'est enregistrée que si au moins 20 comptes y contribuent
+// (sampleAccounts ≥ ANON_MIN_ACCOUNTS). Voir src/lib/anon-stats/.
+model AnonStat {
+  id             String   @id @default(cuid())
+  // Mois concerné, « AAAA-MM » (UTC).
+  period         String
+  metric         String
+  dimension      String   @default("")
+  value          Float
+  sampleAccounts Int
+  sampleItems    Int      @default(0)
+  computedAt     DateTime @default(now())
+
+  @@unique([period, metric, dimension])
+  @@index([period])
+}
+
+// Brouillon du Composer, par compte et par marque (29/09/2026) : suivait
+// avant dans le navigateur seulement (localStorage) et ne passait pas d'un
+// appareil à l'autre. Un seul brouillon en cours par marque.
+model ComposerDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+  @@index([brandId])
 }

@@ -1,7 +1,9 @@
 "use client";
 
-// Générateur gratuit de titres/légendes, sans compte (voir /api/public/tools/captions).
-import { useState } from "react";
+// Générateur de titres/légendes (voir /api/public/tools/captions).
+// 29/09/2026 : démo sans IA pour les visiteurs, vraie génération avec un
+// compte (quota par compte).
+import { useEffect, useState } from "react";
 import { markToolExplored } from "@/lib/tools-explored";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,9 @@ import { clsx } from "@/lib/clsx";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { IconMessage, IconSparkle } from "@/components/dashboard/icons";
 import { ScheduleWithNebula } from "@/components/tools/schedule-with-nebula";
-import { ToolLeadCapture, hasToolLead } from "@/components/tools/tool-lead-capture";
+import { ToolDemoNotice, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { saveToolDraft, takeToolDraft, useToolAccess } from "@/components/tools/use-tool-access";
+import { DEMO_LEGENDES } from "@/lib/tools/demo";
 
 type Field = "title" | "description";
 
@@ -22,20 +26,34 @@ export default function FreeCaptionToolPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  // Capture d'email après la 2e génération du jour (lot G4.b) : `used` vient
-  // de la réponse de l'API ; le formulaire s'affiche avant la 3e, une fois.
-  const [used, setUsed] = useState(0);
-  const [leadStep, setLeadStep] = useState<"idle" | "ask" | "done" | "skipped">("idle");
+  const [isDemo, setIsDemo] = useState(false);
+  const access = useToolAccess();
+  const member = access.status === "member";
+
+  // Retour après la création du compte : on remet ce qui avait été saisi.
+  useEffect(() => {
+    const draft = takeToolDraft("legendes");
+    if (!draft) return;
+    setTopic(draft.topic ?? "");
+    setBrandName(draft.brandName ?? "");
+    if ((NETWORKS as readonly string[]).includes(draft.network ?? "")) setNetwork(draft.network as Network);
+    if (draft.field === "title" || draft.field === "description") setField(draft.field);
+  }, []);
+
+  function showDemo() {
+    setError(null);
+    setResult(field === "title" ? DEMO_LEGENDES.result.title : DEMO_LEGENDES.result.description);
+    setIsDemo(true);
+  }
 
   async function generate() {
-    if (topic.trim().length < 3) {
-      setError("Décrivez votre publication en quelques mots.");
+    if (!member) {
+      showDemo();
       return;
     }
-    if (used >= 2 && leadStep === "idle" && !hasToolLead()) {
-      setLeadStep("ask");
+    if (topic.trim().length < 3) {
+      setError("Décrivez votre publication en quelques mots.");
       return;
     }
     setLoading(true);
@@ -47,15 +65,20 @@ export default function FreeCaptionToolPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: topic.trim(), network: network || undefined, brandName: brandName.trim() || undefined, field })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && data.signupRequired) {
+        access.becomeVisitor();
+        showDemo();
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? "Une erreur est survenue.");
         return;
       }
       setResult(data.text);
+      setIsDemo(false);
       markToolExplored();
-      setRemaining(data.remaining ?? null);
-      if (typeof data.used === "number") setUsed(data.used);
+      if (typeof data.remaining === "number") access.setRemaining("text", data.remaining);
     } catch {
       setError("Impossible de contacter le générateur pour le moment.");
     } finally {
@@ -83,7 +106,7 @@ export default function FreeCaptionToolPage() {
           <IconMessage className="h-6 w-6 text-aurora-300" /> Générateur de légendes & titres
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">
-          Décrivez votre publication, l&apos;IA rédige un texte prêt à copier-coller. Gratuit, sans compte.
+          Décrivez votre publication, l&apos;IA rédige un texte prêt à copier-coller. Avec un compte gratuit (10 générations par jour) ; sans compte, une démo préparée à l&apos;avance, sans IA.
         </p>
       </section>
 
@@ -151,22 +174,14 @@ export default function FreeCaptionToolPage() {
             </div>
           </div>
 
-          <Button onClick={generate} disabled={loading || topic.trim().length < 3} className="mt-4 w-full">
-            <IconSparkle className="h-4 w-4" /> {loading ? "Génération..." : "Générer"}
+          <Button onClick={generate} disabled={loading || access.status === "loading" || (member && topic.trim().length < 3)} className="mt-4 w-full">
+            <IconSparkle className="h-4 w-4" /> {loading ? "Génération..." : member ? "Générer" : "Voir un exemple (démo sans IA)"}
           </Button>
+          <ToolQuotaLine status={access.status} remaining={access.remaining?.text ?? null} kind="text" />
 
           {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
-          {leadStep === "ask" && (
-            <ToolLeadCapture
-              tool="legendes"
-              onDone={(bonus) => {
-                setLeadStep("done");
-                setRemaining((r) => (r === null ? null : r + bonus));
-              }}
-              onSkip={() => setLeadStep("skipped")}
-            />
-          )}
+          {isDemo && result && <ToolDemoNotice slug="legendes" input={DEMO_LEGENDES.input} onBeforeLeave={() => saveToolDraft("legendes", { topic, brandName, network, field })} />}
 
           {result && (
             <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
@@ -175,14 +190,13 @@ export default function FreeCaptionToolPage() {
                 <button onClick={copyResult} className="text-xs font-medium text-aurora-300 hover:underline">
                   {copied ? "Copié !" : "Copier le texte"}
                 </button>
-                {remaining !== null && (
-                  <span className="text-[11px] text-slate-500">{remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</span>
-                )}
               </div>
-              <ScheduleWithNebula
-                className="mt-4"
-                payload={{ kind: "CAPTION", tool: "legendes", network: network || undefined, content: field === "title" ? { title: result } : { caption: result } }}
-              />
+              {!isDemo && (
+                <ScheduleWithNebula
+                  className="mt-4"
+                  payload={{ kind: "CAPTION", tool: "legendes", network: network || undefined, content: field === "title" ? { title: result } : { caption: result } }}
+                />
+              )}
             </div>
           )}
         </GlassCard>

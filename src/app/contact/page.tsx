@@ -1,15 +1,13 @@
-import type { Metadata } from "next";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { ContactForm } from "./contact-form";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconLock, IconMessage, IconSparkle } from "@/components/dashboard/icons";
 import { SITE_CONTACT_EMAIL } from "@/lib/site";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { SEO_CONTACT } from "@/lib/seo-pages";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: "Une question sur Nebula, les tarifs ou votre compte ? Écrivez-nous, nous répondons à chaque message.",
-  alternates: { canonical: "/contact" }
-};
+export const metadata = pageMetadata(SEO_CONTACT);
 
 const SIDE = [
   { icon: IconMessage, title: "Une vraie réponse", body: "Chaque message est lu et reçoit une réponse personnelle, généralement sous un à deux jours ouvrés." },
@@ -20,6 +18,15 @@ const SIDE = [
 export default function ContactPage() {
   return (
     <PublicShell width="max-w-5xl">
+      <JsonLd
+        nodes={[
+          { "@type": "ContactPage", name: "Contact", url: absoluteUrl("/contact"), inLanguage: "fr-FR" },
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Contact", "/contact"]
+          ])
+        ]}
+      />
       <PublicPageHeading eyebrow="Contact" title="Écrivez-nous" desc="Une question, une remarque, un problème ? Le formulaire ci-dessous arrive directement dans notre boîte." />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <GlassCard hover={false} className="p-6 sm:p-8">

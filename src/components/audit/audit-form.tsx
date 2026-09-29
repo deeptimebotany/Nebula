@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Input } from "@/components/ui/input";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
 import { markToolExplored } from "@/lib/tools-explored";
 import { parseAuditInput, type InputErrors, type RawAuditInput } from "@/lib/audit/parse-input";
 import { AUDIT_DAILY_LIMIT, AUDIT_SOURCE_LABEL, type AuditSourceKey, type SourceStatus } from "@/lib/audit/types";
@@ -46,6 +46,8 @@ export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean
   const [email, setEmail] = useState("");
   const [tips, setTips] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  // Jeton anti-robot à usage unique : nouveau jeton après chaque essai refusé.
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState<Partial<Record<AuditSourceKey, { status: SourceStatus; message?: string }>> | null>(null);
@@ -69,6 +71,10 @@ export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean
       return;
     }
     setErrors({});
+    if (TURNSTILE_ENABLED && !token) {
+      setMessage(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/public/audit", {
@@ -78,6 +84,8 @@ export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean
       });
       const data = (await res.json().catch(() => ({}))) as { token?: string; error?: string; errors?: InputErrors & { email?: string }; sources?: typeof failed };
       if (!res.ok || !data.token) {
+        // Jeton anti-robot à usage unique : nouveau jeton pour le prochain essai.
+        setTurnstileReset((k) => k + 1);
         setErrors(data.errors ?? {});
         setFailed(data.sources ?? null);
         setMessage(data.error ?? "L'audit n'a pas pu être lancé. Réessayez dans un instant.");
@@ -88,6 +96,7 @@ export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean
       // Chargement complet : la page du rapport a sa propre politique de sécurité (CSP stricte).
       window.location.assign(`/audit/${encodeURIComponent(data.token)}`);
     } catch {
+      setTurnstileReset((k) => k + 1);
       setMessage("Impossible de joindre Nebula pour le moment. Vérifiez votre connexion et réessayez.");
       setLoading(false);
     }
@@ -162,7 +171,7 @@ export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean
             </label>
           </div>
 
-          <TurnstileWidget onVerify={setToken} />
+          <TurnstileWidget onVerify={setToken} resetKey={turnstileReset} />
 
           {message && (
             <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/[0.06] px-3 py-2 text-sm text-red-200">

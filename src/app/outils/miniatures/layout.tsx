@@ -1,13 +1,20 @@
-import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { pageMetadata, toolStructuredData } from "@/lib/seo";
+import { SEO_TOOLS } from "@/lib/seo-pages";
 
-// Même rôle que src/app/outils/legendes/layout.tsx : la page est un
-// composant client, ce layout porte ses métadonnées.
-export const metadata: Metadata = {
-  title: "Générateur de miniatures IA gratuit",
-  description:
-    "Créez gratuitement, sans compte, des idées de miniatures percutantes pour vos vidéos YouTube, TikTok et Instagram grâce à l'IA."
-};
+// La page de l'outil est un composant client : ce layout porte ses
+// métadonnées (titre, description, canonique, aperçus de partage) et ses
+// données structurées (WebApplication + fil d'Ariane), définies dans
+// src/lib/seo-pages.ts (SEO technique, 29/09/2026).
+const PAGE = SEO_TOOLS["miniatures"];
 
-export default function MiniaturesLayout({ children }: { children: React.ReactNode }) {
-  return children;
+export const metadata = pageMetadata(PAGE);
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <JsonLd nodes={toolStructuredData(PAGE)} />
+      {children}
+    </>
+  );
 }

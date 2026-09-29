@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { DEFAULT_TIMEZONE, dayKeyAndTime, timeZoneLabel, wallClockToUtc } from "@/lib/timezone";
 import { calendarMonthsNeeded, monthKeysToRanges, type MonthKey } from "@/lib/calendar-range";
 import { MotionRoot } from "@/components/motion/motion-root";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 interface ApiPost {
   id: string;
@@ -93,7 +94,7 @@ function CalendarPageInner() {
   const toast = useToast();
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(VIEW_KEY) as CalendarView | null;
+      const stored = getPref(VIEW_KEY) as CalendarView | null;
       if (stored === "month" || stored === "hours" || stored === "list") {
         setView(stored);
         return;
@@ -106,7 +107,7 @@ function CalendarPageInner() {
   function changeView(next: CalendarView) {
     setView(next);
     try {
-      localStorage.setItem(VIEW_KEY, next);
+      setPref(VIEW_KEY, next);
     } catch {
       // ignore
     }

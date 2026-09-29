@@ -592,7 +592,7 @@ export default function LinkInBioPage() {
             <BioFrame
               frame={activeFrame}
               radius={32}
-              className="mx-auto w-full"
+              className="nb-own-design mx-auto w-full"
               style={{ maxWidth: BIO_CARD_SIZES[cardSize].preview }}
               cardClassName="isolate flex w-full flex-col items-center gap-3 border border-white/10 p-6 shadow-2xl"
               cardStyle={{

@@ -25,6 +25,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { IconGift, IconSettings, IconLock, IconUpload, IconFocus, IconTrophy } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
+import { StatsConsentCard } from "@/components/settings/stats-consent-card";
 import { useStarfield } from "@/components/starfield-provider";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { COSMETICS, type CosmeticCategory } from "@/lib/cosmetics";
@@ -32,6 +33,7 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { EASTER_EGG_KEYS } from "@/lib/easter-eggs-registry";
 import { isAchievementSoundOn, playAchievementArpeggio, setAchievementSoundOn } from "@/lib/cosmic-audio";
 import type { Plan } from "@/lib/plans";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 const COSMETIC_CATEGORIES: { key: CosmeticCategory; label: string }[] = [
   { key: "decor", label: "Décor" },
@@ -231,7 +233,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(NOVA_UNLOCK_STORAGE_KEY) === "1") setNovaUnlocked(true);
+      if (getPref(NOVA_UNLOCK_STORAGE_KEY) === "1") setNovaUnlocked(true);
     } catch {
       // stockage indisponible — l'egg reste simplement à retrouver à chaque visite
     }
@@ -248,7 +250,7 @@ export default function SettingsPage() {
           toast.success("✨ Thème caché débloqué : Nova !");
           reportEasterEggFound("nova-theme");
           try {
-            localStorage.setItem(NOVA_UNLOCK_STORAGE_KEY, "1");
+            setPref(NOVA_UNLOCK_STORAGE_KEY, "1");
           } catch {
             // tant pis, il faudra le retaper la prochaine fois
           }
@@ -893,6 +895,7 @@ export default function SettingsPage() {
         )}
       </GlassCard>
 
+      <StatsConsentCard />
       <AccountPrivacyCard />
       </section>
     </div>

@@ -2,13 +2,16 @@
 
 // Testeur de titre YouTube (brief growth, lot G4.c) : score heuristique
 // LOCAL (longueur, chiffre, mot fort, question, majuscules) toujours
-// disponible, et trois reformulations IA (quota public) — si le quota est
-// atteint, le score seul reste.
+// disponible, même sans compte, et trois reformulations IA. 29/09/2026 :
+// reformulations réservées aux comptes (quota par compte) ; sans compte,
+// démo préparée à l'avance, sans IA.
 import { useEffect, useMemo, useState } from "react";
 import { markToolExplored } from "@/lib/tools-explored";
 import { ToolPage } from "@/components/tools/tool-page";
-import { ToolLeadCapture } from "@/components/tools/tool-lead-capture";
+import { ToolDemoNotice, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { saveToolDraft, takeToolDraft } from "@/components/tools/use-tool-access";
 import { useToolGeneration } from "@/components/tools/use-tool-generation";
+import { DEMO_TITRE_YOUTUBE } from "@/lib/tools/demo";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconYouTube, IconSparkle } from "@/components/dashboard/icons";
@@ -34,14 +37,23 @@ function scoreTitle(title: string): { score: number; checks: { label: string; ok
 const FAQ = [
   { q: "Quelle longueur pour un titre YouTube ?", a: "Environ 40 à 60 caractères : au-delà, YouTube tronque le titre dans la plupart des emplacements (recherche, suggestions, mobile), et l'idée principale doit tenir dans les premiers mots." },
   { q: "Le score garantit-il des clics ?", a: "Non. C'est un repère heuristique sur des critères connus (longueur, chiffre, mot fort, question). Le taux de clics dépend surtout du couple titre + miniature et de la promesse tenue dans la vidéo." },
-  { q: "Que fait l'IA ici ?", a: "Elle propose trois reformulations différentes (avec un chiffre, sous forme de question, avec un mot fort) à partir de votre titre et du sujet — sans clickbait mensonger. Le score, lui, se calcule dans votre navigateur, sans IA." },
+  { q: "Que fait l'IA ici ?", a: "Avec un compte (gratuit), elle propose trois reformulations différentes (avec un chiffre, sous forme de question, avec un mot fort) à partir de votre titre et du sujet — sans clickbait mensonger. Sans compte, vous voyez un exemple préparé à l'avance. Le score, lui, se calcule dans votre navigateur, sans IA et sans compte." },
   { q: "Et pour la miniature ?", a: "Nebula analyse la rétention de vos vidéos YouTube et son assistant explique le pourquoi de chaque choix de miniature (accroche, composition, couleurs). Un générateur de miniatures gratuit est aussi disponible dans ces outils." }
 ];
 
 export default function TitreYoutubePage() {
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("");
-  const gen = useToolGeneration<string[]>("titre-youtube");
+  const gen = useToolGeneration<string[]>("titre-youtube", DEMO_TITRE_YOUTUBE.result);
+  const member = gen.access.status === "member";
+
+  // Retour après la création du compte : on remet ce qui avait été saisi.
+  useEffect(() => {
+    const draft = takeToolDraft("titre-youtube");
+    if (!draft) return;
+    setTitle(draft.title ?? "");
+    setTopic(draft.topic ?? "");
+  }, []);
   const result = useMemo(() => (title.trim().length >= 3 ? scoreTitle(title) : null), [title]);
   // Badge Explorateur (Réussites, lot C) : un vrai titre testé.
   const tested = title.trim().length >= 10;
@@ -50,6 +62,10 @@ export default function TitreYoutubePage() {
   }, [tested]);
 
   function run() {
+    if (!member) {
+      void gen.generate({}, () => []);
+      return;
+    }
     if (title.trim().length < 3) {
       gen.setError("Saisissez d'abord votre titre.");
       return;
@@ -63,7 +79,7 @@ export default function TitreYoutubePage() {
       title="Testeur de titre YouTube"
       intro={
         <p>
-          Un bon titre YouTube tient en une ligne, contient une promesse concrète et donne envie de savoir la suite. Collez votre titre : le testeur le note en direct sur cinq critères (longueur, chiffre, mot fort, question ou promesse, majuscules) et vous dit quoi corriger. Ensuite, l&apos;IA propose trois reformulations plus accrocheuses, sans tomber dans le clickbait. Le score se calcule dans votre navigateur et reste disponible même quand les générations gratuites du jour sont épuisées.
+          Un bon titre YouTube tient en une ligne, contient une promesse concrète et donne envie de savoir la suite. Collez votre titre : le testeur le note en direct sur cinq critères (longueur, chiffre, mot fort, question ou promesse, majuscules) et vous dit quoi corriger. Ensuite, avec un compte gratuit, l&apos;IA propose trois reformulations plus accrocheuses, sans tomber dans le clickbait (sans compte : une démo préparée à l&apos;avance). Le score se calcule dans votre navigateur, sans compte et sans limite.
         </p>
       }
       faq={FAQ}
@@ -102,11 +118,12 @@ export default function TitreYoutubePage() {
           </div>
         )}
 
-        <Button onClick={run} disabled={gen.loading || title.trim().length < 3} className="mt-4 w-full">
-          <IconSparkle className="h-4 w-4" /> {gen.loading ? "Reformulation…" : "Proposer 3 reformulations (IA)"}
+        <Button onClick={run} disabled={gen.loading || gen.access.status === "loading" || (member && title.trim().length < 3)} className="mt-4 w-full">
+          <IconSparkle className="h-4 w-4" /> {gen.loading ? "Reformulation…" : member ? "Proposer 3 reformulations (IA)" : "Voir un exemple de reformulations (démo sans IA)"}
         </Button>
+        <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
         {gen.error && <p className="mt-3 text-sm text-red-300">{gen.error}</p>}
-        {gen.leadStep === "ask" && <ToolLeadCapture {...gen.leadProps} />}
+        {gen.isDemo && gen.result && <ToolDemoNotice slug="titre-youtube" input={DEMO_TITRE_YOUTUBE.input} onBeforeLeave={() => saveToolDraft("titre-youtube", { title, topic })} />}
         {gen.result && (
           <ul className="mt-4 space-y-2">
             {gen.result.map((t, i) => {
@@ -122,7 +139,6 @@ export default function TitreYoutubePage() {
             })}
           </ul>
         )}
-        {gen.remaining !== null && <p className="mt-3 text-right text-[11px] text-slate-500">{gen.remaining} génération(s) gratuite(s) restante(s) aujourd&apos;hui</p>}
       </GlassCard>
     </ToolPage>
   );

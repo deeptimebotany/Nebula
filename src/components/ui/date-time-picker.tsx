@@ -298,7 +298,6 @@ export function DateTimePicker({
               <select
                 value={hour}
                 onChange={(e) => applyTime(Number(e.target.value), minute)}
-                style={{ colorScheme: "dark" }}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {Array.from({ length: 24 }, (_, h) => (
@@ -309,7 +308,6 @@ export function DateTimePicker({
               <select
                 value={minute}
                 onChange={(e) => applyTime(hour, Number(e.target.value))}
-                style={{ colorScheme: "dark" }}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {MINUTE_STEPS.map((m) => (

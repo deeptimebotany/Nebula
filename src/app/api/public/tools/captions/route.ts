@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAiEnabled, generateFreeCaption } from "@/lib/ai/gemini";
-import { consumePublicQuota } from "@/lib/public-tools-limit";
+import { requireToolAccess } from "@/lib/tools/access";
+import { releaseToolQuota } from "@/lib/tools/quota";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 
-// POST /api/public/tools/captions — générateur IA gratuit de titres/légendes,
-// SANS COMPTE (voir /outils/legendes). Contrairement à /api/ai/generate-copy
-// (réservé aux comptes Pro/Agence, lié à une vraie publication), cette route
-// n'a aucune notion de session ni de marque : seulement un plafond quotidien
-// par IP (voir src/lib/public-tools-limit.ts) pour éviter l'abus, puisque
-// c'est justement l'intérêt de l'outil de rester ouvert à tous.
-const DAILY_LIMIT = 8;
+// POST /api/public/tools/captions — générateur IA de titres/légendes de
+// /outils/legendes. Depuis le 29/09/2026 : compte obligatoire (gratuit ou
+// payant) et quota par compte (voir lib/tools/quota.ts) ; sans compte, la
+// page montre une démo préparée à l'avance et n'appelle jamais cette route.
 
 const bodySchema = z.object({
   topic: z.string().min(3).max(400),
@@ -33,13 +31,9 @@ export async function POST(req: NextRequest) {
   }
   const { topic, network, brandName, field } = parsed.data;
 
-  const quota = await consumePublicQuota(req, "captions", DAILY_LIMIT);
-  if (!quota.ok) {
-    return NextResponse.json(
-      { error: `Limite gratuite atteinte (${DAILY_LIMIT} générations/jour). Créez un compte Nebula gratuit pour un usage illimité.` },
-      { status: 429 }
-    );
-  }
+  const access = await requireToolAccess(req, "text");
+  if (access instanceof NextResponse) return access;
+  const { quota } = access;
 
   try {
     const text = await generateFreeCaption({
@@ -49,8 +43,9 @@ export async function POST(req: NextRequest) {
       brandName: brandName?.trim() || "un créateur de contenu",
       topic
     });
-    return NextResponse.json({ text, remaining: quota.remaining, limit: quota.limit, used: quota.used });
+    return NextResponse.json({ text, remaining: quota.remaining, limit: quota.limit });
   } catch (err) {
+    await releaseToolQuota(access.userId, "text");
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

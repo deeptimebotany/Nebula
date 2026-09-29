@@ -3,7 +3,7 @@ import { z } from "zod";
 import { recordToolLead, TOOL_SLUGS } from "@/lib/tool-leads";
 import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import { grantLeadBonus, ipHashFromRequest, LEAD_BONUS_GENERATIONS } from "@/lib/public-tools-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { trackGrowth } from "@/lib/growth";
 
 // POST /api/public/tools/lead — capture d'email progressive des outils
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const { email, tool, consent, turnstileToken } = parsed.data;
 
   if (!(await verifyTurnstileToken(turnstileToken))) {
-    return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
+    return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });
   }
 
   // Avec consentement : e-mail de confirmation avant tout conseil (double

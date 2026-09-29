@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
@@ -27,11 +29,11 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   const c = getCompetitor(params.slug);
   if (!c) return {};
   const tier0 = PLAN_LIMITS.PRO.tiers[0];
-  return {
+  return pageMetadata({
     title: `Alternative à ${c.name} : Nebula, en français, dès ${tier0.priceMonthly} €/mois`,
-    description: `Nebula face à ${c.name} : prix constatés le ${formatVerifiedAt(c.verifiedAt)}, fonctions comparées, ce que Nebula ne fait pas encore, et calculateur d'économies. ${TRIAL_DAYS} jours de Pro offerts.`,
-    alternates: { canonical: `/alternatives/${c.slug}` }
-  };
+    description: `Nebula face à ${c.name} : prix constatés le ${formatVerifiedAt(c.verifiedAt)}, fonctions comparées et calculateur d'économies. En français, ${TRIAL_DAYS} jours de Pro offerts.`,
+    path: `/alternatives/${c.slug}`
+  });
 }
 
 export default function AlternativePage({ params }: { params: { slug: string } }) {
@@ -53,6 +55,15 @@ export default function AlternativePage({ params }: { params: { slug: string } }
   return (
     <PublicShell width="max-w-5xl">
       <TrackView name="landing_view" meta={{ landing: "alternatives", competitor: c.slug }} />
+      <JsonLd
+        nodes={[
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Alternatives", "/alternatives"],
+            [`Alternative à ${c.name}`, `/alternatives/${c.slug}`]
+          ])
+        ]}
+      />
       <PublicPageHeading eyebrow="Comparatif" title={`Alternative à ${c.name} : Nebula, en français, dès ${tier0.priceMonthly} €/mois`} desc={<>{c.name} : {c.tagline.charAt(0).toLowerCase() + c.tagline.slice(1)} Nebula planifie et publie sur {nebulaNetworks.join(", ")}, avec rapports clients, page bio et assistant IA, pour un prix qui ne dépend que du nombre de marques. Pour {REFERENCE_SCENARIO.brands} marques et {REFERENCE_SCENARIO.accounts} comptes : {refEur === null ? "tarif non publié" : `≈ ${formatEur(refEur)}`} chez {c.name}, {formatEur(nebulaRef.monthlyAnnual, 2)} chez Nebula, par mois.</>} />
 
       <section aria-labelledby="tableau">

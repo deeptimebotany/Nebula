@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
@@ -28,11 +30,11 @@ function yearOf(iso: string): number {
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const c = getCompetitor(params.slug);
   if (!c) return {};
-  return {
+  return pageMetadata({
     title: `${c.name} : tarifs ${yearOf(c.verifiedAt)} expliqués`,
-    description: `Grille officielle de ${c.name} résumée, ce qui n'est pas inclus, coût réel pour 3 marques et 8 comptes, et comparaison avec Nebula. Prix constatés le ${formatVerifiedAt(c.verifiedAt)}.`,
-    alternates: { canonical: `/prix/${c.slug}` }
-  };
+    description: `Grille de ${c.name} résumée, ce qui n'est pas inclus, coût réel pour 3 marques et comparaison avec Nebula. Prix constatés le ${formatVerifiedAt(c.verifiedAt)}.`,
+    path: `/prix/${c.slug}`
+  });
 }
 
 export default function PrixPage({ params }: { params: { slug: string } }) {
@@ -53,6 +55,15 @@ export default function PrixPage({ params }: { params: { slug: string } }) {
   return (
     <PublicShell width="max-w-5xl">
       <TrackView name="landing_view" meta={{ landing: "prix", competitor: c.slug }} />
+      <JsonLd
+        nodes={[
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Alternatives", "/alternatives"],
+            [`Tarifs ${c.name}`, `/prix/${c.slug}`]
+          ])
+        ]}
+      />
       <PublicPageHeading eyebrow="Tarifs expliqués" title={`${c.name} : tarifs ${year} expliqués`} desc={<>{c.tagline} Voici sa grille officielle résumée, ce qu&apos;elle n&apos;inclut pas, et ce que coûte réellement une configuration courante — face à Nebula, {tier0.priceMonthly} € par mois pour {tier0.maxBrands} marques.</>} />
 
       <section aria-labelledby="grille">

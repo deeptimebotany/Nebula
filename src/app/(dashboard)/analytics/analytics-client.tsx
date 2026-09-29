@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import { analyticsKey, refreshConnections, useAnalytics } from "@/lib/data/hooks";
 import { useSeedIsFresh } from "@/lib/data/swr-config";
 import { MotionRoot } from "@/components/motion/motion-root";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 // Onglet Publicité : module à part (tableaux, graphique des dépenses),
 // téléchargé seulement quand on ouvre l'onglet (audit performance, lot 4).
@@ -64,28 +65,28 @@ function milestoneFlagKey(connectionId: string, threshold: number = MILESTONE_FO
 }
 function hasFiredFollowerMilestone(connectionId: string, threshold: number = MILESTONE_FOLLOWERS): boolean {
   try {
-    return localStorage.getItem(milestoneFlagKey(connectionId, threshold)) === "1";
+    return getPref(milestoneFlagKey(connectionId, threshold)) === "1";
   } catch {
     return false;
   }
 }
 function markFiredFollowerMilestone(connectionId: string, threshold: number = MILESTONE_FOLLOWERS) {
   try {
-    localStorage.setItem(milestoneFlagKey(connectionId, threshold), "1");
+    setPref(milestoneFlagKey(connectionId, threshold), "1");
   } catch {
     // stockage indisponible — tant pis, la célébration pourra se redéclencher
   }
 }
 function hasFiredSupernova(brandId: string): boolean {
   try {
-    return localStorage.getItem(`nebula:supernova-impressions:${brandId}`) === "1";
+    return getPref(`nebula:supernova-impressions:${brandId}`) === "1";
   } catch {
     return false;
   }
 }
 function markFiredSupernova(brandId: string) {
   try {
-    localStorage.setItem(`nebula:supernova-impressions:${brandId}`, "1");
+    setPref(`nebula:supernova-impressions:${brandId}`, "1");
   } catch {
     // stockage indisponible — tant pis, la célébration pourra se redéclencher
   }

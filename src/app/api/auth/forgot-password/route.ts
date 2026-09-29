@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generatePasswordResetToken } from "@/lib/password-reset";
-import { sendPasswordResetEmail } from "@/lib/email";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { isEmailConfigured, sendPasswordResetEmail } from "@/lib/email";
+import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { publicAppUrl } from "@/lib/account-security";
 
@@ -30,7 +30,17 @@ export async function POST(req: NextRequest) {
 
   const humanVerified = await verifyTurnstileToken(turnstileToken);
   if (!humanVerified) {
-    return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
+    return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });
+  }
+
+  // Envoi d'e-mails pas encore configuré : on le dit à TOUT LE MONDE (avant de
+  // chercher le compte, donc sans rien révéler), au lieu d'annoncer un lien
+  // qui n'arrivera jamais (29/09/2026).
+  if (!isEmailConfigured()) {
+    return NextResponse.json(
+      { error: "L'envoi d'e-mails n'est pas encore activé sur Nebula. Écrivez-nous depuis la page Contact : nous vous aiderons à retrouver l'accès à votre compte." },
+      { status: 503 }
+    );
   }
 
   const genericResponse = NextResponse.json({

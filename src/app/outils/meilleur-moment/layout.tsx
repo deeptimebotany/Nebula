@@ -1,13 +1,20 @@
-import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { pageMetadata, toolStructuredData } from "@/lib/seo";
+import { SEO_TOOLS } from "@/lib/seo-pages";
 
-// Métadonnées de l’outil (la page est un composant client) — voir
-// outils/legendes/layout.tsx pour le contexte.
-export const metadata: Metadata = {
-  title: "Meilleur moment pour publier — par réseau",
-  description: "Les créneaux qui fonctionnent le mieux en moyenne sur Instagram, TikTok, YouTube et Facebook, par jour et par heure, dans votre fuseau. Gratuit, sans compte.",
-  alternates: { canonical: "/outils/meilleur-moment" }
-};
+// La page de l'outil est un composant client : ce layout porte ses
+// métadonnées (titre, description, canonique, aperçus de partage) et ses
+// données structurées (WebApplication + fil d'Ariane), définies dans
+// src/lib/seo-pages.ts (SEO technique, 29/09/2026).
+const PAGE = SEO_TOOLS["meilleur-moment"];
+
+export const metadata = pageMetadata(PAGE);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <JsonLd nodes={toolStructuredData(PAGE)} />
+      {children}
+    </>
+  );
 }

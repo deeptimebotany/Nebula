@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_ALTERNATIVES } from "@/lib/seo-pages";
 import Link from "next/link";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { SavingsCalculator } from "@/components/marketing/savings-calculator";
@@ -9,11 +10,7 @@ import { COMPETITORS, formatEur, formatPrice, formatVerifiedAt, toEur } from "@/
 import { PLAN_LIMITS } from "@/lib/plans";
 
 // Index des pages « alternative à » (brief growth, lot G5.a).
-export const metadata: Metadata = {
-  title: "Alternatives : comparer Nebula aux autres planificateurs",
-  description: "Hootsuite, Buffer, Later, Metricool, Swello, Agorapulse, Publer, Planoly : prix constatés, fonctions comparées et calculateur d'économies face à Nebula, en français, dès 9 € par mois.",
-  alternates: { canonical: "/alternatives" }
-};
+export const metadata = pageMetadata(SEO_ALTERNATIVES);
 
 export default function AlternativesIndexPage() {
   const tier0 = PLAN_LIMITS.PRO.tiers[0];

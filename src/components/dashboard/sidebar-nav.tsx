@@ -294,19 +294,19 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
           <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-0.5" role="group" aria-label="Apparence">
             <button
               type="button"
-              onClick={() => handleModeClick("dark")}
-              aria-pressed={mode === "dark"}
-              className={clsx("flex items-center justify-center gap-1.5 rounded-md py-1 text-xs transition", mode === "dark" ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white")}
-            >
-              <IconMoon className="h-3.5 w-3.5" /> Sombre
-            </button>
-            <button
-              type="button"
               onClick={() => handleModeClick("light")}
               aria-pressed={mode === "light"}
               className={clsx("flex items-center justify-center gap-1.5 rounded-md py-1 text-xs transition", mode === "light" ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white")}
             >
               <IconSun className="h-3.5 w-3.5" /> Clair
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeClick("dark")}
+              aria-pressed={mode === "dark"}
+              className={clsx("flex items-center justify-center gap-1.5 rounded-md py-1 text-xs transition", mode === "dark" ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white")}
+            >
+              <IconMoon className="h-3.5 w-3.5" /> Sombre
             </button>
           </div>
         )}

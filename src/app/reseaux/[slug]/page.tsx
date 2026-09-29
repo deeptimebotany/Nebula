@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
@@ -23,11 +25,11 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const n = UPCOMING_NETWORKS.find((x) => x.slug === params.slug);
   if (!n) return {};
-  return {
-    title: `Programmer des publications ${n.label} avec Nebula — bientôt`,
+  return pageMetadata({
+    title: `Programmer des publications ${n.label} (bientôt)`,
     description: `${n.label} arrive dans Nebula. Inscrivez-vous pour être prévenu, et commencez dès aujourd'hui sur Instagram, TikTok, YouTube, Facebook et Bluesky.`,
-    alternates: { canonical: `/reseaux/${n.slug}` }
-  };
+    path: `/reseaux/${n.slug}`
+  });
 }
 
 export default function ReseauPage({ params }: { params: { slug: string } }) {
@@ -43,6 +45,15 @@ export default function ReseauPage({ params }: { params: { slug: string } }) {
   return (
     <PublicShell width="max-w-4xl">
       <TrackView name="landing_view" meta={{ landing: "reseaux", network: n.slug }} />
+      <JsonLd
+        nodes={[
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Réseaux", "/reseaux"],
+            [n.label, `/reseaux/${n.slug}`]
+          ])
+        ]}
+      />
       <PublicPageHeading eyebrow="Bientôt" title={`Programmer des publications ${n.label} avec Nebula — bientôt`} desc={<>{n.blurb} {n.label} fait partie des prochains réseaux de Nebula. Laissez votre email pour être prévenu le jour de l&apos;ouverture — et commencez dès maintenant sur {supported.join(", ")}.</>} />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.1fr_1fr]">

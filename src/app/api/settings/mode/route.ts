@@ -11,7 +11,7 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ mode: null }, { status: 200 });
   const userId = (session.user as { id: string }).id;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { colorMode: true } });
-  return NextResponse.json({ mode: user?.colorMode ?? "dark" });
+  return NextResponse.json({ mode: user?.colorMode === "dark" ? "dark" : "light" });
 }
 
 const bodySchema = z.object({ mode: z.enum(["dark", "light"]) });

@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { SITE_DESCRIPTION, SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_THEME_COLOR, SITE_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_THEME_COLOR_LIGHT, SITE_URL } from "@/lib/site";
+import { COLOR_MODE_SCRIPT, DEFAULT_COLOR_MODE } from "@/lib/color-mode";
 import { CspDocumentGuard } from "@/components/csp-document-guard";
 
 // Polices AUTO-HÉBERGÉES (fichiers dans src/fonts, voir LICENSES.md) :
@@ -65,26 +66,43 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION
   },
-  formatDetection: { telephone: false }
+  formatDetection: { telephone: false },
+  // Validation du site dans Google Search Console / Bing Webmaster Tools
+  // (SEO, 29/09/2026) : codes à coller dans Vercel, voir .env.example.
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
+    ...(process.env.BING_SITE_VERIFICATION ? { other: { "msvalidate.01": process.env.BING_SITE_VERIFICATION } } : {})
+  }
 };
 
+// Mode clair par défaut (29/09/2026) : barre du navigateur et contrôles
+// natifs en clair avant même le chargement du CSS.
 export const viewport: Viewport = {
-  themeColor: SITE_THEME_COLOR,
-  colorScheme: "dark",
+  themeColor: SITE_THEME_COLOR_LIGHT,
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1
 };
 
-// Mise en page RACINE, volontairement minimale : polices, métadonnées, et
-// c'est tout. Les fournisseurs de personnalisation (thème, fond d'écran,
-// thème étoilé, cosmétiques, mode clair, session) ne concernent que
+// Mise en page RACINE, volontairement minimale : polices, métadonnées, mode
+// clair/sombre, et c'est tout. Les fournisseurs de personnalisation (thème,
+// fond d'écran, thème étoilé, cosmétiques, session) ne concernent que
 // l'application connectée et sont montés dans src/app/(dashboard)/layout.tsx
-// — un visiteur anonyme de la page d'accueil ne déclenche ainsi plus aucune
-// requête /api/settings/*, et voit toujours la vitrine telle qu'elle a été
-// conçue, quelles que soient les préférences enregistrées dans son navigateur.
+// — un visiteur anonyme de la page d'accueil ne déclenche ainsi aucune
+// requête /api/settings/*.
+//
+// Mode clair/sombre (29/09/2026) : le HTML est écrit en CLAIR (valeur par
+// défaut) ; le petit script de <head> passe en sombre, avant l'affichage,
+// si le visiteur l'a choisi (bouton soleil/lune de la vitrine, ou réglage du
+// compte recopié par le tableau de bord), et garde en sombre les pages au
+// design propre (page bio, media kit…). suppressHydrationWarning : React ne
+// doit pas signaler l'attribut changé par ce script. Voir color-mode.ts.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang="fr" data-mode={DEFAULT_COLOR_MODE} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: COLOR_MODE_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
         {children}
         <CspDocumentGuard />

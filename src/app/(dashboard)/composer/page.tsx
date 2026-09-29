@@ -49,6 +49,8 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 import { NetworkPauseNotice } from "@/components/composer/network-pause-notice";
 import { refreshUsage, useConnections } from "@/lib/data/hooks";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { loadComposerDraft, saveComposerDraft, saveComposerDraftNow } from "@/lib/composer-draft-client";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
@@ -153,7 +155,6 @@ function EmojiPicker({
   );
 }
 
-const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
 // Extrait des frames d'une vidéo directement dans le navigateur (canvas),
 // sans passer par ffmpeg côté serveur : fonctionne partout, y compris sur
@@ -577,7 +578,7 @@ function ComposerPageInner() {
   // on le retrouve en revenant sur Publier.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(PREVIEW_NETWORK_KEY);
+      const saved = getPref(PREVIEW_NETWORK_KEY);
       if (saved && (NETWORKS as readonly string[]).includes(saved)) setPreviewNetworkState(saved as Network);
     } catch {
       // stockage indisponible : premier réseau sélectionné
@@ -586,7 +587,7 @@ function ComposerPageInner() {
   const setPreviewNetwork = useCallback((n: Network) => {
     setPreviewNetworkState(n);
     try {
-      localStorage.setItem(PREVIEW_NETWORK_KEY, n);
+      setPref(PREVIEW_NETWORK_KEY, n);
     } catch {
       // sans gravité
     }
@@ -704,43 +705,39 @@ function ComposerPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studioId, activeBrand]);
 
+  // Brouillon enregistré dans le compte (29/09/2026, voir
+  // lib/composer-draft-client.ts) : il suit d'un appareil à l'autre.
+  // `draftReady` : pas d'enregistrement avant la fin de la lecture (sinon le
+  // formulaire vide effacerait le brouillon à restaurer).
+  const [draftReady, setDraftReady] = useState(false);
   useEffect(() => {
     if (!activeBrand || duplicateId || publicDraftId || studioId || draftRestored.current) return;
     draftRestored.current = true;
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY_PREFIX + activeBrand.id);
-      if (raw) {
-        const draft = JSON.parse(raw) as { title: string; caption: string; firstComment?: string; selectedNetworks: Network[] };
-        if (draft.title || draft.caption) {
-          setTitle(draft.title ?? "");
-          setCaption(draft.caption ?? "");
-          if (draft.firstComment) {
-            setFirstComment(draft.firstComment);
-            setFirstCommentOpen(true);
-          }
-          setSelectedNetworks(draft.selectedNetworks ?? []);
-          toast.info("Brouillon restauré depuis votre dernière visite.");
+    const brandId = activeBrand.id;
+    void loadComposerDraft(brandId).then((draft) => {
+      if (draft && (draft.title || draft.caption)) {
+        setTitle(draft.title ?? "");
+        setCaption(draft.caption ?? "");
+        if (draft.firstComment) {
+          setFirstComment(draft.firstComment);
+          setFirstCommentOpen(true);
         }
+        setSelectedNetworks((draft.selectedNetworks ?? []) as Network[]);
+        toast.info("Brouillon restauré depuis votre dernière visite.");
       }
-    } catch {
-      // stockage indisponible — tant pis, pas de brouillon
-    }
+      setDraftReady(true);
+    });
     // publicDraftId : lu une fois à l'arrivée (voir l'effet dédié plus bas)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrand, duplicateId, toast]);
 
   useEffect(() => {
     if (!activeBrand || duplicateId) return;
-    try {
-      if (!title && !caption) {
-        localStorage.removeItem(DRAFT_KEY_PREFIX + activeBrand.id);
-        return;
-      }
-      localStorage.setItem(DRAFT_KEY_PREFIX + activeBrand.id, JSON.stringify({ title, caption, firstComment, selectedNetworks }));
-    } catch {
-      // ignore
-    }
-  }, [activeBrand, duplicateId, title, caption, firstComment, selectedNetworks]);
+    // Arrivée avec un contenu imposé (duplication, outil, Studio) : pas de
+    // lecture du brouillon, l'enregistrement peut commencer tout de suite.
+    if (!draftReady && !(publicDraftId || studioId)) return;
+    saveComposerDraft(activeBrand.id, { title, caption, firstComment, selectedNetworks });
+  }, [activeBrand, duplicateId, publicDraftId, studioId, draftReady, title, caption, firstComment, selectedNetworks]);
 
   const availableNetworks = Array.from(new Set(connections.map((c) => c.network)));
   const videoAsset = assets.find((a) => a.type === "VIDEO");
@@ -1311,11 +1308,7 @@ function ComposerPageInner() {
     // Compteur « publications ce mois » à jour partout (cache partagé, lot 6).
     void refreshUsage();
 
-    try {
-      if (activeBrand) localStorage.removeItem(DRAFT_KEY_PREFIX + activeBrand.id);
-    } catch {
-      // ignore
-    }
+    if (activeBrand) void saveComposerDraftNow(activeBrand.id, null);
     if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
     // Easter egg "Son Décollage" : uniquement pour une publication IMMÉDIATE
     // qui a réellement réussi (status "PUBLISHED") — jamais pour un post

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_DISCOVER } from "@/lib/seo-pages";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { TrackView } from "@/components/marketing/track-view";
@@ -13,11 +15,7 @@ import { PLAN_LIMITS } from "@/lib/plans";
 // lot G1.a). ?via=<slug> personnalise l'en-tête avec la marque visitée
 // (données déjà publiques sur /l/[slug]) ; le cookie d'attribution est posé
 // par le middleware avant même l'affichage.
-export const metadata: Metadata = {
-  title: "Créez votre page bio gratuitement",
-  description: "Une page « link in bio » prête en deux minutes, avec la programmation de vos publications et vos statistiques au même endroit. Gratuit jusqu'à 3 liens, sans carte bancaire.",
-  alternates: { canonical: "/decouvrir/page-bio" }
-};
+export const metadata = pageMetadata(SEO_DISCOVER["page-bio"]);
 
 export const dynamic = "force-dynamic";
 

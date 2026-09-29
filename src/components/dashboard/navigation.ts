@@ -119,8 +119,10 @@ export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA
 export const OWNER_NAV_ITEMS: NavItem[] = [
   OWNER_NAV_ITEM,
   { href: "/admin/acquisition", label: "Acquisition", icon: IconChart, description: "D'où viennent inscrits et payants", keywords: ["admin", "stats", "croissance"] },
+  { href: "/admin/messages", label: "Messages", icon: IconMessage, description: "Formulaire de contact du site", keywords: ["admin", "contact", "support", "prospects", "e-mails"] },
   { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] },
   { href: "/admin/reseaux", label: "Réseaux", icon: IconPlug, description: "Suspendre un réseau, disjoncteur", keywords: ["admin", "incident", "panne", "api", "suspendre"] },
+  { href: "/admin/statistiques", label: "Statistiques anonymes", icon: IconChart, description: "Chiffres de groupe (accord facultatif, 20 comptes min.)", keywords: ["admin", "données", "tendances", "rgpd", "anonyme"] },
   { href: "/admin/reussites", label: "Réussites (admin)", icon: IconTrophy, description: "Défi collectif, vidéos à la une", keywords: ["admin", "défi collectif", "à la une", "communauté"] }
 ];
 

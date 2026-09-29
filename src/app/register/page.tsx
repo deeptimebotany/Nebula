@@ -1,16 +1,14 @@
-import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { RegisterForm } from "@/components/auth/register-form";
 import { getEnabledOAuthProviders } from "@/lib/oauth-providers";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_REGISTER } from "@/lib/seo-pages";
 
 // Titre d'onglet et description propres à cette page (le gabarit
 // "%s — Nebula" vient de src/app/layout.tsx).
-export const metadata: Metadata = {
-  title: "Créer un compte",
-  description: "Créez votre espace Nebula gratuitement : planification, publication multi-réseaux et analytics en un seul endroit."
-};
+export const metadata = pageMetadata(SEO_REGISTER);
 
 // CSP stricte (nonce différent à chaque requête, voir src/lib/csp.ts) :
 // rendu à chaque visite, jamais pré-généré.

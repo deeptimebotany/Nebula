@@ -132,12 +132,12 @@ export function NebulaBrandMark({ className = "", iconSize = 32, wordHeight = 30
           ))}
         </defs>
 
-        {/* N : deux lames pointues + diagonale, étoile dans le creux */}
+        {/* N : deux lames pointues + diagonale (l'étoile dans le creux a été
+            retirée le 29/09/2026, à la demande de Lucas, de tous les logos) */}
         <g>
           <path fill={fill} d="M12,210 C8,158 3,92 15,42 C18,30 21,21 23,15 C27,23 31,36 29,61 C25,121 27,170 31,210 Z" />
           <path fill={fill} d="M104,210 C100,158 95,92 107,42 C110,30 113,21 115,15 C119,23 123,36 121,61 C117,121 119,170 123,210 Z" />
           <path fill={fill} d="M25,48 L118,203 L108,209 L17,55 Z" />
-          <path className="nb-word-spark" d="M67,92 Q70,113 90,116 Q70,119 67,140 Q64,119 44,116 Q64,113 67,92Z" />
         </g>
 
         {/* e : cercle ouvert (arc propre) + barre horizontale */}

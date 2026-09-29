@@ -17,6 +17,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { clsx } from "@/lib/clsx";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 export interface CampaignFields {
   url: string;
@@ -93,7 +94,7 @@ const RECENT_PREFIX = "nebula:utm-recent:";
 
 function loadRecent(brandId: string): CampaignFields[] {
   try {
-    const raw = localStorage.getItem(RECENT_PREFIX + brandId);
+    const raw = getPref(RECENT_PREFIX + brandId);
     const list = raw ? (JSON.parse(raw) as CampaignFields[]) : [];
     return Array.isArray(list) ? list.slice(0, 5) : [];
   } catch {
@@ -104,7 +105,7 @@ function loadRecent(brandId: string): CampaignFields[] {
 function saveRecent(brandId: string, fields: CampaignFields) {
   try {
     const list = loadRecent(brandId).filter((f) => !(f.url === fields.url && f.campaign === fields.campaign && f.source === fields.source));
-    localStorage.setItem(RECENT_PREFIX + brandId, JSON.stringify([fields, ...list].slice(0, 5)));
+    setPref(RECENT_PREFIX + brandId, JSON.stringify([fields, ...list].slice(0, 5)));
   } catch {
     // stockage indisponible : pas de mémoire des campagnes, sans gravité
   }

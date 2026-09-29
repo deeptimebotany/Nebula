@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { consumePublicQuota } from "@/lib/public-tools-limit";
+import { requireToolAccess } from "@/lib/tools/access";
+import { releaseToolQuota } from "@/lib/tools/quota";
 import { isAiEnabled, generateFreeList } from "@/lib/ai/gemini";
 
-// POST /api/public/tools/generate — moteur commun des micro-outils IA
-// gratuits de /outils (brief growth, lot G4.c) : bio Instagram, hashtags,
-// reformulations de titre YouTube. Sans compte, quota par IP et par jour
-// (même mécanisme que légendes/miniatures, bonus lead compris). Les outils
-// SANS IA (taux d'engagement, meilleur moment) n'appellent jamais cette
-// route : ils n'entament pas le quota Gemini.
-const DAILY_LIMIT = 8;
+// POST /api/public/tools/generate — moteur commun des micro-outils IA de
+// /outils (brief growth, lot G4.c) : bio Instagram, hashtags, reformulations
+// de titre YouTube. Depuis le 29/09/2026 : compte obligatoire et quota par
+// compte (voir lib/tools/quota.ts) ; sans compte, les pages montrent une démo
+// préparée à l'avance. Les outils SANS IA (taux d'engagement, meilleur
+// moment, score de titre) n'appellent jamais cette route.
 
 const bodySchema = z.discriminatedUnion("tool", [
   z.object({
@@ -37,10 +37,9 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Complétez le formulaire (3 caractères minimum)." }, { status: 400 });
   const input = parsed.data;
 
-  const quota = await consumePublicQuota(req, input.tool, DAILY_LIMIT);
-  if (!quota.ok) {
-    return NextResponse.json({ error: `Limite gratuite atteinte (${quota.limit} générations/jour). Créez un compte Nebula gratuit pour continuer.` }, { status: 429 });
-  }
+  const access = await requireToolAccess(req, "text");
+  if (access instanceof NextResponse) return access;
+  const { quota } = access;
 
   try {
     let items: string[] = [];
@@ -84,8 +83,9 @@ export async function POST(req: NextRequest) {
         3
       );
     }
-    return NextResponse.json({ items, groups, remaining: quota.remaining, limit: quota.limit, used: quota.used });
+    return NextResponse.json({ items, groups, remaining: quota.remaining, limit: quota.limit });
   } catch (err) {
+    await releaseToolQuota(access.userId, "text");
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
 }

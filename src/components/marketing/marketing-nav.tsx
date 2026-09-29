@@ -13,6 +13,7 @@ import { clsx } from "@/lib/clsx";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 import { IconClose, IconMenu } from "@/components/dashboard/icons";
 import { ButtonLink } from "@/components/ui/button";
+import { ModeToggle } from "@/components/marketing/mode-toggle";
 
 // Les ancres pointent vers l'accueil : depuis une autre page publique
 // (/outils, /legal...), le lien ramène d'abord sur "/" puis à la section.
@@ -70,12 +71,15 @@ export function MarketingNav() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <ModeToggle />
           <ButtonLink href="/login" variant="ghost">
             Se connecter
           </ButtonLink>
           <ButtonLink href="/register">Créer mon espace</ButtonLink>
         </div>
 
+        <div className="flex items-center gap-1 md:hidden">
+        <ModeToggle />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -86,6 +90,7 @@ export function MarketingNav() {
         >
           {open ? <IconClose className="h-5 w-5" /> : <IconMenu className="h-5 w-5" />}
         </button>
+        </div>
       </div>
 
       {open && (

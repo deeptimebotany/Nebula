@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
 import { IconCheck } from "@/components/dashboard/icons";
 
 const SUBJECTS = [
@@ -17,20 +17,41 @@ const SUBJECTS = [
 export function ContactForm() {
   const [form, setForm] = useState({ name: "", email: "", subject: "question", message: "", website: "" });
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Jeton anti-robot à usage unique : nouveau jeton après chaque envoi.
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "message", string>>>({});
   const [sent, setSent] = useState(false);
+
+  // Vérifications faites AVANT l'envoi (29/09/2026) : un champ oublié est
+  // signalé sous le champ lui-même, sans consommer la vérification anti-robot.
+  function validate(): boolean {
+    const next: typeof fieldErrors = {};
+    if (form.name.trim().length < 2) next.name = "Indiquez votre nom.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = "Adresse email invalide.";
+    if (form.message.trim().length < 20) next.message = "Décrivez votre demande en quelques phrases (20 caractères minimum).";
+    else if (form.message.trim().length > 4000) next.message = "4000 caractères au maximum.";
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    if (!validate()) return;
+    if (TURNSTILE_ENABLED && !turnstileToken) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+    setLoading(true);
     const res = await fetch("/api/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, turnstileToken: turnstileToken ?? undefined })
     }).catch(() => null);
     setLoading(false);
+    setTurnstileReset((k) => k + 1);
     if (!res) {
       setError("Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.");
       return;
@@ -67,6 +88,7 @@ export function ContactForm() {
           required
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+          error={fieldErrors.name}
           placeholder="Alex Martin"
         />
         <Input
@@ -77,6 +99,7 @@ export function ContactForm() {
           required
           value={form.email}
           onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+          error={fieldErrors.email}
           placeholder="vous@marque.com"
           hint="Uniquement pour vous répondre."
         />
@@ -96,6 +119,7 @@ export function ContactForm() {
         rows={6}
         value={form.message}
         onChange={(e) => setForm((s) => ({ ...s, message: e.target.value }))}
+        error={fieldErrors.message}
         placeholder="Décrivez votre demande : votre activité, ce que vous cherchez à faire, ce qui bloque…"
         hint={`${form.message.trim().length} / 4000 caractères`}
       />
@@ -106,7 +130,7 @@ export function ContactForm() {
           <input type="text" name="website" tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => setForm((s) => ({ ...s, website: e.target.value }))} />
         </label>
       </div>
-      <TurnstileWidget onVerify={setTurnstileToken} />
+      <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileReset} />
       {error && (
         <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
           {error}

@@ -28,7 +28,10 @@ const TABLES = [
   "BadgeRarity",
   // Audit de présence (produit n°8) et quotas des outils publics.
   "PublicAudit",
-  "PublicToolUsage"
+  "PublicToolUsage",
+  // Messages du formulaire de contact et statistiques anonymes (29/09/2026).
+  "ContactMessage",
+  "AnonStat"
 ];
 
 export async function resetDatabase(): Promise<void> {

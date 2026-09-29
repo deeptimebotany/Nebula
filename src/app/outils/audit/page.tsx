@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
 import { ToolPage } from "@/components/tools/tool-page";
+import { JsonLd } from "@/components/seo/json-ld";
+import { pageMetadata, toolStructuredData } from "@/lib/seo";
+import { SEO_TOOLS } from "@/lib/seo-pages";
 import { AuditForm } from "@/components/audit/audit-form";
 import { IconSearch } from "@/components/dashboard/icons";
 import { enabledAuditSources } from "@/lib/audit/config";
@@ -9,11 +11,7 @@ import { AUDIT_DAILY_LIMIT, AUDIT_RETENTION_DAYS } from "@/lib/audit/types";
 // pré-générée (vitrine). Les sources proposées dépendent des clés présentes
 // au déploiement (YouTube : YOUTUBE_API_KEY ; Instagram : IG_DISCOVERY_*).
 // Le rapport s'ouvre sur /audit/<jeton> (CSP stricte, jamais indexé).
-export const metadata: Metadata = {
-  title: "Audit de présence en ligne gratuit",
-  description:
-    "Collez les liens de votre chaîne YouTube, de votre Instagram, de votre TikTok ou de votre site : score de présence sur 100, régularité, engagement, cohérence et conseils concrets. Gratuit, sans compte."
-};
+export const metadata = pageMetadata(SEO_TOOLS.audit);
 
 const FAQ = [
   {
@@ -66,6 +64,7 @@ export default function AuditToolPage() {
       ctaTitle="Suivez vos vrais chiffres, chaque jour"
       ctaText="L'audit ne voit que le public. Connectez vos comptes à Nebula : rétention de vos vidéos, croissance d'abonnés, meilleurs créneaux, statistiques de chaque publication, TikTok compris. Gratuit pour commencer."
     >
+      <JsonLd nodes={toolStructuredData(SEO_TOOLS.audit)} />
       <AuditForm sources={enabledAuditSources()} />
     </ToolPage>
   );

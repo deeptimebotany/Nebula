@@ -44,9 +44,8 @@ interface Message {
   id: string;
   role: "user" | "model";
   text: string;
-  /** Onglet dans lequel la question a été posée — sert à afficher un petit
-   *  séparateur « Contexte : … » quand on change d'onglet en cours de
-   *  conversation, et à ne pas mélanger les réponses. */
+  /** Onglet dans lequel la question a été posée — sert à ne pas mélanger
+   *  les réponses (le libellé « Contexte : … » n'est plus affiché, 29/09/2026). */
   contextKey?: AssistantContextKey;
   /** Réponse d'erreur (quota, réseau) : affichée, mais jamais renvoyée à
    *  Gemini dans l'historique. */
@@ -329,7 +328,6 @@ export function AiAssistant() {
           <NebulaIcon size={24} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-sm font-semibold text-white">Demander à Nebula</p>
-            <p className="truncate text-[11px] text-slate-500">Contexte : {ctx.label}</p>
           </div>
           {messages.length > 0 && (
             <button
@@ -403,18 +401,9 @@ export function AiAssistant() {
             </div>
           ) : (
             <div className="space-y-4 px-4 py-4 sm:px-5">
-              {messages.map((m, i) => {
-                const prevUser = [...messages.slice(0, i)].reverse().find((x) => x.role === "user");
-                const contextChanged = m.role === "user" && m.contextKey && prevUser?.contextKey && prevUser.contextKey !== m.contextKey;
+              {messages.map((m) => {
                 return (
                   <div key={m.id}>
-                    {contextChanged && (
-                      <div className="mb-4 flex items-center gap-2 text-[11px] text-slate-500" aria-hidden="true">
-                        <span className="h-px flex-1 bg-white/[0.06]" />
-                        Contexte : {ASSISTANT_CONTEXTS[m.contextKey as AssistantContextKey].label}
-                        <span className="h-px flex-1 bg-white/[0.06]" />
-                      </div>
-                    )}
                     {m.role === "user" ? (
                       <div className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-nebula-600/40 px-3.5 py-2 text-sm leading-relaxed text-white">
                         {m.text}
@@ -545,7 +534,7 @@ export function AiAssistant() {
                   void send();
                 }
               }}
-              placeholder={`Posez une question sur ${ctx.label === "Nebula" ? "Nebula" : `« ${ctx.label} »`}…`}
+              placeholder="Posez votre question…"
               aria-label="Votre question"
               disabled={Boolean(cooldownUntil)}
               className="max-h-[132px] min-h-[36px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-60"

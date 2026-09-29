@@ -4,7 +4,9 @@ import type { Plan } from "@/lib/plans";
 import type { Network } from "@/lib/types";
 
 export interface MeResponse {
-  user: { id: string; name: string; email: string; avatarUrl: string | null; emailVerified: boolean };
+  /** hasPassword : faux pour un compte ouvert avec Google / Apple / Facebook
+   *  qui n'a jamais défini de mot de passe Nebula (Paramètres → Compte). */
+  user: { id: string; name: string; email: string; avatarUrl: string | null; emailVerified: boolean; hasPassword: boolean };
   plan: Plan;
   maxBrands: number;
   brandsOwned: number;
@@ -42,6 +44,11 @@ export interface MeResponse {
   /** Rappel annuel : ≥ 3 factures mensuelles payées. */
   annualNudge: boolean;
   lifecycleEmails: boolean;
+  /** Accord facultatif aux statistiques anonymes (29/09/2026) et date du dernier choix. */
+  statsConsent: boolean;
+  statsConsentAt: string | null;
+  /** Préférences d'affichage suivies d'un appareil à l'autre (voir src/lib/ui-prefs.ts). */
+  uiPrefs: Record<string, unknown>;
   referralPromptsSeen: string[];
   referralCode: string | null;
   /** Réseaux proposés dans l'application (clés configurées, voir network-availability.ts). */

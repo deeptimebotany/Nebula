@@ -28,8 +28,8 @@ import { useSeedIsFresh } from "@/lib/data/swr-config";
 import { useHydrated } from "@/lib/use-hydrated";
 import { GREETING_VARIANTS } from "@/lib/dashboard-greetings";
 import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
+import { saveComposerDraftNow } from "@/lib/composer-draft-client";
 
-const DRAFT_KEY_PREFIX = "nebula:composer-draft:";
 
 const WEEKDAY_LABEL: Record<string, string> = {
   Dimanche: "le dimanche",
@@ -135,16 +135,11 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
   // composer/page.tsx) plutôt que de dupliquer la logique de publication.
   const [quickText, setQuickText] = useState("");
 
-  function onQuickCreate() {
+  async function onQuickCreate() {
     if (!activeBrand) return;
-    try {
-      localStorage.setItem(
-        DRAFT_KEY_PREFIX + activeBrand.id,
-        JSON.stringify({ title: "", caption: quickText.trim(), selectedNetworks: [] })
-      );
-    } catch {
-      // stockage indisponible — on redirige tout de même, juste sans pré-remplissage
-    }
+    // Brouillon enregistré dans le compte (et en copie locale) avant d'ouvrir
+    // le Composer, qui le reprend (voir lib/composer-draft-client.ts).
+    await saveComposerDraftNow(activeBrand.id, { title: "", caption: quickText.trim(), selectedNetworks: [] });
     router.push("/composer");
   }
 

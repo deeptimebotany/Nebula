@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SEO_DISCOVER } from "@/lib/seo-pages";
 import { Suspense } from "react";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
@@ -12,11 +14,7 @@ import { TRIAL_DAYS } from "@/lib/trial";
 // Landing du badge et des blocs de conversion des pages à jeton (rapport,
 // calendrier client, approbation) — brief growth, lot G1.a. Le prix Pro est
 // lu dans plans.ts (seule source des tarifs).
-export const metadata: Metadata = {
-  title: "Rapports clients et calendrier partagé, automatiques",
-  description: "Vous venez de consulter un rapport, un calendrier ou une page d'approbation générés par Nebula. Obtenez les mêmes pour vos marques : publication multi-réseaux, rapports automatiques, approbation en un clic.",
-  alternates: { canonical: "/decouvrir/rapports-clients" }
-};
+export const metadata = pageMetadata(SEO_DISCOVER["rapports-clients"]);
 
 // Page pré-générée (lot 11) : la provenance (?via, ?utm_campaign) est lue
 // dans le navigateur, voir landing-origin.tsx.

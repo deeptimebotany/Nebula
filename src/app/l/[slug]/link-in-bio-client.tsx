@@ -67,7 +67,7 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
             }}
           >
             {data.avatarUrl ? (
-              <RemoteImage src={data.avatarUrl} className="h-full w-full" sizes="96px" priority />
+              <RemoteImage src={data.avatarUrl} alt={`Photo de profil de ${data.brandName}`} className="h-full w-full" sizes="96px" priority />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white/70">
                 {data.brandName.charAt(0).toUpperCase()}

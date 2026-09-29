@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { PricingComparison } from "@/components/marketing/pricing-comparison";
@@ -9,13 +8,11 @@ import { SavingsCalculator } from "@/components/marketing/savings-calculator";
 import { ExitIntentModal } from "@/components/marketing/exit-intent";
 import { COMPETITORS } from "@/data/competitors";
 import Link from "next/link";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbLd, pageMetadata, softwareApplicationLd } from "@/lib/seo";
+import { SEO_PRICING } from "@/lib/seo-pages";
 
-export const metadata: Metadata = {
-  title: "Tarifs",
-  description:
-    "Gratuit pour commencer, Pro dès 9 € par mois pour 3 marques, Agence dès 29 € par mois pour 15 marques. Sans carte bancaire, résiliable à tout moment.",
-  alternates: { canonical: "/tarifs" }
-};
+export const metadata = pageMetadata(SEO_PRICING);
 
 // Questions spécifiques aux tarifs — les réponses reprennent le
 // fonctionnement réel de la facturation (Stripe, plans.ts, page Facturation).
@@ -49,6 +46,15 @@ const PRICING_FAQ: { q: string; a: string }[] = [
 export default function TarifsPage() {
   return (
     <PublicShell>
+      <JsonLd
+        nodes={[
+          softwareApplicationLd(),
+          breadcrumbLd([
+            ["Accueil", "/"],
+            ["Tarifs", "/tarifs"]
+          ])
+        ]}
+      />
       <PublicPageHeading
         eyebrow="Tarifs"
         title="Un prix clair, qui suit votre activité"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { passwordTooLong } from "@/lib/password-rules";
 import { prisma } from "@/lib/prisma";
 import { hashResetToken } from "@/lib/password-reset";
 import { forgetSessionCache } from "@/lib/account-security";
@@ -8,7 +9,7 @@ import { applyPendingPartnerGrant } from "@/lib/billing/partners";
 
 const schema = z.object({
   token: z.string().min(10),
-  password: z.string().min(8)
+  password: z.string().min(8).refine((v) => !passwordTooLong(v))
 });
 
 // POST /api/auth/reset-password { token, password } — valide le jeton reçu
@@ -17,7 +18,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const body = schema.safeParse(await req.json());
   if (!body.success) {
-    return NextResponse.json({ error: "Lien invalide ou mot de passe trop court (8 caractères min.)." }, { status: 400 });
+    return NextResponse.json({ error: "Lien invalide, ou mot de passe trop court (8 caractères au moins) ou trop long (72 au plus)." }, { status: 400 });
   }
   const { token, password } = body.data;
   const tokenHash = hashResetToken(token);

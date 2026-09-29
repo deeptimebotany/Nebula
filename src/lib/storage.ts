@@ -2,6 +2,14 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { ownStoragePath } from "@/lib/upload-policy";
+import { isMp4Like, stripImageMetadata, stripVideoLocation } from "@/lib/media-metadata";
+
+/** Octets sans métadonnées cachées (photos JPEG / PNG / WebP, position des vidéos MP4 / MOV). */
+function cleanBytes(buffer: Buffer, mimeType: string): Buffer {
+  const bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const clean = mimeType.startsWith("image/") ? stripImageMetadata(bytes, mimeType) : isMp4Like(mimeType) ? stripVideoLocation(bytes) : bytes;
+  return clean === bytes ? buffer : Buffer.from(clean.buffer, clean.byteOffset, clean.byteLength);
+}
 
 /**
  * Dossier des médias enregistrés en local (hors Vercel) : UPLOAD_DIR, ou
@@ -68,9 +76,12 @@ export async function saveUploadedFile(
   const ext = extensionForKnownMime(mimeType) ?? (fromName || "bin");
   const safeName = `${randomUUID()}.${ext}`;
 
+  // Métadonnées cachées retirées (position GPS, appareil…, voir
+  // media-metadata.ts) avant tout enregistrement.
+  const buffer = cleanBytes(Buffer.from(await file.arrayBuffer()), mimeType);
+
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
-    const buffer = Buffer.from(await file.arrayBuffer());
     const blob = await put(`${options.prefix ?? ""}${safeName}`, buffer, {
       access: "public",
       contentType: mimeType,
@@ -97,7 +108,6 @@ export async function saveUploadedFile(
   const absoluteDir = localUploadDir();
   await mkdir(absoluteDir, { recursive: true });
 
-  const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(absoluteDir, safeName), buffer);
 
   return {
@@ -221,10 +231,16 @@ export async function saveRemoteMedia(input: {
   const fromName = input.filename.includes(".") ? input.filename.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) : "";
   const ext = extensionForKnownMime(input.mimeType) ?? (fromName || (input.mimeType.startsWith("video/") ? "mp4" : extensionForMimeType(input.mimeType)));
   const safeName = `${randomUUID()}.${ext}`;
+  // Photo importée : lue en entier (quelques Mo) pour retirer ses
+  // métadonnées. Les vidéos importées restent en flux (non chargées en
+  // mémoire) : leur position n'est pas retirée ici.
+  const body: ReadableStream<Uint8Array> | Buffer = input.mimeType.startsWith("image/")
+    ? cleanBytes(Buffer.from(await new Response(input.body).arrayBuffer()), input.mimeType)
+    : input.body;
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
-    const blob = await put(`${input.prefix ?? ""}${safeName}`, input.body, {
+    const blob = await put(`${input.prefix ?? ""}${safeName}`, body, {
       access: "public",
       contentType: input.mimeType,
       token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -241,7 +257,7 @@ export async function saveRemoteMedia(input: {
 
   const absoluteDir = localUploadDir();
   await mkdir(absoluteDir, { recursive: true });
-  const buffer = Buffer.from(await new Response(input.body).arrayBuffer());
+  const buffer = Buffer.isBuffer(body) ? body : Buffer.from(await new Response(body).arrayBuffer());
   await writeFile(path.join(absoluteDir, safeName), buffer);
   return { url: `/uploads/${safeName}` };
 }

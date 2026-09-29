@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { trackGrowth } from "@/lib/growth";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!UPCOMING_NETWORKS.some((n) => n.slug === network)) return NextResponse.json({ error: "Réseau inconnu." }, { status: 400 });
 
   if (!(await verifyTurnstileToken(turnstileToken))) {
-    return NextResponse.json({ error: "Vérification anti-robot échouée, réessayez." }, { status: 400 });
+    return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });
   }
 
   await prisma.networkWaitlist.upsert({

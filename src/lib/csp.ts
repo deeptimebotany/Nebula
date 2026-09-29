@@ -4,7 +4,8 @@
 //
 //  - STRICT (nonce) : un code aléatoire différent à chaque requête est posé
 //    sur les scripts de Next.js ; tout autre script est bloqué, même écrit
-//    dans la page. Réservé aux pages qui affichent du contenu écrit par des
+//    dans la page (sauf le script du mode clair/sombre, autorisé par son
+//    empreinte : voir color-mode.ts). Réservé aux pages qui affichent du contenu écrit par des
 //    utilisateurs (application, page bio, pages client à jeton), aux pages
 //    de connexion et aux routes /api. Ces pages sont rendues à chaque
 //    visite (le nonce change) : `export const dynamic = "force-dynamic"`
@@ -18,6 +19,8 @@
 //
 // Module sans dépendance serveur : utilisé par le middleware (Edge) et par
 // le navigateur (CspDocumentGuard).
+
+import { COLOR_MODE_SCRIPT_HASH } from "@/lib/color-mode";
 
 /** Application connectée : connexion obligatoire (redirection vers /login). */
 export const APP_PREFIXES = [
@@ -119,7 +122,10 @@ export function buildCsp({ nonce, dev }: { nonce: string | null; dev: boolean })
       // (les chunks de Next.js, le widget Turnstile injecté par next/script)
       // héritent de la confiance ; l'hôte Cloudflare reste listé pour les
       // navigateurs plus anciens.
-      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com`
+      // L'empreinte autorise le script du mode clair/sombre posé dans <head>
+      // par la mise en page racine (texte fixe, sans nonce : voir
+      // color-mode.ts).
+      `script-src 'self' 'nonce-${nonce}' '${COLOR_MODE_SCRIPT_HASH}' 'strict-dynamic' https://challenges.cloudflare.com`
     : // Vitrine : scripts du site (fichiers de Next.js) et scripts écrits
       // dans la page pré-générée (données de rendu de Next.js).
       "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com";

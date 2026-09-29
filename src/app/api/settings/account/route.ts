@@ -21,16 +21,21 @@ export async function DELETE(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const { password } = await req.json().catch(() => ({ password: "" }));
+  const body = (await req.json().catch(() => ({}))) as { password?: unknown; confirmEmail?: unknown };
+  const password = typeof body.password === "string" ? body.password : "";
+  const confirmEmail = typeof body.confirmEmail === "string" ? body.confirmEmail.trim().toLowerCase() : "";
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
-  // Un compte créé via Google/Apple (voir src/lib/auth.ts) n'a pas de mot de
-  // passe Nebula : on ne peut pas le vérifier, donc pas de re-confirmation
-  // possible par ce biais — la suppression continue directement pour lui.
+  // Re-confirmation : le mot de passe, ou pour un compte ouvert avec Google /
+  // Apple / Facebook (sans mot de passe Nebula), l'adresse e-mail du compte
+  // retapée (29/09/2026 — avant, l'écran exigeait un mot de passe que ces
+  // comptes n'ont pas : impossible de supprimer son compte).
   if (user.passwordHash) {
-    const valid = await bcrypt.compare(password ?? "", user.passwordHash);
+    const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return NextResponse.json({ error: "Mot de passe incorrect." }, { status: 400 });
+  } else if (confirmEmail !== user.email.toLowerCase()) {
+    return NextResponse.json({ error: "Adresse e-mail incorrecte : saisissez celle de votre compte pour confirmer." }, { status: 400 });
   }
 
   const ownedMemberships = await prisma.membership.findMany({

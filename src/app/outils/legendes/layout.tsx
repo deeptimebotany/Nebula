@@ -1,15 +1,20 @@
-import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { pageMetadata, toolStructuredData } from "@/lib/seo";
+import { SEO_TOOLS } from "@/lib/seo-pages";
 
-// La page elle-même est un composant client ("use client") et ne peut donc
-// pas exporter de métadonnées : ce layout minimal porte le titre et la
-// description propres à l'outil (importants pour le référencement de cette
-// page "aimant à visiteurs").
-export const metadata: Metadata = {
-  title: "Générateur de légendes IA gratuit",
-  description:
-    "Générez gratuitement, sans compte, des titres et légendes adaptés à Instagram, TikTok, YouTube et Facebook grâce à l'IA."
-};
+// La page de l'outil est un composant client : ce layout porte ses
+// métadonnées (titre, description, canonique, aperçus de partage) et ses
+// données structurées (WebApplication + fil d'Ariane), définies dans
+// src/lib/seo-pages.ts (SEO technique, 29/09/2026).
+const PAGE = SEO_TOOLS["legendes"];
 
-export default function LegendesLayout({ children }: { children: React.ReactNode }) {
-  return children;
+export const metadata = pageMetadata(PAGE);
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <JsonLd nodes={toolStructuredData(PAGE)} />
+      {children}
+    </>
+  );
 }
