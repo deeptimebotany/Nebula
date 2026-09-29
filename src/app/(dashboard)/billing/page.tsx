@@ -8,7 +8,8 @@ import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
-import { PLAN_LIMITS, annualFreeMonths, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
+import { PAID_PLANS, PLAN_LIMITS, annualFreeMonths, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
+import { TRIAL_DENIED_MESSAGE } from "@/lib/billing/trial-copy";
 import { BeforeLeavingModal } from "@/components/billing/before-leaving-modal";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { useToast } from "@/components/dashboard/toast";
@@ -26,7 +27,22 @@ interface PlanResponse {
   billingEnabled: boolean;
 }
 
-const PAID_PLANS: Plan[] = ["PRO", "AGENCY"];
+/** Limites de l'essai face à celles de Pro (carte « Essai jusqu'au … », lot E1). */
+function trialComparisonRows(): { label: string; trial: string; pro: string }[] {
+  const t = PLAN_LIMITS.TRIAL;
+  const p = PLAN_LIMITS.PRO;
+  const n = (v: number) => (v >= 9999 ? "illimité" : String(v));
+  return [
+    { label: "Textes IA par jour", trial: n(t.aiDaily.text), pro: n(p.aiDaily.text) },
+    { label: "Miniatures IA par jour", trial: n(t.aiDaily.image), pro: n(p.aiDaily.image) },
+    { label: "Générations du Studio par jour", trial: n(t.studioDailyLimit), pro: n(p.studioDailyLimit) },
+    { label: "Messages à l'assistant par jour", trial: n(t.aiDaily.assistant), pro: n(p.aiDaily.assistant) },
+    { label: "Analyses de rétention par jour", trial: n(t.aiDaily.retention), pro: n(p.aiDaily.retention) },
+    { label: "Marques", trial: n(t.tiers[0].maxBrands), pro: `jusqu'à ${p.tiers[p.tiers.length - 1].maxBrands}` },
+    { label: "Comptes par marque", trial: n(t.maxConnections), pro: n(p.maxConnections) },
+    { label: "Publications par mois et par marque", trial: n(t.maxPostsPerMonth), pro: n(p.maxPostsPerMonth) }
+  ];
+}
 
 // Calculateur de ROI : purement indicatif, basé sur des hypothèses que VOUS
 // ajustez (nombre de comptes gérés, minutes passées à poster manuellement
@@ -113,6 +129,7 @@ function BillingPageInner() {
   // Palier "nombre de marques" sélectionné (radio) pour chaque plan payant.
   const [selectedTier, setSelectedTier] = useState<Record<Plan, number>>({
     FREE: PLAN_LIMITS.FREE.tiers[0].maxBrands,
+    TRIAL: PLAN_LIMITS.TRIAL.tiers[0].maxBrands,
     PRO: PLAN_LIMITS.PRO.tiers[0].maxBrands,
     AGENCY: PLAN_LIMITS.AGENCY.tiers[0].maxBrands
   });
@@ -135,7 +152,7 @@ function BillingPageInner() {
       .then((r) => r.json())
       .then((d: PlanResponse) => {
         setData(d);
-        if (d.plan !== "FREE") {
+        if (PLAN_LIMITS[d.plan].purchasable) {
           setInterval(d.interval);
           setSelectedTier((prev) => ({ ...prev, [d.plan]: d.maxBrands }));
         }
@@ -205,21 +222,70 @@ function BillingPageInner() {
       )}
 
       {me?.onTrial && me.trialEndsAt && !me.comp && (
-        <GlassCard className="border-aurora-400/25 bg-aurora-400/[0.04]">
+        <GlassCard className="border-emerald-400/25 bg-emerald-400/[0.04]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-aurora-200">
-                <UpgradeGem className="h-3.5 w-3.5" /> Essai Pro
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-200">
+                <UpgradeGem className="h-3.5 w-3.5" /> {PLAN_LIMITS.TRIAL.label}
               </p>
               <p className="mt-1 text-sm text-slate-200">
-                Essai Pro jusqu&apos;au {new Date(me.trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} — {me.trialDaysLeft} jour{me.trialDaysLeft > 1 ? "s" : ""} restant{me.trialDaysLeft > 1 ? "s" : ""}.
+                Essai jusqu&apos;au {new Date(me.trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} — {me.trialDaysLeft} jour{me.trialDaysLeft > 1 ? "s" : ""} restant{me.trialDaysLeft > 1 ? "s" : ""}.
                 Rien n&apos;est supprimé à la fin : vous repassez en Gratuit, vos données restent.
               </p>
             </div>
-            <a href="#paliers" className="rounded-xl border border-aurora-400/40 px-4 py-2 text-sm font-medium text-aurora-100 transition hover:bg-aurora-400/10">
-              Garder Pro
+            <a href="#paliers" className="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/10">
+              Passer en Pro
             </a>
           </div>
+          <div className="mt-4 overflow-x-auto" role="region" aria-label="Limites de l'essai et de Pro" tabIndex={0}>
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <caption className="sr-only">Limites de l&apos;essai comparées à celles de Pro</caption>
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-slate-500">
+                  <th scope="col" className="py-1.5 pr-3 font-medium">Chaque jour, par compte</th>
+                  <th scope="col" className="py-1.5 pr-3 font-medium">Essai</th>
+                  <th scope="col" className="py-1.5 font-medium">Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trialComparisonRows().map((row) => (
+                  <tr key={row.label} className="border-t border-white/[0.06]">
+                    <th scope="row" className="py-1.5 pr-3 font-normal text-slate-300">{row.label}</th>
+                    <td className="py-1.5 pr-3 tabular-nums text-slate-200">{row.trial}</td>
+                    <td className="py-1.5 tabular-nums text-white">{row.pro}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {me.ai && (
+            <p className="mt-3 text-xs text-slate-400">
+              Aujourd&apos;hui : {me.ai.quota.text.used}/{me.ai.quota.text.limit} textes, {me.ai.quota.image.used}/{me.ai.quota.image.limit} miniatures, {me.ai.quota.studio.used}/{me.ai.quota.studio.limit} Studio, {me.ai.quota.assistant.used}/{me.ai.quota.assistant.limit} messages — le compteur repart à minuit (heure de Paris).
+            </p>
+          )}
+          {me.brandsOwned > PLAN_LIMITS.FREE.tiers[0].maxBrands && (
+            <p className="mt-2 text-xs text-slate-400">
+              Après l&apos;essai, en Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n&apos;est supprimé.{" "}
+              <Link href="/billing/garder" className="font-medium text-emerald-200 underline underline-offset-2">
+                Choisir ce que je garde
+              </Link>
+            </p>
+          )}
+        </GlassCard>
+      )}
+
+      {me?.trialDenied && !me.paid && !me.comp && (
+        <p className="text-sm text-slate-400">{TRIAL_DENIED_MESSAGE}</p>
+      )}
+
+      {me && me.dormantBrands > 0 && !me.paid && !me.comp && (
+        <GlassCard className="border-slate-400/20 bg-white/[0.02]">
+          <p className="text-sm text-slate-200">
+            {me.dormantBrands} marque{me.dormantBrands > 1 ? "s" : ""} en veille depuis la fin de votre essai : tout est conservé, rien ne se publie ni ne se synchronise. Passez en Pro pour tout réactiver d&apos;un coup.
+          </p>
+          <Link href="/billing/garder" className="mt-2 inline-block text-sm font-medium text-aurora-300 underline-offset-2 hover:underline">
+            Changer de marque active
+          </Link>
         </GlassCard>
       )}
 
@@ -239,7 +305,7 @@ function BillingPageInner() {
         </GlassCard>
       )}
 
-      {me?.annualNudge && data?.interval === "month" && data.plan !== "FREE" && (
+      {me?.annualNudge && data?.interval === "month" && PLAN_LIMITS[data.plan].purchasable && (
         <GlassCard className="border-aurora-400/25 bg-aurora-400/[0.04]">
           <p className="text-sm text-slate-200">
             Vous en êtes à votre 3e mois : passez à l&apos;annuel et gagnez <strong>{annualFreeMonths(PLAN_LIMITS[data.plan].tiers.find((t) => t.maxBrands === data.maxBrands) ?? PLAN_LIMITS[data.plan].tiers[0])} mois offerts</strong> — basculez l&apos;interrupteur Mensuel / Annuel ci-dessous puis choisissez votre palier.
@@ -254,7 +320,7 @@ function BillingPageInner() {
               <p className="text-xs uppercase tracking-wider text-slate-400">Palier actuel</p>
               <p className="font-display text-xl text-white">
                 {data.limits.label}
-                {data.plan !== "FREE" && (
+                {PLAN_LIMITS[data.plan].purchasable && (
                   <span className="ml-2 text-sm font-normal text-slate-400">
                     · jusqu&apos;à {data.maxBrands} marques · facturation {data.interval === "year" ? "annuelle" : "mensuelle"}
                   </span>
@@ -281,7 +347,7 @@ function BillingPageInner() {
                 </p>
               </div>
             </div>
-            {(data.plan !== "FREE" || me?.pausedUntil) && (
+            {(PLAN_LIMITS[data.plan].purchasable || me?.pausedUntil) && (
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={openPortal}>
                   Gérer mon abonnement
@@ -345,7 +411,7 @@ function BillingPageInner() {
               <p className="text-white">Votre plan actuel</p>
               <p className="mt-0.5 text-xs text-slate-400">
                 Géré depuis la page{" "}
-                <Link href="/accounts" className="text-aurora-300 hover:underline">
+                <Link href="/accounts" className="text-aurora-300 underline underline-offset-2">
                   Comptes
                 </Link>
                 .

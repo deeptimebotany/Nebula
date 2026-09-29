@@ -12,12 +12,15 @@ export function useToolGeneration<T>(tool: string, demo: T) {
   const access = useToolAccess();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Raison du refus (ex. `email_unverified`, lot E2) : bouton « Renvoyer le lien ». */
+  const [errorReason, setErrorReason] = useState<string | null>(null);
   const [result, setResult] = useState<T | null>(null);
   /** Vrai quand le résultat affiché est la démo (et non une vraie génération). */
   const [isDemo, setIsDemo] = useState(false);
 
   async function generate(body: Record<string, unknown>, pick: (data: Record<string, unknown>) => T) {
     setError(null);
+    setErrorReason(null);
     if (access.status !== "member") {
       setResult(demo);
       setIsDemo(true);
@@ -35,6 +38,7 @@ export function useToolGeneration<T>(tool: string, demo: T) {
       }
       if (!res.ok) {
         setError(typeof data.error === "string" ? data.error : "Une erreur est survenue.");
+        setErrorReason(typeof data.reason === "string" ? data.reason : null);
         return;
       }
       setResult(pick(data));
@@ -49,5 +53,5 @@ export function useToolGeneration<T>(tool: string, demo: T) {
     }
   }
 
-  return { access, loading, error, result, isDemo, generate, setError };
+  return { access, loading, error, errorReason, result, isDemo, generate, setError };
 }

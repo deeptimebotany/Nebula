@@ -321,7 +321,8 @@ export async function ensureFacebookPageToken(connection: ConnectionLike): Promi
 /** Cron : passe les anciennes connexions Facebook au jeton de Page, par petits lots. */
 export async function upgradeFacebookPageTokens(limit = 10): Promise<{ upgraded: number }> {
   const rows = await prisma.socialConnection.findMany({
-    where: { network: "FACEBOOK", status: "CONNECTED", NOT: { scopes: { contains: PAGE_TOKEN_MARKER } } },
+    // Jamais les comptes en veille (lot E4) : jetons gardés, pas rafraîchis.
+    where: { network: "FACEBOOK", status: "CONNECTED", dormantAt: null, brand: { dormantAt: null }, NOT: { scopes: { contains: PAGE_TOKEN_MARKER } } },
     take: limit
   });
   let upgraded = 0;

@@ -135,13 +135,18 @@ export function ShowcaseSection({
   rewards,
   busy,
   onSave,
-  highlight
+  highlight,
+  collapsed = false,
+  onToggleCollapsed
 }: {
   showcase: ShowcaseDTO;
   rewards: ReussitesPageDTO["rewards"];
   busy: boolean;
   onSave: (keys: string[]) => Promise<boolean>;
   highlight: boolean;
+  /** Bloc replié (lot U3), état mémorisé par la page. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
@@ -158,14 +163,23 @@ export function ShowcaseSection({
           </h2>
           <p className="text-xs text-slate-400">3 badges à côté de votre nom dans la Communauté et sur votre carte de créateur.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCardOpen(true)}
-          className="min-h-[40px] rounded-xl border border-aurora-400/40 bg-aurora-500/[0.08] px-3.5 text-sm font-medium text-aurora-200 transition hover:bg-aurora-500/[0.16]"
-        >
-          Ma carte de créateur
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setCardOpen(true)}
+            className="min-h-[40px] rounded-xl border border-aurora-400/40 bg-aurora-500/[0.08] px-3.5 text-sm font-medium text-aurora-200 transition hover:bg-aurora-500/[0.16]"
+          >
+            Ma carte de créateur
+          </button>
+          {onToggleCollapsed && (
+            <button type="button" onClick={onToggleCollapsed} aria-expanded={!collapsed} aria-controls="vitrine-body" className="text-xs font-medium text-aurora-300 transition hover:text-white">
+              {collapsed ? "Déplier ▾" : "Replier ▴"}
+            </button>
+          )}
+        </div>
       </div>
+      {!collapsed && (
+      <div id="vitrine-body" className="space-y-3">
 
       {editing ? (
         <ShowcasePicker
@@ -240,6 +254,8 @@ export function ShowcaseSection({
           )}
         </div>
       </div>
+      </div>
+      )}
       <CreatorCardDialog open={cardOpen} onClose={() => setCardOpen(false)} />
     </section>
   );

@@ -31,7 +31,10 @@ const TABLES = [
   "PublicToolUsage",
   // Messages du formulaire de contact et statistiques anonymes (29/09/2026).
   "ContactMessage",
-  "AnonStat"
+  "AnonStat",
+  // Brief « Essai 14 jours » : registre des essais et coûts de l'IA, sans lien vers un compte.
+  "TrialGrant",
+  "AiUsageDaily"
 ];
 
 export async function resetDatabase(): Promise<void> {

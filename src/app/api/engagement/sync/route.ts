@@ -7,6 +7,7 @@ import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
 import { refreshReussites } from "@/lib/reussites/engine";
+import { dormantSyncResponse, withoutDormant } from "@/lib/billing/dormant";
 
 // Interroge la vraie API du réseau pour rafraîchir les commentaires reçus
 // sur les publications récentes, et les enregistre (déduplication via la
@@ -24,12 +25,15 @@ export async function POST(req: NextRequest) {
   if (!body.connectionId && !body.brandId) return NextResponse.json({ error: "connectionId ou brandId requis" }, { status: 400 });
 
   // Les comptes doivent appartenir à une des marques de l'utilisateur.
-  const connections = await prisma.socialConnection.findMany({
+  const found = await prisma.socialConnection.findMany({
     where: body.connectionId
       ? { id: body.connectionId, brand: ownedBy(userId) }
       : { brandId: body.brandId as string, status: "CONNECTED", brand: ownedBy(userId) }
   });
-  if (connections.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+  if (found.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+  // Marque ou comptes en veille (lot E4) : aucune synchronisation.
+  const connections = await withoutDormant(found);
+  if (connections.length === 0) return dormantSyncResponse();
 
   const results: { connectionId: string; network: string; count: number; error?: string; unsupported?: boolean }[] = [];
   let sawOwnerReply = false;

@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { watchStatue } from "@/lib/easter-eggs/statue";
 
 // Hypothèse : Nebula a été lancé le 21 septembre 2025 — à corriger ici si la
 // vraie date de lancement diffère (seule cette constante calcule "Nebula a
@@ -67,8 +68,6 @@ const WORD_BANANA = "banana";
 // "une session", remise à zéro à la fermeture de l'onglet).
 const SESSION_START_KEY = "nebula:session-start";
 const MARATHON_THRESHOLD_MS = 4 * 60 * 60 * 1000;
-// "Statue" : immobilité totale du curseur pendant ce délai.
-const STATUE_THRESHOLD_MS = 60 * 1000;
 // "Zoom extrême" : ratio taille fenêtre externe / interne — grossit avec le
 // niveau de zoom du navigateur (heuristique, pas une vraie API de zoom).
 const EXTREME_ZOOM_RATIO = 4;
@@ -270,29 +269,12 @@ export function EasterEggs() {
       // stockage indisponible — l'egg "marathon" ne pourra pas se déclencher
     }
 
-    // Curseur immobile : un mouvement de souris note seulement l'heure (pas
-    // de minuterie recréée des dizaines de fois par seconde) ; une seule
-    // minuterie vérifie ensuite si le seuil est atteint (lot 4).
-    let statueTimer: number | null = null;
-    let statueFired = false;
-    let lastMove = Date.now();
-    function onMouseMove() {
-      lastMove = Date.now();
-    }
-    function checkStatue() {
-      if (statueFired) return;
-      const idle = Date.now() - lastMove;
-      if (idle >= STATUE_THRESHOLD_MS && document.visibilityState === "visible") {
-        statueFired = true;
-        window.removeEventListener("mousemove", onMouseMove);
-        toast.info("💤 Toujours là ?");
-        reportEasterEggFound("cursor-statue");
-        return;
-      }
-      statueTimer = window.setTimeout(checkStatue, Math.max(1000, STATUE_THRESHOLD_MS - idle));
-    }
-    statueTimer = window.setTimeout(checkStatue, STATUE_THRESHOLD_MS);
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    // Curseur immobile 60 s (Easter egg #28, corrigé au lot U6 : onglet
+    // visible, fenêtre active et curseur dans la page — voir statue.ts).
+    const stopStatue = watchStatue(() => {
+      toast.info("💤 Toujours là ?");
+      reportEasterEggFound("cursor-statue");
+    });
 
     let zoomFired = false;
     function checkZoom() {
@@ -324,8 +306,7 @@ export function EasterEggs() {
     }, 5 * 60 * 1000);
 
     return () => {
-      if (statueTimer) window.clearTimeout(statueTimer);
-      window.removeEventListener("mousemove", onMouseMove);
+      stopStatue();
       window.removeEventListener("resize", checkZoom);
       window.clearInterval(marathonInterval);
     };

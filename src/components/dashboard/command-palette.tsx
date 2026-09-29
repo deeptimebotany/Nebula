@@ -8,7 +8,8 @@ import { useBrand } from "@/components/brand-context";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
-import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun } from "./icons";
+import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun, IconTrophy } from "./icons";
+import { restartGuidedTour } from "@/lib/tour-events";
 
 interface Command {
   id: string;
@@ -78,8 +79,29 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
         run: () => {
           setFocusMode(!focusMode);
         }
-      }
+      },
       // « Succès » fait maintenant partie de NAV_GROUPS (menu, section Compte).
+      // Onglets de Réussites (lot U3) et collection des Easter eggs.
+      ...(
+        [
+          ["missions", "Réussites : missions de la semaine", ["missions", "coffre", "série", "défi"]],
+          ["competences", "Réussites : compétences", ["constellation", "étoiles", "leçons"]],
+          ["recompenses", "Réussites : récompenses", ["vitrine", "album", "badges", "accomplissements"]]
+        ] as const
+      ).map(([hash, label, keywords]) => ({
+        id: `reussites-${hash}`,
+        label,
+        hint: "Réussites",
+        icon: IconTrophy,
+        keywords: [...keywords],
+        run: () => {
+          if (window.location.pathname === "/reussites") window.location.hash = hash;
+          else router.push(`/reussites#${hash}`);
+        }
+      })),
+      { id: "egg-collection", label: "Collection des Easter eggs", hint: "Réussites", icon: IconTrophy, keywords: ["easter eggs", "succès", "secrets"], run: () => router.push("/reussites/collection") },
+      // Visite guidée (lot U4).
+      { id: "tour-restart", label: "Revoir la visite guidée", hint: "Aide", icon: IconCommand, keywords: ["visite", "tutoriel", "aide", "découvrir"], run: () => restartGuidedTour() }
     ];
     return [...actions.slice(0, 1), ...nav, ...actions.slice(1)];
   }, [router, mode, setMode, brands, activeBrand?.id, setActiveBrandId, focusMode, setFocusMode, isOwner]);

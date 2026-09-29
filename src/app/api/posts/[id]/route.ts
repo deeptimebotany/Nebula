@@ -7,6 +7,17 @@ import { publishPost, PublishInProgressError, retryWaitingTargetsNow, stopWaitin
 import { ownedBy, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { deleteBrandMediaFile } from "@/lib/media-files";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
+import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/trial-expiry";
+
+/** Marque ou comptes en veille (lot E4) : ni « Publier maintenant » ni nouvelle date. */
+async function writableError(postId: string, brandId: string): Promise<NextResponse | null> {
+  const brand = await assertBrandWritable(brandId);
+  if (!brand.ok) return NextResponse.json({ error: brand.message, reason: brand.reason }, { status: 402 });
+  const targets = await prisma.postTarget.findMany({ where: { postId }, select: { connectionId: true } });
+  const conn = await assertConnectionsWritable(targets.map((t) => t.connectionId));
+  if (!conn.ok) return NextResponse.json({ error: conn.message, reason: conn.reason }, { status: 402 });
+  return null;
+}
 
 // Publication immédiate : jusqu'à 60 s (limite du plan Vercel Hobby).
 export const maxDuration = 60;
@@ -60,7 +71,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // programmée ou un brouillon.
     const { count } = await prisma.post.updateMany({
       where: { id: own.id, status: { in: ["SCHEDULED", "DRAFT"] } },
-      data: { status: "DRAFT", scheduledAt: null }
+      // Annulée à la main : plus de reprogrammation au passage en Pro (lot E4).
+      data: { status: "DRAFT", scheduledAt: null, dormantScheduledAt: null }
     });
     if (count === 0) return NextResponse.json({ error: "Cette publication est déjà en cours d'envoi ou terminée." }, { status: 409 });
     return NextResponse.json({ ok: true });
@@ -77,6 +89,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (action === "publish-now") {
+    const blocked = await writableError(own.id, own.brandId);
+    if (blocked) return blocked;
     try {
       const result = await publishPost(own.id);
       return NextResponse.json({ ok: true, ...result });
@@ -151,8 +165,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const when = new Date(body.scheduledAt);
     if (Number.isNaN(when.getTime())) return NextResponse.json({ error: "Date invalide" }, { status: 400 });
     if (isPastSchedule(when)) return NextResponse.json({ error: PAST_SCHEDULE_ERROR, reason: "past_schedule" }, { status: 400 });
+    const blocked = await writableError(existing.id, existing.brandId);
+    if (blocked) return blocked;
     data.scheduledAt = when;
     data.status = "SCHEDULED";
+    data.dormantScheduledAt = null;
   }
 
   if (Object.keys(data).length) {

@@ -211,7 +211,9 @@ export function AiAssistant() {
           const errorText = typeof data.error === "string" ? data.error : "L'assistant n'a pas pu répondre. Réessayez dans un instant.";
           // Palier sans IA (fin d'essai) : paywall contextuel plutôt qu'une
           // erreur dans le fil (lot G2.b).
-          if (res.status === 402 && upgrade.openFromResponse(res.status, data)) {
+          // Palier sans IA (402), adresse à confirmer (403) ou quota / budget
+          // du jour de l'essai (429 avec raison, lot E2) : la bonne fenêtre.
+          if (upgrade.openFromResponse(res.status, data)) {
             setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
             setInput(text);
             return;

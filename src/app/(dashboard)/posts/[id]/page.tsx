@@ -21,6 +21,7 @@ import { NETWORK_META, type Network } from "@/lib/types";
 import { errorAdvice } from "@/lib/social/error-advice";
 import { PostStats } from "@/components/posts/post-stats";
 import { clsx } from "@/lib/clsx";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 
 interface MediaAsset {
   id: string;
@@ -110,6 +111,7 @@ export default function PostDetailPage() {
   const { activeBrand, brands } = useBrand();
   const aiStatus = useAiStatus(activeBrand?.id);
   const toast = useToast();
+  const upgrade = useUpgradeModal();
   const confirmDialog = useConfirm();
   const { celebrateMilestone } = useMilestoneCelebration();
 
@@ -177,8 +179,10 @@ export default function PostDetailPage() {
     });
     const data = await res.json();
     setBusy(null);
-    if (!res.ok) toast.error(data.error ?? "Erreur lors de la publication.");
-    else if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
+    if (!res.ok) {
+      // Marque ou compte en veille (lot E4) : la fenêtre explicative.
+      if (!upgrade.openFromResponse(res.status, data)) toast.error(data.error ?? "Erreur lors de la publication.");
+    } else if (typeof data.milestone === "number") celebrateMilestone(data.milestone);
     load();
   }
 
@@ -220,6 +224,7 @@ export default function PostDetailPage() {
     const data = await res.json();
     setAnalyzing(null);
     if (!res.ok) {
+      if (upgrade.openFromResponse(res.status, data)) return;
       setAnalyzeError((prev) => ({ ...prev, [targetId]: data.error ?? "Erreur d'analyse." }));
       return;
     }
@@ -268,6 +273,12 @@ export default function PostDetailPage() {
     });
     setSending(false);
     if (res.ok) load();
+    else {
+      // Quota de l'assistant ou adresse à confirmer (lot E2) : la bonne
+      // fenêtre ; le message envoyé reste dans le fil.
+      upgrade.openFromResponse(res.status, await res.json().catch(() => ({})));
+      load();
+    }
   }
 
   if (!post) {

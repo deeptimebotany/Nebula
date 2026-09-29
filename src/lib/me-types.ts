@@ -26,7 +26,7 @@ export interface MeResponse {
   cosmetics: { enabled: string[]; allowedKeys: string[] };
   whiteLabel: { brandName: string | null; logoUrl: string | null };
   // --- Brief growth (lots G2/G3/G7) ---
-  /** Essai Pro applicatif en cours (palier effectif = PRO sans abonnement). */
+  /** Essai en cours (palier « Essai », TRIAL, sans abonnement — lot E1). */
   onTrial: boolean;
   trialEndsAt: string | null;
   trialDaysLeft: number;
@@ -53,4 +53,22 @@ export interface MeResponse {
   referralCode: string | null;
   /** Réseaux proposés dans l'application (clés configurées, voir network-availability.ts). */
   networks: Network[];
+  // --- Brief « Essai 14 jours » (lots E1 à E4, U4, U5) ---
+  /** IA : adresse confirmée (Gratuit et Essai l'exigent) et quotas du jour par type. */
+  ai: { emailConfirmed: boolean; quota: Record<AiQuotaKind, { limit: number; used: number; remaining: number }> };
+  /** Essai refusé à l'inscription (adresse ou réseau déjà utilisés, adresse jetable). */
+  trialDenied: { reason: string } | null;
+  /** Fin d'essai : marque active choisie et date du prochain changement possible. */
+  freeActiveBrandId: string | null;
+  activeBrandChangeableAt: string | null;
+  /** Nombre de marques en veille (palier Gratuit après l'essai). */
+  dormantBrands: number;
+  /** Payant : brouillons de la fin d'essai qui peuvent repartir à leur date d'origine. */
+  reschedulable: number;
+  /** Visite guidée : terminée (ou passée), sinon étape où la reprendre. */
+  tour: { completed: boolean; step: number };
+  /** Sons de l'interface (Paramètres → Apparence & Succès). */
+  uiSounds: boolean;
 }
+
+export type AiQuotaKind = "text" | "image" | "studio" | "assistant" | "retention";

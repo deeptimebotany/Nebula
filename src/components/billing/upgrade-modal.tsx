@@ -6,7 +6,14 @@
 // plans.ts et le bouton « Passer en Pro » (Checkout Stripe). Elle remplace
 // les anciens messages « réservé aux paliers Pro/Agence » et s'ouvre :
 //   - au clic sur une fonction verrouillée (page Rapports, Rétention…) ;
-//   - quand une API répond 402/403 avec `reason` (openUpgradeFromResponse).
+//   - quand une API répond 402/403 avec `reason` (openUpgradeFromResponse) ;
+//   - quand la porte de l'IA refuse (lot E2, brief « Essai 14 jours ») :
+//     quota de l'essai atteint (429 trial_ai_limit), budget du jour de
+//     l'essai ou du Gratuit (429 trial_ai_busy / free_ai_busy), plafond par
+//     connexion (429 ai_ip_limit), adresse non confirmée (403
+//     email_unverified : variante sans offre, avec « Renvoyer le lien »).
+//     Le message du serveur (« Pendant l'essai, 3 miniatures par jour… En
+//     Pro, 15. ») s'affiche tel quel ; le prix est lu dans plans.ts.
 // Offre unique de bienvenue : à la première ouverture par un compte dont
 // l'essai est terminé (ou sans essai), le serveur pose offerExpiresAt
 // (48 h) ; tant qu'elle est valide, la modale et Facturation affichent
@@ -19,19 +26,77 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { DashboardVisual, ComposerVisual, ReportVisual } from "@/components/marketing/product-visuals";
+import { ProductShot } from "@/components/marketing/product-shot";
 import { trackGrowthEvent } from "@/lib/growth-client";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { IconClose } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 
-export type UpgradeReason = "links_limit" | "second_brand" | "retention" | "reports" | "calendar_share" | "ai_assistant" | "studio" | "media_kit" | "post_quota" | "generic";
+export type UpgradeReason =
+  | "links_limit"
+  | "second_brand"
+  | "dormant_brand"
+  | "retention"
+  | "reports"
+  | "calendar_share"
+  | "ai_assistant"
+  | "studio"
+  | "media_kit"
+  | "post_quota"
+  | "trial_ai_limit"
+  | "ai_daily_limit"
+  | "ai_ip_limit"
+  | "trial_ai_busy"
+  | "free_ai_busy"
+  | "email_unverified"
+  | "generic";
+
+const PRO_AI = PLAN_LIMITS.PRO.aiDaily;
+const PRO_AI_LINE = `En Pro, chaque jour : ${PRO_AI.text} textes, ${PRO_AI.image} miniatures, ${PLAN_LIMITS.PRO.studioDailyLimit} générations du Studio, ${PRO_AI.assistant} messages à l'assistant et ${PRO_AI.retention} analyses de rétention.`;
+
+/** Raisons sans offre : un simple avis (adresse à confirmer, limite d'un compte payant). */
+const NOTICE_ONLY: ReadonlySet<UpgradeReason> = new Set(["email_unverified"]);
 
 const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; visual: "dashboard" | "composer" | "report" }> = {
   links_limit: {
     title: "Plus de liens sur votre page bio",
     lines: [`Le palier Gratuit s'arrête à ${PLAN_LIMITS.FREE.maxBioLinks} liens ; Pro en autorise ${PLAN_LIMITS.PRO.maxBioLinks}.`, "Vos liens en trop ne sont jamais supprimés : ils se réactivent dès le passage en Pro."],
     visual: "dashboard"
+  },
+  dormant_brand: {
+    title: "Cette marque est en veille",
+    lines: ["Depuis la fin de votre essai, une seule marque reste active en Gratuit : celle-ci est conservée telle quelle, mais ne publie plus.", "Passez en Pro pour la réactiver avec toutes ses publications, ou faites-en votre marque active."],
+    visual: "dashboard"
+  },
+  trial_ai_limit: {
+    title: "Limite de l'essai atteinte pour aujourd'hui",
+    lines: [`Pendant l'essai, ${PLAN_LIMITS.TRIAL.aiDaily.text} textes et ${PLAN_LIMITS.TRIAL.aiDaily.image} miniatures par jour. Le compteur repart à minuit.`, PRO_AI_LINE],
+    visual: "composer"
+  },
+  ai_daily_limit: {
+    title: "Limite du jour atteinte",
+    lines: ["Le compteur de l'IA repart à zéro à minuit (heure de Paris).", PRO_AI_LINE],
+    visual: "composer"
+  },
+  ai_ip_limit: {
+    title: "Limite atteinte depuis cette connexion",
+    lines: ["Beaucoup de générations sont déjà parties aujourd'hui depuis ce réseau. Revenez demain.", PRO_AI_LINE],
+    visual: "composer"
+  },
+  trial_ai_busy: {
+    title: "L'IA de l'essai revient à minuit",
+    lines: ["L'IA de l'essai a atteint sa limite du jour. Elle revient à minuit. En Pro, elle reste disponible.", "Vos brouillons, vos réglages et vos publications programmées ne sont pas touchés."],
+    visual: "composer"
+  },
+  free_ai_busy: {
+    title: "L'IA gratuite revient à minuit",
+    lines: ["L'IA gratuite a atteint sa limite du jour. Elle revient à minuit. En Pro, elle reste disponible.", "Vos brouillons, vos réglages et vos publications programmées ne sont pas touchés."],
+    visual: "composer"
+  },
+  email_unverified: {
+    title: "Confirmez votre adresse pour utiliser l'IA",
+    lines: ["Pendant l'essai et en Gratuit, l'IA demande une adresse confirmée : cliquez sur le lien reçu à l'inscription.", "Rien reçu ? Vérifiez les indésirables, ou demandez un nouveau lien."],
+    visual: "composer"
   },
   second_brand: {
     title: "Gérez plusieurs marques",
@@ -87,7 +152,8 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
 };
 
 interface UpgradeModalContextValue {
-  open: (reason: UpgradeReason) => void;
+  /** `detail` : message précis du serveur (ex. « Pendant l'essai, 3 miniatures par jour… »). */
+  open: (reason: UpgradeReason, detail?: string) => void;
   close: () => void;
   /** Ouvre la modale si une réponse d'API porte une raison de palier. */
   openFromResponse: (status: number, data: unknown) => boolean;
@@ -125,16 +191,20 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const { data: me, patch } = useBootstrap();
   const router = useRouter();
   const [reason, setReason] = useState<UpgradeReason | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const open = useCallback(
-    (r: UpgradeReason) => {
+    (r: UpgradeReason, message?: string) => {
       setReason(r);
+      setDetail(message?.trim() || null);
+      setResend("idle");
       trackGrowthEvent("upgrade_modal_shown", { reason: r });
       // Offre de bienvenue : le serveur décide (essai terminé, jamais
       // payant, coupon configuré) et renvoie la date d'expiration.
-      if (me && !me.paid && !me.onTrial) {
+      if (me && !me.paid && !me.onTrial && !NOTICE_ONLY.has(r)) {
         fetch("/api/billing/offer", { method: "POST" })
           .then((res) => (res.ok ? res.json() : null))
           .then((d) => {
@@ -148,14 +218,29 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => setReason(null), []);
   const openFromResponse = useCallback(
     (status: number, data: unknown) => {
-      if ((status === 402 || status === 403) && data && typeof data === "object" && isUpgradeReason((data as { reason?: unknown }).reason)) {
-        open((data as { reason: UpgradeReason }).reason);
+      if ((status === 402 || status === 403 || status === 429) && data && typeof data === "object" && isUpgradeReason((data as { reason?: unknown }).reason)) {
+        const d = data as { reason: UpgradeReason; error?: unknown };
+        // 402 : fonction absente du palier → texte de la raison ; 403/429 :
+        // le message du serveur précise la limite (« Pendant l'essai, 3… »).
+        open(d.reason, status !== 402 && typeof d.error === "string" ? d.error : undefined);
         return true;
       }
       return false;
     },
     [open]
   );
+
+  async function resendLink() {
+    setResend("sending");
+    try {
+      const res = await fetch("/api/auth/verify-email/resend", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      setResend(res.ok ? "sent" : "error");
+      if (res.ok && d.alreadyVerified) close();
+    } catch {
+      setResend("error");
+    }
+  }
 
   useEffect(() => {
     if (!reason) return;
@@ -207,7 +292,13 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ open, close, openFromResponse }), [open, close, openFromResponse]);
   const def = reason ? REASONS[reason] : null;
-  const Visual = def?.visual === "composer" ? ComposerVisual : def?.visual === "report" ? ReportVisual : DashboardVisual;
+  // Avis sans offre : adresse à confirmer, ou limite du jour d'un compte
+  // déjà payant (Agence : rien au-dessus ; Pro : lien vers Facturation).
+  const noticeOnly = Boolean(reason && (NOTICE_ONLY.has(reason) || (reason === "ai_daily_limit" && me?.paid)));
+  const nextPlan = me ? PLAN_LIMITS[me.plan].upgradeTo : null;
+  const lines: [string, string] = def ? [detail ?? def.lines[0], noticeOnly && reason === "ai_daily_limit" ? (nextPlan ? `Besoin de plus ? Le palier ${PLAN_LIMITS[nextPlan].label} en permet davantage chaque jour.` : "Merci de votre fidélité : le compteur repart à minuit.") : def.lines[1]] : ["", ""];
+  // Vraie capture de l'écran concerné (compte de démonstration, voir scripts/demo/).
+  const shot = def?.visual === "composer" ? "publier" : def?.visual === "report" ? "rapports" : "tableau-de-bord";
 
   return (
     <UpgradeModalContext.Provider value={value}>
@@ -224,9 +315,15 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
             <div className="grid sm:grid-cols-[1fr_260px]">
               <div className="p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-aurora-400/30 bg-aurora-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-aurora-200">
-                    <UpgradeGem className="h-3.5 w-3.5" /> Pro
-                  </span>
+                  {noticeOnly ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
+                      {reason === "email_unverified" ? "Adresse email" : "IA"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-aurora-400/30 bg-aurora-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-aurora-200">
+                      <UpgradeGem className="h-3.5 w-3.5" /> Pro
+                    </span>
+                  )}
                   <button ref={closeRef} type="button" onClick={close} aria-label="Fermer" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white sm:hidden">
                     <IconClose className="h-4 w-4" />
                   </button>
@@ -234,9 +331,43 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                 <h2 id="upgrade-modal-title" className="mt-4 font-display text-2xl font-semibold leading-tight text-white">
                   {def.title}
                 </h2>
-                <p className="mt-3 text-sm leading-relaxed text-slate-300">{def.lines[0]}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{def.lines[1]}</p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">{lines[0]}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{lines[1]}</p>
 
+                {noticeOnly ? (
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    {reason === "email_unverified" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={resendLink}
+                          disabled={resend === "sending" || resend === "sent"}
+                          className={clsx("btn-glow inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white", (resend === "sending" || resend === "sent") && "opacity-60")}
+                        >
+                          {resend === "sending" ? "Envoi…" : resend === "sent" ? "Lien envoyé" : "Renvoyer le lien"}
+                        </button>
+                        <p className="w-full text-xs text-slate-400" aria-live="polite">
+                          {resend === "sent" ? `Lien envoyé à ${me?.user.email ?? "votre adresse"} : ouvrez-le, puis relancez la génération.` : resend === "error" ? "Envoi impossible pour le moment : réessayez dans quelques minutes." : ""}
+                        </p>
+                      </>
+                    ) : nextPlan ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          close();
+                          router.push("/billing");
+                        }}
+                        className="btn-glow inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white"
+                      >
+                        Voir le palier {PLAN_LIMITS[nextPlan].label}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={close} className="text-sm text-slate-400 transition hover:text-white">
+                      Compris
+                    </button>
+                  </div>
+                ) : (
+                <>
                 <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
                   <p className="text-xs uppercase tracking-wider text-slate-500">Pro · jusqu&apos;à {proTier.maxBrands} marques</p>
                   {countdown ? (
@@ -271,14 +402,14 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                     Plus tard
                   </button>
                 </div>
+                </>
+                )}
               </div>
               <div className="relative hidden items-center justify-center border-l border-white/[0.06] bg-white/[0.02] p-4 sm:flex">
                 <button type="button" onClick={close} aria-label="Fermer" className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white">
                   <IconClose className="h-4 w-4" />
                 </button>
-                <div className="w-full scale-90">
-                  <Visual />
-                </div>
+                <ProductShot name={shot} alt="" sizes="240px" className="w-full" />
               </div>
             </div>
           </div>

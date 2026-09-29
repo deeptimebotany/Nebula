@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, generateCopy } from "@/lib/ai/gemini";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { z } from "zod";
 
@@ -38,26 +38,26 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
-  const { limits } = await getBrandPlan(brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
-  }
+  const gate = await gateAppAi({ userId: (session.user as { id: string }).id, brandId, kind: "text" });
+  if (!gate.ok) return gate.response;
 
   const brand = await prisma.brand.findUnique({ where: { id: brandId } });
   if (!brand) return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
 
   try {
-    const text = await generateCopy({
-      field,
-      network,
-      maxLength: network ? NETWORK_META[network as Network]?.maxCaption : undefined,
-      brandName: brand.name,
-      existingTitle,
-      existingCaption,
-      mediaHint,
-      frameBase64,
-      frameMimeType
-    });
+    const text = await gate.allowance.run(() =>
+      generateCopy({
+        field,
+        network,
+        maxLength: network ? NETWORK_META[network as Network]?.maxCaption : undefined,
+        brandName: brand.name,
+        existingTitle,
+        existingCaption,
+        mediaHint,
+        frameBase64,
+        frameMimeType
+      })
+    );
     return NextResponse.json({ text });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

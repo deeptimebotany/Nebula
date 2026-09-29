@@ -29,6 +29,7 @@ import { analyticsKey, refreshConnections, useAnalytics } from "@/lib/data/hooks
 import { useSeedIsFresh } from "@/lib/data/swr-config";
 import { MotionRoot } from "@/components/motion/motion-root";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { limitsOf } from "@/lib/plans";
 
 // Onglet Publicité : module à part (tableaux, graphique des dépenses),
 // téléchargé seulement quand on ouvre l'onglet (audit performance, lot 4).
@@ -564,7 +565,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
               <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
                 Exporter (CSV)
               </Button>
-              {plan === "AGENCY" && (
+              {limitsOf(plan).pdfReportEnabled && (
                 <Button variant="outline" onClick={exportPdf} disabled={pdfLoading}>
                   {pdfLoading ? "Génération..." : "Rapport PDF"}
                 </Button>

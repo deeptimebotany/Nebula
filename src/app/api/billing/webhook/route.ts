@@ -6,6 +6,9 @@ import { rewardOnFirstPayment, flushBonusMonths } from "@/lib/billing/rewards";
 import type Stripe from "stripe";
 import { invalidateAllLinkPages } from "@/lib/link-in-bio-cache";
 import { invalidateAllMediaKits } from "@/lib/media-kit/cache";
+import { isPaidPlanId } from "@/lib/plans";
+import { getUserPlan } from "@/lib/billing/plan";
+import { applyFreeLimits, reactivateAfterUpgrade } from "@/lib/billing/free-limits";
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
 // confirmé, abonnement modifié/annulé) et met à jour la table Subscription
@@ -32,7 +35,9 @@ export async function POST(req: NextRequest) {
     const resolvedUserId = userId || (sub.metadata?.userId as string | undefined);
     if (!resolvedUserId) return;
 
-    const plan = (sub.metadata?.plan as string | undefined) || "PRO";
+    // Seuls les paliers payants s'écrivent ici : jamais l'essai (lot E1).
+    const metaPlan = sub.metadata?.plan as string | undefined;
+    const plan = isPaidPlanId(metaPlan) ? metaPlan : "PRO";
     const maxBrands = Number(sub.metadata?.maxBrands) || 1;
     const priceId = sub.items.data[0]?.price?.id;
     // L'intervalle réel du tarif Stripe (recurring.interval) fait foi ; le
@@ -81,6 +86,25 @@ export async function POST(req: NextRequest) {
     });
 
     await markFirstPayment(resolvedUserId, sub);
+    await syncFreeLimits(resolvedUserId, sub.status);
+  }
+
+  // Lot E4 : abonnement actif → marques et comptes en veille réactivés dans
+  // la limite du palier (idempotent) ; pause, impayé ou fin → descente en
+  // Gratuit par la fonction commune applyFreeLimits (sans effet pendant un
+  // essai encore en cours ou un accès offert).
+  async function syncFreeLimits(userId: string, stripeStatus: Stripe.Subscription.Status | "deleted") {
+    try {
+      const info = await getUserPlan(userId);
+      if (info.paid || info.comp) {
+        await reactivateAfterUpgrade(userId);
+        return;
+      }
+      const reason = info.pausedUntil ? "pause" : stripeStatus === "past_due" || stripeStatus === "unpaid" ? "unpaid" : "cancel";
+      await applyFreeLimits(userId, reason);
+    } catch (err) {
+      console.error("[webhook] limites du Gratuit :", (err as Error).message);
+    }
   }
 
   // Première souscription payante d'un compte (lot G0) : firstPaidAt posé
@@ -162,6 +186,7 @@ export async function POST(req: NextRequest) {
       const userId = sub.metadata?.userId as string | undefined;
       if (userId) {
         await prisma.subscription.updateMany({ where: { userId }, data: { plan: "FREE", status: "CANCELED", maxBrands: 1, pausedUntil: null } });
+        await syncFreeLimits(userId, "deleted");
       }
       break;
     }

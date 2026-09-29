@@ -108,6 +108,11 @@ export interface LifecycleContext {
   annualMonths?: number;
   /** Lien de la page d'outil pour les leads. */
   toolPath?: string;
+  /** Essai refusé à l'inscription (lot E3) : le mail de bienvenue n'en parle pas. */
+  trialDenied?: boolean;
+  /** Fin d'essai (lot E4) : marques en veille et publications repassées en brouillon. */
+  dormantBrands?: number;
+  drafted?: number;
 }
 
 interface Rendered {
@@ -135,12 +140,29 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
 
   switch (key) {
     case "welcome":
+      // Essai refusé (même adresse ou même réseau déjà utilisés, adresse
+      // jetable — lot E3) : pas un mot sur un essai.
+      if (ctx.trialDenied) {
+        return {
+          subject: `Bienvenue sur Nebula, ${ctx.firstName}`,
+          layout: {
+            title: `Bienvenue, ${name}`,
+            paragraphs: [
+              `Votre espace <strong>${brand}</strong> est prêt, sur le palier Gratuit : programmation sur vos réseaux, page bio, statistiques, sans carte bancaire.`,
+              "Une seule chose à faire pour démarrer : connecter un premier compte (YouTube, Instagram, Facebook ou TikTok). Deux minutes, et vous pouvez programmer votre première publication."
+            ],
+            cta: { label: "Connecter mon premier compte", url: `${base}/accounts` },
+            footnotes: [`Nebula ne voit jamais vos mots de passe de réseaux : la connexion passe par l'autorisation officielle de chaque plateforme. <a href="${base}/securite" style="color:#6a2fe0">Comment vos données sont protégées</a>.`],
+            signature: sig
+          }
+        };
+      }
       return {
-        subject: `Bienvenue sur Nebula, ${ctx.firstName} — votre essai Pro a commencé`,
+        subject: `Bienvenue sur Nebula, ${ctx.firstName} — votre essai a commencé`,
         layout: {
           title: `Bienvenue, ${name}`,
           paragraphs: [
-            `Votre espace <strong>${brand}</strong> est prêt, et votre essai Pro de ${TRIAL_DAYS} jours a commencé : plusieurs marques, rapports clients, assistant IA, tout est ouvert, sans carte bancaire.`,
+            `Votre espace <strong>${brand}</strong> est prêt, et votre essai de ${TRIAL_DAYS} jours a commencé : rapports clients, calendrier partagé, assistant IA, Studio IA et analyse de rétention, sans carte bancaire.`,
             "Une seule chose à faire pour démarrer : connecter un premier compte (YouTube, Instagram, Facebook ou TikTok). Deux minutes, et vous pouvez programmer votre première publication."
           ],
           cta: { label: "Connecter mon premier compte", url: `${base}/accounts` },
@@ -198,34 +220,49 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
         if (u.retentionAnalyses) used.push(`${u.retentionAnalyses} analyse(s) de rétention`);
         if (u.brandsBeyondFree) used.push(`${u.brandsBeyondFree} marque(s) supplémentaire(s)`);
       }
+      const multiBrand = (u?.brands ?? 0) > PLAN_LIMITS.FREE.tiers[0].maxBrands;
       return {
-        subject: "Votre essai Pro se termine dans 48 h",
+        subject: "Votre essai se termine dans 48 h",
         layout: {
-          title: "Plus que 48 heures de Pro",
+          title: "Plus que 48 heures d'essai",
           paragraphs: [
             used.length
               ? `Pendant votre essai, vous avez utilisé : ${escapeHtml(used.join(", "))}.`
-              : "Votre essai Pro touche à sa fin. Vous n'avez pas encore utilisé les fonctions Pro : c'est le moment de les tester.",
+              : "Votre essai touche à sa fin. Vous n'avez pas encore utilisé les fonctions Pro : c'est le moment de les tester.",
+            ...(multiBrand
+              ? [
+                  `Votre essai se termine le ${ctx.trialEndsAt ? ctx.trialEndsAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" }) : "bientôt"}. En Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n'est supprimé. <a href="${base}/billing/garder" style="color:#6a2fe0">Choisissez la marque qui reste active</a>.`
+                ]
+              : []),
             `Pour garder tout cela : Pro à ${pro.priceMonthly} €/mois (jusqu'à ${pro.maxBrands} marques), sans engagement, résiliable ou mis en pause à tout moment. Sinon, vous repassez en Gratuit sans rien perdre.`
           ],
-          cta: { label: "Garder Pro", url: `${base}/billing` },
+          cta: multiBrand ? { label: "Choisir ce que je garde", url: `${base}/billing/garder` } : { label: "Garder Pro", url: `${base}/billing` },
           signature: sig
         }
       };
     }
-    case "trial_ended":
+    case "trial_ended": {
+      const drafted = ctx.drafted ?? 0;
+      const dormant = ctx.dormantBrands ?? 0;
       return {
         subject: "Vous êtes passé en Gratuit — voici ce qui change",
         layout: {
-          title: "Votre essai Pro est terminé",
+          title: "Votre essai est terminé",
           paragraphs: [
-            `Rien n'a été supprimé. En Gratuit : ${PLAN_LIMITS.FREE.maxBioLinks} liens actifs sur la page bio (les autres sont conservés, désactivés), ${PLAN_LIMITS.FREE.tiers[0].maxBrands} marque active (les autres en lecture seule), rapports, calendrier client et media kit dépubliés, assistant IA, Rétention IA et Studio IA en pause. Vos publications déjà programmées partiront normalement.`,
+            `Rien n'a été supprimé. En Gratuit : ${PLAN_LIMITS.FREE.maxBioLinks} liens actifs sur la page bio (les autres sont conservés, désactivés), rapports, calendrier client et media kit dépubliés, assistant IA, Rétention IA et Studio IA en pause.`,
+            dormant > 0
+              ? `Une seule marque reste active ; ${dormant === 1 ? "l'autre est en veille" : `les ${dormant} autres sont en veille`} : tout reste visible, rien ne se publie ni ne se synchronise. Vous pouvez changer de marque active depuis Facturation.`
+              : `Votre marque reste active, et vos publications déjà programmées partiront normalement.`,
+            ...(drafted > 0
+              ? [`${drafted} publication${drafted > 1 ? "s" : ""} prévue${drafted > 1 ? "s" : ""} plus de ${7} jours après la fin de l'essai ${drafted > 1 ? "sont repassées" : "est repassée"} en brouillon. Elle${drafted > 1 ? "s repartent" : " repart"} dès que vous passez en Pro.`]
+              : []),
             `Pour reprendre là où vous en étiez : <strong>-50 % sur votre premier mois Pro</strong>, valable 48 heures depuis la page Facturation (mensuel uniquement).`
           ],
           cta: { label: "Profiter de l'offre", url: `${base}/billing` },
           signature: sig
         }
       };
+    }
     case "inactive_14d": {
       const formats = NETWORK_FORMATS[ctx.network ?? ""] ?? NETWORK_FORMATS.INSTAGRAM;
       return {
@@ -243,11 +280,11 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
     }
     case "trial_gift":
       return {
-        subject: `${TRIAL_DAYS} jours de Pro offerts sur votre compte Nebula`,
+        subject: `${TRIAL_DAYS} jours d'essai offerts sur votre compte Nebula`,
         layout: {
-          title: `${TRIAL_DAYS} jours de Pro offerts`,
+          title: `${TRIAL_DAYS} jours d'essai offerts`,
           paragraphs: [
-            `Bonne nouvelle, ${name} : votre compte Nebula passe en Pro pendant ${TRIAL_DAYS} jours, sans rien faire et sans carte bancaire.`,
+            `Bonne nouvelle, ${name} : votre compte Nebula passe en essai pendant ${TRIAL_DAYS} jours, sans rien faire et sans carte bancaire.`,
             `Ce que ça débloque : jusqu'à ${pro.maxBrands} marques, rapports clients automatiques, calendrier partagé, assistant IA, analyse de rétention, ${PLAN_LIMITS.PRO.maxBioLinks} liens sur la page bio. À la fin, vous repassez en Gratuit sans rien perdre.`
           ],
           cta: { label: "Découvrir les fonctions Pro", url: `${base}/dashboard` },
@@ -354,7 +391,14 @@ async function sentWithin24h(email: string): Promise<boolean> {
   return Boolean(row);
 }
 
-async function userContext(user: { id: string; name: string; email: string; trialEndsAt: Date | null; memberships: { brand: { name: string; timezone: string; connections: { network: string }[] } }[] }): Promise<{ ctx: LifecycleContext; timezone: string }> {
+async function userContext(user: {
+  id: string;
+  name: string;
+  email: string;
+  trialEndsAt: Date | null;
+  trialDeniedAt?: Date | null;
+  memberships: { brand: { name: string; timezone: string; connections: { network: string }[] } }[];
+}): Promise<{ ctx: LifecycleContext; timezone: string }> {
   const main = user.memberships[0]?.brand;
   return {
     ctx: {
@@ -362,7 +406,8 @@ async function userContext(user: { id: string; name: string; email: string; tria
       email: user.email,
       brandName: main?.name ?? "votre marque",
       network: main?.connections[0]?.network ?? null,
-      trialEndsAt: user.trialEndsAt
+      trialEndsAt: user.trialEndsAt,
+      trialDenied: Boolean(user.trialDeniedAt)
     },
     timezone: main?.timezone || DEFAULT_TIMEZONE
   };
@@ -374,6 +419,7 @@ const USER_SELECT = {
   email: true,
   createdAt: true,
   trialEndsAt: true,
+  trialDeniedAt: true,
   lifecycleEmails: true,
   paidInvoices: true,
   memberships: {
@@ -442,7 +488,13 @@ async function collectCandidates(now: Date): Promise<Candidate[]> {
       out.push({ key: "trial_ends_48h", userId: u.id, email: u.email, ctx: { ...ctx, summary }, timezone });
     }
     if (!isTrialActive(u.trialEndsAt, now)) {
-      out.push({ key: "trial_ended", userId: u.id, email: u.email, ctx, timezone });
+      // Fin d'essai (lot E4) : marques en veille et brouillons, pour le dire.
+      const owned = { memberships: { some: { userId: u.id, role: "OWNER" } } };
+      const [dormantBrands, drafted] = await Promise.all([
+        prisma.brand.count({ where: { ...owned, dormantAt: { not: null } } }),
+        prisma.post.count({ where: { status: "DRAFT", dormantScheduledAt: { not: null }, brand: owned } })
+      ]);
+      out.push({ key: "trial_ended", userId: u.id, email: u.email, ctx: { ...ctx, dormantBrands, drafted }, timezone });
     }
   }
 
@@ -559,11 +611,16 @@ export async function sendLifecyclePreview(key: LifecycleKey, to: string) {
       onTrial: true,
       paid: false,
       trialEndsAt: new Date(Date.now() + 2 * DAY_MS).toISOString(),
+      activeBrand: { id: "demo", name: "Ma marque de démonstration" },
+      dormantBrands: 1,
+      drafted: 4,
       used: { scheduledPosts: 6, reportsPublished: 1, calendarSharesPublished: 1, mediaKitsPublished: 1, bioLinks: 5, bioLinksBeyondFree: 2, retentionAnalyses: 2, brands: 2, brandsBeyondFree: 1 },
       locked: { reports: true, calendarShare: true, mediaKit: true, ai: true, bioLinksLimit: PLAN_LIMITS.FREE.maxBioLinks, maxBrands: 1 }
     },
     annualMonths: annualFreeMonths(PLAN_LIMITS.PRO.tiers[0]),
-    toolPath: "/outils/legendes"
+    toolPath: "/outils/legendes",
+    dormantBrands: 1,
+    drafted: 4
   };
   return sendLifecycleEmail(key, ctx, { preview: true, record: false });
 }

@@ -49,7 +49,8 @@ export async function markEasterEggFound(userId: string, key: string, opts: { si
         kind: "achievement",
         title: "Succès débloqué",
         body: def.reward ? `${def.emoji} ${def.title} — ${def.reward}.` : `${def.emoji} ${def.title}.`,
-        href: "/reussites",
+        // Lot U3 : la collection des Easter eggs a sa propre page.
+        href: "/reussites/collection",
         actionLabel: def.reward ? "Voir mes succès" : null,
         dedupeKey: `egg:${key}`
       });

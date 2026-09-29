@@ -7,11 +7,11 @@ import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
-import { cookies } from "next/headers";
+import { cookies, headers as nextHeaders } from "next/headers";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
 import { TOOLS_COOKIE, toolsExploredCount } from "@/lib/tools-explored";
 import { applyPendingPartnerGrant } from "@/lib/billing/partners";
-import { trialEndDate } from "@/lib/trial";
+import { decideTrial, trialUserFields } from "@/lib/billing/trial-eligibility";
 import { assertSecretConfig } from "@/lib/secrets";
 import { currentSessionVersion, forgetSessionCache, isPrivilegedEmail, providerEmailVerified, sendVerificationEmail } from "@/lib/account-security";
 import { notify } from "@/lib/notifications";
@@ -143,7 +143,16 @@ async function createOAuthUser(
     const referrer = await prisma.user.findUnique({ where: { referralCode: code }, select: { id: true } });
     if (referrer) referrerCode = code;
   }
-  const trialEndsAt = trialEndDate(Boolean(referrerCode));
+  // Même anti-abus de l'essai que l'inscription par mot de passe (lot E3).
+  let headers: Headers | null = null;
+  try {
+    headers = new Headers(Object.fromEntries(Array.from(nextHeaders().entries())));
+  } catch {
+    headers = null;
+  }
+  const decision = await decideTrial({ email: normalizedEmail, headers, referred: Boolean(referrerCode) });
+  const trial = trialUserFields(decision);
+  const trialEndsAt = trial.trialEndsAt;
 
   const referralCode = await generateUniqueReferralCode();
   const user = await prisma.user.create({
@@ -157,7 +166,7 @@ async function createOAuthUser(
       referralCode,
       referredByCode: referrerCode,
       aiTrialUntil: referrerCode ? trialEndsAt : null,
-      trialEndsAt,
+      ...trial,
       toolsExplored,
       ...attributionToUserFields(attribution),
       memberships: {

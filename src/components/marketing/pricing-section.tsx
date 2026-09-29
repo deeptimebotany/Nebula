@@ -17,11 +17,11 @@ import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
-import { PLAN_LIMITS, type Plan, type BillingInterval } from "@/lib/plans";
+import { PAID_PLANS as PAID_PLAN_IDS, PLAN_LIMITS, type Plan, type BillingInterval } from "@/lib/plans";
 import { clsx } from "@/lib/clsx";
 import { IconLock, IconSparkle } from "@/components/dashboard/icons";
 
-const PAID_PLANS: Plan[] = ["PRO", "AGENCY"];
+const PAID_PLANS: Plan[] = [...PAID_PLAN_IDS];
 
 function Check() {
   return (

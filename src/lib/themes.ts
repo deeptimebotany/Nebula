@@ -1,3 +1,4 @@
+import { planIncludes } from "@/lib/plans";
 // Thèmes de couleurs disponibles dans Paramètres. Chaque thème redéfinit les
 // mêmes variables CSS que globals.css (:root) : appliquer un thème revient à
 // réécrire ces variables sur <html>, et TOUTE l'appli suit automatiquement
@@ -526,8 +527,7 @@ export const DEFAULT_THEME_KEY = "nebula";
 /** true si ce compte (selon son palier) peut sélectionner ce thème. */
 export function canUseTheme(theme: ThemeDefinition, plan: Plan): boolean {
   if (!theme.requiresPlan) return true;
-  const order: Plan[] = ["FREE", "PRO", "AGENCY"];
-  return order.indexOf(plan) >= order.indexOf(theme.requiresPlan);
+  return planIncludes(plan, theme.requiresPlan);
 }
 
 export function findTheme(key: string | null | undefined): ThemeDefinition {

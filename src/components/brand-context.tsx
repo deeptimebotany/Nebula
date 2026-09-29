@@ -13,6 +13,8 @@ export interface BrandSummary {
   timezone: string;
   role: string;
   connectionsCount: number;
+  /** Marque « en veille » (lot E4) : visible, mais ne publie ni ne se synchronise. */
+  dormant?: boolean;
 }
 
 interface BrandContextValue {

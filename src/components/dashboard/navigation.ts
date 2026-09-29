@@ -122,6 +122,7 @@ export const OWNER_NAV_ITEMS: NavItem[] = [
   { href: "/admin/messages", label: "Messages", icon: IconMessage, description: "Formulaire de contact du site", keywords: ["admin", "contact", "support", "prospects", "e-mails"] },
   { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] },
   { href: "/admin/reseaux", label: "Réseaux", icon: IconPlug, description: "Suspendre un réseau, disjoncteur", keywords: ["admin", "incident", "panne", "api", "suspendre"] },
+  { href: "/admin/ia", label: "Coûts de l'IA", icon: IconChart, description: "Coût estimé par palier, budgets de l'essai", keywords: ["admin", "ia", "gemini", "coûts", "budget", "essai"] },
   { href: "/admin/statistiques", label: "Statistiques anonymes", icon: IconChart, description: "Chiffres de groupe (accord facultatif, 20 comptes min.)", keywords: ["admin", "données", "tendances", "rgpd", "anonyme"] },
   { href: "/admin/reussites", label: "Réussites (admin)", icon: IconTrophy, description: "Défi collectif, vidéos à la une", keywords: ["admin", "défi collectif", "à la une", "communauté"] }
 ];
@@ -135,6 +136,8 @@ export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), 
 /** Pages secondaires (sans entrée de menu) rattachées à une entrée parente pour le fil d'Ariane. */
 const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] = [
   { prefix: "/posts/", label: "Publication", parentHref: "/publications" },
+  { prefix: "/reussites/collection", label: "Collection des Easter eggs", parentHref: "/reussites" },
+  { prefix: "/billing/garder", label: "Choisir ce que je garde", parentHref: "/billing" },
   { prefix: "/community/guides/", label: "Guide", parentHref: "/community" },
   { prefix: "/community/", label: "Discussion", parentHref: "/community" }
 ];

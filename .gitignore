@@ -14,6 +14,8 @@ next-env.d.ts
 # Base SQLite de développement et médias envoyés en local
 prisma/dev.db*
 public/uploads/
+# Illustrations du compte de démo, recréées par scripts/demo/capture-screens.mjs media
+public/demo-media/
 
 # Vercel / éditeurs / OS
 .vercel/

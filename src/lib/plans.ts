@@ -12,8 +12,36 @@
 // Les quotas de comptes connectés et de publications/mois s'appliquent,
 // eux, individuellement à CHAQUE marque.
 
-export const PLANS = ["FREE", "PRO", "AGENCY"] as const;
+// Palier « Essai » (29/09/2026, brief « Essai 14 jours », lot E1) : l'essai
+// n'est plus « Pro sans payer » mais un palier à part entière, avec ses
+// propres limites (bridé sur ce qui coûte : l'IA). Jamais achetable, jamais
+// dans la grille publique des tarifs. Toute garde de fonctionnalité lit une
+// CAPACITÉ ou une LIMITE ci-dessous, jamais le nom d'un palier
+// (tests/quality/plan-guards.test.ts le vérifie).
+export const PLANS = ["FREE", "TRIAL", "PRO", "AGENCY"] as const;
 export type Plan = (typeof PLANS)[number];
+/** Paliers achetables (Stripe) : seuls acceptés par le paiement et le webhook. */
+export const PAID_PLANS = ["PRO", "AGENCY"] as const;
+export type PaidPlan = (typeof PAID_PLANS)[number];
+/** Paliers de la grille publique des tarifs (l'essai n'y figure pas). */
+export const PUBLIC_PLANS = ["FREE", "PRO", "AGENCY"] as const;
+export type PublicPlan = (typeof PUBLIC_PLANS)[number];
+
+export function isPaidPlanId(value: unknown): value is PaidPlan {
+  return typeof value === "string" && (PAID_PLANS as readonly string[]).includes(value);
+}
+
+/** Limites d'IA par jour et par compte (heure de Paris). 0 = non inclus. */
+export interface AiDailyLimits {
+  /** Textes : outils, légendes, titres, idées, recyclage, choix d'images. */
+  text: number;
+  /** Images : miniatures, stickers. */
+  image: number;
+  /** Messages de l'assistant IA (chat). */
+  assistant: number;
+  /** Analyses Rétention IA. */
+  retention: number;
+}
 
 export const BILLING_INTERVALS = ["month", "year"] as const;
 export type BillingInterval = (typeof BILLING_INTERVALS)[number];
@@ -59,9 +87,49 @@ export interface PlanLimits {
   // envoyer aux sponsors, chiffres relevés par Nebula. En Gratuit : aperçu
   // dans l'application, publication réservée aux paliers payants.
   mediaKitEnabled: boolean;
+
+  // --- Capacités (lot E1 : plus aucune comparaison de noms de paliers) ---
+  /** Achetable par Stripe (Pro, Agence). */
+  purchasable: boolean;
+  /** Palier proposé ensuite (bouton « Passer en … ») ; null = le plus haut. */
+  upgradeTo: Plan | null;
+  /** Limites d'IA par jour et par compte (Studio : studioDailyLimit). */
+  aiDaily: AiDailyLimits;
+  /**
+   * Garde-fous des paliers sans paiement (Gratuit, Essai) : IA seulement avec
+   * une adresse confirmée, TOUT usage de l'IA compté par compte (outils et
+   * application, toutes marques confondues), plafond par adresse IP sur les
+   * outils, budget global du jour (voir src/lib/ai/guard.ts). Pro et Agence
+   * gardent le comptage d'avant : outils, Studio, assistant, Rétention.
+   */
+  aiGuardrails: boolean;
+  /** Budget global du jour de l'IA partagé par ce palier (null = jamais compté). */
+  aiBudgetBucket: "trial" | "free" | null;
+  /** Lien d'approbation client (calendrier). */
+  approvalsEnabled: boolean;
+  /** Rapport PDF des statistiques (Analytics). */
+  pdfReportEnabled: boolean;
+  /** API et webhooks (n8n, Make, Zapier). */
+  apiEnabled: boolean;
+  /** Marque blanche (nom et logo de l'agence). */
+  whiteLabelEnabled: boolean;
+  /** Thèmes et fonds premium (ciel étoilé…). */
+  premiumAppearance: boolean;
+  /** Taille de la carte de page bio. */
+  bioCardTier: "base" | "pro" | "agency";
+  /** Comptes publicitaires reliables par marque (0 = aucun, pas de synchro). */
+  maxAdAccounts: number;
+  /** Plafond de l'objectif « Habitude » des missions de la semaine. */
+  weeklyHabitCap: number;
+  /**
+   * Niveau des fonctions incluses (0 Gratuit, 1 Pro, 2 Agence) : un thème,
+   * un fond ou un cosmétique « Pro » s'ouvre à tout palier de niveau ≥ 1
+   * (l'Essai compris). Voir planIncludes().
+   */
+  featureLevel: 0 | 1 | 2;
 }
 
-export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
+export const PLAN_LIMITS = {
   FREE: {
     id: "FREE",
     label: "Gratuit",
@@ -82,7 +150,60 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     ],
     reportsEnabled: false,
     calendarShareEnabled: false,
-    mediaKitEnabled: false
+    mediaKitEnabled: false,
+    purchasable: false,
+    upgradeTo: "PRO",
+    aiDaily: { text: 10, image: 2, assistant: 0, retention: 0 },
+    aiGuardrails: true,
+    aiBudgetBucket: "free",
+    approvalsEnabled: false,
+    pdfReportEnabled: false,
+    apiEnabled: false,
+    whiteLabelEnabled: false,
+    premiumAppearance: false,
+    bioCardTier: "base",
+    maxAdAccounts: 0,
+    weeklyHabitCap: 4,
+    featureLevel: 0
+  },
+  // Essai (14 jours, 30 avec un parrainage) : les fonctions de Pro, 2 marques
+  // au plus à la création, et une IA bridée (texte 20, images 3, Studio 5,
+  // assistant 20, Rétention 3 par jour). Pire cas IA ≈ 3 $ par essai.
+  TRIAL: {
+    id: "TRIAL",
+    label: "Essai",
+    maxConnections: 8,
+    maxPostsPerMonth: 100,
+    aiEnabled: true,
+    studioDailyLimit: 5,
+    massPublishEnabled: false,
+    maxBioLinks: 15,
+    tiers: [{ maxBrands: 2, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
+    features: [
+      "Jusqu'à 2 marques",
+      "Comptes connectés et publications comme en Pro",
+      "IA : 20 textes, 3 miniatures et 5 générations du Studio par jour",
+      "Assistant IA : 20 messages par jour ; 3 analyses de rétention par jour",
+      "Rapports clients, calendrier partagé, media kit",
+      "Page « link in bio » publique (15 liens)"
+    ],
+    reportsEnabled: true,
+    calendarShareEnabled: true,
+    mediaKitEnabled: true,
+    purchasable: false,
+    upgradeTo: "PRO",
+    aiDaily: { text: 20, image: 3, assistant: 20, retention: 3 },
+    aiGuardrails: true,
+    aiBudgetBucket: "trial",
+    approvalsEnabled: false,
+    pdfReportEnabled: false,
+    apiEnabled: false,
+    whiteLabelEnabled: false,
+    premiumAppearance: true,
+    bioCardTier: "pro",
+    maxAdAccounts: 3,
+    weeklyHabitCap: 7,
+    featureLevel: 1
   },
   PRO: {
     id: "PRO",
@@ -115,7 +236,21 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     ],
     reportsEnabled: true,
     calendarShareEnabled: true,
-    mediaKitEnabled: true
+    mediaKitEnabled: true,
+    purchasable: true,
+    upgradeTo: "AGENCY",
+    aiDaily: { text: 60, image: 15, assistant: 100, retention: 10 },
+    aiGuardrails: false,
+    aiBudgetBucket: null,
+    approvalsEnabled: false,
+    pdfReportEnabled: false,
+    apiEnabled: false,
+    whiteLabelEnabled: false,
+    premiumAppearance: true,
+    bioCardTier: "pro",
+    maxAdAccounts: 3,
+    weeklyHabitCap: 7,
+    featureLevel: 1
   },
   AGENCY: {
     id: "AGENCY",
@@ -149,27 +284,54 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     ],
     reportsEnabled: true,
     calendarShareEnabled: true,
-    mediaKitEnabled: true
+    mediaKitEnabled: true,
+    purchasable: true,
+    upgradeTo: null,
+    aiDaily: { text: 150, image: 40, assistant: 300, retention: 30 },
+    aiGuardrails: false,
+    aiBudgetBucket: null,
+    approvalsEnabled: true,
+    pdfReportEnabled: true,
+    apiEnabled: true,
+    whiteLabelEnabled: true,
+    premiumAppearance: true,
+    bioCardTier: "agency",
+    maxAdAccounts: 50,
+    weeklyHabitCap: 7,
+    featureLevel: 2
   }
-};
+} satisfies Record<Plan, PlanLimits>;
+
+/** Ce palier inclut les fonctions réservées à `required` (thèmes, fonds…). */
+export function planIncludes(plan: Plan, required: Plan): boolean {
+  return PLAN_LIMITS[plan].featureLevel >= PLAN_LIMITS[required].featureLevel;
+}
+
+/** Limites d'un palier lu dans une réponse d'API (valeur inconnue → Gratuit). */
+export function limitsOf(plan: string | null | undefined): PlanLimits {
+  return (PLANS as readonly string[]).includes(plan ?? "") ? PLAN_LIMITS[plan as Plan] : PLAN_LIMITS.FREE;
+}
+
+/** Valeur au-delà de laquelle une limite est « illimitée » pour l'affichage. */
+const UNLIMITED = 9999;
 
 /** true dès que le palier n'impose pas de vrai plafond (utilisé pour masquer
  * les barres de progression de quota, qui n'ont pas de sens en illimité). */
 export function isUnlimitedPlan(plan: Plan): boolean {
-  return plan === "AGENCY";
+  return PLAN_LIMITS[plan].maxPostsPerMonth >= UNLIMITED;
 }
 
 /** true dès que le palier n'impose pas de vrai plafond de liens sur la page
  * "link in bio" (voir maxBioLinks) — utilisé pour masquer le compteur. */
 export function isUnlimitedBioLinks(plan: Plan): boolean {
-  return plan === "AGENCY";
+  return PLAN_LIMITS[plan].maxBioLinks >= UNLIMITED;
 }
 
+/** Palier d'un abonnement Stripe : seulement un palier achetable, sinon Gratuit. */
 export function planOf(subscription: { plan?: string | null; status?: string | null } | null | undefined): Plan {
   if (!subscription) return "FREE";
   if (subscription.status && !["ACTIVE", "TRIALING"].includes(subscription.status)) return "FREE";
-  const plan = subscription.plan as Plan | undefined;
-  return plan && PLANS.includes(plan) ? plan : "FREE";
+  return isPaidPlanId(subscription.plan) ? subscription.plan : "FREE";
 }
 
 export function intervalOf(subscription: { interval?: string | null } | null | undefined): BillingInterval {

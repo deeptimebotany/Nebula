@@ -6,6 +6,7 @@
 // reçoit 3 missions, figées pour la semaine :
 //  - Habitude : publier, avec un objectif réglé sur SON rythme (médiane des
 //    4 dernières semaines + 1, « semaine douce » après 2 semaines vides) ;
+import { limitsOf } from "@/lib/plans";
 //  - Progression : au choix parmi 3 propositions, un changement permis ;
 //  - Mystère : révélée quand les deux autres sont réussies, ou le jeudi.
 // Jamais de mission impossible : seulement les réseaux connectés, les
@@ -312,7 +313,7 @@ export const missionCompletionKey = (slot: MissionSlot) => `mission-${slot}`;
  * douce » (objectif 1) après 2 semaines sans publication.
  */
 export function habitTargetFor(lastWeeks: number[], plan: string): { target: number; gentle: boolean } {
-  const cap = plan === "FREE" ? 4 : 7;
+  const cap = limitsOf(plan).weeklyHabitCap;
   const weeks = lastWeeks.slice(-4);
   if (weeks.length === 0 || weeks.every((n) => n === 0)) return { target: 1, gentle: weeks.length > 0 };
   const lastTwo = weeks.slice(-2);

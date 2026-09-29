@@ -26,6 +26,8 @@ import { DEFAULT_TIMEZONE, dayKeyAndTime, timeZoneLabel, wallClockToUtc } from "
 import { calendarMonthsNeeded, monthKeysToRanges, type MonthKey } from "@/lib/calendar-range";
 import { MotionRoot } from "@/components/motion/motion-root";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { limitsOf } from "@/lib/plans";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 
 interface ApiPost {
   id: string;
@@ -92,6 +94,7 @@ function CalendarPageInner() {
   // illisible). Le choix est mémorisé sur l'appareil.
   const [view, setView] = useState<CalendarView>("month");
   const toast = useToast();
+  const upgrade = useUpgradeModal();
   useEffect(() => {
     try {
       const stored = getPref(VIEW_KEY) as CalendarView | null;
@@ -236,6 +239,8 @@ function CalendarPageInner() {
     if (!res || !res.ok) {
       patchPostLocally(entryId, { scheduledAt: before.scheduledAt, status: before.status });
       const data = res ? await res.json().catch(() => ({})) : {};
+      // Marque ou compte en veille (lot E4) : la fenêtre explicative, pas un toast.
+      if (res && upgrade.openFromResponse(res.status, data)) return;
       toast.error((data as { error?: string }).error ?? "Impossible de déplacer cette publication (connexion perdue ?).");
     }
   }
@@ -380,7 +385,7 @@ function CalendarPageInner() {
           description="Planifiez et visualisez vos publications multi-réseaux en un coup d'œil."
           actions={
             <>
-              {aiStatus?.plan === "AGENCY" && (
+              {limitsOf(aiStatus?.plan).approvalsEnabled && (
                 <Button variant="outline" onClick={() => setApprovalModalOpen(true)}>
                   Lien d&apos;approbation client
                 </Button>

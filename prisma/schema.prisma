@@ -210,6 +210,26 @@ model User {
   // rapports/calendrier dépubliés) et modale « essai terminé » déjà vue.
   trialExpiredAppliedAt DateTime?
   trialEndedNoticeAt    DateTime?
+  // Essai refusé à l'inscription (lot E3, anti-abus) : adresse déjà utilisée
+  // pour un essai, trop d'essais depuis ce réseau, ou domaine jetable. Le
+  // compte est créé en Gratuit ; la page Facturation l'explique. Jamais
+  // d'essai « de rattrapage » pour ces comptes (grantTrialToLegacyAccounts).
+  trialDeniedAt     DateTime?
+  trialDeniedReason String?
+  // Fin d'essai propre (lot E4) : marque qui reste active en Gratuit, choisie
+  // par l'utilisateur (sinon la plus utilisée), et date du dernier échange
+  // (une fois tous les 30 jours).
+  freeActiveBrandId    String?
+  activeBrandChangedAt DateTime?
+  // Comptes connectés gardés actifs sur la marque active en Gratuit (au plus
+  // PLAN_LIMITS.FREE.maxConnections), choisis sur le même écran ; vide = les
+  // plus utilisés. Liste d'identifiants de SocialConnection.
+  freeActiveConnectionIds Json?
+  // Visite guidée (lot U4) : terminée ou passée, et dernière étape vue.
+  tourCompletedAt DateTime?
+  tourStep        Int?
+  // Sons de l'interface (lot U5), activés par défaut.
+  uiSoundsEnabled Boolean @default(true)
   // Offre unique de bienvenue (-50 % premier mois, 48 h) : posée à la
   // première ouverture d'une modale de mise à niveau hors essai.
   offerExpiresAt DateTime?
@@ -329,6 +349,10 @@ model Brand {
   logoUrl        String?
   timezone       String             @default("Europe/Paris")
   createdAt      DateTime           @default(now())
+  // Marque « en veille » (lot E4) : au-delà de la limite du Gratuit après un
+  // essai ou un abonnement. Tout reste visible, rien ne se publie ni ne se
+  // synchronise ; effacé dès que le palier le permet de nouveau.
+  dormantAt      DateTime?
   memberships    Membership[]
   connections    SocialConnection[]
   posts          Post[]
@@ -502,6 +526,9 @@ model SocialConnection {
   // « suppression des données » (voir /api/meta/*), qui ne donnent que cet
   // identifiant. Vide pour les connexions faites avant cette mise à jour.
   authUserId        String?
+  // Compte « en veille » (lot E4) : au-delà des comptes du Gratuit sur la
+  // marque active après l'essai. Jetons gardés, ni publication ni synchro.
+  dormantAt         DateTime?
   brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   targets           PostTarget[]
   analytics         AnalyticsSnapshot[]
@@ -591,6 +618,9 @@ model Post {
   firstComment String?
   status       String        @default("DRAFT")
   scheduledAt  DateTime?
+  // Publication d'une marque mise en veille, repassée en brouillon (lot E4) :
+  // sa date d'origine, pour la reprogrammer d'un clic au passage en Pro.
+  dormantScheduledAt DateTime?
   duplicatedFromId String?
   // Import CSV (brief growth, lot G6.a) : URL distante du média conservée
   // en référence tant qu'il n'a pas été rapatrié vers notre stockage par la
@@ -1645,4 +1675,36 @@ model ComposerDraft {
 
   @@unique([userId, brandId])
   @@index([brandId])
+}
+
+// Registre des essais (lot E3, anti-abus) : une ligne par essai accordé,
+// avec l'EMPREINTE de l'adresse canonique (HMAC, jamais l'adresse) et celle
+// de l'adresse IP. Survit à la suppression du compte : supprimer puis
+// recréer son compte ne redonne pas d'essai. Purgé après 12 mois (cron).
+model TrialGrant {
+  id        String   @id @default(cuid())
+  emailHash String   @unique
+  ipHash    String?
+  grantedAt DateTime @default(now())
+
+  @@index([ipHash, grantedAt])
+  @@index([grantedAt])
+}
+
+// Coût de l'IA (lot E5) : compteurs par jour (heure de Paris), palier et
+// type d'appel. Aucun contenu ni identifiant de compte ici. Coût estimé :
+// jetons × prix de src/lib/ai/pricing.ts.
+model AiUsageDaily {
+  id           String   @id @default(cuid())
+  day          String
+  plan         String
+  kind         String
+  calls        Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  images       Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([day, plan, kind])
+  @@index([day])
 }

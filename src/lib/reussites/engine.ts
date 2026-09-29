@@ -578,7 +578,7 @@ async function sendNotifications(
       kind: "achievement",
       title: `${stars.length} nouvelles étoiles`,
       body: stars.map((st) => starTitle(st)).join(", "),
-      href: "/reussites?focus=constellation",
+      href: "/reussites?focus=constellation#competences",
       actionLabel: "Voir ma constellation",
       dedupeKey: `stars:batch:${stars.map((st) => st.key).join(",")}`.slice(0, 180)
     });
@@ -588,7 +588,7 @@ async function sendNotifications(
         kind: "achievement",
         title: "Nouvelle étoile",
         body: `${starTitle(st)} : ${st.description.charAt(0).toLowerCase()}${st.description.slice(1)}${st.reward ? ` Récompense : ${st.reward}.` : ""} +${st.xp} XP.`,
-        href: `/reussites?focus=${encodeURIComponent(st.key)}`,
+        href: `/reussites?focus=${encodeURIComponent(st.key)}#competences`,
         actionLabel: st.reward ? "Voir la récompense" : null,
         dedupeKey: `star:${st.key}`
       });
@@ -602,7 +602,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Défi collectif réussi !",
       body: `${total.toLocaleString("fr-FR")} vidéos mises en ligne par ${participants} créateurs en ${monthLabel(f.key).toLowerCase()}, dont les vôtres : +${COLLECTIVE_XP} XP et le badge collectif du mois.`,
-      href: "/reussites?focus=collectif",
+      href: "/reussites?focus=collectif#missions",
       actionLabel: null,
       dedupeKey: `collective:${f.key}`
     });
@@ -614,7 +614,7 @@ async function sendNotifications(
       kind: "achievement",
       title: `Badge de saison : ${season.label}`,
       body: `${season.emoji} Deux défis du mois réussis cette saison : +${SEASON_XP} XP. Ce badge ne se gagne que pendant la saison.`,
-      href: "/reussites?focus=saisons",
+      href: "/reussites?focus=saisons#recompenses",
       actionLabel: null,
       dedupeKey: `season:${f.key}`
     });
@@ -626,7 +626,7 @@ async function sendNotifications(
       kind: "achievement",
       title: `Rang ${level.pending.name} en attente`,
       body: `Vos XP suffisent. Pour y entrer : ${level.pending.condition}. Il vous manque ${level.pending.missing[0]}${level.pending.missing.length > 1 ? ` — les plus proches : ${level.pending.missing.slice(1).join(", ")}` : ""}.`,
-      href: "/reussites?focus=constellation",
+      href: "/reussites?focus=constellation#competences",
       actionLabel: "Voir ma constellation",
       dedupeKey: `rank-pending:${level.pending.step}`
     });
@@ -637,7 +637,7 @@ async function sendNotifications(
       kind: "achievement",
       title: `${accomplishments.length} accomplissements débloqués`,
       body: accomplishments.map((t) => `${t.series.emoji} ${t.title}`).join(", "),
-      href: "/reussites",
+      href: "/reussites#recompenses",
       actionLabel: "Voir mes réussites",
       dedupeKey: `ach:batch:${accomplishments.map((t) => t.key).join(",")}`.slice(0, 180)
     });
@@ -650,7 +650,7 @@ async function sendNotifications(
         body: `${t.series.emoji} ${t.title} : ${t.description.charAt(0).toLowerCase()}${t.description.slice(1)}.${reward ? ` Récompense : ${reward}.` : ""} +${t.xp} XP.`,
         // Lien ciblé (24/09/2026) : la page défile jusqu'à ce succès et le
         // met en surbrillance quelques secondes.
-        href: `/reussites?focus=${encodeURIComponent(t.key)}`,
+        href: `/reussites?focus=${encodeURIComponent(t.key)}#recompenses`,
         actionLabel: reward ? "Voir la récompense" : null,
         dedupeKey: `ach:${t.key}`
       });
@@ -675,7 +675,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Mission réussie !",
       body: `${m.label} : +${m.xp} XP.${allDone ? " Votre coffre de la semaine est prêt : ouvrez-le dans Réussites." : ""}`,
-      href: "/reussites?focus=missions",
+      href: "/reussites?focus=missions#missions",
       actionLabel: allDone ? "Ouvrir le coffre" : null,
       dedupeKey: `mission:${m.key}`
     });
@@ -688,7 +688,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Votre mission mystère est révélée",
       body: `${mystery.title} : +${mystery.xp} XP. ${mystery.description}`,
-      href: "/reussites?focus=missions",
+      href: "/reussites?focus=missions#missions",
       actionLabel: null,
       dedupeKey: `mystery:${weekId}`
     });
@@ -702,7 +702,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Défi du mois réussi !",
       body: `${def.description} : +${def.xp} XP et le badge « ${monthLabel(period)} » dans votre profil.`,
-      href: "/reussites?focus=defis",
+      href: "/reussites?focus=defis#missions",
       actionLabel: null,
       dedupeKey: `challenge:${c.key}`
     });
@@ -715,7 +715,7 @@ async function sendNotifications(
       kind: "achievement",
       title: n > 1 ? `${n} boucliers ont protégé votre série` : "Un bouclier a protégé votre série",
       body: `Série en cours : ${ctx.streak.streak.current} semaine${ctx.streak.streak.current > 1 ? "s" : ""}. Il vous reste ${ctx.streak.shields} bouclier${ctx.streak.shields > 1 ? "s" : ""}.`,
-      href: "/reussites?focus=missions",
+      href: "/reussites?focus=missions#missions",
       actionLabel: null,
       dedupeKey: `shield-used:${ctx.streak.usedNow.join(",")}`
     });
@@ -725,7 +725,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Nouveau bouclier de série",
       body: `${ctx.streak.streak.current} semaines d'affilée : un bouclier protégera votre série si une semaine vous échappe (${ctx.streak.shields} sur ${MAX_SHIELDS}).`,
-      href: "/reussites?focus=missions",
+      href: "/reussites?focus=missions#missions",
       actionLabel: null,
       dedupeKey: `shield-won:${weekId}`
     });
@@ -749,7 +749,7 @@ async function sendNotifications(
       kind: "achievement",
       title: "Vous y êtes presque",
       body: `${almost.series.emoji} ${almost.title} : ${formatValue(value)} / ${formatValue(almost.target)} ${almost.series.unit}.${reward ? ` À la clé : ${reward}.` : " Encore un petit effort !"}`,
-      href: `/reussites?focus=${encodeURIComponent(almost.key)}`,
+      href: `/reussites?focus=${encodeURIComponent(almost.key)}#recompenses`,
       actionLabel: null,
       dedupeKey: `almost:${almost.key}`
     });

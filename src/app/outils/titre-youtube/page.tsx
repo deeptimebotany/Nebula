@@ -16,6 +16,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconYouTube, IconSparkle } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
+import { ToolError } from "@/components/tools/tool-error";
 
 const POWER_WORDS = ["secret", "erreur", "erreurs", "vérité", "jamais", "enfin", "pourquoi", "comment", "gratuit", "simple", "rapide", "meilleur", "pire", "incroyable", "avant", "après", "sans", "règle", "règles", "astuce", "astuces", "méthode", "guide", "complet", "ultime", "test", "testé", "vs", "contre"];
 
@@ -122,7 +123,7 @@ export default function TitreYoutubePage() {
           <IconSparkle className="h-4 w-4" /> {gen.loading ? "Reformulation…" : member ? "Proposer 3 reformulations (IA)" : "Voir un exemple de reformulations (démo sans IA)"}
         </Button>
         <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
-        {gen.error && <p className="mt-3 text-sm text-red-300">{gen.error}</p>}
+        <ToolError message={gen.error} reason={gen.errorReason} />
         {gen.isDemo && gen.result && <ToolDemoNotice slug="titre-youtube" input={DEMO_TITRE_YOUTUBE.input} onBeforeLeave={() => saveToolDraft("titre-youtube", { title, topic })} />}
         {gen.result && (
           <ul className="mt-4 space-y-2">

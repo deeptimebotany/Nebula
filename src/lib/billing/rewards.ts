@@ -28,7 +28,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { sendRewardEmail } from "@/lib/emails/growth";
 import { trackGrowth } from "@/lib/growth";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, isPaidPlanId } from "@/lib/plans";
 import { referralRewardDb } from "@/lib/prisma-extra";
 import { notify } from "@/lib/notifications";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
@@ -71,7 +71,7 @@ interface PaidSub {
 function activeCustomerId(sub: PaidSub | null | undefined): string | null {
   if (!sub?.stripeSubscriptionId || !sub.stripeCustomerId) return null;
   if (sub.status !== "ACTIVE" && sub.status !== "TRIALING") return null;
-  if (sub.plan === "FREE") return null;
+  if (!isPaidPlanId(sub.plan)) return null;
   return sub.stripeCustomerId;
 }
 
@@ -256,7 +256,7 @@ export async function processDueRewards(): Promise<{ granted: number; capped: nu
       });
       const gaveUp = Date.now() - new Date(r.createdAt).getTime() > REWARD_GIVE_UP_DAYS * DAY;
       const paid = sub?.stripeSubscriptionId && isBillingEnabled() ? await hasRealPayment(sub.stripeSubscriptionId) : false;
-      const stillSubscribed = Boolean(sub) && sub!.plan !== "FREE" && sub!.status !== "CANCELED";
+      const stillSubscribed = Boolean(sub) && isPaidPlanId(sub!.plan) && sub!.status !== "CANCELED";
 
       if (!paid || !stillSubscribed) {
         if (!stillSubscribed || gaveUp) {

@@ -25,9 +25,15 @@ interface TabsProps<T extends string> {
   /** "segmented" : bloc compact (filtres) ; "line" : onglets soulignés (sections de page). */
   variant?: "segmented" | "line";
   className?: string;
+  /**
+   * Préfixe d'identifiants (lot U3) : chaque onglet reçoit l'id
+   * `{prefix}-tab-{valeur}` et pointe (aria-controls) vers le panneau
+   * `{prefix}-panel-{valeur}` — voir TabPanel.
+   */
+  idPrefix?: string;
 }
 
-export function Tabs<T extends string>({ items, value, onChange, variant = "segmented", className, ...aria }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, variant = "segmented", className, idPrefix, ...aria }: TabsProps<T>) {
   const listRef = useRef<HTMLDivElement>(null);
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -67,6 +73,8 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
             key={item.value}
             type="button"
             role="tab"
+            id={idPrefix ? `${idPrefix}-tab-${item.value}` : undefined}
+            aria-controls={idPrefix ? `${idPrefix}-panel-${item.value}` : undefined}
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             disabled={item.disabled}
@@ -90,6 +98,16 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** Panneau d'un onglet (à utiliser avec `Tabs idPrefix`). Seul le panneau actif est rendu. */
+export function TabPanel({ idPrefix, value, active, children, className }: { idPrefix: string; value: string; active: boolean; children: ReactNode; className?: string }) {
+  if (!active) return null;
+  return (
+    <div role="tabpanel" id={`${idPrefix}-panel-${value}`} aria-labelledby={`${idPrefix}-tab-${value}`} tabIndex={0} className={clsx("outline-none", className)}>
+      {children}
     </div>
   );
 }

@@ -152,6 +152,23 @@ body {
   display: none;
 }
 
+/* Captures de l'application (product-shot.tsx) : ombre portée douce,
+   adaptée à chaque mode. */
+.nb-shot {
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+[data-mode="light"] .nb-shot {
+  background-color: #ffffff;
+  box-shadow: 0 40px 80px -36px rgba(15, 23, 42, 0.3), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+.nb-phone {
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+}
+[data-mode="light"] .nb-phone {
+  border-color: #1f2937;
+  box-shadow: 0 40px 70px -30px rgba(15, 23, 42, 0.35);
+}
+
 [data-mode="light"] body {
   background-color: var(--l-page);
   background-image: none;
@@ -665,6 +682,22 @@ body {
     border: 1px solid var(--nebula-frame-color, rgba(255, 214, 110, 0.6));
     color: #fff;
     background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  }
+  /* Thème clair (lot U1) : mini aperçu de l'application en clair, comme ce
+     que l'on verra une fois le thème choisi ; badge lisible sur fond clair. */
+  [data-mode="light"] .nebula-theme-mini {
+    background: rgba(255, 255, 255, 0.78);
+    border-color: rgba(15, 23, 42, 0.12);
+  }
+  [data-mode="light"] .nebula-theme-mini-side {
+    background: rgba(15, 23, 42, 0.16);
+  }
+  [data-mode="light"] .nebula-theme-mini-card {
+    background: rgba(15, 23, 42, 0.22);
+  }
+  [data-mode="light"] .nebula-theme-badge {
+    color: #3b2a06;
+    background: linear-gradient(90deg, rgba(255, 214, 110, 0.28), rgba(255, 214, 110, 0.12));
   }
 
   /* « Voûte céleste » (voir decor-overlay.tsx) : posée en `-z-10` derrière
@@ -1949,3 +1982,18 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   transition: opacity 0.7s ease;
 }
 @keyframes nb-intro-cover-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Visite guidée (lot U4) : halo autour de la zone présentée, sans bloquer
+   les clics (pointer-events: none), assombrissement léger du reste. */
+.nb-tour-spot {
+  box-shadow: 0 0 0 2px rgb(var(--c-aurora-400) / 0.9), 0 0 0 9999px rgba(3, 4, 12, 0.5);
+}
+[data-mode="light"] .nb-tour-spot {
+  box-shadow: 0 0 0 2px rgb(var(--c-nebula-500) / 0.9), 0 0 0 9999px rgba(15, 23, 42, 0.28);
+}
+
+/* Pastille de palier du sélecteur de marque : en clair, sans fond teinté
+   (contraste AA du texte de 9 px sur le blanc). */
+[data-mode="light"] .nb-plan-badge {
+  background-color: transparent;
+}

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { adsAccessFor } from "@/lib/ads/access";
 import { syncAdAccount } from "@/lib/ads/sync";
 import { adAccountDb } from "@/lib/prisma-extra";
+import { dormantSyncResponse, isBrandDormant } from "@/lib/billing/dormant";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   if (!access) return NextResponse.json({ error: "Marque introuvable." }, { status: 404 });
   if (!access.allowed) return NextResponse.json({ error: "Le suivi publicitaire est inclus dans les formules Pro et Agence." }, { status: 403 });
 
+  // Marque en veille (lot E4) : aucune synchronisation.
+  if (await isBrandDormant(body.brandId)) return dormantSyncResponse();
   const accounts = await adAccountDb.findMany({ where: { brandId: body.brandId, status: { not: "EXPIRED" } } });
   const recent = Date.now() - 2 * 60_000;
   const todo = accounts.filter((a) => !a.lastSyncedAt || a.lastSyncedAt.getTime() < recent).slice(0, 10);

@@ -7,6 +7,7 @@ import { getSocialClient } from "@/lib/social";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
+import { dormantSyncResponse, isBrandDormant, withoutDormant } from "@/lib/billing/dormant";
 
 // Interroge les vraies API de chaque réseau connecté pour rafraîchir les
 // stats (abonnés, portée, impressions...) et enregistre un instantané.
@@ -23,7 +24,9 @@ export async function POST(req: NextRequest) {
 
   // Réseaux sans statistiques de compte dans leur API (ex. LinkedIn, profil
   // personnel) : ignorés plutôt que marqués en erreur.
-  const connections = (await prisma.socialConnection.findMany({ where: { brandId, status: "CONNECTED" } })).filter(
+  // Marque en veille (lot E4) : aucune synchronisation.
+  if (await isBrandDormant(brandId)) return dormantSyncResponse();
+  const connections = (await withoutDormant(await prisma.socialConnection.findMany({ where: { brandId, status: "CONNECTED" } }))).filter(
     (c: { network: string }) => NETWORK_META[c.network as Network]?.statsAvailable !== false
   );
   const results = [];

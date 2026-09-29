@@ -1,7 +1,7 @@
 // Tableau comparatif des paliers, construit à partir de PLAN_LIMITS
 // (src/lib/plans.ts) — la même source que la page Facturation et la grille
 // tarifaire, pour que les trois ne puissent jamais se contredire.
-import { PLAN_LIMITS, PLANS, isUnlimitedPlan, type Plan } from "@/lib/plans";
+import { PLAN_LIMITS, PUBLIC_PLANS as PLANS, isUnlimitedPlan, type PublicPlan as Plan } from "@/lib/plans";
 import { IconCheck } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 

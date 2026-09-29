@@ -27,6 +27,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
             <Link
               key={item.href}
               href={item.href}
+              data-tour={`nav-${item.href.slice(1)}`}
               aria-current={active ? "page" : undefined}
               className={clsx("flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition", active ? "text-white" : "text-slate-500 hover:text-slate-300")}
             >
@@ -45,6 +46,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
         <button
           type="button"
           onClick={onOpenMenu}
+          data-tour="mobile-menu"
           aria-label="Ouvrir le menu complet"
           aria-expanded={menuOpen}
           className={clsx("flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition", menuOpen ? "text-white" : "text-slate-500 hover:text-slate-300")}

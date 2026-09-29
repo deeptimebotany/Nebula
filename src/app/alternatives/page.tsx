@@ -17,7 +17,7 @@ export default function AlternativesIndexPage() {
   return (
     <PublicShell width="max-w-5xl">
       <TrackView name="landing_view" meta={{ landing: "alternatives" }} />
-      <PublicPageHeading eyebrow="Comparatifs" title="Nebula face aux autres planificateurs" desc={<>Prix relevés sur le site de chaque éditeur, fonctions comparées point par point, et ce que Nebula ne fait pas encore. Nebula : en français, en euros, dès {tier0.priceMonthly} € par mois pour {tier0.maxBrands} marques.</>} />
+      <PublicPageHeading eyebrow="Comparatifs" title="Nebula face aux autres planificateurs" desc={<>Prix relevés sur le site de chaque éditeur, fonctions comparées point par point, et ce que Nebula ne fait pas encore. Nebula : en euros, dès {tier0.priceMonthly} € par mois pour {tier0.maxBrands} marques.</>} />
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {COMPETITORS.map((c) => {

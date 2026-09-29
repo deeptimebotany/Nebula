@@ -60,7 +60,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   const nextPath = safeRelativePath(rawNext, "/dashboard");
 
   // Un lien de parrainage (?ref=CODE) pré-remplit le champ et le déplie, et
-  // affiche « Invité par {prénom} : 30 jours de Pro offerts » (brief growth,
+  // affiche « Invité par {prénom} : 30 jours d'essai offerts » (brief growth,
   // lot G7) — le prénom seul, via un endpoint public limité en débit.
   const [inviter, setInviter] = useState<{ firstName: string; trialDays: number } | null>(null);
   useEffect(() => {
@@ -153,7 +153,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     <AuthShell title="Créez votre espace" subtitle="Gratuit, sans carte bancaire. Vous connectez vos réseaux juste après." wide>
       {inviter && (
         <p className="mb-4 rounded-xl border border-aurora-400/30 bg-aurora-400/[0.08] px-4 py-3 text-center text-sm text-aurora-100" role="status">
-          Invité{inviter.firstName ? ` par ${inviter.firstName}` : ""} : <strong className="font-semibold text-white">{inviter.trialDays} jours de Pro offerts</strong> à l&apos;inscription.
+          Invité{inviter.firstName ? ` par ${inviter.firstName}` : ""} : <strong className="font-semibold text-white">{inviter.trialDays} jours d&apos;essai offerts</strong> à l&apos;inscription.
         </p>
       )}
       <OAuthButtons oauth={oauth} onPick={(p) => signIn(p, { callbackUrl: nextPath })} separatorLabel="ou avec votre email" />

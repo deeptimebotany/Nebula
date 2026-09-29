@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { assertBrandMembership } from "@/lib/brand-access";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
+import { consumeRetentionBurst } from "@/lib/ai/retention-burst";
 import { isAiEnabled, analyzeVideoRetentionByThumbnail } from "@/lib/ai/gemini";
 import { fetchRetention, fetchVideoMetadata } from "@/lib/social/youtube";
 import { downloadMedia } from "@/lib/social/base";
@@ -63,52 +64,55 @@ export async function POST(req: NextRequest) {
   const connection = await resolveConnection(userId, connectionId);
   if (!connection) return NextResponse.json({ error: "Connexion introuvable." }, { status: 404 });
 
-  const { limits } = await getBrandPlan(connection.brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'analyse de rétention IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "retention" }, { status: 402 });
-  }
+  // Porte de l'IA (lot E2) : palier de la marque, analyses du jour, rafale.
+  const burst = await consumeRetentionBurst(userId);
+  if (burst) return burst;
+  const gate = await gateAppAi({ userId, brandId: connection.brandId, kind: "retention" });
+  if (!gate.ok) return gate.response;
 
   try {
-    const [retentionCurve, metadata] = await Promise.all([
-      fetchRetention(connection, videoId),
-      fetchVideoMetadata(connection, videoId)
-    ]);
+    return await gate.allowance.run(async () => {
+      const [retentionCurve, metadata] = await Promise.all([
+        fetchRetention(connection, videoId),
+        fetchVideoMetadata(connection, videoId)
+      ]);
 
-    // Délai garanti (lot 9) : une miniature lente ne bloque plus la fonction.
-    const thumb = await downloadMedia("YOUTUBE", metadata.thumbnailUrl, 15_000).catch(() => {
-      throw new Error("Impossible de récupérer la miniature de la vidéo.");
+      // Délai garanti (lot 9) : une miniature lente ne bloque plus la fonction.
+      const thumb = await downloadMedia("YOUTUBE", metadata.thumbnailUrl, 15_000).catch(() => {
+        throw new Error("Impossible de récupérer la miniature de la vidéo.");
+      });
+      const thumbBuffer = Buffer.from(thumb.bytes);
+      const thumbnailMimeType = thumb.type.startsWith("image/") ? thumb.type : "image/jpeg";
+
+      const sorted = [...retentionCurve].sort((a, b) => a.timeRatio - b.timeRatio);
+      const deltas = sorted.slice(1).map((p, i) => ({ point: p, delta: sorted[i].watchRatio - p.watchRatio }));
+      const topDrops = deltas
+        .sort((a, b) => b.delta - a.delta)
+        .slice(0, 4)
+        .map((d) => d.point)
+        .sort((a, b) => a.timeRatio - b.timeRatio);
+
+      const analysis = await analyzeVideoRetentionByThumbnail({
+        title: metadata.title,
+        description: metadata.description,
+        retentionCurve: topDrops.length ? topDrops : sorted,
+        thumbnailBase64: thumbBuffer.toString("base64"),
+        thumbnailMimeType
+      });
+
+      const insight = await prisma.videoInsight.create({
+        data: {
+          connectionId,
+          videoId,
+          summary: analysis.summary,
+          dropOffPoints: JSON.stringify(analysis.dropOffPoints),
+          recommendations: JSON.stringify(analysis.recommendations),
+          retentionCurve: JSON.stringify(retentionCurve)
+        }
+      });
+
+      return NextResponse.json({ insight });
     });
-    const thumbBuffer = Buffer.from(thumb.bytes);
-    const thumbnailMimeType = thumb.type.startsWith("image/") ? thumb.type : "image/jpeg";
-
-    const sorted = [...retentionCurve].sort((a, b) => a.timeRatio - b.timeRatio);
-    const deltas = sorted.slice(1).map((p, i) => ({ point: p, delta: sorted[i].watchRatio - p.watchRatio }));
-    const topDrops = deltas
-      .sort((a, b) => b.delta - a.delta)
-      .slice(0, 4)
-      .map((d) => d.point)
-      .sort((a, b) => a.timeRatio - b.timeRatio);
-
-    const analysis = await analyzeVideoRetentionByThumbnail({
-      title: metadata.title,
-      description: metadata.description,
-      retentionCurve: topDrops.length ? topDrops : sorted,
-      thumbnailBase64: thumbBuffer.toString("base64"),
-      thumbnailMimeType
-    });
-
-    const insight = await prisma.videoInsight.create({
-      data: {
-        connectionId,
-        videoId,
-        summary: analysis.summary,
-        dropOffPoints: JSON.stringify(analysis.dropOffPoints),
-        recommendations: JSON.stringify(analysis.recommendations),
-        retentionCurve: JSON.stringify(retentionCurve)
-      }
-    });
-
-    return NextResponse.json({ insight });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

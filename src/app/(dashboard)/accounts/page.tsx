@@ -19,6 +19,9 @@ import { useConfirm } from "@/components/dashboard/confirm";
 import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
 import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus, IconRefresh, IconThumbUp } from "@/components/dashboard/icons";
 import { refreshConnections, refreshUsage, useConnections, useUsage } from "@/lib/data/hooks";
+import { useBootstrap } from "@/components/bootstrap-provider";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { trialBeyondFreeNote } from "@/lib/billing/trial-copy";
 
 interface ConnectionRow {
   id: string;
@@ -31,6 +34,8 @@ interface ConnectionRow {
   // Renouvelée automatiquement par Nebula (YouTube, TikTok, Pinterest) :
   // tokenExpiresAt n'est alors que l'échéance du jeton d'accès du moment.
   autoRenew?: boolean;
+  /** Compte en veille (lot E4) : ni publication ni synchronisation. */
+  dormantAt?: string | null;
 }
 
 const TOKEN_WARNING_DAYS = 7;
@@ -80,6 +85,7 @@ export default function AccountsPage() {
 function AccountsPageInner() {
   const offeredNetworks = useAvailableNetworks();
   const { activeBrand, loading: brandLoading } = useBrand();
+  const { data: me } = useBootstrap();
   const toast = useToast();
   const confirmDialog = useConfirm();
   // Comptes et usage : cache partagé avec l'en-tête et les autres pages
@@ -195,6 +201,21 @@ function AccountsPageInner() {
           </p>
         </GlassCard>
       )}
+      {/* Lot E4 : pendant l'essai, au-delà des comptes du Gratuit, une note
+          dans la page (jamais un toast) prévient de la suite. */}
+      {me?.onTrial && connectionSlots >= PLAN_LIMITS.FREE.maxConnections && (
+        <p role="note" className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] px-4 py-2.5 text-sm text-emerald-100">
+          {trialBeyondFreeNote(me.trialEndsAt, "connection")}
+        </p>
+      )}
+      {connections.some((c) => c.dormantAt) && (
+        <p role="note" className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-slate-300">
+          Les comptes « En veille » sont conservés, mais ne publient ni ne se synchronisent : en Gratuit, {PLAN_LIMITS.FREE.maxConnections} comptes par marque restent actifs.{" "}
+          <Link href="/billing/garder" className="font-medium text-aurora-300 underline underline-offset-2">
+            Choisir lesquels
+          </Link>
+        </p>
+      )}
       {atLimit && (
         <GlassCard className="flex flex-wrap items-center justify-between gap-3 border-amber-500/30 bg-amber-500/[0.04]">
           <p className="text-sm text-amber-200">Limite de comptes atteinte pour votre palier.</p>
@@ -289,6 +310,11 @@ function AccountsPageInner() {
                               <TokenHealthDot level={expiry?.level ?? "unknown"} />
                               <NetworkBadge network={c.network} size="sm" />
                               <p className="truncate text-sm text-white">{c.displayName}</p>
+                              {c.dormantAt && (
+                                <span className="shrink-0 rounded-full border border-slate-400/30 bg-white/[0.04] px-1.5 text-[9px] font-semibold uppercase leading-4 tracking-wide text-slate-300">
+                                  En veille
+                                </span>
+                              )}
                             </div>
                             <p className="mt-0.5 text-xs text-slate-500">{c.handle ?? NETWORK_META[c.network].label}</p>
                             {c.lastError && <p className="mt-0.5 text-xs text-red-400">{c.lastError}</p>}

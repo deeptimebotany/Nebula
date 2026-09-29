@@ -18,6 +18,9 @@ import { unseenReussites } from "@/lib/reussites/engine";
 import { userReussitesDb } from "@/lib/prisma-extra";
 import { isOfferActive, trialDaysLeft } from "@/lib/trial";
 import { availableNetworks } from "@/lib/network-availability";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { aiEmailConfirmed, aiQuotaSnapshot } from "@/lib/ai/guard";
+import { ACTIVE_BRAND_CHANGE_DAYS, countReschedulable } from "@/lib/billing/free-limits";
 
 /** Bootstrap du compte de la session, ou null si le compte n'existe plus. */
 export async function buildMe(session: Session): Promise<MeResponse | null> {
@@ -56,7 +59,15 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         statsConsentAt: true,
         uiPrefs: true,
         referralPromptsSeen: true,
-        referralCode: true
+        referralCode: true,
+        facebookLoginId: true,
+        trialDeniedAt: true,
+        trialDeniedReason: true,
+        freeActiveBrandId: true,
+        activeBrandChangedAt: true,
+        tourCompletedAt: true,
+        tourStep: true,
+        uiSoundsEnabled: true
       }
     }),
     getUserPlan(userId),
@@ -72,6 +83,11 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
   const levelInfo = rankAt(reussitesRow?.creatorXp ?? 0, reussitesRow?.creatorLevel ?? 1);
   const unseen = await unseenReussites(userId, reussitesRow?.reussitesSeenAt ? new Date(reussitesRow.reussitesSeenAt) : null).catch(() => 0);
   if (!user) return null;
+  const [aiQuota, dormantBrands, reschedulable] = await Promise.all([
+    aiQuotaSnapshot(userId, planInfo),
+    prisma.brand.count({ where: { dormantAt: { not: null }, memberships: { some: { userId, role: "OWNER" } } } }),
+    planInfo.paid || planInfo.comp ? countReschedulable(userId) : Promise.resolve(0)
+  ]);
 
   // Avantages de palier = palier ACTUEL, jamais seulement la préférence
   // enregistrée (vérification du 24/09/2026) : un compte qui perd son
@@ -90,7 +106,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
   const effectiveBackground =
     savedBackground.requiresPlan && effPlan !== "ALL" && !canUseBackground(savedBackground, effPlan) ? DEFAULT_BACKGROUND_KEY : resolveBackgroundKey(savedBackground.key);
   const allowedCosmetics = new Set(access.cosmeticsAllowedKeys);
-  const whiteLabelAllowed = effPlan === "ALL" || effPlan === "AGENCY";
+  const whiteLabelAllowed = effPlan === "ALL" || PLAN_LIMITS[effPlan].whiteLabelEnabled;
 
   const body: MeResponse = {
     // Pas encore de photo en base : celle du compte Google/Apple de la
@@ -137,7 +153,15 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     uiPrefs: sanitizeUiPrefs(user.uiPrefs),
     referralPromptsSeen: Array.isArray(user.referralPromptsSeen) ? (user.referralPromptsSeen as string[]) : [],
     referralCode: user.referralCode ?? null,
-    networks: availableNetworks()
+    networks: availableNetworks(),
+    ai: { emailConfirmed: aiEmailConfirmed(user), quota: aiQuota },
+    trialDenied: user.trialDeniedAt ? { reason: user.trialDeniedReason ?? "used" } : null,
+    freeActiveBrandId: user.freeActiveBrandId ?? null,
+    activeBrandChangeableAt: user.activeBrandChangedAt ? new Date(user.activeBrandChangedAt.getTime() + ACTIVE_BRAND_CHANGE_DAYS * 86_400_000).toISOString() : null,
+    dormantBrands,
+    reschedulable,
+    tour: { completed: Boolean(user.tourCompletedAt), step: user.tourStep ?? 0 },
+    uiSounds: user.uiSoundsEnabled ?? true
   };
   return body;
 }

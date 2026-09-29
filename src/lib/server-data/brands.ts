@@ -18,11 +18,11 @@ export async function listUserBrands(userId: string): Promise<BrandSummary[]> {
     where: { userId },
     select: {
       role: true,
-      brand: { select: { id: true, name: true, slug: true, logoUrl: true, timezone: true, _count: { select: { connections: true } } } }
+      brand: { select: { id: true, name: true, slug: true, logoUrl: true, timezone: true, dormantAt: true, _count: { select: { connections: true } } } }
     }
   });
   return memberships.map(
-    (m: { role: string; brand: { id: string; name: string; slug: string; logoUrl?: string | null; timezone?: string | null; _count: { connections: number } } }) => ({
+    (m: { role: string; brand: { id: string; name: string; slug: string; logoUrl?: string | null; timezone?: string | null; dormantAt?: Date | null; _count: { connections: number } } }) => ({
       id: m.brand.id,
       name: m.brand.name,
       slug: m.brand.slug,
@@ -32,7 +32,9 @@ export async function listUserBrands(userId: string): Promise<BrandSummary[]> {
       // Fuseau de programmation de la marque (voir src/lib/timezone.ts).
       timezone: m.brand.timezone || DEFAULT_TIMEZONE,
       role: m.role,
-      connectionsCount: m.brand._count.connections
+      connectionsCount: m.brand._count.connections,
+      // Marque en veille depuis la fin d'un essai (lot E4).
+      dormant: Boolean(m.brand.dormantAt)
     })
   );
 }

@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { publishPost } from "@/lib/publish";
 import { assertPostQuota } from "@/lib/billing/plan";
-import { assertBrandWritable } from "@/lib/billing/trial-expiry";
+import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/trial-expiry";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 import { emitWebhookEvent, postPayload } from "@/lib/webhooks";
 
@@ -31,7 +31,7 @@ export interface CreatePostInput {
 }
 
 export type CreatePostResult =
-  | { ok: true; postId: string; milestone: number | null; status: string | null }
+  | { ok: true; postId: string; milestone: number | null; status: string | null; firstPost?: boolean }
   | { ok: false; status: number; error: string; reason?: string };
 
 /** L'appartenance de userId à la marque doit avoir été vérifiée par l'appelant. */
@@ -58,7 +58,10 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
   // Marque au-delà de la limite du palier (fin d'essai, rétrogradation) :
   // lecture seule — brief growth, lot G2.a.
   const writable = await assertBrandWritable(brandId);
-  if (!writable.ok) return { ok: false, status: 402, error: writable.message, reason: "second_brand" };
+  if (!writable.ok) return { ok: false, status: 402, error: writable.message, reason: writable.reason };
+  // Comptes en veille (lot E4) : au-delà des comptes du Gratuit sur la marque active.
+  const connWritable = await assertConnectionsWritable(connectionIds);
+  if (!connWritable.ok) return { ok: false, status: 402, error: connWritable.message, reason: connWritable.reason };
 
   try {
     await assertPostQuota(brandId);
@@ -72,6 +75,8 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
     return { ok: false, status: 400, error: PAST_SCHEDULE_ERROR, reason: "past_schedule" };
   }
   const status = scheduledDate ? "SCHEDULED" : publishNow ? "PUBLISHING" : "DRAFT";
+  // Première publication programmée ou publiée du compte (son court, lot U5).
+  const priorPosts = status === "DRAFT" ? 1 : await prisma.post.count({ where: { createdById: userId, status: { in: ["SCHEDULED", "PUBLISHING", "PUBLISHED", "PARTIAL"] } } });
 
   const post = await prisma.post.create({
     data: {
@@ -121,5 +126,6 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
   // Réussites : une publication programmée peut valider « Prévoyant » ou un
   // défi de la semaine (une publication immédiate est évaluée par publishPost).
   if (scheduledDate) await refreshReussites(userId);
-  return { ok: true, postId: post.id, milestone, status: publishedStatus };
+  const firstPost = priorPosts === 0 && (Boolean(scheduledDate) || publishedStatus === "PUBLISHED" || publishedStatus === "PARTIAL");
+  return { ok: true, postId: post.id, milestone, status: publishedStatus, firstPost };
 }

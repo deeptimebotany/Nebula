@@ -14,6 +14,7 @@ import { getUserPlan } from "@/lib/billing/plan";
 import { COSMETICS, canUseCosmetic } from "@/lib/cosmetics";
 import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import type { Plan } from "@/lib/plans";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 export interface AppearanceAccess {
   /** Palier réel du compte (jamais simulé). */
@@ -41,7 +42,7 @@ export async function getAppearanceAccess(userId: string, email: string | null |
   const [{ plan }, eggKeys] = await Promise.all([getUserPlan(userId), eggAllowedKeys(userId)]);
 
   const effectivePlan: Plan | "ALL" = ownerUnlocksAll(email) ? "ALL" : (previewPlan ?? plan);
-  const starfieldAllowed = effectivePlan === "ALL" || effectivePlan === "PRO" || effectivePlan === "AGENCY";
+  const starfieldAllowed = effectivePlan === "ALL" || PLAN_LIMITS[effectivePlan].premiumAppearance;
   const cosmeticsAllowedKeys =
     effectivePlan === "ALL"
       ? COSMETICS.map((c) => c.key)

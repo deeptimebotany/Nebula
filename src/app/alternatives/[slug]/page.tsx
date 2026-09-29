@@ -30,8 +30,8 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   if (!c) return {};
   const tier0 = PLAN_LIMITS.PRO.tiers[0];
   return pageMetadata({
-    title: `Alternative à ${c.name} : Nebula, en français, dès ${tier0.priceMonthly} €/mois`,
-    description: `Nebula face à ${c.name} : prix constatés le ${formatVerifiedAt(c.verifiedAt)}, fonctions comparées et calculateur d'économies. En français, ${TRIAL_DAYS} jours de Pro offerts.`,
+    title: `Alternative à ${c.name} : Nebula, dès ${tier0.priceMonthly} €/mois`,
+    description: `Nebula face à ${c.name} : prix constatés le ${formatVerifiedAt(c.verifiedAt)}, fonctions comparées et calculateur d'économies. ${TRIAL_DAYS} jours d'essai offerts.`,
     path: `/alternatives/${c.slug}`
   });
 }
@@ -47,7 +47,7 @@ export default function AlternativePage({ params }: { params: { slug: string } }
 
   const faq = [
     { q: `Nebula remplace-t-il ${c.name} ?`, a: `Pour programmer et publier sur ${nebulaNetworks.join(", ")}, suivre vos statistiques et envoyer des rapports à vos clients : oui. ${c.name} couvre d'autres réseaux (${c.networks.filter((n) => !nebulaNetworks.some((m) => n.toLowerCase().startsWith(m.toLowerCase()))).slice(0, 4).join(", ") || "voir le tableau"}) que Nebula ne prend pas encore en charge — les listes d'attente par réseau vous préviennent dès l'ouverture.` },
-    { q: "Combien coûte Nebula ?", a: `Le palier Gratuit permet de commencer sans carte bancaire (${PLAN_LIMITS.FREE.features[0]}, ${PLAN_LIMITS.FREE.features[1].toLowerCase()}). Le palier Pro coûte ${tier0.priceMonthly} € par mois pour ${tier0.maxBrands} marques (${formatEur(tier0.priceYearly)} par an, soit deux mois offerts), utilisateurs illimités. Tout nouveau compte reçoit ${TRIAL_DAYS} jours de Pro.` },
+    { q: "Combien coûte Nebula ?", a: `Le palier Gratuit permet de commencer sans carte bancaire (${PLAN_LIMITS.FREE.features[0]}, ${PLAN_LIMITS.FREE.features[1].toLowerCase()}). Le palier Pro coûte ${tier0.priceMonthly} € par mois pour ${tier0.maxBrands} marques (${formatEur(tier0.priceYearly)} par an, soit deux mois offerts), utilisateurs illimités. Tout nouveau compte reçoit ${TRIAL_DAYS} jours d'essai.` },
     { q: `Comment passer de ${c.name} à Nebula sans tout ressaisir ?`, a: "Exportez vos publications en CSV depuis votre outil actuel, puis importez-les dans Nebula (page Publications → Importer) : elles sont créées en brouillon avec leur date et leur texte, à vérifier avant programmation. Votre page Linktree s'importe aussi en collant son adresse." },
     { q: "Les prix indiqués sont-ils à jour ?", a: `Ils ont été relevés le ${formatVerifiedAt(c.verifiedAt)} sur le site de l'éditeur et peuvent évoluer. Vérifiez toujours la grille officielle avant de décider ; les prix de Nebula sont ceux de la page Tarifs.` }
   ];
@@ -64,7 +64,7 @@ export default function AlternativePage({ params }: { params: { slug: string } }
           ])
         ]}
       />
-      <PublicPageHeading eyebrow="Comparatif" title={`Alternative à ${c.name} : Nebula, en français, dès ${tier0.priceMonthly} €/mois`} desc={<>{c.name} : {c.tagline.charAt(0).toLowerCase() + c.tagline.slice(1)} Nebula planifie et publie sur {nebulaNetworks.join(", ")}, avec rapports clients, page bio et assistant IA, pour un prix qui ne dépend que du nombre de marques. Pour {REFERENCE_SCENARIO.brands} marques et {REFERENCE_SCENARIO.accounts} comptes : {refEur === null ? "tarif non publié" : `≈ ${formatEur(refEur)}`} chez {c.name}, {formatEur(nebulaRef.monthlyAnnual, 2)} chez Nebula, par mois.</>} />
+      <PublicPageHeading eyebrow="Comparatif" title={`Alternative à ${c.name} : Nebula, dès ${tier0.priceMonthly} €/mois`} desc={<>{c.name} : {c.tagline.charAt(0).toLowerCase() + c.tagline.slice(1)} Nebula planifie et publie sur {nebulaNetworks.join(", ")}, avec rapports clients, page bio et assistant IA, pour un prix qui ne dépend que du nombre de marques. Pour {REFERENCE_SCENARIO.brands} marques et {REFERENCE_SCENARIO.accounts} comptes : {refEur === null ? "tarif non publié" : `≈ ${formatEur(refEur)}`} chez {c.name}, {formatEur(nebulaRef.monthlyAnnual, 2)} chez Nebula, par mois.</>} />
 
       <section aria-labelledby="tableau">
         <h2 id="tableau" className="mb-4 font-display text-2xl font-semibold text-white">Point par point</h2>
@@ -109,7 +109,7 @@ export default function AlternativePage({ params }: { params: { slug: string } }
       <section className="mx-auto mt-16 max-w-3xl">
         <GlassCard hover={false} className="p-8 text-center sm:p-10">
           <h2 className="font-display text-2xl font-semibold text-white">Essayez Nebula gratuitement</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">Sans carte bancaire, {TRIAL_DAYS} jours de Pro offerts. Vos publications et votre page de liens s&apos;importent en quelques minutes.</p>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">Sans carte bancaire, {TRIAL_DAYS} jours d&apos;essai offerts. Vos publications et votre page de liens s&apos;importent en quelques minutes.</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <ButtonLink href={`/register?utm_source=alternatives&utm_medium=cta&utm_campaign=${c.slug}`} className="w-full sm:w-auto">Créer mon espace</ButtonLink>
             <Link href={`/prix/${c.slug}`} className="text-sm text-slate-400 hover:text-white hover:underline">

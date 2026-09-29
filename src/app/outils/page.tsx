@@ -39,13 +39,13 @@ const TOOLS = [
     href: "/outils/legendes",
     icon: IconMessage,
     title: "Générateur de légendes & titres",
-    desc: "Décrivez votre publication en quelques mots, l'IA rédige un titre ou une légende adaptée au réseau visé, hashtags inclus."
+    desc: "Le même éditeur que dans Nebula : l'IA écrit le titre et la description pour le réseau visé, avec l'aperçu fidèle de la publication."
   },
   {
     href: "/outils/miniatures",
     icon: IconUpload,
     title: "Générateur de miniatures",
-    desc: "Envoyez une photo, l'IA la rend plus percutante façon miniature YouTube/TikTok qui donne envie de cliquer."
+    desc: "Déposez votre vidéo : les meilleures images en ressortent, en situation sur YouTube ou TikTok. L'IA peut les rendre plus percutantes."
   },
   {
     href: "/outils/bio-instagram",

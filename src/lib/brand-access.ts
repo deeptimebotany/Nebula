@@ -45,5 +45,6 @@ export const PUBLIC_CONNECTION_SELECT = {
   displayName: true,
   handle: true,
   avatarUrl: true,
-  status: true
+  status: true,
+  dormantAt: true
 } as const;

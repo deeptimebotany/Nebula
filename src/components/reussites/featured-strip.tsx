@@ -65,7 +65,7 @@ export function FeaturedStrip() {
           </span>
           À la une
         </h2>
-        <Link href="/reussites?focus=vitrine" className="text-xs text-aurora-300 transition hover:text-white">
+        <Link href="/reussites?focus=vitrine#recompenses" className="text-xs text-aurora-300 transition hover:text-white">
           Mettre ma vidéo à la une →
         </Link>
       </div>

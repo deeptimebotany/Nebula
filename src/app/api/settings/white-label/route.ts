@@ -28,8 +28,8 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const { plan } = await getUserPlan(userId);
-  if (plan !== "AGENCY") {
+  const { limits } = await getUserPlan(userId);
+  if (!limits.whiteLabelEnabled) {
     return NextResponse.json({ error: "La marque blanche est réservée au palier Agence." }, { status: 403 });
   }
 

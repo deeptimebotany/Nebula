@@ -18,7 +18,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { EasterEggUnlockedDetail } from "@/lib/report-easter-egg";
 import { findEasterEgg } from "@/lib/easter-eggs-registry";
-import { isAchievementSoundOn, playAchievementArpeggio } from "@/lib/cosmic-audio";
+import { isAchievementSoundOn } from "@/lib/cosmic-audio";
+import { useUiSounds } from "@/components/use-ui-sounds";
 import type { CelebrationDTO } from "@/lib/reussites/types";
 
 const SHOW_MS = 3600;
@@ -45,6 +46,12 @@ export function AchievementToastListener() {
   const [current, setCurrent] = useState<Shown | null>(null);
   const [mounted, setMounted] = useState(false);
   const burstRef = useRef<HTMLDivElement>(null);
+  const { play: playSound } = useUiSounds();
+  // Lu via une référence : changer de réglage ne rejoue pas la carte en cours.
+  const playRef = useRef(playSound);
+  useEffect(() => {
+    playRef.current = playSound;
+  }, [playSound]);
   const timer = useRef<number | null>(null);
 
   useEffect(() => setMounted(true), []);
@@ -90,13 +97,10 @@ export function AchievementToastListener() {
   // Son + confettis + fermeture automatique à l'apparition d'une carte.
   useEffect(() => {
     if (!current) return;
-    if (isAchievementSoundOn()) {
-      try {
-        playAchievementArpeggio();
-      } catch {
-        // audio bloqué par le navigateur : l'animation suffit
-      }
-    }
+    // Son n° 3 des célébrations (mission réussie, accomplissement…) : règles
+    // des sons de l'interface (lot U5 — réglage du compte, après un clic, un
+    // par seconde au plus) en plus du réglage « Son des succès » de l'appareil.
+    if (isAchievementSoundOn()) playRef.current("celebration");
     if (!prefersReducedMotion()) burst(burstRef.current);
     timer.current = window.setTimeout(dismiss, SHOW_MS);
     return () => {
@@ -132,7 +136,7 @@ export function AchievementToastListener() {
           </span>
           {current.reward && <span className="block truncate text-xs text-slate-400">Récompense : {current.reward}</span>}
           <Link
-            href={`/reussites?focus=${encodeURIComponent(current.tone === "egg" || !current.tone ? "succes" : current.focus ?? "")}`}
+            href={current.tone === "egg" || !current.tone ? "/reussites/collection" : `/reussites?focus=${encodeURIComponent(current.focus ?? "")}`}
             onClick={(e) => e.stopPropagation()}
             className="mt-0.5 inline-block text-[11px] text-aurora-300 hover:underline"
           >

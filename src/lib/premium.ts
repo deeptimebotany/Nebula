@@ -4,6 +4,7 @@
 // statut + date de début réelle), jamais une valeur déclarative côté
 // client. Voir prisma/schema.prisma::Subscription.
 import type { Plan } from "./plans";
+import { isPaidPlanId } from "@/lib/plans";
 
 export type TenureTier = "mois" | "semestre" | "an";
 
@@ -23,7 +24,7 @@ const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.44;
 export function computePremiumInfo(
   sub: { plan: string; status: string; createdAt: Date | string } | null | undefined
 ): PremiumInfo {
-  const isPaidPlan = !!sub && (sub.plan === "PRO" || sub.plan === "AGENCY");
+  const isPaidPlan = !!sub && isPaidPlanId(sub.plan);
   const isActive = !!sub && ACTIVE_STATUSES.includes(sub.status);
   if (!sub || !isPaidPlan || !isActive) {
     return { isPremium: false, plan: "FREE", tenureLabel: null, tenureTier: null };

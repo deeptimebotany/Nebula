@@ -48,7 +48,7 @@ export async function runReussitesNudges(now: Date = new Date()): Promise<{ read
         kind: "achievement",
         title: "Vos 3 missions de la semaine sont prêtes",
         body: "Une habitude réglée sur votre rythme, une progression à choisir, et une mission mystère. Un coffre à la clé.",
-        href: "/reussites?focus=missions",
+        href: "/reussites?focus=missions#missions",
         actionLabel: "Voir mes missions",
         dedupeKey
       });
@@ -69,7 +69,7 @@ export async function runReussitesNudges(now: Date = new Date()): Promise<{ read
         kind: "achievement",
         title: "Plus qu'une mission pour ouvrir votre coffre",
         body: "Il reste quelques heures cette semaine : une dernière mission, et le coffre est à vous (il n'expire jamais).",
-        href: "/reussites?focus=missions",
+        href: "/reussites?focus=missions#missions",
         actionLabel: "Voir la mission",
         dedupeKey
       });

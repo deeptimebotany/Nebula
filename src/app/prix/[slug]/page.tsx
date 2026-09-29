@@ -139,7 +139,7 @@ export default function PrixPage({ params }: { params: { slug: string } }) {
       <section className="mx-auto mt-16 max-w-3xl">
         <GlassCard hover={false} className="p-8 text-center sm:p-10">
           <h2 className="font-display text-2xl font-semibold text-white">Comparer point par point</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">Fonctions, réseaux, langue, ce que Nebula ne fait pas encore : la page « Alternative à {c.name} » détaille tout. Et {TRIAL_DAYS} jours de Pro sont offerts pour vous faire votre avis.</p>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">Fonctions, réseaux, langue, ce que Nebula ne fait pas encore : la page « Alternative à {c.name} » détaille tout. Et {TRIAL_DAYS} jours d&apos;essai sont offerts pour vous faire votre avis.</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <ButtonLink href={`/alternatives/${c.slug}`} className="w-full sm:w-auto">Alternative à {c.name}</ButtonLink>
             <Link href={`/register?utm_source=prix&utm_medium=cta&utm_campaign=${c.slug}`} className="text-sm text-slate-400 hover:text-white hover:underline">

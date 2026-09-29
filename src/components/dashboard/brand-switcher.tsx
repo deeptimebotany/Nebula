@@ -14,7 +14,8 @@ import { useBootstrap } from "@/components/bootstrap-provider";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import type { Plan } from "@/lib/plans";
+import { PLAN_LIMITS, type Plan } from "@/lib/plans";
+import { trialBeyondFreeNote } from "@/lib/billing/trial-copy";
 import { IconAvatar, IconChevron, IconPlus, IconLogout } from "./icons";
 import { useConfirm } from "@/components/dashboard/confirm";
 import type { BrandSummary } from "@/components/brand-context";
@@ -23,11 +24,12 @@ import { UpgradeGem } from "./upgrade-gem";
 
 const PLAN_BADGE_STYLE: Record<Plan, string> = {
   FREE: "border-white/15 bg-white/[0.04] text-slate-400",
+  TRIAL: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
   PRO: "border-aurora-400/40 bg-aurora-400/10 text-aurora-300",
   AGENCY: "border-amber-400/40 bg-amber-400/10 text-amber-300"
 };
 
-const PLAN_LABEL: Record<Plan, string> = { FREE: "Gratuit", PRO: "Pro", AGENCY: "Agence" };
+const PLAN_LABEL: Record<Plan, string> = { FREE: PLAN_LIMITS.FREE.label, TRIAL: PLAN_LIMITS.TRIAL.label, PRO: PLAN_LIMITS.PRO.label, AGENCY: PLAN_LIMITS.AGENCY.label };
 
 export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
   const { brands, activeBrand, setActiveBrandId, createBrand, refresh: refreshBrands } = useBrand();
@@ -140,6 +142,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        data-tour="brand-switcher"
         onDoubleClick={() => {
           setHeart(true);
           reportEasterEggFound("avatar-double-tap");
@@ -187,7 +190,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-white">{activeBrand?.name ?? "Sélectionner une marque"}</span>
               <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                <span className={clsx("rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wide leading-4", PLAN_BADGE_STYLE[plan])}>{PLAN_LABEL[plan]}</span>
+                <span className={clsx("nb-plan-badge rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wide leading-4", PLAN_BADGE_STYLE[plan])}>{PLAN_LABEL[plan]}</span>
                 {brands.length > 1 ? `${brands.length} marques` : "1 marque"}
               </span>
             </span>
@@ -221,6 +224,11 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
                   {b.logoUrl ? <RemoteImage src={b.logoUrl} className="h-full w-full" sizes="24px" /> : b.name.charAt(0).toUpperCase()}
                 </span>
                 <span className="truncate">{b.name}</span>
+                {b.dormant && (
+                  <span className="shrink-0 rounded-full border border-slate-400/30 bg-white/[0.04] px-1.5 text-[9px] font-semibold uppercase leading-4 tracking-wide text-slate-300">
+                    En veille
+                  </span>
+                )}
               </span>
               <span className="text-[11px] uppercase text-slate-500">{b.role === "OWNER" ? "Propriétaire" : b.role}</span>
             </button>
@@ -265,6 +273,12 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
                   aria-label="Nom de la nouvelle marque"
                   className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
                 />
+                {/* Lot E4 : au-delà du Gratuit pendant l'essai, une note (jamais un toast). */}
+                {data?.onTrial && brandsOwned >= PLAN_LIMITS.FREE.tiers[0].maxBrands && (
+                  <p role="note" className="rounded-lg bg-emerald-400/[0.06] px-2.5 py-2 text-[11px] leading-snug text-emerald-100">
+                    {trialBeyondFreeNote(data.trialEndsAt, "brand")}
+                  </p>
+                )}
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setAdding(false)} className="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-white">
                     Annuler

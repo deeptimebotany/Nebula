@@ -96,5 +96,6 @@ export async function POST(req: NextRequest) {
   }
   // "status" : uniquement pour que le Composer sache si la publication
   // immédiate a vraiment réussi (son de décollage, voir cosmic-audio.ts).
-  return NextResponse.json({ ok: true, postId: result.postId, milestone: result.milestone, status: result.status });
+  // "firstPost" : première publication programmée ou publiée du compte (son court, lot U5).
+  return NextResponse.json({ ok: true, postId: result.postId, milestone: result.milestone, status: result.status, firstPost: Boolean(result.firstPost) });
 }

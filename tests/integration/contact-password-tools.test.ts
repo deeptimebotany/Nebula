@@ -11,7 +11,12 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/ai/gemini", async (orig) => ({
   ...(await orig<typeof import("@/lib/ai/gemini")>()),
   isAiEnabled: () => true,
-  generateFreeList: vi.fn(async () => ["Idée 1", "Idée 2", "Idée 3"])
+  generateFreeList: vi.fn(async () => ["Idée 1", "Idée 2", "Idée 3"]),
+  pickBestFrames: vi.fn(async () => [
+    { index: 4, reason: "Nette et bien cadrée.", sharpness: 5, framing: 4, clickPotential: 4 },
+    { index: 99, reason: "Index inventé : doit être écarté.", sharpness: 1, framing: 1, clickPotential: 1 },
+    { index: 1, reason: "Sujet reconnaissable.", sharpness: 4, framing: 3, clickPotential: 3 }
+  ])
 }));
 
 import bcrypt from "bcryptjs";
@@ -21,6 +26,7 @@ import { POST as postContact } from "@/app/api/contact/route";
 import { POST as postPassword } from "@/app/api/settings/password/route";
 import { DELETE as deleteAccount } from "@/app/api/settings/account/route";
 import { POST as postGenerate } from "@/app/api/public/tools/generate/route";
+import { POST as postPickFrames } from "@/app/api/public/tools/pick-frames/route";
 import { GET as getAccess } from "@/app/api/public/tools/access/route";
 import { OWNER_EMAIL } from "@/lib/owner";
 import { TOOL_DAILY_LIMITS } from "@/lib/tools/quota";
@@ -128,6 +134,23 @@ describe.skipIf(!hasDatabase)("outils IA de /outils", () => {
     const over = await postGenerate(req("/api/public/tools/generate", { tool: "titre-youtube", title: "Mon titre de vidéo" }));
     expect(over.status).toBe(429);
     expect(await (await getAccess()).json()).toMatchObject({ signedIn: true, plan: "FREE", quota: { text: { limit, remaining: 0 } } });
+  });
+
+  it("miniatures : choix des 3 meilleures images par l'IA — compte requis, quota « textes », index vérifiés", async () => {
+    const frames = Array.from({ length: 12 }, (_, index) => ({ index, base64: "A".repeat(200), mimeType: "image/jpeg" }));
+    const anon = await postPickFrames(req("/api/public/tools/pick-frames", { frames }));
+    expect(anon.status).toBe(401);
+    expect(await prisma.publicToolUsage.count()).toBe(0);
+
+    const { user } = await makeBrand();
+    session.userId = user.id;
+    expect((await postPickFrames(req("/api/public/tools/pick-frames", { frames: frames.slice(0, 2) }))).status).toBe(400);
+    expect((await postPickFrames(req("/api/public/tools/pick-frames", { frames: [{ ...frames[0], mimeType: "image/png" }, ...frames.slice(1)] }))).status).toBe(400);
+    const res = await postPickFrames(req("/api/public/tools/pick-frames", { frames }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.picks.map((p: { index: number }) => p.index)).toEqual([4, 1]);
+    expect(data.remaining).toBe(TOOL_DAILY_LIMITS.FREE.text - 1);
   });
 
   it("comptes Gratuits multiples sur la même connexion : plafond par adresse IP", async () => {

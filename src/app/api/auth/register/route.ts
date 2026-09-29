@@ -10,7 +10,11 @@ import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
 import { TOOLS_COOKIE, toolsExploredCount } from "@/lib/tools-explored";
 import { isPrivilegedEmail, sendVerificationEmail } from "@/lib/account-security";
-import { REFERRED_TRIAL_DAYS, TRIAL_DAYS, trialEndDate } from "@/lib/trial";
+import { REFERRED_TRIAL_DAYS, TRIAL_DAYS } from "@/lib/trial";
+import { decideTrial, trialUserFields } from "@/lib/billing/trial-eligibility";
+
+/** Inscriptions par adresse IP et par heure (lot E3). */
+const REGISTER_PER_IP_PER_HOUR = 5;
 
 // Messages d'erreur lisibles : renvoyés tels quels au formulaire (avant, un
 // objet zod brut arrivait au navigateur et devenait « Impossible de créer le
@@ -46,10 +50,10 @@ function slugify(input: string) {
 }
 
 export async function POST(req: Request) {
-  // Anti-abus : au plus 10 créations de compte par IP et par heure (un
-  // script qui enchaîne les inscriptions est bloqué, une famille ou un
-  // bureau derrière la même IP ne l'est pas).
-  const rate = await consumeRateLimit("register", clientIpFromHeaders(req.headers), 10, 60);
+  // Anti-abus : au plus 5 créations de compte par IP et par heure (lot E3 ;
+  // un script qui enchaîne les inscriptions est bloqué, une famille ou un
+  // bureau derrière la même IP ne l'est pas). Turnstile reste en place.
+  const rate = await consumeRateLimit("register", clientIpFromHeaders(req.headers), REGISTER_PER_IP_PER_HOUR, 60);
   if (!rate.ok) {
     return NextResponse.json({ error: RATE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
   }
@@ -106,10 +110,13 @@ export async function POST(req: Request) {
   if (slugTaken) slug = `${slug}-${Math.floor(Math.random() * 10000)}`;
 
   const ownReferralCode = await generateUniqueReferralCode();
-  // Essai Pro pour tout le monde (14 j), 30 j avec parrainage. aiTrialUntil
-  // reste aligné pour la compatibilité (message « IA offerte » des
-  // Paramètres) : l'essai Pro inclut déjà l'IA.
-  const trialEndsAt = trialEndDate(Boolean(referrer));
+  // Essai (palier « Essai », 14 j ; 30 j avec parrainage) — sauf abus
+  // (lot E3) : adresse jetable, adresse canonique déjà passée par un essai,
+  // ou 2 essais depuis ce réseau en 30 jours. Le compte est alors créé en
+  // Gratuit, sans essai : on ne bloque jamais une inscription pour ça.
+  const decision = await decideTrial({ email, headers: req.headers, referred: Boolean(referrer) });
+  const trial = trialUserFields(decision);
+  const trialEndsAt = trial.trialEndsAt;
 
   const user = await prisma.user.create({
     data: {
@@ -121,7 +128,7 @@ export async function POST(req: Request) {
       referralCode: ownReferralCode,
       referredByCode: usedReferralCode,
       aiTrialUntil: referrer ? trialEndsAt : null,
-      trialEndsAt,
+      ...trial,
       // Badge Explorateur (Réussites, lot C) : outils gratuits essayés avant l'inscription.
       toolsExplored: toolsExploredCount(cookieStore.get(TOOLS_COOKIE)?.value),
       // Accord facultatif aux statistiques anonymes, daté (preuve du choix).
@@ -139,7 +146,8 @@ export async function POST(req: Request) {
   // (voir /api/auth/verify-email).
   await sendVerificationEmail(user).catch(() => undefined);
 
-  const res = NextResponse.json({ ok: true, aiTrialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS, trialDays: referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS });
+  const trialDays = decision.granted ? (referrer ? REFERRED_TRIAL_DAYS : TRIAL_DAYS) : 0;
+  const res = NextResponse.json({ ok: true, aiTrialDays: trialDays, trialDays });
   if (attribution) res.cookies.set({ name: ATTRIBUTION_COOKIE, value: "", path: "/", maxAge: 0 });
   return res;
 }

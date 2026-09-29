@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350"><defs><radialGradient id="g" cx="0.5" cy="0.35" r="0.8"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="1080" height="1350" fill="#f3c9a8"/><rect width="1080" height="1350" fill="url(#g)"/>
+<circle cx="540" cy="680" r="400" fill="#ffffff"/>
+<circle cx="540" cy="680" r="340" fill="#f7eee6"/>
+<circle cx="540" cy="680" r="290" fill="#f2e2cf"/>
+<circle cx="540" cy="680" r="290" fill="#b98352" opacity="0.25"/>
+<path d="M540 460 C 700 520, 720 700, 600 800 C 520 860, 420 820, 400 720 C 390 640, 460 600, 520 640" stroke="#b98352" stroke-width="22" fill="none" opacity="0.6"/>
+<circle cx="560" cy="700" r="60" fill="#b98352" opacity="0.35"/>
+<rect x="900" y="640" width="140" height="80" rx="40" fill="#ffffff"/>
+<rect x="170" y="1100" width="260" height="30" rx="15" fill="#8b5a3c" transform="rotate(-20 300 1115)"/>
+<rect x="190" y="1150" width="240" height="30" rx="15" fill="#9c6a47" transform="rotate(-20 310 1165)"/></svg>

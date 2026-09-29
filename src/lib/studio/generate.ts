@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { GeminiQuotaError, generateStudioJson, isAiEnabled } from "@/lib/ai/gemini";
 import { getBrandPlan, type UserPlanInfo } from "@/lib/billing/plan";
 import { consumeRateLimit } from "@/lib/rate-limit";
+import { assertAiAllowed, type AiRefusalReason } from "@/lib/ai/guard";
 import { DEFAULT_TIMEZONE, utcToWallClock, wallClockToUtc } from "@/lib/timezone";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
@@ -245,7 +246,7 @@ export type LlmCall = (system: string, prompt: string, maxOutputTokens: number) 
 
 export type GenerateResult =
   | { ok: true; generation: StudioGenerationDTO; quota: StudioQuota }
-  | { ok: false; status: number; error: string; reason?: "studio" };
+  | { ok: false; status: number; error: string; reason?: AiRefusalReason };
 
 function toDTO(row: StudioGenerationRow): StudioGenerationDTO {
   return {
@@ -266,7 +267,7 @@ export async function generateStudio(params: {
   input: IdeasInput | ScriptInput;
   now?: Date;
   llm?: LlmCall;
-  plan?: Pick<UserPlanInfo, "limits">;
+  plan?: Pick<UserPlanInfo, "plan" | "limits">;
 }): Promise<GenerateResult> {
   const now = params.now ?? new Date();
   const plan = params.plan ?? (await getBrandPlan(params.brandId));
@@ -282,11 +283,19 @@ export async function generateStudio(params: {
       error: `Vous avez utilisé vos ${quota.limit} générations du jour : elles reviennent à minuit (heure de Paris). Vos résultats restent dans l'historique.`
     };
   }
+  // Porte de l'IA (lot E2) : pendant l'essai, adresse confirmée et budget
+  // global du jour (le quota du Studio reste compté sur ses générations).
+  const gate = await assertAiAllowed({ userId: params.userId, plan, kind: "studio", now });
+  if (!gate.ok) return { ok: false, status: gate.status, error: gate.error, reason: gate.reason };
   const burst = await consumeRateLimit("studio", params.userId, BURST_LIMIT, BURST_WINDOW_MIN);
-  if (!burst.ok) return { ok: false, status: 429, error: `Beaucoup de demandes d'un coup : réessayez dans ${Math.ceil(burst.retryAfterSeconds / 60)} min.` };
+  if (!burst.ok) {
+    await gate.release();
+    return { ok: false, status: 429, error: `Beaucoup de demandes d'un coup : réessayez dans ${Math.ceil(burst.retryAfterSeconds / 60)} min.` };
+  }
 
   const facts = await loadStudioFacts(params.brandId, now);
-  const llm: LlmCall = params.llm ?? generateStudioJson;
+  const baseLlm: LlmCall = params.llm ?? generateStudioJson;
+  const llm: LlmCall = (system, prompt, max) => gate.run(() => baseLlm(system, prompt, max));
   let output: StudioOutput;
   try {
     if (params.kind === "ideas") {

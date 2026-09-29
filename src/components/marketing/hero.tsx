@@ -1,64 +1,50 @@
-// Hero de la page d'accueil. Composant SERVEUR, sans Framer Motion : le
-// titre, le texte et les boutons sont dans le HTML dès le premier octet
-// (l'ancien hero était rendu invisible jusqu'à l'hydratation), avec une
-// entrée douce en CSS (.hero-enter). Direction : garder l'univers Nebula
-// (fond nuit, halos violet/cyan, étoiles discrètes) mais le rendre premium
-// — une promesse claire, un seul appel à l'action principal, des icônes
-// vectorielles au lieu d'emojis, et le produit montré tout de suite.
+// Hero de la page d'accueil (refonte du 29/09/2026). Composant SERVEUR,
+// sans JavaScript : titre, texte et boutons sont dans le HTML dès le
+// premier octet, avec une entrée douce en CSS (.hero-enter). Le produit est
+// montré tel qu'il est : une VRAIE capture du tableau de bord (compte de
+// démonstration, données fictives), en clair ou en sombre selon le mode.
 import { ButtonLink } from "@/components/ui/button";
-import { DashboardVisual } from "@/components/marketing/product-visuals";
+import { ProductShot, ShotCaption } from "@/components/marketing/product-shot";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
-import { NetworkLogo } from "@/components/ui/network-badge";
+import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
 import { IconCard, IconCheck, IconLock } from "@/components/dashboard/icons";
 
 const REASSURANCE = [
   { icon: IconCard, text: "Gratuit pour commencer, sans carte bancaire" },
-  { icon: IconLock, text: "Connexion par les API officielles des réseaux" },
-  { icon: IconCheck, text: "Résiliable à tout moment" }
+  { icon: IconLock, text: "Connexion officielle à chaque réseau" },
+  { icon: IconCheck, text: "Sans engagement" }
 ];
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Décor : halos qui dérivent lentement (les étoiles sont posées sur
-          toute la page par page.tsx) */}
-      <div aria-hidden="true" className="hero-orb -left-24 top-8 h-[360px] w-[360px] bg-accent-violet/30" />
-      <div aria-hidden="true" className="hero-orb hero-orb-b -right-20 top-40 h-[420px] w-[420px] bg-accent-cyan/20" />
-      <div aria-hidden="true" className="hero-orb left-1/3 top-[520px] h-[300px] w-[520px] bg-nebula-500/25" />
+      <div aria-hidden="true" className="hero-orb -left-24 top-8 h-[360px] w-[360px] bg-accent-violet/20" />
+      <div aria-hidden="true" className="hero-orb hero-orb-b -right-20 top-40 h-[420px] w-[420px] bg-accent-cyan/15" />
 
-      <div className="relative mx-auto max-w-6xl px-6 pb-16 pt-20 sm:pt-28">
+      <div className="relative mx-auto max-w-6xl px-6 pb-10 pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          <ul className="hero-enter hero-enter-1 mb-6 flex flex-wrap items-center justify-center gap-2" aria-label="Réseaux pris en charge">
-            {LAUNCHED_NETWORKS.map((n) => (
-              <li
-                key={n}
-                className="flex items-center gap-1.5 rounded-full border bg-white/[0.02] px-3 py-1 text-xs font-medium"
-                style={{ borderColor: `${NETWORK_META[n].color}55`, color: NETWORK_META[n].color }}
-              >
-                <NetworkLogo network={n} className="h-3.5 w-3.5" />
-                {NETWORK_META[n].label}
-              </li>
-            ))}
-          </ul>
+          <p className="hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-slate-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+            Planification, statistiques et rapports clients
+          </p>
 
-          <h1 className="hero-enter hero-enter-2 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-6xl">
+          <h1 className="hero-enter hero-enter-2 mt-6 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-6xl">
             Tous vos réseaux sociaux,
             <br />
-            <span className="text-gradient-live">un seul cockpit</span>
+            <span className="text-gradient-live">dans un seul espace</span>
           </h1>
 
-          <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base text-slate-300 sm:text-lg">
-            Programmez vos publications sur Instagram, TikTok, YouTube, Facebook et Bluesky en une seule fois, suivez vos
-            résultats au même endroit et envoyez des rapports clairs à vos clients — sans jongler entre quatre
-            applications.
+          <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            Nebula programme vos publications sur Instagram, TikTok, YouTube, Facebook et Bluesky, rassemble vos statistiques
+            au même endroit et prépare les rapports de vos clients. Moins d&apos;onglets ouverts, plus de temps pour créer.
           </p>
 
           <div className="hero-enter hero-enter-4 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <ButtonLink href="/register" className="w-full px-7 py-3.5 text-base sm:w-auto">
-              Créer mon espace gratuitement
+              Créer mon espace gratuit
             </ButtonLink>
-            <ButtonLink href="/#fonctionnalites" variant="outline" className="w-full px-7 py-3.5 text-base sm:w-auto">
-              Découvrir les fonctionnalités
+            <ButtonLink href="/#visite" variant="outline" className="w-full px-7 py-3.5 text-base sm:w-auto">
+              Voir l&apos;application
             </ButtonLink>
           </div>
 
@@ -72,16 +58,30 @@ export function Hero() {
           </ul>
         </div>
 
-        {/* Le produit, tout de suite : composition fidèle de l'interface */}
-        <div className="hero-enter hero-enter-4 relative mx-auto mt-14 max-w-5xl">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-x-10 -top-10 bottom-1/3 rounded-[40px] bg-gradient-to-b from-aurora-400/10 to-transparent blur-2xl"
+        <div className="hero-enter hero-enter-4 relative mx-auto mt-14">
+          <div aria-hidden="true" className="pointer-events-none absolute -inset-x-8 -top-8 bottom-1/2 rounded-[48px] bg-gradient-to-b from-aurora-400/15 to-transparent blur-3xl" />
+          <ProductShot
+            name="tableau-de-bord"
+            priority
+            sizes="(min-width: 1200px) 1104px, calc(100vw - 48px)"
+            alt="Tableau de bord Nebula : abonnés, portée, taux d'engagement, publications du mois et meilleur créneau du jour de la marque Studio Nova (compte de démonstration)"
+            className="relative"
           />
-          <DashboardVisual />
-          <p className="mt-3 text-center text-[11px] text-slate-500">
-            Aperçu de l&apos;interface avec des données de démonstration.
-          </p>
+          <ShotCaption />
+        </div>
+
+        <div className="mt-16 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Connexion officielle à</p>
+          <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-9 gap-y-4" aria-label="Réseaux pris en charge">
+            {LAUNCHED_NETWORKS.map((n) => (
+              <li key={n} className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <span className="network-ink" style={networkInkStyle(n)}>
+                  <NetworkLogo network={n} className="h-5 w-5" />
+                </span>
+                {NETWORK_META[n].label}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

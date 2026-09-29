@@ -1,3 +1,4 @@
+import { planIncludes } from "@/lib/plans";
 // Fonds d'écran sélectionnables dans Paramètres, à assortir des thèmes de
 // couleurs. Chaque fond est une valeur CSS `background` qui référence les
 // mêmes variables --c-nebula-*/--c-aurora-*/--c-accent-* que les thèmes
@@ -231,6 +232,5 @@ export function findBackground(key: string): BackgroundDefinition {
 /** true si ce compte (selon son palier) peut sélectionner ce fond. */
 export function canUseBackground(bg: BackgroundDefinition, plan: Plan): boolean {
   if (!bg.requiresPlan) return true;
-  const order: Plan[] = ["FREE", "PRO", "AGENCY"];
-  return order.indexOf(plan) >= order.indexOf(bg.requiresPlan);
+  return planIncludes(plan, bg.requiresPlan);
 }

@@ -156,7 +156,7 @@ function SkillPanel({ skill, onLesson, highlight }: { skill: SkillDTO; onLesson:
           </p>
           <p className="mt-0.5 text-xs text-slate-400">Niveau {skill.level} / 5</p>
         </div>
-        <div className="flex gap-1 text-slate-400" aria-label={`${skill.level} étoile${skill.level > 1 ? "s" : ""} sur 5`}>
+        <div className="flex gap-1 text-slate-400" role="img" aria-label={`${skill.level} étoile${skill.level > 1 ? "s" : ""} sur 5`}>
           {skill.stars.map((s) => (
             <StarGlyph key={s.key} lit={Boolean(s.unlockedAt)} next={next?.key === s.key} color={skill.color} className="h-5 w-5" />
           ))}
@@ -245,13 +245,18 @@ export function ConstellationSection({
   selected,
   onSelect,
   onLesson,
-  highlight
+  highlight,
+  collapsed = false,
+  onToggleCollapsed
 }: {
   data: ConstellationDTO;
   selected: number;
   onSelect: (i: number) => void;
   onLesson: (star: StarDTO, skill: SkillDTO) => void;
   highlight: string | null;
+  /** Bloc replié (lot U3) : le dessin n'est pas rendu. État mémorisé par la page. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   const skill = data.skills[selected] ?? data.skills[0];
   const tabs = useMemo(() => data.skills.map((s, i) => ({ s, i })), [data.skills]);
@@ -264,11 +269,19 @@ export function ConstellationSection({
           </h2>
           <p className="text-xs text-slate-400">5 compétences de créateur. Chaque étoile est une vraie habitude, mesurée sur vos publications, avec une mini-leçon de 2 minutes.</p>
         </div>
-        <p className="text-xs tabular-nums text-slate-400">
-          {data.lit} / {data.total} étoiles
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs tabular-nums text-slate-400">
+            {data.lit} / {data.total} étoiles
+          </p>
+          {onToggleCollapsed && (
+            <button type="button" onClick={onToggleCollapsed} aria-expanded={!collapsed} aria-controls="constellation-body" className="text-xs font-medium text-aurora-300 transition hover:text-white">
+              {collapsed ? "Déplier ▾" : "Replier ▴"}
+            </button>
+          )}
+        </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      {!collapsed && (
+      <div id="constellation-body" className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="nb-sky flex flex-col items-center justify-center gap-3 rounded-3xl border p-4 sm:p-5">
           <Sky data={data} selected={selected} onSelect={onSelect} />
           <div role="tablist" aria-label="Compétences" className="flex flex-wrap justify-center gap-2">
@@ -291,6 +304,7 @@ export function ConstellationSection({
         </div>
         <SkillPanel skill={skill} onLesson={(st) => onLesson(st, skill)} highlight={highlight} />
       </div>
+      )}
     </section>
   );
 }

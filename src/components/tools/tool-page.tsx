@@ -56,7 +56,7 @@ export function ToolPage({
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center">
           <p className="font-display text-lg font-semibold text-white">{ctaTitle}</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-            {ctaText ?? <>Nebula publie sur YouTube, Instagram, Facebook et TikTok, à l&apos;heure, avec l&apos;IA intégrée. Gratuit pour commencer, {TRIAL_DAYS} jours de Pro offerts.</>}
+            {ctaText ?? <>Nebula publie sur YouTube, Instagram, Facebook et TikTok, à l&apos;heure, avec l&apos;IA intégrée. Gratuit pour commencer, {TRIAL_DAYS} jours d&apos;essai offerts.</>}
           </p>
           <div className="mt-4">
             <ButtonLink href="/register?utm_source=outils&utm_medium=cta&utm_campaign=micro-outils">{ctaLabel}</ButtonLink>

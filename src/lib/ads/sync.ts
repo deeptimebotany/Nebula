@@ -10,6 +10,8 @@ import { getBrandPlan } from "@/lib/billing/plan";
 import { getAdsClient } from "./index";
 import { isAdPlatformConfigured } from "./config";
 import { AD_PLATFORM_META, AdsError, type AdCampaign, type AdDay, type AdPlatform } from "./types";
+import { limitsOf } from "@/lib/plans";
+import { isBrandDormant } from "@/lib/billing/dormant";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -157,7 +159,8 @@ export async function syncDueAdAccounts(): Promise<number> {
     if (claimed.count === 0) continue;
     // Marque redescendue en gratuit : plus de synchro (les données restent).
     if (!planCache.has(account.brandId)) planCache.set(account.brandId, (await getBrandPlan(account.brandId)).plan);
-    if (planCache.get(account.brandId) === "FREE") {
+    // Marque en veille (lot E4) : pas de synchro non plus.
+    if (limitsOf(planCache.get(account.brandId)).maxAdAccounts === 0 || (await isBrandDormant(account.brandId))) {
       await adAccountDb.update({ where: { id: account.id }, data: { nextSyncAt: new Date(now + EVERY_MS) } });
       continue;
     }

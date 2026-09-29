@@ -9,7 +9,8 @@ import { localUploadDir, localUploadPath } from "@/lib/storage";
 import { fetchRetention } from "@/lib/social/youtube";
 import { checkFfmpegAvailable, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
 import { isAiEnabled, analyzeVideoRetention, type RetentionPoint } from "@/lib/ai/gemini";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
+import { consumeRetentionBurst } from "@/lib/ai/retention-burst";
 import { z } from "zod";
 
 const bodySchema = z.object({ postTargetId: z.string() });
@@ -46,60 +47,65 @@ export async function POST(req: NextRequest) {
   if (target.network !== "YOUTUBE") {
     return NextResponse.json({ error: "L'analyse de rétention n'est disponible que pour YouTube." }, { status: 400 });
   }
-  if (!target.externalPostId) {
+  const externalPostId = target.externalPostId;
+  if (!externalPostId) {
     return NextResponse.json({ error: "Cette vidéo n'a pas encore été publiée." }, { status: 400 });
   }
 
-  const { limits } = await getBrandPlan(target.post.brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'analyse IA fait partie des paliers Pro/Agence.", reason: "retention" }, { status: 402 });
-  }
+  // Porte de l'IA (lot E2) : palier de la marque, analyses du jour, rafale.
+  const userId = (session.user as { id: string }).id;
+  const burst = await consumeRetentionBurst(userId);
+  if (burst) return burst;
+  const gate = await gateAppAi({ userId, brandId: target.post.brandId, kind: "retention" });
+  if (!gate.ok) return gate.response;
 
   try {
-    const retentionCurve: RetentionPoint[] = await fetchRetention(target.connection, target.externalPostId);
+    return await gate.allowance.run(async () => {
+      const retentionCurve: RetentionPoint[] = await fetchRetention(target.connection, externalPostId);
 
-    // Sélectionne les 4 plus grosses chutes de rétention entre deux points
-    // consécutifs pour savoir où extraire des frames.
-    const drops = retentionCurve
-      .map((p, i) => ({ point: p, delta: i > 0 ? retentionCurve[i - 1].watchRatio - p.watchRatio : 0 }))
-      .sort((a, b) => b.delta - a.delta)
-      .slice(0, 4)
-      .map((d) => d.point)
-      .sort((a, b) => a.timeRatio - b.timeRatio);
+      // Sélectionne les 4 plus grosses chutes de rétention entre deux points
+      // consécutifs pour savoir où extraire des frames.
+      const drops = retentionCurve
+        .map((p, i) => ({ point: p, delta: i > 0 ? retentionCurve[i - 1].watchRatio - p.watchRatio : 0 }))
+        .sort((a, b) => b.delta - a.delta)
+        .slice(0, 4)
+        .map((d) => d.point)
+        .sort((a, b) => a.timeRatio - b.timeRatio);
 
-    const videoAsset = target.post.media.find((m: { mediaAsset: { type: string } }) => m.mediaAsset.type === "VIDEO")?.mediaAsset;
-    const frames: { timeRatio: number; base64: string; mimeType: string }[] = [];
+      const videoAsset = target.post.media.find((m: { mediaAsset: { type: string } }) => m.mediaAsset.type === "VIDEO")?.mediaAsset;
+      const frames: { timeRatio: number; base64: string; mimeType: string }[] = [];
 
-    if (videoAsset && !videoAsset.url.startsWith("http") && (await checkFfmpegAvailable())) {
-      const filePath = localUploadPath(videoAsset.url);
-      const duration = videoAsset.durationSeconds ?? (await getVideoDurationSeconds(filePath));
-      const outDir = path.join(localUploadDir(), "insights");
-      const timestamps = drops.map((d) => d.timeRatio * duration);
-      const files = await extractFrames(filePath, outDir, `${target.id}-insight`, timestamps);
-      for (let i = 0; i < files.length; i++) {
-        const buffer = await readFile(files[i]);
-        frames.push({ timeRatio: drops[i].timeRatio, base64: buffer.toString("base64"), mimeType: "image/jpeg" });
+      if (videoAsset && !videoAsset.url.startsWith("http") && (await checkFfmpegAvailable())) {
+        const filePath = localUploadPath(videoAsset.url);
+        const duration = videoAsset.durationSeconds ?? (await getVideoDurationSeconds(filePath));
+        const outDir = path.join(localUploadDir(), "insights");
+        const timestamps = drops.map((d) => d.timeRatio * duration);
+        const files = await extractFrames(filePath, outDir, `${target.id}-insight`, timestamps);
+        for (let i = 0; i < files.length; i++) {
+          const buffer = await readFile(files[i]);
+          frames.push({ timeRatio: drops[i].timeRatio, base64: buffer.toString("base64"), mimeType: "image/jpeg" });
+        }
       }
-    }
 
-    const analysis = await analyzeVideoRetention({
-      title: target.titleOverride || target.post.title,
-      caption: target.captionOverride || target.post.caption,
-      retentionCurve,
-      frames
+      const analysis = await analyzeVideoRetention({
+        title: target.titleOverride || target.post.title,
+        caption: target.captionOverride || target.post.caption,
+        retentionCurve,
+        frames
+      });
+
+      const insight = await prisma.videoInsight.create({
+        data: {
+          postTargetId: target.id,
+          summary: analysis.summary,
+          dropOffPoints: JSON.stringify(analysis.dropOffPoints),
+          recommendations: JSON.stringify(analysis.recommendations),
+          retentionCurve: JSON.stringify(retentionCurve)
+        }
+      });
+
+      return NextResponse.json({ insight });
     });
-
-    const insight = await prisma.videoInsight.create({
-      data: {
-        postTargetId: target.id,
-        summary: analysis.summary,
-        dropOffPoints: JSON.stringify(analysis.dropOffPoints),
-        recommendations: JSON.stringify(analysis.recommendations),
-        retentionCurve: JSON.stringify(retentionCurve)
-      }
-    });
-
-    return NextResponse.json({ insight });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

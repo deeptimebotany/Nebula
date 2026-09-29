@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { WELCOME_INTRO_COOKIE } from "@/lib/intro/welcome";
 import { IntroOverlay } from "./intro-overlay";
+import { INTRO_DONE_EVENT } from "@/lib/tour-events";
 
 function forgetWelcomeCookie() {
   document.cookie = `${WELCOME_INTRO_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
@@ -27,6 +28,11 @@ export function WelcomeIntro() {
     forgetWelcomeCookie();
     const id = window.setTimeout(() => setPhase("gone"), 750);
     return () => window.clearTimeout(id);
+  }, [phase]);
+
+  // Fin de l'intro : la visite guidée (lot U4) peut commencer.
+  useEffect(() => {
+    if (phase === "gone") window.dispatchEvent(new Event(INTRO_DONE_EVENT));
   }, [phase]);
 
   if (phase === "gone") return null;

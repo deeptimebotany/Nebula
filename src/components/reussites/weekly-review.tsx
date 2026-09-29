@@ -94,7 +94,7 @@ export function WeeklyReview({ review, busy, onChoose, highlight }: { review: Re
           </div>
           <p className="text-[11px] text-slate-500">
             Un bilan par semaine compte pour la compétence Stratégie. Ensuite, choisissez une mission Progression qui va dans le sens de ce cap.{" "}
-            <Link href="/analytics" className="text-aurora-300 hover:text-white">
+            <Link href="/analytics" className="text-aurora-300 underline underline-offset-2 hover:text-white">
               Synchroniser mes statistiques
             </Link>
           </p>

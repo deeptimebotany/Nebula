@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireToolAccess } from "@/lib/tools/access";
-import { releaseToolQuota } from "@/lib/tools/quota";
 import { isAiEnabled, generateFreeList } from "@/lib/ai/gemini";
 
 // POST /api/public/tools/generate — moteur commun des micro-outils IA de
 // /outils (brief growth, lot G4.c) : bio Instagram, hashtags, reformulations
 // de titre YouTube. Depuis le 29/09/2026 : compte obligatoire et quota par
-// compte (voir lib/tools/quota.ts) ; sans compte, les pages montrent une démo
+// compte (porte unique de l'IA, lib/ai/guard.ts) ; sans compte, les pages montrent une démo
 // préparée à l'avance. Les outils SANS IA (taux d'engagement, meilleur
 // moment, score de titre) n'appellent jamais cette route.
 
@@ -42,50 +41,52 @@ export async function POST(req: NextRequest) {
   const { quota } = access;
 
   try {
-    let items: string[] = [];
-    let groups: { label: string; items: string[] }[] | undefined;
-    if (input.tool === "bio-instagram") {
-      items = await generateFreeList(
-        [
-          `Rédige 5 propositions de bio Instagram en français pour ce compte. Activité : ${input.activity}.`,
-          `Ton : ${input.tone}.`,
-          input.keywords ? `Mots-clés à placer : ${input.keywords}.` : "",
-          input.cta ? `Appel à l'action à inclure : ${input.cta}.` : "",
-          "Chaque bio fait 150 caractères MAXIMUM, peut utiliser 1 ou 2 émojis, pas de hashtag, pas de guillemets."
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        5
-      );
-      items = items.map((b) => b.slice(0, 150));
-    } else if (input.tool === "hashtags") {
-      const net = input.network ? ` pour ${input.network}` : "";
-      const [large, medium, niche] = await Promise.all([
-        generateFreeList(`Donne 8 hashtags LARGES (très populaires, généralistes) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8),
-        generateFreeList(`Donne 8 hashtags MOYENS (thématiques, communauté engagée) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8),
-        generateFreeList(`Donne 8 hashtags DE NICHE (précis, peu concurrentiels) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8)
-      ]);
-      const clean = (arr: string[]) => arr.map((h) => "#" + h.replace(/^#+/, "").replace(/\s+/g, "")).filter((h) => h.length > 1);
-      groups = [
-        { label: "Larges", items: clean(large) },
-        { label: "Moyens", items: clean(medium) },
-        { label: "De niche", items: clean(niche) }
-      ];
-    } else {
-      items = await generateFreeList(
-        [
-          `Voici un titre de vidéo YouTube : « ${input.title} ».`,
-          input.topic ? `Sujet de la vidéo : ${input.topic}.` : "",
-          "Propose 3 reformulations plus accrocheuses en français, 60 caractères maximum chacune, sans clickbait mensonger : une avec un chiffre, une sous forme de question ou de promesse, une avec un mot fort. Sans guillemets."
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        3
-      );
-    }
+    const { items, groups } = await access.allowance.run(async () => {
+      let items: string[] = [];
+      let groups: { label: string; items: string[] }[] | undefined;
+      if (input.tool === "bio-instagram") {
+        items = await generateFreeList(
+          [
+            `Rédige 5 propositions de bio Instagram en français pour ce compte. Activité : ${input.activity}.`,
+            `Ton : ${input.tone}.`,
+            input.keywords ? `Mots-clés à placer : ${input.keywords}.` : "",
+            input.cta ? `Appel à l'action à inclure : ${input.cta}.` : "",
+            "Chaque bio fait 150 caractères MAXIMUM, peut utiliser 1 ou 2 émojis, pas de hashtag, pas de guillemets."
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          5
+        );
+        items = items.map((b) => b.slice(0, 150));
+      } else if (input.tool === "hashtags") {
+        const net = input.network ? ` pour ${input.network}` : "";
+        const [large, medium, niche] = await Promise.all([
+          generateFreeList(`Donne 8 hashtags LARGES (très populaires, généralistes) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8),
+          generateFreeList(`Donne 8 hashtags MOYENS (thématiques, communauté engagée) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8),
+          generateFreeList(`Donne 8 hashtags DE NICHE (précis, peu concurrentiels) en lien avec la niche « ${input.niche} »${net}. Chaque élément commence par #, sans espace, sans accent.`, 8)
+        ]);
+        const clean = (arr: string[]) => arr.map((h) => "#" + h.replace(/^#+/, "").replace(/\s+/g, "")).filter((h) => h.length > 1);
+        groups = [
+          { label: "Larges", items: clean(large) },
+          { label: "Moyens", items: clean(medium) },
+          { label: "De niche", items: clean(niche) }
+        ];
+      } else {
+        items = await generateFreeList(
+          [
+            `Voici un titre de vidéo YouTube : « ${input.title} ».`,
+            input.topic ? `Sujet de la vidéo : ${input.topic}.` : "",
+            "Propose 3 reformulations plus accrocheuses en français, 60 caractères maximum chacune, sans clickbait mensonger : une avec un chiffre, une sous forme de question ou de promesse, une avec un mot fort. Sans guillemets."
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          3
+        );
+      }
+      return { items, groups };
+    });
     return NextResponse.json({ items, groups, remaining: quota.remaining, limit: quota.limit });
   } catch (err) {
-    await releaseToolQuota(access.userId, "text");
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
 }

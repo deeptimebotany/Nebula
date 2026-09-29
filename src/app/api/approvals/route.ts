@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
-  const { plan } = await getBrandPlan(brandId);
-  if (plan !== "AGENCY") {
+  const { limits } = await getBrandPlan(brandId);
+  if (!limits.approvalsEnabled) {
     return NextResponse.json(
       { error: "Le workflow d'approbation client est réservé au palier Agence." },
       { status: 403 }

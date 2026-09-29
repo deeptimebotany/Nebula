@@ -39,7 +39,9 @@ export async function getConnectionsList(brandId: string) {
       lastSyncedAt: true,
       lastError: true,
       tokenExpiresAt: true,
-      refreshToken: true
+      refreshToken: true,
+      // Compte en veille (lot E4) : badge « En veille » sur la page Comptes.
+      dormantAt: true
     },
     orderBy: { connectedAt: "desc" }
   });

@@ -34,6 +34,8 @@ import { EASTER_EGG_KEYS } from "@/lib/easter-eggs-registry";
 import { isAchievementSoundOn, playAchievementArpeggio, setAchievementSoundOn } from "@/lib/cosmic-audio";
 import type { Plan } from "@/lib/plans";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { restartGuidedTour } from "@/lib/tour-events";
 
 const COSMETIC_CATEGORIES: { key: CosmeticCategory; label: string }[] = [
   { key: "decor", label: "Décor" },
@@ -112,6 +114,16 @@ export default function SettingsPage() {
   // seule fois au montage plutôt que via CosmeticsProvider.
   const [publishSound, setPublishSound] = useState({ enabled: false, unlocked: false, loaded: false });
   const [savingPublishSound, setSavingPublishSound] = useState(false);
+  // Sons de l'interface (lot U5) : réglage du compte, servi par /api/me.
+  const uiSoundsOn = bootstrap.data?.uiSounds !== false;
+  const [savingUiSounds, setSavingUiSounds] = useState(false);
+  async function onToggleUiSounds() {
+    const next = !uiSoundsOn;
+    setSavingUiSounds(true);
+    const res = await fetch("/api/settings/ui-sounds", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) }).catch(() => null);
+    setSavingUiSounds(false);
+    if (res?.ok) bootstrap.patch({ uiSounds: next });
+  }
   // Son joué avec la célébration « Succès débloqué » (réglage de cet appareil).
   const [achievementSound, setAchievementSound] = useState(true);
   useEffect(() => setAchievementSound(isAchievementSoundOn()), []);
@@ -513,7 +525,7 @@ export default function SettingsPage() {
       <GlassCard>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-medium text-white">Marque blanche</h2>
-          {plan !== "AGENCY" && (
+          {!PLAN_LIMITS[plan].whiteLabelEnabled && (
             <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-amber-300">
               <IconLock className="h-3 w-3" /> Palier Agence
             </span>
@@ -524,7 +536,7 @@ export default function SettingsPage() {
           espace de travail. Les pages publiques envoyées à vos clients (rapports, calendrier, page bio, liens
           d&apos;approbation) gardent la mention &laquo; Propulsé par Nebula &raquo;.
         </p>
-        {plan !== "AGENCY" ? (
+        {!PLAN_LIMITS[plan].whiteLabelEnabled ? (
           <p className="mt-3 text-sm text-slate-500">
             Disponible avec le palier Agence.{" "}
             <Link href="/billing" className="text-aurora-300 hover:underline">
@@ -741,6 +753,33 @@ export default function SettingsPage() {
           </Link>
           .
         </p>
+      </GlassCard>
+
+      {/* Sons de l'interface (lot U5) et visite guidée (lot U4). */}
+      <GlassCard>
+        <h2 className="font-display text-base font-medium text-white">Sons de l&apos;interface</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Des sons très courts sur quelques actions clés : la visite guidée, votre première publication programmée, une mission réussie ou un coffre ouvert. Toujours après un clic, jamais au
+          chargement d&apos;une page. Coupé ici, plus aucun son nulle part (réglage de votre compte, sur tous vos appareils).
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={uiSoundsOn}
+            onClick={onToggleUiSounds}
+            disabled={savingUiSounds}
+            className={clsx(
+              "rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-60",
+              uiSoundsOn ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300" : "border-white/10 text-slate-300 hover:border-white/25"
+            )}
+          >
+            Sons de l&apos;interface {uiSoundsOn ? "activés" : "coupés"}
+          </button>
+          <button type="button" onClick={() => restartGuidedTour()} className="rounded-full px-3 py-2 text-sm text-slate-400 transition hover:text-white">
+            Revoir la visite
+          </button>
+        </div>
       </GlassCard>
 
       <GlassCard>

@@ -29,6 +29,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { GREETING_VARIANTS } from "@/lib/dashboard-greetings";
 import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
 import { saveComposerDraftNow } from "@/lib/composer-draft-client";
+import { TrialChoiceCard } from "@/components/billing/dormant-brand";
 
 
 const WEEKDAY_LABEL: Record<string, string> = {
@@ -272,6 +273,9 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
           </ButtonLink>
         }
       />
+
+      {/* Fin d'essai (lot E4) : 3 jours avant, choisir la marque qui reste active. */}
+      <TrialChoiceCard />
 
       {/* Raccourcis d'action rapide : rédiger ou importer un média sans
           naviguer jusqu'à la page Publier — voir onQuickCreate. */}

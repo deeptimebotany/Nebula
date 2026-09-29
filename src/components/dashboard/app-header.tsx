@@ -22,6 +22,7 @@ import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
 import { IconMenu, IconPlus, IconSearch, IconSparkle } from "./icons";
 import { useConnections } from "@/lib/data/hooks";
+import { limitsOf } from "@/lib/plans";
 
 interface ConnectionRow {
   id: string;
@@ -118,6 +119,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
               <button
                 type="button"
                 onClick={() => setAddOpen((v) => !v)}
+                data-tour="connect-account"
                 aria-label="Connecter un compte"
                 aria-haspopup="menu"
                 aria-expanded={addOpen}
@@ -186,7 +188,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
         {/* Assistant ancré à droite (ordinateur) : la barre perd ~420 px ;
             libellés et bouton de mise à niveau s'effacent pour que rien ne
             se chevauche (lot 5). */}
-        {data && data.plan !== "AGENCY" && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex [.nebula-assistant-docked_&]:hidden" label="Mettre à niveau" />}
+        {data && limitsOf(data.plan).upgradeTo && <UpgradeButton size="sm" className="hidden shrink-0 sm:inline-flex [.nebula-assistant-docked_&]:hidden" label="Mettre à niveau" />}
 
         <AccountSwitcher oauth={oauth} />
       </div>

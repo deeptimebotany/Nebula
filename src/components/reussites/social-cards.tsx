@@ -101,7 +101,7 @@ export function CollectiveCard({ collective, seasons }: { collective: Collective
         <p className="mt-1 text-xs text-slate-300">
           {cur.earned ? `Gagné (+${cur.xp} XP). Il ne se gagne que pendant la saison.` : `Réussir le défi du mois ${cur.target} fois cette saison (+${cur.xp} XP). Il ne se gagne que pendant la saison.`}
         </p>
-        <ul className="mt-2.5 flex gap-1.5" aria-label={`${doneInSeason} défi${doneInSeason > 1 ? "s" : ""} du mois réussi${doneInSeason > 1 ? "s" : ""} cette saison`}>
+        <ul className="mt-2.5 flex gap-1.5" role="list" aria-label={`${doneInSeason} défi${doneInSeason > 1 ? "s" : ""} du mois réussi${doneInSeason > 1 ? "s" : ""} cette saison`}>
           {cur.months.map((m) => (
             <li key={m.id} className={clsx("flex-1 rounded-lg border px-2 py-1.5 text-center text-[11px]", m.done ? "border-amber-300/50 bg-amber-300/[0.12] text-amber-100" : "border-white/[0.08] text-slate-400")}>
               {m.label.split(" ")[0]}

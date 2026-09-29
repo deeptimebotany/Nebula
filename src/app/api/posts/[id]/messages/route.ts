@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAiEnabled, chatComplete } from "@/lib/ai/gemini";
+import { isAiEnabled, chatComplete, type ChatMessage } from "@/lib/ai/gemini";
+import { trimHistory } from "@/lib/ai/assistant-prompts";
 import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
 import { ownedBy } from "@/lib/brand-access";
 import { z } from "zod";
 
@@ -72,6 +74,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ userMessage, assistantMessage: null });
   }
 
+  // Porte de l'IA (lot E2) : compte dans les messages de l'assistant du jour.
+  // Refus → même code et même raison que l'assistant (la page ouvre la
+  // fenêtre adaptée) ; le message de l'utilisateur reste enregistré.
+  const gate = await gateAppAi({ userId, brandId: post.brandId, kind: "assistant" });
+  if (!gate.ok) {
+    const body = await gate.response.json();
+    return NextResponse.json({ ...body, userMessage, assistantMessage: null }, { status: gate.response.status });
+  }
+
   const history = await prisma.postMessage.findMany({ where: { postId: params.id }, orderBy: { createdAt: "asc" } });
 
   const statsLines = post.targets.map((t: (typeof post.targets)[number]) => {
@@ -90,9 +101,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ].join("\n");
 
   try {
-    const reply = await chatComplete(
-      history.map((m: (typeof history)[number]) => ({ role: m.role === "USER" ? "user" : "model", text: m.content })),
-      systemInstruction
+    // Mêmes économies que l'assistant : 10 derniers messages, réponse bornée.
+    const reply = await gate.allowance.run(() =>
+      chatComplete(
+        trimHistory(history.map((m: (typeof history)[number]) => ({ role: m.role === "USER" ? "user" : "model", text: m.content }) as ChatMessage)),
+        systemInstruction,
+        { maxOutputTokens: 600 }
+      )
     );
     const assistantMessage = await prisma.postMessage.create({
       data: { postId: params.id, role: "ASSISTANT", content: reply }

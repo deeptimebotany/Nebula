@@ -7,7 +7,7 @@ import { isOwnerEmail } from "@/lib/dev-preview";
 
 export async function hasApiAccess(userId: string): Promise<boolean> {
   const [plan, user] = await Promise.all([getUserPlan(userId), prisma.user.findUnique({ where: { id: userId }, select: { email: true } })]);
-  return plan.plan === "AGENCY" || isOwnerEmail(user?.email);
+  return plan.limits.apiEnabled || isOwnerEmail(user?.email);
 }
 
 export interface BrandAccess {

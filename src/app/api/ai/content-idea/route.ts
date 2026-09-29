@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, generateContentIdea } from "@/lib/ai/gemini";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
 import { z } from "zod";
 
 const bodySchema = z.object({
@@ -31,16 +31,14 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
-  const { limits } = await getBrandPlan(brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
-  }
+  const gate = await gateAppAi({ userId: (session.user as { id: string }).id, brandId, kind: "text" });
+  if (!gate.ok) return gate.response;
 
   const brand = await prisma.brand.findUnique({ where: { id: brandId } });
   if (!brand) return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
 
   try {
-    const idea = await generateContentIdea({ brandName: brand.name, date });
+    const idea = await gate.allowance.run(() => generateContentIdea({ brandName: brand.name, date }));
     return NextResponse.json({ idea });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

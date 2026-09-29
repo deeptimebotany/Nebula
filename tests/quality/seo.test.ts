@@ -76,3 +76,19 @@ describe("données structurées", () => {
     expect(JSON.parse(out)["@graph"][0].name).toBe("</script><script>alert(1)</script>");
   });
 });
+
+describe("comparatifs (lot U2, brief « Essai 14 jours »)", () => {
+  it("plus de « en français » dans les titres, descriptions et images de partage des comparatifs ; prix lu dans plans.ts", () => {
+    const files = ["src/app/alternatives/[slug]/page.tsx", "src/app/alternatives/[slug]/opengraph-image.tsx", "src/app/alternatives/page.tsx", "src/app/prix/[slug]/page.tsx"];
+    for (const f of files) {
+      const src = readFileSync(path.join(process.cwd(), f), "utf8");
+      expect(src, f).not.toMatch(/en fran[cç]ais/i);
+    }
+    expect(SEO_ALTERNATIVES.description).not.toMatch(/fran[cç]ais/i);
+    const alt = readFileSync(path.join(process.cwd(), "src/app/alternatives/[slug]/page.tsx"), "utf8");
+    expect(alt).toContain("Nebula, dès ${tier0.priceMonthly} €/mois");
+    // Titre le plus long possible (nom de concurrent le plus long) : 60 caractères au plus.
+    const longest = `Alternative à Agorapulse : Nebula, dès ${PLAN_LIMITS.PRO.tiers[0].priceMonthly} €/mois`;
+    expect(longest.length).toBeLessThanOrEqual(60);
+  });
+});

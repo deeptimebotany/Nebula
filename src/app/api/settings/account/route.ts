@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordTrialGrant } from "@/lib/billing/trial-eligibility";
 
 // DELETE /api/settings/account { password } — suppression définitive du
 // compte. Redemande le mot de passe pour confirmer (au-delà de la boîte de
@@ -55,6 +56,11 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    // Registre des essais (lot E3) : un compte qui a eu un essai garde sa
+    // trace (empreinte de l'adresse seulement), pour que supprimer puis
+    // recréer son compte ne redonne pas d'essai — y compris pour les comptes
+    // créés avant ce registre.
+    if (user.trialEndsAt) await recordTrialGrant(user.email).catch(() => undefined);
     await prisma.$transaction([
       prisma.brand.deleteMany({ where: { id: { in: ownedMemberships.map((m: OwnedMembership) => m.brandId) } } }),
       prisma.user.delete({ where: { id: userId } })

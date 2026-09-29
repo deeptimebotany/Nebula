@@ -45,6 +45,17 @@ export function ipHashFromRequest(req: NextRequest): string {
   return hashIp(getClientIp(req));
 }
 
+/**
+ * Même empreinte d'adresse IP, à partir des seuls en-têtes (inscription,
+ * porte de l'IA, registre des essais). « unknown » (aucun en-tête : appel
+ * interne, tests) donne une empreinte fixe.
+ */
+export function ipHashFromHeaders(headers: { get(name: string): string | null }): string {
+  const forwarded = headers.get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0].trim() : headers.get("x-real-ip") || "unknown";
+  return hashIp(ip);
+}
+
 export async function grantLeadBonus(req: NextRequest): Promise<void> {
   const ipHash = hashIp(getClientIp(req));
   const day = todayUtc();

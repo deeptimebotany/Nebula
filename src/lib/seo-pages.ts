@@ -37,7 +37,7 @@ export const SEO_HOME: SeoPage = {
 export const SEO_PRICING: SeoPage = {
   path: "/tarifs",
   title: `Tarifs : gratuit, Pro dès ${PRO_FROM.priceMonthly} €/mois, Agence dès ${AGENCY_FROM.priceMonthly} €`,
-  description: `Gratuit pour commencer, Pro dès ${PRO_FROM.priceMonthly} € par mois pour ${PRO_FROM.maxBrands} marques, Agence dès ${AGENCY_FROM.priceMonthly} € pour ${AGENCY_FROM.maxBrands} marques. ${TRIAL_DAYS} jours de Pro offerts, sans carte bancaire.`,
+  description: `Gratuit pour commencer, Pro dès ${PRO_FROM.priceMonthly} € par mois pour ${PRO_FROM.maxBrands} marques, Agence dès ${AGENCY_FROM.priceMonthly} € pour ${AGENCY_FROM.maxBrands} marques. ${TRIAL_DAYS} jours d'essai offerts, sans carte bancaire.`,
   eyebrow: "Tarifs",
   imageTitle: "Des tarifs simples, en euros",
   imageSubtitle: `Gratuit pour commencer · Pro dès ${PRO_FROM.priceMonthly} €/mois · Agence dès ${AGENCY_FROM.priceMonthly} €/mois`
@@ -69,7 +69,7 @@ export const SEO_TOOLS: Record<string, SeoPage> = {
     toolName: "Générateur de légendes et de titres",
     title: "Générateur de légendes Instagram et TikTok (IA)",
     description:
-      "Décrivez votre publication : l'IA écrit une légende ou un titre pour Instagram, TikTok, YouTube ou Facebook. Démo sans compte, compte gratuit pour générer.",
+      "Décrivez votre publication : l'IA écrit le titre et la légende pour Instagram, TikTok, YouTube ou Facebook, avec l'aperçu. Avec un compte gratuit.",
     eyebrow: "Outil IA",
     imageTitle: "Générateur de légendes",
     imageSubtitle: "Instagram · TikTok · YouTube · Facebook"
@@ -79,10 +79,10 @@ export const SEO_TOOLS: Record<string, SeoPage> = {
     toolName: "Générateur de miniatures",
     title: "Générateur de miniatures YouTube par IA",
     description:
-      "Transformez une photo en miniature YouTube ou TikTok qui donne envie de cliquer : couleurs, contraste, titre. Démo sans compte, compte gratuit requis.",
+      "Déposez votre vidéo : les meilleures images en ressortent, en aperçu YouTube ou TikTok. L'IA les rend plus percutantes avec un compte gratuit.",
     eyebrow: "Outil IA",
     imageTitle: "Générateur de miniatures",
-    imageSubtitle: "Une photo devient une miniature YouTube percutante"
+    imageSubtitle: "Les meilleures images de votre vidéo, en miniature"
   },
   "bio-instagram": {
     path: "/outils/bio-instagram",
@@ -177,7 +177,7 @@ export const SEO_LOGIN: SeoPage = {
 export const SEO_ALTERNATIVES: SeoPage = {
   path: "/alternatives",
   title: "Alternatives à Hootsuite, Buffer, Metricool… comparées",
-  description: `Hootsuite, Buffer, Later, Metricool, Swello, Agorapulse… : prix constatés et fonctions comparées face à Nebula, en français, dès ${PRO_FROM.priceMonthly} € par mois.`,
+  description: `Hootsuite, Buffer, Later, Metricool, Swello, Agorapulse… : prix constatés et fonctions comparées face à Nebula, dès ${PRO_FROM.priceMonthly} € par mois.`,
   eyebrow: "Comparatifs"
 };
 

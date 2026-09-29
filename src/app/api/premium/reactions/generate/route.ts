@@ -5,6 +5,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { isAiEnabled, generateStickerPack } from "@/lib/ai/gemini";
 import { saveGeneratedImage } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
+import { runWithAiContext } from "@/lib/ai/usage";
 
 // Le pack par défaut — cohérent avec l'identité "Or Impérial" du statut
 // Premium (voir globals.css::.glow-border-gold). Modifiable librement :
@@ -47,7 +48,8 @@ export async function POST() {
 
   for (const item of PACK) {
     try {
-      const { base64, mimeType } = await generateStickerPack({ prompt: item.prompt });
+      // Coût rangé sous « ADMIN » dans /admin/ia (hors quotas : action du propriétaire).
+      const { base64, mimeType } = await runWithAiContext({ plan: "ADMIN", kind: "image", billed: false }, () => generateStickerPack({ prompt: item.prompt }));
       const { url } = await saveGeneratedImage({ base64, mimeType, baseName: item.key });
       await prisma.premiumReaction.upsert({
         where: { key: item.key },

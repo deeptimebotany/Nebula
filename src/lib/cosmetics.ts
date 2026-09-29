@@ -1,3 +1,4 @@
+import { planIncludes } from "@/lib/plans";
 // Catalogue des "cosmétiques" : du contenu visuel/sonore RÉEL (halos, décors,
 // sons...) débloqué SOIT par palier (requiresPlan) SOIT en trouvant un
 // easter egg (requiresEgg, voir easter-eggs-registry.ts) — jamais les deux à
@@ -141,6 +142,5 @@ export function findCosmetic(key: string): CosmeticDefinition | undefined {
 export function canUseCosmetic(cosmetic: CosmeticDefinition, plan: Plan): boolean {
   if (cosmetic.requiresEgg) return false;
   if (!cosmetic.requiresPlan) return true;
-  const order: Plan[] = ["FREE", "PRO", "AGENCY"];
-  return order.indexOf(plan) >= order.indexOf(cosmetic.requiresPlan);
+  return planIncludes(plan, cosmetic.requiresPlan);
 }

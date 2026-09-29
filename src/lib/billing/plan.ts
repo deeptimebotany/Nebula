@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   PLAN_LIMITS,
+  isPaidPlanId,
   planOf,
   intervalOf,
   maxBrandsOf,
@@ -17,7 +18,7 @@ export interface UserPlanInfo {
   interval: BillingInterval;
   maxBrands: number;
   aiTrialUntil: Date | null;
-  /** Vrai quand le palier vient de l'essai Pro applicatif (pas d'abonnement payant). */
+  /** Vrai pendant l'essai (palier TRIAL, sans abonnement payant). */
   onTrial: boolean;
   trialEndsAt: Date | null;
   /** Abonnement payant en pause (Stripe pause_collection) jusqu'à cette date. */
@@ -44,8 +45,8 @@ const FREE_INFO: UserPlanInfo = {
 // FONCTION DE VÉRITÉ UNIQUE du palier effectif (brief growth, lot G2) :
 //   1. abonnement payant actif (ACTIVE/TRIALING côté Stripe) et non en
 //      pause → son palier ;
-//   2. sinon, essai Pro applicatif en cours (User.trialEndsAt > maintenant)
-//      → Pro, avec le premier palier de marques Pro ;
+//   2. sinon, essai en cours (User.trialEndsAt > maintenant) → palier
+//      « Essai » (TRIAL, lot E1 du 29/09/2026 ; avant : Pro) ;
 //   3. sinon → Gratuit.
 // Tous les gardes de fonctionnalités (rapports, calendrier client, liens de
 // page bio, IA, Rétention, nombre de marques, quotas, thèmes) passent par
@@ -64,7 +65,7 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
   const now = new Date();
   const pausedUntil = subscription?.pausedUntil && subscription.pausedUntil.getTime() > now.getTime() ? subscription.pausedUntil : null;
   const paidPlan = pausedUntil ? "FREE" : planOf(subscription);
-  const paid = paidPlan !== "FREE";
+  const paid = PLAN_LIMITS[paidPlan].purchasable;
 
   if (paid) {
     return {
@@ -83,7 +84,7 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
 
   // 1 bis. Accès offert (partenaires, voir src/lib/billing/partners.ts) :
   // palier attribué par le propriétaire, sans Stripe, jusqu'à compUntil.
-  const compPlan = user?.compPlan === "PRO" || user?.compPlan === "AGENCY" ? (user.compPlan as Plan) : null;
+  const compPlan = isPaidPlanId(user?.compPlan) ? user.compPlan : null;
   if (compPlan && (!user?.compUntil || user.compUntil.getTime() > now.getTime())) {
     const limits = PLAN_LIMITS[compPlan];
     const tier = limits.tiers.find((t) => t.maxBrands === user?.compMaxBrands) ?? limits.tiers[0];
@@ -101,11 +102,14 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
     };
   }
 
+  // 2. Essai en cours : palier « Essai » à part entière (lot E1, 29/09/2026),
+  // avec ses propres limites (IA bridée, 2 marques à la création). Le payant
+  // gagne toujours sur l'essai (cas 1 ci-dessus).
   const onTrial = isTrialActive(user?.trialEndsAt, now);
   if (onTrial) {
-    const limits = PLAN_LIMITS.PRO;
+    const limits = PLAN_LIMITS.TRIAL;
     return {
-      plan: "PRO",
+      plan: "TRIAL",
       limits,
       interval: "month",
       maxBrands: limits.tiers[0].maxBrands,
@@ -124,7 +128,8 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
   const limits = PLAN_LIMITS.FREE;
   return {
     plan: "FREE",
-    limits: aiOnly ? { ...limits, aiEnabled: true } : limits,
+    // Ancien essai IA de parrainage : l'IA de l'essai, pas davantage.
+    limits: aiOnly ? { ...limits, aiEnabled: true, aiDaily: PLAN_LIMITS.TRIAL.aiDaily, studioDailyLimit: PLAN_LIMITS.TRIAL.studioDailyLimit } : limits,
     interval: "month",
     maxBrands: limits.tiers[0].maxBrands,
     aiTrialUntil: aiOnly ? user!.aiTrialUntil! : null,

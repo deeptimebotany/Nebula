@@ -18,6 +18,7 @@ import type { Network } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { PostStats } from "@/components/posts/post-stats";
+import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "En ligne",
@@ -62,6 +63,7 @@ interface PostDetail {
 // et de remplacer le fichier vidéo/image, sans repasser par tout le composer.
 export function PostEditModal({ postId, onClose, onSaved }: { postId: string; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
+  const upgrade = useUpgradeModal();
   const [post, setPost] = useState<PostDetail | null>(null);
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
@@ -140,6 +142,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
     const data = await res.json();
     setAiBusy(null);
     if (!res.ok) {
+      if (upgrade.openFromResponse(res.status, data)) return;
       toast.error(data.error ?? "Échec de la génération IA.");
       return;
     }
@@ -163,6 +166,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
     setSaving(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      if (upgrade.openFromResponse(res.status, data)) return;
       toast.error(data.error ?? "Échec de l'enregistrement.");
       return;
     }

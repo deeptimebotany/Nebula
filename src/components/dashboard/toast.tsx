@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { playPulsarChime } from "@/lib/cosmic-audio";
+import { useBootstrap } from "@/components/bootstrap-provider";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -52,12 +53,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hasCosmetic.current = cosmetics.has;
   }, [cosmetics.has]);
+  // « Sons de l'interface » coupés (lot U5) : plus aucun son, cosmétiques compris.
+  const { data: me } = useBootstrap();
+  const soundsOn = useRef(true);
+  useEffect(() => {
+    soundsOn.current = me?.uiSounds !== false;
+  }, [me?.uiSounds]);
 
   const push = useCallback(
     (kind: ToastKind, message: string) => {
       const id = Math.random().toString(36).slice(2);
       setToasts((prev) => [...prev, { id, kind, message }]);
-      if (kind === "success" && hasCosmetic.current("son-pulsar")) {
+      if (kind === "success" && soundsOn.current && hasCosmetic.current("son-pulsar")) {
         try {
           playPulsarChime();
         } catch {

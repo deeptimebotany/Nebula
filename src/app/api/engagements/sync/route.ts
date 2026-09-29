@@ -7,6 +7,7 @@ import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
+import { dormantSyncResponse, withoutDormant } from "@/lib/billing/dormant";
 
 // « Actualiser » de la page /engagements : interroge l'API de chaque réseau
 // (SocialClient.fetchPostMetrics) pour les comptes d'une marque, ou pour un
@@ -22,12 +23,15 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { connectionId?: string; brandId?: string };
   if (!body.connectionId && !body.brandId) return NextResponse.json({ error: "connectionId ou brandId requis" }, { status: 400 });
 
-  const connections = await prisma.socialConnection.findMany({
+  const found = await prisma.socialConnection.findMany({
     where: body.connectionId
       ? { id: body.connectionId, brand: ownedBy(userId) }
       : { brandId: body.brandId as string, status: "CONNECTED", brand: ownedBy(userId) }
   });
-  if (connections.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+  if (found.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+  // Marque ou comptes en veille (lot E4) : aucune synchronisation.
+  const connections = await withoutDormant(found);
+  if (connections.length === 0) return dormantSyncResponse();
 
   const results: { connectionId: string; network: string; displayName: string; count: number; error?: string; unsupported?: boolean }[] = [];
 

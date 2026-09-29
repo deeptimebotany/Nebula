@@ -23,7 +23,12 @@ export const PUBLIC_GROWTH_EVENTS = [
   "upgrade_modal_shown",
   "upgrade_modal_clicked",
   "referral_prompt_shown",
-  "referral_link_copied"
+  "referral_link_copied",
+  // Visite guidée (lot U4, brief « Essai 14 jours »)
+  "tour_started",
+  "tour_step",
+  "tour_skipped",
+  "tour_completed"
 ] as const;
 
 export type PublicGrowthEvent = (typeof PUBLIC_GROWTH_EVENTS)[number];

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, chatComplete, GeminiQuotaError, type ChatMessage } from "@/lib/ai/gemini";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { isAssistantContextKey, type AssistantContextKey } from "@/lib/ai/assistant-contexts";
@@ -19,10 +19,10 @@ import { z } from "zod";
 //      serveur assemble une instruction courte et n'injecte que les données
 //      utiles à cet onglet ;
 //   2. l'historique est tronqué aux 10 derniers messages, chacun plafonné ;
-//   3. un plafond par utilisateur (AI_CHAT_LIMIT messages / fenêtre) évite
-//      qu'une boucle ou un enthousiasme excessif vide le quota de tout le
-//      monde — la limite est partagée par tous les utilisateurs du site
-//      puisque la clé Gemini l'est ;
+//   3. un nombre de messages par jour et par compte selon le palier (porte
+//      de l'IA, lib/ai/guard.ts) et une rafale par utilisateur
+//      (AI_CHAT_LIMIT messages / fenêtre) : une boucle ou un enthousiasme
+//      excessif ne vide pas le quota de tout le monde ;
 //   4. un 429 Gemini est renvoyé en 429 (et non 500) avec un délai, pour
 //      que le tiroir affiche un compte à rebours au lieu d'une erreur.
 // L'accueil et les suggestions du tiroir ne passent JAMAIS par ici : ils
@@ -155,15 +155,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { limits, plan } = await getBrandPlan(brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
-  }
+  // Porte de l'IA (lot E2) : palier de la marque, messages du jour du compte
+  // (Essai 20, Pro 100, Agence 300 — plans.ts), adresse confirmée et budget
+  // global pendant l'essai. Vérifiée APRÈS les easter eggs (gratuits).
+  const gate = await gateAppAi({ userId, brandId, kind: "assistant" });
+  if (!gate.ok) return gate.response;
+  const plan = gate.info.plan;
 
-  // Plafond par utilisateur — vérifié APRÈS les easter eggs (gratuits) et
-  // AVANT toute lecture de données ou appel Gemini.
+  // Rafale par utilisateur — AVANT toute lecture de données ou appel Gemini.
   const limit = await consumeRateLimit("ai-chat", userId, AI_CHAT_LIMIT, AI_CHAT_WINDOW_MINUTES);
   if (!limit.ok) {
+    await gate.allowance.release();
     return NextResponse.json(
       {
         error: `Vous avez envoyé beaucoup de questions d'un coup — l'assistant reprend dans ${Math.ceil(limit.retryAfterSeconds / 60)} min. (Le quota gratuit de l'IA est partagé entre tous les utilisateurs.)`,
@@ -186,7 +188,10 @@ export async function POST(req: NextRequest) {
       linkPage: mod.needs.bioPage ? { include: { links: { orderBy: { order: "asc" }, take: 8 } } } : false
     }
   });
-  if (!brand) return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
+  if (!brand) {
+    await gate.allowance.release();
+    return NextResponse.json({ error: "Marque introuvable" }, { status: 404 });
+  }
 
   type Connection = { network: string; displayName: string; analytics: { followers: number; impressions: number; reach: number }[] };
   type Post = { title: string | null; caption: string; status: string; targets: { network: string }[] };
@@ -251,7 +256,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const history = trimHistory(messages as ChatMessage[]);
-    const raw = await chatComplete(history, systemInstruction, { maxOutputTokens: mod.maxOutputTokens });
+    const raw = await gate.allowance.run(() => chatComplete(history, systemInstruction, { maxOutputTokens: mod.maxOutputTokens }));
 
     if (contextKey === "thumbnails") {
       const { text, brief } = extractThumbnailBrief(raw);

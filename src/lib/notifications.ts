@@ -263,7 +263,8 @@ const NO_AUTO_REFRESH = new Set(["LINKEDIN"]);
 export async function remindExpiringConnections(now = new Date()): Promise<number> {
   const soon = new Date(now.getTime() + 7 * 86_400_000);
   const rows = await prisma.socialConnection.findMany({
-    where: { status: "CONNECTED", tokenExpiresAt: { not: null, lte: soon } },
+    // Comptes en veille (lot E4) exclus : ils seront « à reconnecter » à la réactivation si besoin.
+    where: { status: "CONNECTED", dormantAt: null, brand: { dormantAt: null }, tokenExpiresAt: { not: null, lte: soon } },
     select: { id: true, brandId: true, network: true, displayName: true, tokenExpiresAt: true, refreshToken: true }
   });
   let sent = 0;

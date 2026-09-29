@@ -12,6 +12,7 @@ import { SocialApiError, fetchJson } from "@/lib/social/base";
 import { classifyProviderError } from "@/lib/social/errors";
 import { opt, soft, textSchema, z } from "@/lib/social/contract";
 import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
+import { recordAiUsage } from "@/lib/ai/usage";
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 // Google retire régulièrement les anciens modèles (gemini-2.5-flash a été
@@ -60,7 +61,15 @@ const responsePartSchema = z.object({ text: textSchema, inlineData: soft(inlineS
 const generateResponseSchema = z
   .object({
     candidates: opt(z.array(z.object({ content: soft(z.object({ parts: soft(z.array(responsePartSchema)) })), finishReason: textSchema }))),
-    promptFeedback: soft(z.object({ blockReason: textSchema }))
+    promptFeedback: soft(z.object({ blockReason: textSchema })),
+    // Jetons facturés (lot E5, mesure des coûts) : la « pensée » compte en sortie.
+    usageMetadata: soft(
+      z.object({
+        promptTokenCount: soft(z.number()),
+        candidatesTokenCount: soft(z.number()),
+        thoughtsTokenCount: soft(z.number())
+      })
+    )
   })
   .superRefine((d, ctx) => {
     // Sans candidat, Gemini explique toujours pourquoi (promptFeedback).
@@ -142,7 +151,7 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
   for (let attempt = 1; ; attempt++) {
     const remaining = deadline - Date.now();
     try {
-      return await fetchJson("GEMINI", url, {
+      const data = await fetchJson("GEMINI", url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify(body),
@@ -150,6 +159,16 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
         timeoutMs: Math.max(1_000, Math.min(GEMINI_ATTEMPT_TIMEOUT_MS, remaining)),
         schema: generateResponseSchema
       });
+      // Réponse reçue = appel facturé : jetons et images comptés (lot E5).
+      const usage = data.usageMetadata;
+      const images = (data.candidates?.[0]?.content?.parts ?? []).filter((p) => (p.inlineData ?? p.inline_data)?.data).length;
+      await recordAiUsage({
+        inputTokens: usage?.promptTokenCount ?? 0,
+        outputTokens: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
+        images,
+        imageModel: model === IMAGE_MODEL
+      });
+      return data;
     } catch (err) {
       if (!(err instanceof SocialApiError)) throw err;
       const status = (err.raw as { error?: { status?: string } } | undefined)?.error?.status;

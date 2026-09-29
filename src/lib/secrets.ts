@@ -27,7 +27,7 @@ export function appSecret(): string {
   return secret;
 }
 
-export type KeyPurpose = "oauth-state" | "unsubscribe" | "email-verify" | "lead-confirm";
+export type KeyPurpose = "oauth-state" | "unsubscribe" | "email-verify" | "lead-confirm" | "trial-grant";
 
 const derived = new Map<string, Buffer>();
 

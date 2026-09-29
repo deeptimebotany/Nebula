@@ -1,6 +1,6 @@
 import { GlassCard } from "@/components/ui/glass-card";
 import { PublicShell, PublicPageHeading } from "@/components/marketing/public-shell";
-import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL } from "@/lib/site";
+import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL, formatSiren } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
 import { SEO_LEGAL } from "@/lib/seo-pages";
 
@@ -12,10 +12,11 @@ import { SEO_LEGAL } from "@/lib/seo-pages";
 // /privacy restent des adresses valides (redirections permanentes vers ces
 // ancres, voir next.config.js) pour ceux qui demandent deux URLs.
 //
-// Les informations d'éditeur viennent de SITE_LEGAL (variables
-// d'environnement, voir .env.example) : tant qu'elles ne sont pas
-// renseignées, la page l'indique honnêtement plutôt que d'afficher des
-// valeurs inventées. Ceci n'est pas un avis juridique.
+// Les informations d'éditeur viennent de SITE_LEGAL (src/lib/site.ts :
+// entreprise individuelle immatriculée au RNE le 23/09/2026 ; une variable
+// d'environnement peut corriger une valeur, voir .env.example). Si l'une
+// manquait, la page l'indiquerait honnêtement plutôt que d'inventer. Ceci
+// n'est pas un avis juridique.
 
 const LAST_UPDATED = "29 septembre 2026";
 
@@ -89,9 +90,27 @@ export default function LegalPage() {
         <h2 className="font-display text-xl font-semibold text-white">Mentions légales</h2>
         <dl>
           <Row label="Site" value={<a href={SITE_URL} className="text-aurora-300 hover:underline">{SITE_URL.replace(/^https?:\/\//, "")}</a>} />
-          <Row label="Éditeur" value={registered ? SITE_LEGAL.publisherName : pending} />
+          <Row
+            label="Éditeur"
+            value={registered ? `${SITE_LEGAL.publisherName}, entrepreneur individuel, sous le nom commercial ${SITE_LEGAL.tradeName}` : pending}
+          />
           <Row label="Forme juridique" value={SITE_LEGAL.publisherForm} />
-          <Row label="Immatriculation" value={SITE_LEGAL.siren ? `SIREN ${SITE_LEGAL.siren}` : pending} />
+          <Row
+            label="Immatriculation"
+            value={
+              SITE_LEGAL.siren ? (
+                <>
+                  SIREN {formatSiren(SITE_LEGAL.siren)}
+                  {SITE_LEGAL.siret && <> · SIRET {formatSiren(SITE_LEGAL.siret)}</>}
+                  <br />
+                  Inscrit au {SITE_LEGAL.registry} le {SITE_LEGAL.registeredAt}
+                </>
+              ) : (
+                pending
+              )
+            }
+          />
+          <Row label="Activité (code APE)" value={`${SITE_LEGAL.apeCode} — ${SITE_LEGAL.apeLabel}`} />
           <Row label="Adresse" value={SITE_LEGAL.address || pending} />
           <Row label="Responsable de la publication" value={SITE_LEGAL.publicationDirector || SITE_LEGAL.publisherName || pending} />
           <Row label="Contact" value={<a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">{SITE_CONTACT_EMAIL}</a>} />
@@ -241,7 +260,15 @@ export default function LegalPage() {
 
         <Section title="1. Responsable du traitement">
           <p>
-            Le responsable du traitement est l&apos;éditeur du Service indiqué dans les mentions légales ci-dessus,
+            Le responsable du traitement est l&apos;éditeur du Service
+            {registered ? (
+              <>
+                , {SITE_LEGAL.publisherName}, entrepreneur individuel (nom commercial {SITE_LEGAL.tradeName}, SIREN{" "}
+                {formatSiren(SITE_LEGAL.siren)}), {SITE_LEGAL.address},
+              </>
+            ) : (
+              <> indiqué dans les mentions légales ci-dessus,</>
+            )}{" "}
             joignable à{" "}
             <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
               {SITE_CONTACT_EMAIL}
@@ -261,6 +288,15 @@ export default function LegalPage() {
             plateformes renvoient. Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
             plus deux jours, pour limiter les tentatives abusives sur les formulaires publics. Votre choix concernant
             les statistiques anonymes, avec sa date.
+          </p>
+          <p>
+            Registre des essais (prévention des abus) : pour qu&apos;un essai gratuit ne soit accordé qu&apos;une fois par
+            personne, {SITE_NAME} garde, à chaque essai accordé, une empreinte de votre adresse email (calcul à sens
+            unique, sous une forme simplifiée : minuscules, sans alias « + ») et l&apos;empreinte de l&apos;adresse IP
+            d&apos;inscription — jamais l&apos;adresse elle-même. Ces empreintes ne servent qu&apos;à vérifier
+            l&apos;éligibilité à un nouvel essai, jamais à vous identifier ni à la connexion ; elles restent 12 mois, y
+            compris après la suppression du compte, puis sont effacées automatiquement. Pour l&apos;IA, des compteurs
+            d&apos;usage du jour sont tenus par compte (sous une empreinte), gardés au plus 8 jours.
           </p>
           <p>
             Formulaire de contact : votre nom, votre adresse e-mail, le sujet et votre message, uniquement pour vous
@@ -356,7 +392,9 @@ export default function LegalPage() {
             Vos données sont conservées tant que votre compte est actif. En cas de suppression du compte (Paramètres
             → Compte &amp; confidentialité), vos données personnelles, vos contenus et les jetons de connexion sont
             effacés de nos systèmes ; les données de facturation sont conservées par Stripe et par nous le temps
-            requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours. Les rapports
+            requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours ; les compteurs
+            d&apos;usage de l&apos;IA sous huit jours ; le registre des essais (empreintes seulement) au bout de 12 mois,
+            même si le compte a été supprimé entre-temps. Les rapports
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
             contact sont supprimés 12 mois après leur réception. Les statistiques de groupe anonymes ne sont pas des
             données personnelles et peuvent être conservées sans limite.

@@ -12,23 +12,34 @@ export type TrialSummary = Awaited<ReturnType<typeof computeTrialSummary>>;
 export async function computeTrialSummary(userId: string) {
   const [info, user] = await Promise.all([
     getUserPlan(userId),
-    prisma.user.findUnique({ where: { id: userId }, select: { trialEndsAt: true, createdAt: true, memberships: { where: { role: "OWNER" }, select: { brandId: true } } } })
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { trialEndsAt: true, createdAt: true, freeActiveBrandId: true, memberships: { where: { role: "OWNER" }, select: { brandId: true, brand: { select: { name: true, dormantAt: true } } } } }
+    })
   ]);
   const brandIds = user?.memberships.map((m) => m.brandId) ?? [];
   const since = user?.createdAt ?? new Date(0);
-  const [scheduledPosts, reports, calendarShares, bioLinks, retentionAnalyses, mediaKits] = await Promise.all([
+  const [scheduledPosts, reports, calendarShares, bioLinks, retentionAnalyses, mediaKits, drafted] = await Promise.all([
     prisma.post.count({ where: { brandId: { in: brandIds }, createdAt: { gte: since }, status: { in: ["SCHEDULED", "PUBLISHED", "PUBLISHING"] } } }),
     prisma.brandReport.count({ where: { brandId: { in: brandIds }, enabled: true } }),
     prisma.calendarShare.count({ where: { brandId: { in: brandIds }, enabled: true } }),
     prisma.linkItem.count({ where: { linkPage: { brandId: { in: brandIds } } } }),
     prisma.videoInsight.count({ where: { connection: { brandId: { in: brandIds } } } }).catch(() => 0),
-    mediaKitDb.count({ where: { brandId: { in: brandIds }, published: true } }).catch(() => 0)
+    mediaKitDb.count({ where: { brandId: { in: brandIds }, published: true } }).catch(() => 0),
+    // Fin d'essai (lot E4) : publications lointaines repassées en brouillon.
+    prisma.post.count({ where: { brandId: { in: brandIds }, status: "DRAFT", dormantScheduledAt: { not: null } } })
   ]);
+  const owned = user?.memberships ?? [];
+  const active = owned.find((m) => m.brandId === user?.freeActiveBrandId) ?? owned.find((m) => !m.brand.dormantAt) ?? null;
   const freeLinks = PLAN_LIMITS.FREE.maxBioLinks;
   return {
     onTrial: info.onTrial,
     paid: info.paid,
     trialEndsAt: user?.trialEndsAt ? user.trialEndsAt.toISOString() : null,
+    /** Lot E4 : marque restée active, marques en veille, brouillons. */
+    activeBrand: active ? { id: active.brandId, name: active.brand.name } : null,
+    dormantBrands: owned.filter((m) => m.brand.dormantAt).length,
+    drafted,
     used: {
       scheduledPosts,
       reportsPublished: reports,

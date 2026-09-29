@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const denied = await requireBrandMembership(userId, brandId);
   if (denied) return denied;
   const writable = await assertBrandWritable(brandId);
-  if (!writable.ok) return NextResponse.json({ error: writable.message, reason: "second_brand" }, { status: 402 });
+  if (!writable.ok) return NextResponse.json({ error: writable.message, reason: writable.reason }, { status: 402 });
 
   const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { timezone: true } });
   if (!brand) return NextResponse.json({ error: "Marque introuvable." }, { status: 404 });

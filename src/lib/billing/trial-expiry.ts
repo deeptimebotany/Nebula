@@ -1,31 +1,24 @@
-// Fin d'essai Pro (brief growth, lot G2.a) — appliquée par /api/cron et le
-// worker, jamais destructive : « rien n'est supprimé ».
-//   - liens de page bio au-delà de la limite Gratuit : conservés mais
-//     DÉSACTIVÉS (grisés « Pro » dans l'éditeur) ;
-//   - rapports et calendrier client : dépubliés (la page publique affiche
-//     « n'est plus partagé ») ; media kit : dépublié (réglages gardés) ;
-//   - marques au-delà de la limite : lecture seule, appliquée à la volée par
-//     assertBrandWritable() (ci-dessous) — rien à faire ici ;
-//   - Rétention IA et assistant : verrouillés par getUserPlan() ;
-//   - les publications déjà programmées partent quand même (runDuePosts ne
-//     regarde pas le palier).
+// Fin d'essai (brief growth, lot G2.a, revu au lot E4 du brief « Essai 14
+// jours », 29/09/2026) — appliquée par /api/cron et le worker, jamais
+// destructive : « rien n'est supprimé ». Tout le détail est dans
+// applyFreeLimits() (src/lib/billing/free-limits.ts), commune à toutes les
+// descentes en Gratuit : marque active gardée, autres marques en veille,
+// publications lointaines en brouillon, page bio en version Gratuit,
+// rapports / calendrier client / media kit dépubliés.
 // Idempotent : trialExpiredAppliedAt marque les comptes déjà traités.
 //
 // Et la migration ponctuelle des comptes gratuits existants au déploiement
 // (« trial_gift ») : tout compte SANS trialEndsAt et sans abonnement payant
-// reçoit 14 jours de Pro, une seule fois — les nouveaux comptes ayant
-// toujours une date dès l'inscription, seuls les anciens sont concernés.
+// reçoit 14 jours d'essai, une seule fois — les nouveaux comptes ayant
+// toujours une date dès l'inscription (ou un refus d'essai, lot E3), seuls
+// les anciens sont concernés.
 import { prisma } from "@/lib/prisma";
-import { PLAN_LIMITS } from "@/lib/plans";
 import { getUserPlan } from "@/lib/billing/plan";
 import { trialEndDate } from "@/lib/trial";
 import { trackGrowth } from "@/lib/growth";
-import { invalidateLinkPage } from "@/lib/link-in-bio-cache";
-import { mediaKitDb } from "@/lib/media-kit/load";
-import { invalidateMediaKit } from "@/lib/media-kit/cache";
+import { applyFreeLimits, DORMANT_BRAND_MESSAGE } from "@/lib/billing/free-limits";
 
-export async function applyTrialExpirations(): Promise<{ applied: number }> {
-  const now = new Date();
+export async function applyTrialExpirations(now: Date = new Date()): Promise<{ applied: number }> {
   const expired = await prisma.user.findMany({
     where: { trialEndsAt: { lte: now }, trialExpiredAppliedAt: null },
     select: { id: true, memberships: { where: { role: "OWNER" }, select: { brandId: true } } },
@@ -40,26 +33,9 @@ export async function applyTrialExpirations(): Promise<{ applied: number }> {
       await prisma.user.update({ where: { id: user.id }, data: { trialExpiredAppliedAt: now } });
       continue;
     }
-    const brandIds = user.memberships.map((m) => m.brandId);
-    const limit = PLAN_LIMITS.FREE.maxBioLinks;
-    for (const brandId of brandIds) {
-      const page = await prisma.linkPage.findUnique({ where: { brandId }, select: { id: true, links: { orderBy: { order: "asc" }, select: { id: true } } } });
-      if (page && page.links.length > limit) {
-        const extra = page.links.slice(limit).map((l) => l.id);
-        await prisma.linkItem.updateMany({ where: { id: { in: extra } }, data: { enabled: false } });
-      }
-      // Page bio publique : liens désactivés et thème premium retirés tout
-      // de suite plutôt qu'à l'expiration du cache (lot 4).
-      if (page) await invalidateLinkPage(brandId);
-    }
-    if (!PLAN_LIMITS.FREE.reportsEnabled) await prisma.brandReport.updateMany({ where: { brandId: { in: brandIds }, enabled: true }, data: { enabled: false } });
-    if (!PLAN_LIMITS.FREE.calendarShareEnabled) await prisma.calendarShare.updateMany({ where: { brandId: { in: brandIds }, enabled: true }, data: { enabled: false } });
-    if (!PLAN_LIMITS.FREE.mediaKitEnabled) {
-      const { count } = await mediaKitDb.updateMany({ where: { brandId: { in: brandIds }, published: true }, data: { published: false } });
-      if (count) for (const brandId of brandIds) await invalidateMediaKit(brandId);
-    }
+    const result = await applyFreeLimits(user.id, "trial_end", now);
     await prisma.user.update({ where: { id: user.id }, data: { trialExpiredAppliedAt: now } });
-    await trackGrowth("trial_ended", { brands: brandIds.length }, user.id);
+    await trackGrowth("trial_ended", { brands: user.memberships.length, dormant: result.dormantBrands, drafted: result.drafted }, user.id);
     applied += 1;
   }
   return { applied };
@@ -67,7 +43,8 @@ export async function applyTrialExpirations(): Promise<{ applied: number }> {
 
 export async function grantTrialToLegacyAccounts(): Promise<{ granted: number }> {
   const legacy = await prisma.user.findMany({
-    where: { trialEndsAt: null, OR: [{ subscription: null }, { subscription: { plan: "FREE" } }, { subscription: { status: { notIn: ["ACTIVE", "TRIALING"] } } }] },
+    // Jamais les comptes dont l'essai a été refusé à l'inscription (lot E3).
+    where: { trialEndsAt: null, trialDeniedAt: null, OR: [{ subscription: null }, { subscription: { plan: "FREE" } }, { subscription: { status: { notIn: ["ACTIVE", "TRIALING"] } } }] },
     select: { id: true },
     take: 500
   });
@@ -79,23 +56,44 @@ export async function grantTrialToLegacyAccounts(): Promise<{ granted: number }>
 }
 
 /**
- * Marques au-delà de la limite du palier : lecture seule (aucune nouvelle
- * publication). La marque « principale » est la plus ancienne ; les
- * suivantes, jusqu'à maxBrands, restent actives ; au-delà, refus 402 avec
- * la raison `second_brand` (UpgradeModal côté client).
+ * Une marque peut-elle publier ? (création, import, programmation, « Publier
+ * maintenant »)
+ *   - marque en veille (lot E4) → non, raison `dormant_brand` ;
+ *   - essai en cours → oui : les marques déjà créées restent actives jusqu'à
+ *     la fin de l'essai, même au-delà de 2 (limite appliquée à la création) ;
+ *   - sinon, marques non en veille au-delà du palier (rétrogradation, fin
+ *     d'essai pas encore traitée par le cron) → lecture seule, raison
+ *     `second_brand` ; la marque active choisie passe en premier, puis les
+ *     plus anciennes.
  */
-export async function assertBrandWritable(brandId: string): Promise<{ ok: true } | { ok: false; message: string }> {
-  const owner = await prisma.membership.findFirst({ where: { brandId, role: "OWNER" }, orderBy: { id: "asc" }, select: { userId: true } });
+export async function assertBrandWritable(brandId: string): Promise<{ ok: true } | { ok: false; message: string; reason: "dormant_brand" | "second_brand" }> {
+  const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { dormantAt: true } });
+  if (brand?.dormantAt) return { ok: false, message: DORMANT_BRAND_MESSAGE, reason: "dormant_brand" };
+  const owner = await prisma.membership.findFirst({ where: { brandId, role: "OWNER" }, orderBy: { id: "asc" }, select: { userId: true, user: { select: { freeActiveBrandId: true } } } });
   if (!owner) return { ok: true };
   const info = await getUserPlan(owner.userId);
+  if (info.onTrial) return { ok: true };
   const owned = await prisma.membership.findMany({
-    where: { userId: owner.userId, role: "OWNER" },
+    where: { userId: owner.userId, role: "OWNER", brand: { dormantAt: null } },
     select: { brandId: true, brand: { select: { createdAt: true } } },
     orderBy: { brand: { createdAt: "asc" } }
   });
-  const rank = owned.findIndex((m) => m.brandId === brandId);
+  const activeId = owner.user?.freeActiveBrandId;
+  const ordered = [...owned.filter((m) => m.brandId === activeId), ...owned.filter((m) => m.brandId !== activeId)];
+  const rank = ordered.findIndex((m) => m.brandId === brandId);
   if (rank >= 0 && rank >= info.maxBrands) {
-    return { ok: false, message: `Cette marque est en lecture seule : votre palier ${info.limits.label} permet ${info.maxBrands} marque${info.maxBrands > 1 ? "s" : ""}. Passez en Pro pour publier à nouveau depuis celle-ci.` };
+    return {
+      ok: false,
+      reason: "second_brand",
+      message: `Cette marque est en lecture seule : votre palier ${info.limits.label} permet ${info.maxBrands} marque${info.maxBrands > 1 ? "s" : ""}. Passez en Pro pour publier à nouveau depuis celle-ci.`
+    };
   }
   return { ok: true };
+}
+
+/** Comptes en veille parmi ceux visés par une publication (lot E4). */
+export async function assertConnectionsWritable(connectionIds: string[]): Promise<{ ok: true } | { ok: false; message: string; reason: "dormant_brand" }> {
+  if (connectionIds.length === 0) return { ok: true };
+  const sleeping = await prisma.socialConnection.count({ where: { id: { in: connectionIds }, dormantAt: { not: null } } });
+  return sleeping > 0 ? { ok: false, message: "Un des comptes choisis est en veille : en Gratuit, seuls les comptes gardés sur votre marque active publient. Passez en Pro pour le réactiver.", reason: "dormant_brand" } : { ok: true };
 }

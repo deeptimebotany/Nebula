@@ -349,7 +349,7 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
               sectionRefs.current.eggs = el;
             }} className="scroll-mt-4">
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Easter eggs</h3>
-            <Link href="/reussites#succes" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
+            <Link href="/reussites?focus=succes#recompenses" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm text-slate-200">
                   <span className="text-lg" aria-hidden="true">🥚</span> Trouvés
@@ -424,7 +424,7 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
                     </p>
                   )}
                   <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                    Chaque compte créé avec votre lien reçoit 30 jours de Pro offerts. Vous gagnez 1 mois de Pro quand il a payé son premier mois et qu&apos;il est toujours abonné 30 jours plus tard, dans la limite de 12 mois offerts sur 12 mois glissants (parrainage et badge « Propulsé par Nebula » confondus). Au-delà, chaque nouvel abonné compte toujours pour le classement et vos paliers ambassadeur (5, 10, 25 et 50 filleuls abonnés). Les mois offerts ne sont pas échangeables contre de l&apos;argent et sont annulés en cas de fraude (faux comptes, parrainage de soi-même).
+                    Chaque compte créé avec votre lien reçoit 30 jours d&apos;essai offerts. Vous gagnez 1 mois de Pro quand il a payé son premier mois et qu&apos;il est toujours abonné 30 jours plus tard, dans la limite de 12 mois offerts sur 12 mois glissants (parrainage et badge « Propulsé par Nebula » confondus). Au-delà, chaque nouvel abonné compte toujours pour le classement et vos paliers ambassadeur (5, 10, 25 et 50 filleuls abonnés). Les mois offerts ne sont pas échangeables contre de l&apos;argent et sont annulés en cas de fraude (faux comptes, parrainage de soi-même).
                     {data.referral.aiTrialActive && data.referral.aiTrialUntil && (
                       <> IA offerte via parrainage jusqu&apos;au {new Date(data.referral.aiTrialUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.</>
                     )}

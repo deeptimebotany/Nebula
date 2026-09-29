@@ -4,7 +4,7 @@ import { SEO_DISCOVER } from "@/lib/seo-pages";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { TrackView } from "@/components/marketing/track-view";
-import { DashboardVisual } from "@/components/marketing/product-visuals";
+import { PhoneShot, ProductShot, ShotCaption } from "@/components/marketing/product-shot";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
@@ -72,9 +72,22 @@ export default async function DecouvrirPageBio({ searchParams }: { searchParams:
         ))}
       </div>
 
-      <div className="mx-auto mt-14 max-w-4xl">
-        <DashboardVisual />
+      {/* Vraies captures (compte de démonstration, voir scripts/demo/). */}
+      <div className="mx-auto mt-16 grid items-center gap-10 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <figure>
+          <PhoneShot name="bio-mobile" alt="Page bio publique de Studio Nova sur téléphone : photo, présentation et quatre liens (compte de démonstration)" />
+          <figcaption className="mt-4 text-center text-sm text-slate-400">Ce que voient vos abonnés</figcaption>
+        </figure>
+        <figure>
+          <ProductShot
+            name="page-bio"
+            alt="Éditeur de page bio dans Nebula : profil, présentation, liens avec leur nombre de clics et aperçu sur téléphone (compte de démonstration)"
+            sizes="(min-width: 1024px) 680px, calc(100vw - 48px)"
+          />
+          <figcaption className="mt-4 text-center text-sm text-slate-400">Ce que vous modifiez dans Nebula</figcaption>
+        </figure>
       </div>
+      <ShotCaption />
 
       <FaqSection items={FAQ} className="mt-20" />
 

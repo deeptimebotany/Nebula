@@ -1,6 +1,7 @@
 // Disponibilité des régies publicitaires (lot 5). Chacune n'apparaît que si
 // ses clés sont renseignées — voir .env.example, section « Lot 5 ».
 import type { AdPlatform } from "./types";
+import { limitsOf } from "@/lib/plans";
 
 export function isAdPlatformConfigured(p: AdPlatform): boolean {
   switch (p) {
@@ -29,5 +30,5 @@ export function adsRedirectUri(slug: "google" | "meta" | "tiktok"): string {
 
 /** Comptes publicitaires reliables par marque, selon le palier. */
 export function maxAdAccounts(plan: string): number {
-  return plan === "AGENCY" ? 50 : plan === "PRO" ? 3 : 0;
+  return limitsOf(plan).maxAdAccounts;
 }

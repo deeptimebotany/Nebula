@@ -3,13 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
-import { PLAN_LIMITS, findTier, type Plan, type BillingInterval } from "@/lib/plans";
+import { PAID_PLANS, PLAN_LIMITS, findTier, type Plan, type BillingInterval } from "@/lib/plans";
 import { isOfferActive } from "@/lib/trial";
 import { trackGrowth } from "@/lib/growth";
 import { z } from "zod";
 
 const bodySchema = z.object({
-  plan: z.enum(["PRO", "AGENCY"]),
+  plan: z.enum(PAID_PLANS),
   interval: z.enum(["month", "year"]).default("month"),
   maxBrands: z.number().int().positive(),
   /** Raison de la modale de mise à niveau qui a mené ici (mesure). */

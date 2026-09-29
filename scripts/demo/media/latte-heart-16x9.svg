@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 187 1080 608" width="1280" height="720" preserveAspectRatio="xMidYMid slice"><defs><radialGradient id="g" cx="0.5" cy="0.35" r="0.8"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="1080" height="1350" fill="#efe3d3"/><rect width="1080" height="1350" fill="url(#g)"/>
+<ellipse cx="540" cy="720" rx="420" ry="400" fill="#000" opacity="0.08"/>
+<ellipse cx="760" cy="760" rx="120" ry="40" fill="#d9c5ad"/>
+<circle cx="540" cy="680" r="380" fill="#ffffff"/>
+<circle cx="540" cy="680" r="330" fill="#f4ede4"/>
+<circle cx="540" cy="680" r="280" fill="#a0673f"/>
+<circle cx="540" cy="680" r="280" fill="url(#g)"/>
+<path d="M540 870 C 380 760, 360 600, 450 560 C 500 540, 530 575, 540 610 C 550 575, 580 540, 630 560 C 720 600, 700 760, 540 870 Z" fill="#f6ead9"/>
+<path d="M540 870 C 470 820, 430 760, 440 700" stroke="#a0673f" stroke-width="10" fill="none" opacity="0.5"/>
+<rect x="880" y="640" width="150" height="80" rx="40" fill="#ffffff"/>
+<g transform="translate(170 260) rotate(20)"><ellipse rx="46" ry="31.28" fill="#5b3a29"/><path d="M-36.800000000000004 0 C -13.799999999999999 -11.5, 13.799999999999999 11.5, 36.800000000000004 0" stroke="#2d1b12" stroke-width="5.52" fill="none" stroke-linecap="round"/></g><g transform="translate(260 330) rotate(-30)"><ellipse rx="40" ry="27.200000000000003" fill="#5b3a29"/><path d="M-32.0 0 C -12.0 -10.0, 12.0 10.0, 32.0 0" stroke="#2d1b12" stroke-width="4.8" fill="none" stroke-linecap="round"/></g><g transform="translate(150 1150) rotate(60)"><ellipse rx="44" ry="29.92" fill="#5b3a29"/><path d="M-35.2 0 C -13.2 -11.0, 13.2 11.0, 35.2 0" stroke="#2d1b12" stroke-width="5.279999999999999" fill="none" stroke-linecap="round"/></g><g transform="translate(900 1180) rotate(-10)"><ellipse rx="48" ry="32.64" fill="#5b3a29"/><path d="M-38.400000000000006 0 C -14.399999999999999 -12.0, 14.399999999999999 12.0, 38.400000000000006 0" stroke="#2d1b12" stroke-width="5.76" fill="none" stroke-linecap="round"/></g><g transform="translate(980 1080) rotate(40)"><ellipse rx="38" ry="25.840000000000003" fill="#5b3a29"/><path d="M-30.400000000000002 0 C -11.4 -9.5, 11.4 9.5, 30.400000000000002 0" stroke="#2d1b12" stroke-width="4.56" fill="none" stroke-linecap="round"/></g></svg>

@@ -18,6 +18,7 @@
 // ailleurs), "none" (aucun cadre) ou l'une des clés ci-dessous.
 
 export type FrameStyle = "halo" | "comete" | "orbites" | "metal" | "couronne" | "nacre" | "prisme" | "carrefour" | "astre";
+import { limitsOf } from "@/lib/plans";
 export type FrameFlavor = "or" | "eclipse";
 
 export interface BioFrameDef {
@@ -137,9 +138,7 @@ export const MILLION_FOLLOWERS_EGG = "frame-ultime-prisme";
 
 export function bioCardSize(plan: string, millionFollowers: boolean): BioCardSize {
   if (millionFollowers) return "legend";
-  if (plan === "AGENCY") return "agency";
-  if (plan === "PRO") return "pro";
-  return "base";
+  return limitsOf(plan).bioCardTier;
 }
 
 /** Clés de cadres débloquées, à partir des easter eggs trouvés. */

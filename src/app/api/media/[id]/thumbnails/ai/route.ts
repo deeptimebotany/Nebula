@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, generateThumbnail } from "@/lib/ai/gemini";
-import { getBrandPlan } from "@/lib/billing/plan";
+import { gateAppAi } from "@/lib/ai/guard";
 import { saveUploadedFile } from "@/lib/storage";
 import { z } from "zod";
 import { brandUploadPrefix } from "@/lib/upload-policy";
@@ -37,17 +37,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const asset = await prisma.mediaAsset.findFirst({ where: { id: params.id, brand: ownedBy(userId) } });
   if (!asset) return NextResponse.json({ error: "Média introuvable" }, { status: 404 });
 
-  const { limits } = await getBrandPlan(asset.brandId);
-  if (!limits.aiEnabled) {
-    return NextResponse.json({ error: "La miniature générée par IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation.", reason: "ai_assistant" }, { status: 402 });
-  }
-
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { frameBase64, frameMimeType, title, network, brief } = parsed.data;
 
+  // Porte de l'IA (lot E2) : palier de la marque, quota du compte, budget.
+  const gate = await gateAppAi({ userId, brandId: asset.brandId, kind: "image" });
+  if (!gate.ok) return gate.response;
+
   try {
-    const generated = await generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network, brief: brief ?? null });
+    const generated = await gate.allowance.run(() => generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network, brief: brief ?? null }));
     const buffer = Buffer.from(generated.base64, "base64");
     const ext = generated.mimeType.includes("png") ? "png" : "jpg";
     const file = new File([buffer], `ia-${asset.id}.${ext}`, { type: generated.mimeType });

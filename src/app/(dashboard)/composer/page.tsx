@@ -51,6 +51,8 @@ import { NetworkPauseNotice } from "@/components/composer/network-pause-notice";
 import { refreshUsage, useConnections } from "@/lib/data/hooks";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 import { loadComposerDraft, saveComposerDraft, saveComposerDraftNow } from "@/lib/composer-draft-client";
+import { captureVideoFrames } from "@/lib/video/capture-frames";
+import { useUiSounds } from "@/components/use-ui-sounds";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
@@ -156,47 +158,7 @@ function EmojiPicker({
 }
 
 
-// Extrait des frames d'une vidéo directement dans le navigateur (canvas),
-// sans passer par ffmpeg côté serveur : fonctionne partout, y compris sur
-// Vercel et avec des vidéos stockées sur Vercel Blob, contrairement à
-// l'ancienne extraction serveur qui échouait dans ces deux cas.
-async function captureVideoFrames(sourceUrl: string, count: number): Promise<Blob[]> {
-  const video = document.createElement("video");
-  video.src = sourceUrl;
-  video.muted = true;
-  video.playsInline = true;
-  video.crossOrigin = "anonymous";
-
-  await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve();
-    video.onerror = () => reject(new Error("Impossible de lire cette vidéo pour en extraire des images."));
-  });
-
-  const duration = video.duration || 0;
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth || 640;
-  canvas.height = video.videoHeight || 360;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Capture d'image non supportée par ce navigateur.");
-
-  const blobs: Blob[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = duration > 0 ? (duration * (i + 1)) / (count + 1) : 0;
-    await new Promise<void>((resolve, reject) => {
-      const onSeeked = () => {
-        video.removeEventListener("seeked", onSeeked);
-        resolve();
-      };
-      video.addEventListener("seeked", onSeeked);
-      video.currentTime = t;
-      video.onerror = () => reject(new Error("Erreur pendant l'extraction d'une image."));
-    });
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-    if (blob) blobs.push(blob);
-  }
-  return blobs;
-}
+// Extraction des images d'une vidéo dans le navigateur : voir src/lib/video/capture-frames.ts.
 
 /**
  * Largeur et hauteur réelles d'un média, lues dans le navigateur (vidéo :
@@ -452,6 +414,8 @@ function ComposerPageInner() {
   //    à la génération IA, qui a besoin de la frame réelle de la vidéo.
   const assistant = useAiAssistant();
   const upgrade = useUpgradeModal();
+  // Sons de l'interface (lot U5) : réglage du compte, Mode focus.
+  const { enabled: uiSoundsEnabled, play: playUiSound } = useUiSounds();
   const thumbSectionRef = useRef<HTMLDivElement>(null);
   const [assistantBrief, setAssistantBrief] = useState<ThumbnailBrief | null>(null);
   const briefAutoRunRef = useRef(false);
@@ -966,6 +930,7 @@ function ComposerPageInner() {
     });
     const data = await res.json();
     if (!res.ok) {
+      if (upgrade.openFromResponse(res.status, data)) return "";
       toast.error(data.error ?? "Erreur IA.");
       return "";
     }
@@ -1118,6 +1083,7 @@ function ComposerPageInner() {
         body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title, brief })
       });
       const data = await res.json();
+      if (!res.ok && upgrade.openFromResponse(res.status, data)) return;
       if (!res.ok) throw new Error(data.error ?? "Échec de la génération IA.");
       setThumbOptions((prev) => [data.url, ...prev]);
       await pickThumbnail(data.url);
@@ -1176,6 +1142,10 @@ function ComposerPageInner() {
     const data = await res.json();
     setRepurposeLoading(false);
     if (!res.ok) {
+      if (upgrade.openFromResponse(res.status, data)) {
+        setRepurposeOpen(false);
+        return;
+      }
       toast.error(data.error ?? "Erreur lors du recyclage de contenu.");
       setRepurposeOpen(false);
       return;
@@ -1314,12 +1284,15 @@ function ComposerPageInner() {
     // qui a réellement réussi (status "PUBLISHED") — jamais pour un post
     // programmé (personne ne regarde l'écran quand il partira plus tard, même
     // rationnel que dans milestone-celebration.tsx) ni pour un échec partiel.
-    if (mode === "now" && data.status === "PUBLISHED" && publishSoundEnabled) {
+    if (mode === "now" && data.status === "PUBLISHED" && publishSoundEnabled && uiSoundsEnabled) {
       try {
         playLaunchWhoosh();
       } catch {
         // agrément sonore facultatif — jamais bloquant
       }
+    } else if (data.firstPost) {
+      // Première publication programmée ou publiée du compte : accord court (lot U5).
+      playUiSound("first-post");
     }
     router.push(`/posts/${data.postId}`);
   }, [
@@ -1345,6 +1318,8 @@ function ComposerPageInner() {
     celebrateMilestone,
     router,
     publishSoundEnabled,
+    uiSoundsEnabled,
+    playUiSound,
     upgrade
   ]);
 

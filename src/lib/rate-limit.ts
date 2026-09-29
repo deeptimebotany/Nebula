@@ -84,8 +84,16 @@ export const RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques 
 // Purge des fenêtres périmées (appelée par /api/cron) : les buckets de
 // rate-limit n'ont d'intérêt que pendant leur fenêtre ; on garde 2 jours de
 // marge, comme pour les quotas des outils gratuits.
+//
+// Exception (lot E5) : les compteurs du jour de l'IA par compte (« ai-… »)
+// sont gardés 8 jours, pour les 20 comptes les plus coûteux de la semaine
+// de /admin/ia (empreintes de comptes seulement, aucun contenu).
 export async function purgeExpiredRateLimits(): Promise<number> {
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-  const { count } = await prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: cutoff } } });
-  return count;
+  const aiCutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  const [short, ai] = await Promise.all([
+    prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: cutoff }, NOT: { tool: { startsWith: "ai-" } } } }),
+    prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: aiCutoff }, tool: { startsWith: "ai-" } } })
+  ]);
+  return short.count + ai.count;
 }

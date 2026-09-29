@@ -138,6 +138,7 @@ export default function RetentionToolPage() {
     const data = await res.json();
     setAnalyzing(false);
     if (!res.ok) {
+      if (upgrade.openFromResponse(res.status, data)) return;
       toast.error(data.error ?? "Erreur d'analyse.");
       return;
     }

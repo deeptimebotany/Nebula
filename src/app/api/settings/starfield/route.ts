@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getUserPlan } from "@/lib/billing/plan";
 import { isOwnerEmail, ownerUnlocksAll, resolvePreviewPlan } from "@/lib/dev-preview";
 import { getAppearanceAccess } from "@/lib/appearance-access";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 // Toujours réévalué à la demande, jamais mis en cache (statiquement au build
 // ou par un intermédiaire) — `allowed` doit refléter le palier réel au
@@ -50,7 +51,7 @@ export async function PATCH(req: NextRequest) {
     // aux paliers Pro et Agence, revérifié ici comme pour les thèmes de
     // couleurs réservés (voir /api/settings/theme).
     const plan = previewPlan ?? (await getUserPlan(userId)).plan;
-    if (plan !== "PRO" && plan !== "AGENCY") {
+    if (!PLAN_LIMITS[plan].premiumAppearance) {
       return NextResponse.json(
         {
           error:

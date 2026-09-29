@@ -18,7 +18,8 @@ if (!/^https?:\/\//.test(base)) {
 }
 
 const PAGES = [
-  { path: "/", title: /Nebula/, contains: "Propulsé" },
+  // Accueil refait le 29/09/2026 : titre du haut de page.
+  { path: "/", title: /Nebula/, contains: "dans un seul espace" },
   { path: "/tarifs", title: /Tarifs/, contains: "Gratuit" },
   { path: "/securite", title: /Sécurité/, contains: "Sécurité" },
   { path: "/contact", title: /Contact/, contains: "Contact" },
@@ -119,7 +120,8 @@ try {
   // Pages à contenu d'utilisateurs ou d'identifiants : CSP stricte avec nonce.
   for (const path of ["/login", "/audit/jeton-de-test-inexistant", "/kit/marque-de-test-inexistante"]) {
     const strict = (await get(path)).res.headers.get("content-security-policy") || "";
-    if (/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/.test(strict)) ok(`CSP stricte avec nonce sur ${path}`);
+    // Le script du mode clair/sombre y est autorisé par son empreinte (sha256, 29/09/2026).
+    if (/script-src 'self' 'nonce-[^']+'( 'sha256-[^']+')* 'strict-dynamic'/.test(strict)) ok(`CSP stricte avec nonce sur ${path}`);
     else ko(`CSP stricte avec nonce sur ${path}`, strict ? `valeur inattendue : ${strict.slice(0, 80)}` : "absente");
   }
 } catch (err) {

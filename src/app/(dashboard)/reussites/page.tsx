@@ -1,7 +1,16 @@
 "use client";
 
 // Page « Réussites » — v2 du 26/09/2026 (maquette « Réussites v2 » validée
-// par Lucas, lots A et B). De haut en bas :
+// par Lucas, lots A et B), en TROIS ONGLETS depuis le lot U3 (brief « Essai
+// 14 jours », 29/09/2026 : « page trop bordélique ») :
+//   - en-tête d'une ligne, toujours visible : emblème, rang, progression ;
+//   - « Missions » (par défaut, #missions) : prochaine action, missions,
+//     coffre, série et boucliers, bilan, défi du mois, défi collectif ;
+//   - « Compétences » (#competences) : constellation et mini-leçons ;
+//   - « Récompenses » (#recompenses) : presque là, vitrine, album, résumé
+//     des Easter eggs (collection sur /reussites/collection), vidéo à la une.
+// Seul l'onglet ouvert charge ses gros morceaux (chargement à la demande).
+// Contenu d'avant (ordre de la v2) :
 //  1. le rang de créateur et UNE prochaine action conseillée (et, si les
 //     XP sont là mais pas les compétences, le « rang en attente ») ;
 //  2. les 3 missions de la semaine (Habitude, Progression au choix,
@@ -36,22 +45,69 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { IconTrophy } from "@/components/dashboard/icons";
 import { CosmeticDecorOverlay } from "@/components/cosmetics/decor-overlay";
 import { useBootstrap } from "@/components/bootstrap-provider";
+import dynamic from "next/dynamic";
 import { LevelRing } from "@/components/reussites/level-ring";
-import { SuccesSection } from "@/components/reussites/succes-section";
-import { ConstellationSection } from "@/components/reussites/constellation";
-import { LessonDialog } from "@/components/reussites/lesson-dialog";
+import { EggSummary } from "@/components/reussites/succes-section";
 import { WeeklyReview } from "@/components/reussites/weekly-review";
-import { ShowcaseSection } from "@/components/reussites/showcase-section";
 import { CollectiveCard, LaunchCard, RarityMark, SeasonShelf } from "@/components/reussites/social-cards";
-import { FeaturedPanel } from "@/components/reussites/featured-panel";
+import { TabPanel, Tabs } from "@/components/ui/tabs";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
 import type { ReviewFocus } from "@/lib/reussites/review";
 import { CATEGORIES, monthOfLabel, type ReussiteCategory } from "@/lib/reussites/catalog";
 import { SLOT_LABEL } from "@/lib/reussites/missions";
 import { daysLeft, timeLeftLabel } from "@/lib/reussites/periods";
 import type { ChestDTO, MissionDTO, NearDTO, NextActionDTO, ProgressChoiceDTO, ReussitesPageDTO, SeriesDTO, SkillDTO, StarDTO, StreakDTO } from "@/lib/reussites/types";
 import { clsx } from "@/lib/clsx";
+import { useUiSounds } from "@/components/use-ui-sounds";
 
 const fmt = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+
+// Gros morceaux chargés seulement quand leur onglet s'ouvre (lot U3).
+const ConstellationSection = dynamic(() => import("@/components/reussites/constellation").then((m) => m.ConstellationSection), { loading: () => <SkeletonCard lines={6} /> });
+const LessonDialog = dynamic(() => import("@/components/reussites/lesson-dialog").then((m) => m.LessonDialog));
+const ShowcaseSection = dynamic(() => import("@/components/reussites/showcase-section").then((m) => m.ShowcaseSection), { loading: () => <SkeletonCard lines={3} /> });
+const FeaturedPanel = dynamic(() => import("@/components/reussites/featured-panel").then((m) => m.FeaturedPanel));
+
+type ReussitesTab = "missions" | "competences" | "recompenses";
+const TABS: { value: ReussitesTab; label: string }[] = [
+  { value: "missions", label: "Missions" },
+  { value: "competences", label: "Compétences" },
+  { value: "recompenses", label: "Récompenses" }
+];
+function tabFromHash(hash: string): ReussitesTab | null {
+  const h = hash.replace("#", "");
+  return h === "missions" || h === "competences" || h === "recompenses" ? h : null;
+}
+/** Onglet d'un élément ciblé (?focus=… ou lien interne #…). */
+const MISSIONS_TARGETS = new Set(["missions", "missions-section", "defis", "defi-mois", "coffre", "bilan", "collectif"]);
+const SKILL_TARGETS = new Set(["constellation"]);
+const REWARD_TARGETS = new Set(["vitrine", "succes", "saisons", "album", "near"]);
+
+const CONSTELLATION_COLLAPSED = "nebula:reussites-constellation-collapsed";
+const SHOWCASE_COLLAPSED = "nebula:reussites-vitrine-collapsed";
+
+/** État replié d'un bloc, mémorisé sur l'appareil (comme la barre latérale). */
+function useCollapsedPref(key: string): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(getPref(key) === "1");
+    } catch {
+      // stockage indisponible : déplié
+    }
+  }, [key]);
+  const toggle = useCallback(() => {
+    setCollapsed((v) => {
+      try {
+        setPref(key, v ? "0" : "1");
+      } catch {
+        // pas grave
+      }
+      return !v;
+    });
+  }, [key]);
+  return [collapsed, toggle];
+}
 
 function XpChip({ xp, done, label }: { xp: number; done?: boolean; label?: string }) {
   return (
@@ -61,10 +117,10 @@ function XpChip({ xp, done, label }: { xp: number; done?: boolean; label?: strin
   );
 }
 
-function Bar({ value, target, done, className }: { value: number; target: number; done?: boolean; className?: string }) {
+function Bar({ value, target, done, className, label = "Progression" }: { value: number; target: number; done?: boolean; className?: string; label?: string }) {
   const pct = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
   return (
-    <div className={clsx("h-1.5 overflow-hidden rounded-full bg-white/[0.07]", className)} role="progressbar" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)}>
+    <div className={clsx("h-1.5 overflow-hidden rounded-full bg-white/[0.07]", className)} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)}>
       <div className={clsx("h-full rounded-full transition-all duration-700", done ? "bg-emerald-400" : "bg-gradient-to-r from-nebula-500 to-aurora-400")} style={{ width: `${done ? 100 : pct}%` }} />
     </div>
   );
@@ -116,7 +172,7 @@ function ChestIcon({ open, className }: { open?: boolean; className?: string }) 
 
 // --- Rang et prochaine action ---------------------------------------------------------
 
-function NextActionCard({ action, onChest }: { action: NextActionDTO | null; onChest: () => void }) {
+function NextActionCard({ action, onGoTo }: { action: NextActionDTO | null; onGoTo: (id: string) => void }) {
   if (!action) {
     return (
       <div className="reussites-reward-box flex flex-col justify-center gap-2 rounded-2xl border p-4">
@@ -134,7 +190,7 @@ function NextActionCard({ action, onChest }: { action: NextActionDTO | null; onC
       <p className="font-display text-base font-semibold leading-snug text-white">{action.title}</p>
       <p className="text-xs leading-relaxed text-slate-400">{action.meta}</p>
       {inPage ? (
-        <button type="button" onClick={action.href === "#coffre" ? onChest : () => document.getElementById(action.href.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" })} className={cls}>
+        <button type="button" onClick={() => onGoTo(action.href.slice(1))} className={cls}>
           {action.action}
         </button>
       ) : (
@@ -263,7 +319,7 @@ function ChestCard({
           <ChestIcon className={clsx("h-16 w-20", opening === chest.week && "nb-chest-shake")} />
         </div>
       )}
-      <div className="flex gap-1.5" aria-label={`${doneCount} mission${doneCount > 1 ? "s" : ""} sur 3`}>
+      <div className="flex gap-1.5" role="img" aria-label={`${doneCount} mission${doneCount > 1 ? "s" : ""} sur 3`}>
         {[0, 1, 2].map((i) => (
           <span key={i} className={clsx("h-2 flex-1 rounded-full", i < doneCount ? "bg-amber-300" : "bg-white/[0.08]")} />
         ))}
@@ -382,7 +438,7 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
           <p className="font-display text-sm font-semibold text-white">{title}</p>
           <p className="mt-0.5 text-xs text-slate-400">{shown.description}</p>
           {multi && (
-            <p className="mt-1.5 flex items-center gap-1" aria-label={`${doneCount} palier(s) débloqué(s) sur ${s.tiers.length}`}>
+            <p className="mt-1.5 flex items-center gap-1" role="img" aria-label={`${doneCount} palier(s) débloqué(s) sur ${s.tiers.length}`}>
               {s.tiers.map((t) => (
                 <span
                   key={t.key}
@@ -443,10 +499,14 @@ function FocusParam({ onFocus }: { onFocus: (value: string | null) => void }) {
 }
 
 /** Fait défiler jusqu'à l'élément et le met en surbrillance ~3 s. */
-function flash(id: string) {
+function flash(id: string, attempt = 0) {
   window.setTimeout(() => {
     const el = document.getElementById(id);
-    if (!el) return;
+    // Onglet chargé à la demande : l'élément peut arriver un peu après.
+    if (!el) {
+      if (attempt < 12) flash(id, attempt + 1);
+      return;
+    }
     el.scrollIntoView({ block: "center", behavior: "smooth" });
     el.classList.remove("nb-focus-flash");
     void el.offsetWidth; // relance l'animation
@@ -457,13 +517,16 @@ function flash(id: string) {
 
 export default function ReussitesPage() {
   const { refresh: refreshBootstrap } = useBootstrap();
+  const { play: playSound } = useUiSounds();
   const [data, setData] = useState<ReussitesPageDTO | null>(null);
   const [failed, setFailed] = useState(false);
   const [category, setCategory] = useState<ReussiteCategory | "all">("all");
   const [levelsOpen, setLevelsOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
-  const [openSucces, setOpenSucces] = useState(false);
+  const [tab, setTab] = useState<ReussitesTab>("missions");
+  const [constellationCollapsed, toggleConstellation] = useCollapsedPref(CONSTELLATION_COLLAPSED);
+  const [showcaseCollapsed, toggleShowcase] = useCollapsedPref(SHOWCASE_COLLAPSED);
   const [choosing, setChoosing] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<{ week: string; label: string; xp: number } | null>(null);
@@ -558,26 +621,53 @@ export default function ReussitesPage() {
       const [json] = await Promise.all([act({ action: "open-chest", week }), new Promise((r) => window.setTimeout(r, 450))]);
       if (json) {
         setRevealed({ week, label: json.label ?? "Objet", xp: json.xp ?? 0 });
+        // Coffre ouvert : son n° 3 des célébrations (lot U5, suit le Mode focus).
+        playSound("celebration");
         await load();
       }
       setOpening(null);
     },
-    [act, load]
+    [act, load, playSound]
   );
 
-  // Surbrillance de l'élément ciblé par ?focus=…, une fois les données là.
+  // Onglet dans l'ancre (#missions, #competences, #recompenses), comme
+  // Paramètres : partageable, conservé au retour.
+  useEffect(() => {
+    const fromHash = tabFromHash(window.location.hash);
+    if (fromHash) setTab(fromHash);
+    function onHash() {
+      const next = tabFromHash(window.location.hash);
+      if (next) setTab(next);
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const changeTab = useCallback((next: ReussitesTab) => {
+    setTab(next);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${next}`);
+  }, []);
+
+  /** Ouvre l'onglet qui contient l'élément, puis le met en surbrillance. */
+  const goTo = useCallback(
+    (id: string) => {
+      if (MISSIONS_TARGETS.has(id)) changeTab("missions");
+      else if (SKILL_TARGETS.has(id)) changeTab("competences");
+      else if (REWARD_TARGETS.has(id)) changeTab("recompenses");
+      if (id === "album") setAlbumOpen(true);
+      flash(id === "missions" ? "missions-section" : id === "defis" ? "defi-mois" : id);
+    },
+    [changeTab]
+  );
+
+  // Surbrillance de l'élément ciblé par ?focus=…, une fois les données là,
+  // dans le bon onglet (lot U3 : chaque notification ouvre le sien).
   useEffect(() => {
     if (!focus || !data) return;
     if (focus === "level") return flash("reussites-level");
-    if (focus === "missions") return flash("missions-section");
-    if (focus === "defis") return flash("defi-mois");
-    if (focus === "succes") {
-      setOpenSucces(true);
-      return flash("succes");
-    }
-    if (focus === "bilan" || focus === "constellation" || focus === "vitrine" || focus === "collectif" || focus === "saisons") return flash(focus);
+    if (MISSIONS_TARGETS.has(focus) || SKILL_TARGETS.has(focus) || REWARD_TARGETS.has(focus)) return goTo(focus);
     const skillAt = data.constellation.skills.findIndex((sk) => sk.stars.some((st) => st.key === focus));
     if (skillAt >= 0) {
+      changeTab("competences");
       setSkillIndex(skillAt);
       setStarFocus(focus);
       window.setTimeout(() => setStarFocus(null), 3200);
@@ -585,11 +675,12 @@ export default function ReussitesPage() {
     }
     const target = data.series.find((x) => x.id === focus || x.tiers.some((t) => t.key === focus));
     if (target) {
+      changeTab("recompenses");
       setCategory("all");
       setAlbumOpen(true);
       flash(`ach-${target.id}`);
     }
-  }, [focus, data]);
+  }, [focus, data, goTo, changeTab]);
 
   const series = useMemo(() => (data ? data.series.filter((s) => category === "all" || s.category === category) : []), [data, category]);
   const countByCategory = useMemo(() => {
@@ -621,6 +712,7 @@ export default function ReussitesPage() {
   const selectedSkill = skillIndex ?? defaultSkill;
   const doneCount = data?.missions.filter((m) => m.done).length ?? 0;
   const openAlbumAt = (seriesId: string) => {
+    changeTab("recompenses");
     setCategory("all");
     setAlbumOpen(true);
     flash(`ach-${seriesId}`);
@@ -654,68 +746,59 @@ export default function ReussitesPage() {
         </div>
       ) : (
         <>
-          {/* Rang de créateur et prochaine action */}
-          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden rounded-3xl border p-5 sm:p-6">
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,300px)] lg:items-center">
-              <button type="button" onClick={() => setLevelsOpen(true)} className="mx-auto shrink-0 rounded-full transition hover:scale-[1.03] lg:mx-0" aria-label="Voir tous les rangs">
-                <LevelRing level={level.level} pct={level.pct} size={124} stroke={8} animated />
+          {/* En-tête d'une ligne, toujours visible (lot U3) : emblème, rang, progression. */}
+          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden rounded-2xl border px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <button type="button" onClick={() => setLevelsOpen(true)} className="shrink-0 rounded-full transition hover:scale-[1.04]" aria-label="Voir tous les rangs">
+                <LevelRing level={level.level} pct={level.pct} size={52} stroke={5} animated />
               </button>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-aurora-300">Rang {level.rank} sur 5</p>
-                <h2 className="mt-1 font-display text-3xl font-semibold text-white">
-                  <button type="button" onClick={() => setLevelsOpen(true)} className="text-left hover:underline hover:decoration-aurora-400/60 hover:underline-offset-4">
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-aurora-300">Rang {level.rank} sur 5</span>
+                  <button type="button" onClick={() => setLevelsOpen(true)} className="font-display text-lg font-semibold text-white hover:underline hover:decoration-aurora-400/60 hover:underline-offset-4">
                     {level.name}
                   </button>
-                </h2>
-                <p className="mt-1 text-sm text-slate-300">{level.tagline}</p>
-                <div className="relative mt-4 h-2.5 rounded-full bg-white/[0.08]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-accent-cyan via-nebula-400 to-aurora-400 transition-all duration-700" style={{ width: `${level.pct}%` }} />
-                  {level.nextXp !== null && (
-                    <span
-                      className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_14px_rgb(var(--c-aurora-400)/0.9)]"
-                      style={{ left: `${Math.max(2, level.pct)}%` }}
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-                <p className="mt-2 text-xs tabular-nums text-slate-400">
-                  {level.pending ? (
-                    <>
-                      {fmt(level.xp)} XP · assez pour « {level.pending.name} »
-                    </>
-                  ) : level.nextXp !== null ? (
-                    <>
-                      {fmt(level.xp)} XP · encore {fmt(toNext ?? 0)} XP pour « {level.nextName} »
-                    </>
-                  ) : (
-                    <>{fmt(level.xp)} XP · dernier palier atteint, bravo !</>
-                  )}
                 </p>
-                {level.pending && (
-                  <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/[0.07] px-3 py-2 text-xs text-amber-100">
-                    <p>
-                      <strong className="font-semibold">Rang {level.pending.name} en attente.</strong> Pour y entrer : {level.pending.condition}. Il vous manque{" "}
-                      {level.pending.missing[0]}
-                      {level.pending.missing.length > 1 && <> (les plus proches : {level.pending.missing.slice(1).join(", ")})</>}.
-                    </p>
-                    <button type="button" onClick={() => flash("constellation")} className="mt-1 font-medium text-amber-200 underline-offset-2 hover:underline">
-                      Voir ma constellation →
-                    </button>
-                  </div>
-                )}
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-                  {level.nextReward && <p className="text-xs text-slate-300">Prochaine récompense : {level.nextReward}</p>}
-                  <button type="button" onClick={() => setLevelsOpen(true)} className="text-xs font-medium text-aurora-300 transition hover:text-white">
-                    Voir tous les rangs →
-                  </button>
+                <div className="relative mt-1.5 h-2 max-w-xl rounded-full bg-white/[0.08]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-accent-cyan via-nebula-400 to-aurora-400 transition-all duration-700" style={{ width: `${level.pct}%` }} />
                 </div>
               </div>
-              <NextActionCard action={data.nextAction} onChest={() => flash("coffre")} />
+              <p className="text-xs tabular-nums text-slate-400">
+                {level.pending ? (
+                  <>
+                    {fmt(level.xp)} XP · assez pour « {level.pending.name} »{" "}
+                    <button type="button" onClick={() => goTo("constellation")} className="font-medium text-amber-200 underline-offset-2 hover:underline">
+                      rang en attente →
+                    </button>
+                  </>
+                ) : level.nextXp !== null ? (
+                  <>
+                    {fmt(level.xp)} XP · encore {fmt(toNext ?? 0)} XP pour « {level.nextName} »
+                    {level.nextReward && <span className="hidden xl:inline"> · prochaine récompense : {level.nextReward}</span>}
+                  </>
+                ) : (
+                  <>{fmt(level.xp)} XP · dernier palier atteint, bravo !</>
+                )}
+              </p>
             </div>
           </section>
           <LevelsModal open={levelsOpen} onClose={() => setLevelsOpen(false)} xp={level.xp} level={level.level} conditions={data.constellation.conditions} />
 
-          {/* Missions de la semaine */}
+          <div className="sticky top-14 z-20 -mx-4 bg-void-950/90 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:bg-transparent lg:px-0 lg:backdrop-blur-none">
+            <Tabs items={TABS} value={tab} onChange={changeTab} variant="line" aria-label="Sections des réussites" idPrefix="reussites" />
+          </div>
+
+          <TabPanel idPrefix="reussites" value="missions" active={tab === "missions"} className="space-y-6">
+          {level.pending && (
+            <div className="rounded-xl border border-amber-300/35 bg-amber-300/[0.07] px-3 py-2 text-xs text-amber-100">
+              <p>
+                <strong className="font-semibold">Rang {level.pending.name} en attente.</strong> Pour y entrer : {level.pending.condition}. Il vous manque {level.pending.missing[0]}
+                {level.pending.missing.length > 1 && <> (les plus proches : {level.pending.missing.slice(1).join(", ")})</>}.
+              </p>
+            </div>
+          )}
+          <NextActionCard action={data.nextAction} onGoTo={goTo} />
+          {/* Missions de la semaine, coffre, série et boucliers */}
           <section id="missions-section" aria-labelledby="missions-title" className="scroll-mt-24 space-y-3 rounded-2xl">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 id="missions-title" className="font-display text-lg font-semibold text-white">
@@ -762,6 +845,12 @@ export default function ReussitesPage() {
               </p>
             )}
 
+          </section>
+
+          {/* Bilan de la semaine (lot B) */}
+          <WeeklyReview review={data.review} busy={reviewBusy} onChoose={chooseFocus} highlight={false} />
+
+          <section aria-label="Défis" className="space-y-3">
             {/* Défi du mois */}
             <div
               id="defi-mois"
@@ -796,127 +885,136 @@ export default function ReussitesPage() {
             )}
           </section>
 
+          </TabPanel>
+
           {lotBError && (
             <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300">
               {lotBError}
             </p>
           )}
 
-          {/* Bilan de la semaine (lot B) */}
-          <WeeklyReview review={data.review} busy={reviewBusy} onChoose={chooseFocus} highlight={false} />
+          <TabPanel idPrefix="reussites" value="competences" active={tab === "competences"} className="space-y-6">
+            {/* Constellation de compétences (lot B), repliable (lot U3) */}
+            <ConstellationSection
+              data={data.constellation}
+              selected={selectedSkill}
+              onSelect={setSkillIndex}
+              onLesson={(star, skill) => setLesson({ star, skill })}
+              highlight={starFocus}
+              collapsed={constellationCollapsed}
+              onToggleCollapsed={toggleConstellation}
+            />
+            {lesson && <LessonDialog star={lesson.star} skill={lesson.skill} onClose={() => setLesson(null)} />}
+          </TabPanel>
 
-          {/* Constellation de compétences (lot B) */}
-          <ConstellationSection
-            data={data.constellation}
-            selected={selectedSkill}
-            onSelect={setSkillIndex}
-            onLesson={(star, skill) => setLesson({ star, skill })}
-            highlight={starFocus}
-          />
-          <LessonDialog star={lesson?.star ?? null} skill={lesson?.skill ?? null} onClose={() => setLesson(null)} />
-
-          {/* Presque là */}
-          {data.near.length > 0 && (
-            <section aria-labelledby="near-title" className="space-y-3">
-              <h2 id="near-title" className="font-display text-lg font-semibold text-white">
-                Presque là
-              </h2>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {data.near.map((n) => (
-                  <NearCard key={n.key} n={n} onOpen={() => openAlbumAt(n.seriesId)} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Vitrine, récompenses, carte de créateur (lot B) */}
-          <ShowcaseSection showcase={data.showcase} rewards={data.rewards} busy={showcaseBusy} onSave={saveShowcase} highlight={false} />
-          <FeaturedPanel
-            featured={data.featured}
-            busy={featureBusy}
-            error={featureError}
-            onConsent={(consent) => featureAction({ action: "feature-consent", consent })}
-            onUse={(sharedVideoId) => featureAction({ action: "feature-use", sharedVideoId })}
-            onRemove={(id) => featureAction({ action: "feature-remove", id })}
-          />
-
-          {/* Album des accomplissements */}
-          <section id="album" aria-labelledby="accomplissements-title" className="scroll-mt-24 space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="accomplissements-title" className="font-display text-lg font-semibold text-white">
-                Album des accomplissements
-              </h2>
-              <button type="button" onClick={() => setAlbumOpen((v) => !v)} aria-expanded={albumOpen} className="text-xs font-medium text-aurora-300 transition hover:text-white">
-                {data.unlockedCount} / {data.total} débloqués · {albumOpen ? "Replier" : "Ouvrir l'album"}
-              </button>
-            </div>
-            {(() => {
-              const starters = STARTER_SERIES.map((id) => data.series.find((x) => x.id === id)).filter((x): x is SeriesDTO => Boolean(x && x.tiers.some((t) => !t.unlockedAt)));
-              if (starters.length === 0 || level.level > 4) return null;
-              return (
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aurora-300">Pour bien démarrer</p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {starters.slice(0, 3).map((x) => {
-                      const next = x.tiers.find((t) => !t.unlockedAt)!;
-                      return (
-                        <button
-                          key={x.id}
-                          type="button"
-                          onClick={() => openAlbumAt(x.id)}
-                          className="flex min-w-0 items-center gap-3 rounded-2xl border border-aurora-400/20 bg-aurora-500/[0.06] p-3 text-left transition hover:border-aurora-400/45"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg" aria-hidden="true">
-                            {x.emoji}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-white">{next.description}</span>
-                            <Bar value={x.value} target={next.target} className="mt-1.5" />
-                            <span className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
-                              {fmt(Math.min(x.value, next.target))} / {fmt(next.target)} {x.unit}
-                              <XpChip xp={next.xp} />
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-            <SeasonShelf seasons={data.seasons} monthly={data.monthlyBadges} />
-            {albumOpen && (
-              <>
-                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par catégorie">
-                  <FilterChip active={category === "all"} onClick={() => setCategory("all")}>
-                    Tout
-                  </FilterChip>
-                  {CATEGORIES.map((c) => (
-                    <FilterChip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
-                      {c.label}
-                      <span className="text-[10px] tabular-nums text-slate-500">
-                        {countByCategory[c.id]?.done ?? 0}/{countByCategory[c.id]?.total ?? 0}
-                      </span>
-                    </FilterChip>
+          <TabPanel idPrefix="reussites" value="recompenses" active={tab === "recompenses"} className="space-y-6">
+            <p className="text-sm text-slate-400">
+              Trois façons d&apos;être récompensé : les <strong className="font-medium text-slate-200">accomplissements</strong>, c&apos;est ce que vous faites ; les{" "}
+              <strong className="font-medium text-slate-200">Easter eggs</strong>, ce que vous découvrez ; la <strong className="font-medium text-slate-200">vitrine</strong>, ce que les autres voient.
+            </p>
+            {/* Presque là */}
+            {data.near.length > 0 && (
+              <section aria-labelledby="near-title" className="space-y-3">
+                <h2 id="near-title" className="font-display text-lg font-semibold text-white">
+                  Presque là
+                </h2>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {data.near.map((n) => (
+                    <NearCard key={n.key} n={n} onOpen={() => openAlbumAt(n.seriesId)} />
                   ))}
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                  {series.map((s) => (
-                    <AccomplishmentCard key={s.id} s={s} />
-                  ))}
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
-                  d&apos;audience viennent de vos comptes connectés (Analytics et Engagements).
-                </p>
-              </>
+              </section>
             )}
-          </section>
+
+            {/* Vitrine, récompenses, carte de créateur (lot B), repliable (lot U3) */}
+            <ShowcaseSection showcase={data.showcase} rewards={data.rewards} busy={showcaseBusy} onSave={saveShowcase} highlight={false} collapsed={showcaseCollapsed} onToggleCollapsed={toggleShowcase} />
+            {/* Album des accomplissements */}
+            <section id="album" aria-labelledby="accomplissements-title" className="scroll-mt-24 space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="accomplissements-title" className="font-display text-lg font-semibold text-white">
+                  Album des accomplissements
+                </h2>
+                <button type="button" onClick={() => setAlbumOpen((v) => !v)} aria-expanded={albumOpen} className="text-xs font-medium text-aurora-300 transition hover:text-white">
+                  {data.unlockedCount} / {data.total} débloqués · {albumOpen ? "Replier" : "Ouvrir l'album"}
+                </button>
+              </div>
+              {(() => {
+                const starters = STARTER_SERIES.map((id) => data.series.find((x) => x.id === id)).filter((x): x is SeriesDTO => Boolean(x && x.tiers.some((t) => !t.unlockedAt)));
+                if (starters.length === 0 || level.level > 4) return null;
+                return (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aurora-300">Pour bien démarrer</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {starters.slice(0, 3).map((x) => {
+                        const next = x.tiers.find((t) => !t.unlockedAt)!;
+                        return (
+                          <button
+                            key={x.id}
+                            type="button"
+                            onClick={() => openAlbumAt(x.id)}
+                            className="flex min-w-0 items-center gap-3 rounded-2xl border border-aurora-400/20 bg-aurora-500/[0.06] p-3 text-left transition hover:border-aurora-400/45"
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg" aria-hidden="true">
+                              {x.emoji}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-white">{next.description}</span>
+                              <Bar value={x.value} target={next.target} className="mt-1.5" />
+                              <span className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
+                                {fmt(Math.min(x.value, next.target))} / {fmt(next.target)} {x.unit}
+                                <XpChip xp={next.xp} />
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+              <SeasonShelf seasons={data.seasons} monthly={data.monthlyBadges} />
+              {albumOpen && (
+                <>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par catégorie">
+                    <FilterChip active={category === "all"} onClick={() => setCategory("all")}>
+                      Tout
+                    </FilterChip>
+                    {CATEGORIES.map((c) => (
+                      <FilterChip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
+                        {c.label}
+                        <span className="text-[10px] tabular-nums text-slate-500">
+                          {countByCategory[c.id]?.done ?? 0}/{countByCategory[c.id]?.total ?? 0}
+                        </span>
+                      </FilterChip>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    {series.map((s) => (
+                      <AccomplishmentCard key={s.id} s={s} />
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
+                    d&apos;audience viennent de vos comptes connectés (Analytics et Engagements).
+                  </p>
+                </>
+              )}
+            </section>
+            {/* Easter eggs : résumé, la collection complète est sur sa propre page. */}
+            <EggSummary />
+            {/* Vidéo à la une (lot C) */}
+            <FeaturedPanel
+              featured={data.featured}
+              busy={featureBusy}
+              error={featureError}
+              onConsent={(consent) => featureAction({ action: "feature-consent", consent })}
+              onUse={(sharedVideoId) => featureAction({ action: "feature-use", sharedVideoId })}
+              onRemove={(id) => featureAction({ action: "feature-remove", id })}
+            />
+          </TabPanel>
         </>
       )}
 
-      {/* Succès (easter eggs), repliables, tout en bas */}
-      <SuccesSection forceOpen={openSucces} />
       <Suspense fallback={null}>
         <FocusParam onFocus={setFocus} />
       </Suspense>

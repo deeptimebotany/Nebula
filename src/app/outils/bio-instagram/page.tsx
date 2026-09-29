@@ -12,6 +12,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconAvatar, IconSparkle } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
+import { ToolError } from "@/components/tools/tool-error";
 
 const TONES = [
   ["chaleureux", "Chaleureux"],
@@ -108,7 +109,7 @@ export default function BioInstagramPage() {
           <IconSparkle className="h-4 w-4" /> {gen.loading ? "Génération…" : member ? "Générer 5 bios" : "Voir un exemple (démo sans IA)"}
         </Button>
         <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
-        {gen.error && <p className="mt-3 text-sm text-red-300">{gen.error}</p>}
+        <ToolError message={gen.error} reason={gen.errorReason} />
         {gen.isDemo && gen.result && <ToolDemoNotice slug="bio-instagram" input={DEMO_BIO_INSTAGRAM.input} onBeforeLeave={() => saveToolDraft("bio-instagram", { activity, tone, keywords, cta })} />}
         {gen.result && (
           <ul className="mt-4 space-y-2">

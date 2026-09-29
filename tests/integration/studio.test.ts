@@ -19,8 +19,8 @@ import type { StudioPageDTO } from "@/lib/studio/types";
 import { hasDatabase, makeBrand, resetDatabase } from "./helpers";
 
 const DAY = 86_400_000;
-const PRO = { limits: PLAN_LIMITS.PRO };
-const FREE = { limits: PLAN_LIMITS.FREE };
+const PRO = { plan: "PRO" as const, limits: PLAN_LIMITS.PRO };
+const FREE = { plan: "FREE" as const, limits: PLAN_LIMITS.FREE };
 
 async function seedBrand(opts: { comp?: "PRO" | "AGENCY" } = {}) {
   const { user, brand } = await makeBrand();
@@ -139,7 +139,7 @@ describe.skipIf(!hasDatabase)("Studio IA : génération, quota, historique, rout
     const r = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: PRO });
     expect(r).toMatchObject({ ok: false, status: 429 });
     expect((r as { error: string }).error).toContain("vos 15 générations du jour");
-    const agency = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: { limits: PLAN_LIMITS.AGENCY } });
+    const agency = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: { plan: "AGENCY" as const, limits: PLAN_LIMITS.AGENCY } });
     expect(agency).toMatchObject({ ok: true, quota: { limit: 40, used: 16, remaining: 24 } });
 
     // Rafale : 8 essais en 10 minutes au plus, même ratés. La fenêtre est un

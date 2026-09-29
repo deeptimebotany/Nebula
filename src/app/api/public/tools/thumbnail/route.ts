@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAiEnabled, generateThumbnail } from "@/lib/ai/gemini";
 import { requireToolAccess } from "@/lib/tools/access";
-import { releaseToolQuota } from "@/lib/tools/quota";
 
 // POST /api/public/tools/thumbnail — générateur IA de miniatures de
 // /outils/miniatures. Depuis le 29/09/2026 : compte obligatoire et quota par
-// compte (voir lib/tools/quota.ts) ; sans compte, la page montre une démo
+// compte (porte unique de l'IA, lib/ai/guard.ts) ; sans compte, la page montre une démo
 // illustrée, sans IA. Réutilise directement
 // generateThumbnail() de src/lib/ai/gemini.ts (déjà utilisée dans le
 // Composer pour les comptes payants) : le visiteur envoie une photo qu'il a
@@ -41,12 +40,14 @@ export async function POST(req: NextRequest) {
   const { quota } = access;
 
   try {
-    const result = await generateThumbnail({
-      frameBase64: imageBase64,
-      frameMimeType: imageMimeType,
-      title: title?.trim() || "",
-      network
-    });
+    const result = await access.allowance.run(() =>
+      generateThumbnail({
+        frameBase64: imageBase64,
+        frameMimeType: imageMimeType,
+        title: title?.trim() || "",
+        network
+      })
+    );
     return NextResponse.json({
       imageBase64: result.base64,
       imageMimeType: result.mimeType,
@@ -54,7 +55,6 @@ export async function POST(req: NextRequest) {
       limit: quota.limit
     });
   } catch (err) {
-    await releaseToolQuota(access.userId, "thumbnail");
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

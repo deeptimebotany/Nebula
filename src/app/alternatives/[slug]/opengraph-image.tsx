@@ -15,5 +15,5 @@ export function generateStaticParams() {
 export default function Image({ params }: { params: { slug: string } }) {
   const c = getCompetitor(params.slug);
   const name = c?.name ?? "votre outil actuel";
-  return renderPageOg({ eyebrow: "Comparatif", title: `Alternative à ${name}`, subtitle: `Nebula, en français, dès ${PLAN_LIMITS.PRO.tiers[0].priceMonthly} € par mois` });
+  return renderPageOg({ eyebrow: "Comparatif", title: `Alternative à ${name}`, subtitle: `Nebula, dès ${PLAN_LIMITS.PRO.tiers[0].priceMonthly} € par mois` });
 }

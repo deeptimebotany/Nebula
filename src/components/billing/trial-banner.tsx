@@ -1,11 +1,14 @@
 "use client";
 
-// Bandeaux discrets sous l'en-tête de l'application (brief growth, lot G2) :
-//   - « Essai Pro — n jours restants · Passer en Pro » pendant l'essai ;
+// Bandeaux discrets sous l'en-tête de l'application (brief growth, lot G2 ;
+// revus au brief « Essai 14 jours », lots E1 et E4) :
+//   - « Essai — n jours restants · Passer en Pro » pendant l'essai ;
+//   - « Reprogrammer les n publications » après le passage en Pro, quand des
+//     brouillons de la fin d'essai peuvent repartir à leur date d'origine ;
 //   - « Abonnement en pause jusqu'au … · Reprendre maintenant » en pause ;
 //   - « -50 % sur votre premier mois — expire dans … » tant que l'offre de
 //     bienvenue court (hors essai, hors payant).
-// Et la modale unique « Votre essai Pro est terminé » à la première
+// Et la modale unique « Votre essai est terminé » à la première
 // ouverture après la fin de l'essai (TrialEndedNotice). Rien de tout cela
 // n'est un toast : Mode focus respecté.
 
@@ -17,7 +20,6 @@ import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { IconClose } from "@/components/dashboard/icons";
 import { PLAN_LIMITS } from "@/lib/plans";
 
-const PLAN_LABEL: Record<string, string> = { FREE: PLAN_LIMITS.FREE.label, PRO: PLAN_LIMITS.PRO.label, AGENCY: PLAN_LIMITS.AGENCY.label };
 import { useUpgradeModal } from "./upgrade-modal";
 import type { TrialSummary } from "@/lib/billing/trial-summary";
 
@@ -50,6 +52,7 @@ export function TrialBanner() {
   const { data: me, patch } = useBootstrap();
   const toast = useToast();
   const [resuming, setResuming] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
   const countdown = useCountdown(me?.offerExpiresAt ?? null);
 
   if (!me) return null;
@@ -69,6 +72,32 @@ export function TrialBanner() {
     }
   }
 
+  async function reschedule() {
+    setRescheduling(true);
+    try {
+      const res = await fetch("/api/billing/reschedule", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? "Reprogrammation impossible.");
+      patch({ reschedulable: d.remaining ?? 0 });
+      toast.success(d.rescheduled > 0 ? `${d.rescheduled} publication${d.rescheduled > 1 ? "s" : ""} reprogrammée${d.rescheduled > 1 ? "s" : ""} à leur date d'origine.` : "Rien à reprogrammer : les dates d'origine sont passées.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRescheduling(false);
+    }
+  }
+
+  if (me.paid && me.reschedulable > 0) {
+    return (
+      <div className="border-b border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 text-center text-xs text-emerald-100 sm:px-6">
+        {me.reschedulable} publication{me.reschedulable > 1 ? "s" : ""} mise{me.reschedulable > 1 ? "s" : ""} en brouillon à la fin de l&apos;essai peu{me.reschedulable > 1 ? "vent" : "t"} repartir à leur date d&apos;origine.{" "}
+        <button type="button" onClick={reschedule} disabled={rescheduling} className="font-medium underline-offset-2 hover:underline">
+          {rescheduling ? "Reprogrammation…" : `Reprogrammer les ${me.reschedulable} publication${me.reschedulable > 1 ? "s" : ""}`}
+        </button>
+      </div>
+    );
+  }
+
   if (me.pausedUntil) {
     return (
       <div className="border-b border-amber-500/20 bg-amber-500/[0.06] px-4 py-2 text-center text-xs text-amber-200 sm:px-6">
@@ -84,7 +113,7 @@ export function TrialBanner() {
     return (
       <div className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-center text-xs text-amber-100 sm:px-6">
         <UpgradeGem className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        Accès {PLAN_LABEL[me.plan] ?? me.plan} offert{me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""} ·{" "}
+        Accès {PLAN_LIMITS[me.plan].label} offert{me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""} ·{" "}
         <Link href="/billing" className="font-medium underline-offset-2 hover:underline">
           Détails
         </Link>
@@ -94,9 +123,9 @@ export function TrialBanner() {
 
   if (me.onTrial) {
     return (
-      <div className="border-b border-aurora-400/20 bg-aurora-400/[0.06] px-4 py-2 text-center text-xs text-aurora-100 sm:px-6">
+      <div className="border-b border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2 text-center text-xs text-emerald-100 sm:px-6">
         <UpgradeGem className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        Essai Pro — {me.trialDaysLeft} jour{me.trialDaysLeft > 1 ? "s" : ""} restant{me.trialDaysLeft > 1 ? "s" : ""} ·{" "}
+        Essai — {me.trialDaysLeft} jour{me.trialDaysLeft > 1 ? "s" : ""} restant{me.trialDaysLeft > 1 ? "s" : ""} ·{" "}
         <Link href="/billing" className="font-medium underline-offset-2 hover:underline">
           Passer en Pro
         </Link>
@@ -118,7 +147,7 @@ export function TrialBanner() {
   return null;
 }
 
-/** Modale unique « Votre essai Pro est terminé ». */
+/** Modale unique « Votre essai est terminé ». */
 export function TrialEndedNotice() {
   const { data: me, patch } = useBootstrap();
   const { open } = useUpgradeModal();
@@ -161,7 +190,7 @@ export function TrialEndedNotice() {
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" role="presentation">
       <div role="dialog" aria-modal="true" aria-labelledby="trial-ended-title" className="glass-panel-solid w-full max-w-lg rounded-t-3xl p-6 sm:rounded-3xl sm:p-8">
         <div className="flex items-start justify-between gap-3">
-          <h2 id="trial-ended-title" className="font-display text-2xl font-semibold text-white">Votre essai Pro est terminé</h2>
+          <h2 id="trial-ended-title" className="font-display text-2xl font-semibold text-white">Votre essai est terminé</h2>
           <button type="button" onClick={markSeen} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white">
             <IconClose className="h-4 w-4" />
           </button>
@@ -185,11 +214,27 @@ export function TrialEndedNotice() {
             {u.bioLinksBeyondFree > 0 && <li>· Vos liens de page bio au-delà de {summary.locked.bioLinksLimit} sont désactivés (conservés, grisés « Pro »).</li>}
             {(u.reportsPublished > 0 || u.calendarSharesPublished > 0) && <li>· Vos rapports et calendriers clients sont dépubliés (« n&apos;est plus partagé »).</li>}
             {(u.mediaKitsPublished ?? 0) > 0 && <li>· Votre media kit est retiré du lien public (vos réglages sont gardés).</li>}
-            {u.brandsBeyondFree > 0 && <li>· Vos marques au-delà de {summary.locked.maxBrands} passent en lecture seule.</li>}
+            {summary.dormantBrands > 0 && (
+              <li>
+                · {summary.dormantBrands === 1 ? "Une marque est" : `${summary.dormantBrands} marques sont`} en veille : tout reste visible, rien ne se publie ni ne se synchronise.
+              </li>
+            )}
             <li>· Assistant IA, Rétention IA et Studio IA ne sont plus disponibles (vos chiffres restent visibles).</li>
-            <li>· Les publications déjà programmées partiront normalement.</li>
+            <li>
+              · Les publications prévues dans les 7 jours partent normalement
+              {summary.drafted > 0 ? ` ; ${summary.drafted} publication${summary.drafted > 1 ? "s" : ""} plus lointaine${summary.drafted > 1 ? "s sont repassées" : " est repassée"} en brouillon, elle${summary.drafted > 1 ? "s repartent" : " repart"} dès que vous passez en Pro` : ""}.
+            </li>
           </ul>
         </div>
+
+        {summary.activeBrand && u.brands > 1 && (
+          <p className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-slate-300">
+            Marque active en Gratuit : <strong className="text-white">{summary.activeBrand.name}</strong> ·{" "}
+            <Link href="/billing/garder" onClick={markSeen} className="font-medium text-aurora-300 underline underline-offset-2">
+              Changer ce choix
+            </Link>
+          </p>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button
@@ -200,7 +245,7 @@ export function TrialEndedNotice() {
             }}
             className="btn-glow inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white"
           >
-            <UpgradeGem className="h-4 w-4" /> Garder Pro — {PLAN_LIMITS.PRO.tiers[0].priceMonthly} €/mois
+            <UpgradeGem className="h-4 w-4" /> Passer en Pro — {PLAN_LIMITS.PRO.tiers[0].priceMonthly} €/mois
           </button>
           <button type="button" onClick={markSeen} className="text-sm text-slate-400 transition hover:text-white">
             Continuer en Gratuit

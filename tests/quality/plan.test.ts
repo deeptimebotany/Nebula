@@ -51,10 +51,26 @@ describe("palier : payant > offert > essai > gratuit", () => {
     db.subscription.findUnique.mockResolvedValue({ plan: "AGENCY", status: "ACTIVE", interval: "year", maxBrands: 10, pausedUntil: null });
     expect(await getUserPlan("u1")).toMatchObject({ plan: "AGENCY", paid: true, interval: "year", maxBrands: 10 });
   });
-  it("un abonnement en pause retombe sur l'essai Pro en cours", async () => {
+  it("un abonnement en pause retombe sur l'essai en cours (palier Essai, lot E1)", async () => {
     db.subscription.findUnique.mockResolvedValue({ plan: "PRO", status: "ACTIVE", pausedUntil: inDays(10) });
     db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(3) });
-    expect(await getUserPlan("u1")).toMatchObject({ plan: "PRO", paid: false, onTrial: true });
+    expect(await getUserPlan("u1")).toMatchObject({ plan: "TRIAL", paid: false, onTrial: true, maxBrands: 2 });
+  });
+  it("payant avant essai : le payant gagne même pendant l'essai", async () => {
+    db.subscription.findUnique.mockResolvedValue({ plan: "PRO", status: "ACTIVE", interval: "month", maxBrands: 3, pausedUntil: null });
+    db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(5) });
+    expect(await getUserPlan("u1")).toMatchObject({ plan: "PRO", paid: true, onTrial: false });
+  });
+  it("essai en cours : palier Essai et ses propres limites", async () => {
+    db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(5) });
+    const info = await getUserPlan("u1");
+    expect(info).toMatchObject({ plan: "TRIAL", onTrial: true, paid: false });
+    expect(info.limits.aiDaily).toEqual({ text: 20, image: 3, assistant: 20, retention: 3 });
+    expect(info.limits.studioDailyLimit).toBe(5);
+  });
+  it("essai expiré : Gratuit", async () => {
+    db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(-1) });
+    expect(await getUserPlan("u1")).toMatchObject({ plan: "FREE", onTrial: false });
   });
   it("accès offert expiré et essai expiré : Gratuit", async () => {
     db.user.findUnique.mockResolvedValue({ ...user, compPlan: "PRO", compUntil: inDays(-1), trialEndsAt: inDays(-1) });

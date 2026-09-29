@@ -13,6 +13,15 @@ import { SidebarNav } from "./sidebar-nav";
 import { AppHeader } from "./app-header";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { TrialBanner } from "@/components/billing/trial-banner";
+import dynamic from "next/dynamic";
+import { useBrand } from "@/components/brand-context";
+import { TOUR_RESTART_EVENT } from "@/lib/tour-events";
+
+// Chargés seulement quand ils servent (poids de toutes les pages, lot 4) :
+// la visite guidée (nouveaux comptes, « Revoir la visite ») et le bandeau
+// d'une marque en veille (lot E4).
+const GuidedTour = dynamic(() => import("@/components/tour/guided-tour").then((m) => m.GuidedTour), { ssr: false });
+const DormantBrandBanner = dynamic(() => import("@/components/billing/dormant-brand").then((m) => m.DormantBrandBanner), { ssr: false });
 import { useAiAssistant } from "./ai-assistant-context";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 
@@ -32,6 +41,14 @@ interface AppShellProps {
 export function AppShell({ oauth, isOwner, children }: AppShellProps) {
   const pathname = usePathname();
   const { data } = useBootstrap();
+  const { activeBrand } = useBrand();
+  // « Revoir la visite » (Paramètres, palette) : charge la visite si besoin.
+  const [tourReplay, setTourReplay] = useState(0);
+  useEffect(() => {
+    const onRestart = () => setTourReplay((n) => n + 1);
+    window.addEventListener(TOUR_RESTART_EVENT, onRestart);
+    return () => window.removeEventListener(TOUR_RESTART_EVENT, onRestart);
+  }, []);
   const whiteLabel = data?.whiteLabel ?? { brandName: null, logoUrl: null };
   const brandName = whiteLabel.brandName || "Nebula";
 
@@ -178,10 +195,13 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       >
         <AppHeader oauth={oauth} onOpenMenu={openDrawer} menuOpen={drawerOpen} whiteLabel={whiteLabel} />
         <TrialBanner />
+        {activeBrand?.dormant && <DormantBrandBanner />}
         <main id="contenu" tabIndex={-1} className="noise-grid flex-1 px-4 pb-24 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-10">
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>
         <MobileTabBar onOpenMenu={openDrawer} menuOpen={drawerOpen} />
+        {/* Visite guidée à la première connexion (lot U4). */}
+        {data && (!data.tour.completed || tourReplay > 0) && <GuidedTour replay={tourReplay} />}
       </div>
     </div>
   );

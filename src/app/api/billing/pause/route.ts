@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { trackGrowth } from "@/lib/growth";
 import { z } from "zod";
+import { isPaidPlanId } from "@/lib/plans";
+import { applyFreeLimits, reactivateAfterUpgrade } from "@/lib/billing/free-limits";
 
 // Pause plutôt qu'annulation (brief growth, lot G2.c).
 //   POST   { months: 1 | 2 | 3 } → Stripe pause_collection (behavior "void",
@@ -17,7 +19,7 @@ const bodySchema = z.object({ months: z.union([z.literal(1), z.literal(2), z.lit
 
 async function loadSubscription(userId: string) {
   const sub = await prisma.subscription.findUnique({ where: { userId } });
-  if (!sub?.stripeSubscriptionId || sub.plan === "FREE") return null;
+  if (!sub?.stripeSubscriptionId || !isPaidPlanId(sub.plan)) return null;
   return sub;
 }
 
@@ -43,6 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Stripe a refusé la pause : ${(err as Error).message}` }, { status: 502 });
   }
   await prisma.subscription.update({ where: { userId }, data: { pausedUntil: resumesAt } });
+  // Descente en Gratuit pendant la pause (lot E4) : marques en trop en veille.
+  await applyFreeLimits(userId, "pause").catch((err) => console.error("[pause] limites du Gratuit :", (err as Error).message));
   await trackGrowth("subscription_paused", { months: parsed.data.months }, userId);
   return NextResponse.json({ ok: true, pausedUntil: resumesAt.toISOString() });
 }
@@ -61,6 +65,8 @@ export async function DELETE() {
     return NextResponse.json({ error: `Stripe a refusé la reprise : ${(err as Error).message}` }, { status: 502 });
   }
   await prisma.subscription.update({ where: { userId }, data: { pausedUntil: null } });
+  // Reprise : marques et comptes réactivés dans la limite du palier (lot E4).
+  await reactivateAfterUpgrade(userId).catch((err) => console.error("[pause] réactivation :", (err as Error).message));
   await trackGrowth("subscription_resumed", {}, userId);
   return NextResponse.json({ ok: true });
 }

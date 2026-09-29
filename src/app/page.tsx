@@ -1,26 +1,27 @@
+import Link from "next/link";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { Faq } from "@/components/marketing/faq";
-import { ComposerVisual, ReportVisual } from "@/components/marketing/product-visuals";
+import { ProductShot, type ScreenName } from "@/components/marketing/product-shot";
+import { ProductTour, type TourPanel } from "@/components/marketing/product-tour";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import {
   IconBioLink,
-  IconCalendar,
-  IconCalendarShare,
-  IconChart,
+  IconCheck,
   IconDownload,
+  IconHeart,
   IconLayers,
-  IconLink,
   IconLock,
-  IconReport,
+  IconMediaKit,
+  IconMessage,
+  IconPlug,
   IconRetention,
   IconShield,
-  IconSparkle,
-  IconUpload,
+  IconTrophy,
   IconUsers
 } from "@/components/dashboard/icons";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -31,84 +32,132 @@ import { SEO_HOME } from "@/lib/seo-pages";
 // son adresse canonique : c'est LA page à référencer.
 export const metadata = pageMetadata({ ...SEO_HOME, absoluteTitle: true });
 
-// Étapes, fonctionnalités et arguments de confiance : tout ce qui est
-// affiché ici correspond à une fonction réellement présente dans
-// l'application (voir src/lib/plans.ts pour les quotas, /accounts pour
-// l'OAuth, /reports et /calendar-share pour les pages clients, Paramètres
-// pour l'export et la suppression du compte). Aucun témoignage ni chiffre
-// d'usage : il n'y en a pas encore de réels, on n'en invente pas.
-const STEPS = [
+// Refonte du 29/09/2026 (demande de Lucas : « un accueil propre qui
+// ressemble à mon site, professionnel »). Toutes les images sont de VRAIES
+// captures de l'application (compte de démonstration aux données fictives,
+// scripts/demo/), et tout ce qui est décrit existe dans l'application
+// (quotas : src/lib/plans.ts). Aucun témoignage ni chiffre d'usage : il n'y
+// en a pas encore de réels, on n'en invente pas.
+
+interface TourScreen {
+  id: string;
+  label: string;
+  shot: ScreenName;
+  alt: string;
+  title: string;
+  desc: string;
+  points: string[];
+  plan?: string;
+}
+
+const TOUR: TourScreen[] = [
   {
-    icon: IconLink,
-    title: "Connectez vos comptes",
-    desc: "Instagram, TikTok, YouTube, Facebook — via la connexion officielle de chaque plateforme, en deux clics. Plusieurs comptes par réseau, plusieurs marques si besoin."
+    id: "publier",
+    label: "Publier",
+    shot: "publier",
+    alt: "Écran Publier de Nebula : un visuel, un titre et une description, trois réseaux cochés et l'aperçu Instagram de la publication",
+    title: "Une publication, tous vos réseaux",
+    desc: "Ajoutez votre vidéo ou votre image, écrivez une fois et cochez les comptes. Nebula respecte les formats et les limites de chaque réseau, et publie à l'heure prévue.",
+    points: ["Texte commun ou adapté réseau par réseau", "Aperçu de la publication sur chaque réseau avant l'envoi", "Titres, légendes et miniatures avec l'IA"],
+    plan: "IA à partir du palier Pro"
   },
   {
-    icon: IconUpload,
-    title: "Créez et programmez",
-    desc: "Un média, un titre, une description : adaptez le texte par réseau si vous le souhaitez, choisissez les comptes cibles et la date. Nebula publie à l'heure prévue."
+    id: "calendrier",
+    label: "Calendrier",
+    shot: "calendrier",
+    alt: "Calendrier éditorial de Nebula : un mois de publications programmées et publiées, avec les réseaux de chacune",
+    title: "Tout votre planning d'un coup d'œil",
+    desc: "En mois, en liste ou en agenda : vous voyez ce qui part, quand et sur quel réseau. Déplacez une publication d'un glisser-déposer, dupliquez-la pour la relancer.",
+    points: ["Filtres par réseau et par marque", "Brouillons et publications programmées au même endroit", "Lien d'approbation à envoyer à un client"]
   },
   {
-    icon: IconChart,
-    title: "Analysez et partagez",
-    desc: "Abonnés, portée, engagement, meilleurs créneaux : tout au même endroit. Envoyez à vos clients un rapport et un calendrier consultables par simple lien."
+    id: "analytics",
+    label: "Analytics",
+    shot: "analytics",
+    alt: "Page Analytics de Nebula : abonnés par réseau et courbe d'évolution des abonnés sur 30 jours",
+    title: "Toutes vos statistiques, réunies",
+    desc: "Abonnés, portée et engagement de chaque compte, au même endroit et mis à jour automatiquement, sans ouvrir quatre applications.",
+    points: ["Évolution des abonnés, réseau par réseau", "Export CSV et rapport PDF", "Suivi de vos concurrents"]
+  },
+  {
+    id: "studio",
+    label: "Studio IA",
+    shot: "studio",
+    alt: "Studio IA de Nebula : classement des publications qui ont le mieux marché, meilleures heures et rythme de publication",
+    title: "Des idées tirées de vos propres résultats",
+    desc: "Le Studio repère vos publications qui ont le mieux marché, vos meilleures heures et votre rythme. L'IA s'en sert pour proposer des idées, des accroches et des scripts de vidéo.",
+    points: ["Vos meilleures publications, calculées sur vos vrais chiffres", "Idées et accroches adaptées à chaque réseau", "Scripts de vidéo courte ou longue"],
+    plan: "Paliers Pro et Agence"
+  },
+  {
+    id: "page-bio",
+    label: "Page bio",
+    shot: "page-bio",
+    alt: "Éditeur de page bio de Nebula : profil, liens et aperçu de la page sur téléphone",
+    title: "Votre page « link in bio », incluse",
+    desc: "Une page publique à mettre dans vos bios Instagram, TikTok ou YouTube, avec vos liens, vos couleurs et le nombre de clics de chaque lien.",
+    points: ["Thèmes et cadres à choisir", "Clics comptés lien par lien", "Gratuit jusqu'à 3 liens"]
+  },
+  {
+    id: "rapports",
+    label: "Rapports clients",
+    shot: "rapports",
+    alt: "Rapport client de Nebula : abonnés, évolution, engagement moyen, impressions et publications de la période",
+    title: "Des rapports que vos clients lisent",
+    desc: "Pour chaque marque, un rapport à jour à chaque ouverture, partagé par un simple lien et envoyé automatiquement chaque semaine ou chaque mois.",
+    points: ["Aucun compte à créer pour vos clients", "Envoi automatique par e-mail", "Calendrier partagé en lecture seule"],
+    plan: "À partir du palier Pro"
   }
 ];
 
-const FEATURES = [
+const AUDIENCES = [
   {
-    icon: IconCalendar,
-    title: "Calendrier éditorial",
-    desc: "Vue semaine ou mois, glisser-déposer pour reprogrammer, brouillons, duplication en un clic d'une publication à retenter."
+    title: "Créateurs de contenu",
+    desc: "Vous publiez sur plusieurs réseaux et voulez y passer moins de temps.",
+    points: [
+      "Préparez une semaine de contenus en une fois",
+      "Trouvez vos prochaines idées dans vos propres chiffres",
+      "Page bio et media kit pour démarcher les marques"
+    ],
+    links: [
+      { href: "/decouvrir/page-bio", label: "La page bio" },
+      { href: "/decouvrir/media-kit", label: "Le media kit" }
+    ]
   },
   {
-    icon: IconLayers,
-    title: "Multi-marques, multi-comptes",
-    desc: "Chaque marque a ses comptes, son calendrier et ses statistiques. Basculez de l'une à l'autre sans vous déconnecter."
-  },
-  {
-    icon: IconChart,
-    title: "Analytics unifiées",
-    desc: "Historique d'abonnés, portée, impressions et taux d'engagement par compte, plus le meilleur créneau de publication calculé sur vos propres données."
-  },
-  {
-    icon: IconSparkle,
-    title: "Assistant IA",
-    desc: "Titres et légendes adaptés à chaque réseau, idées de contenu, chat qui répond à partir de vos vraies statistiques. Optionnel, dès le palier Pro."
-  },
-  {
-    icon: IconRetention,
-    title: "Analyse de rétention vidéo",
-    desc: "Pour vos vidéos YouTube : la courbe de rétention réelle, les moments où le public décroche, et des pistes concrètes pour la prochaine."
-  },
-  {
-    icon: IconBioLink,
-    title: "Page « link in bio »",
-    desc: "Une page publique par marque, à mettre dans vos bios, avec vos liens et vos couleurs — sans outil supplémentaire."
+    title: "Agences et community managers",
+    desc: "Vous gérez plusieurs marques et devez rendre des comptes à vos clients.",
+    points: [
+      "Une marque par client, chacune avec ses comptes et son calendrier",
+      "Rapports envoyés automatiquement, calendrier partagé",
+      "Validation des publications par le client avant l'envoi"
+    ],
+    links: [{ href: "/decouvrir/rapports-clients", label: "Les rapports clients" }]
   }
+];
+
+const MORE = [
+  { icon: IconMessage, title: "Commentaires", desc: "Les commentaires de vos réseaux dans une seule boîte, à lire et à traiter." },
+  { icon: IconHeart, title: "Engagements", desc: "Likes, partages, enregistrements : ce que chaque publication déclenche." },
+  { icon: IconRetention, title: "Rétention vidéo", desc: "Pour YouTube : où votre public décroche, et quoi changer la prochaine fois." },
+  { icon: IconMediaKit, title: "Media kit", desc: "Une page pour les marques, avec vos vrais chiffres relevés automatiquement." },
+  { icon: IconLayers, title: "Multi-marques", desc: "Passez d'une marque à l'autre sans vous déconnecter." },
+  { icon: IconPlug, title: "API et webhooks", desc: "Branchez Nebula à n8n, Make ou Zapier (palier Agence)." },
+  { icon: IconTrophy, title: "Réussites", desc: "Des missions et des rangs pour garder un rythme de publication régulier." },
+  { icon: IconBioLink, title: "Liens de campagne", desc: "Des liens UTM prêts à coller, pour voir dans vos statistiques ce qui ramène du monde." }
+];
+
+const STEPS = [
+  { title: "Connectez vos comptes", desc: "Instagram, TikTok, YouTube, Facebook, Bluesky : la connexion officielle de chaque réseau, en quelques clics." },
+  { title: "Programmez vos publications", desc: "Un média, un texte, les comptes et la date. Nebula publie à l'heure prévue et vous prévient en cas de souci." },
+  { title: "Suivez et partagez", desc: "Statistiques réunies, meilleures heures, rapports clients envoyés automatiquement." }
 ];
 
 const TRUST = [
-  {
-    icon: IconLock,
-    title: "Connexion officielle",
-    desc: "Vos comptes sont reliés par l'autorisation officielle de chaque réseau (OAuth). Votre mot de passe Instagram, TikTok ou Google n'est jamais saisi dans Nebula."
-  },
-  {
-    icon: IconShield,
-    title: "Accès révocable",
-    desc: "Déconnectez un compte à tout moment depuis Nebula ou depuis le réseau lui-même : l'autorisation est immédiatement retirée."
-  },
-  {
-    icon: IconDownload,
-    title: "Vos données vous appartiennent",
-    desc: "Exportez vos publications, comptes et statistiques depuis les Paramètres, et supprimez votre compte en un clic si vous le souhaitez."
-  },
-  {
-    icon: IconUsers,
-    title: "Vos clients ne voient que l'essentiel",
-    desc: "Rapports et calendriers partagés par lien privé, en lecture seule. Aucun accès à votre espace, aucun compte à créer pour eux."
-  }
+  { icon: IconLock, title: "Connexion officielle", desc: "Vos comptes sont reliés par l'autorisation officielle de chaque réseau. Votre mot de passe n'est jamais saisi dans Nebula." },
+  { icon: IconShield, title: "Accès révocable", desc: "Déconnectez un compte à tout moment, depuis Nebula ou depuis le réseau lui-même." },
+  { icon: IconDownload, title: "Vos données vous appartiennent", desc: "Exportez vos publications et statistiques, et supprimez votre compte en un clic." },
+  { icon: IconUsers, title: "Vos clients voient l'essentiel", desc: "Rapports et calendriers partagés par lien privé, en lecture seule, sans accès à votre espace." }
 ];
 
 function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: string; desc?: string }) {
@@ -116,7 +165,33 @@ function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: stri
     <div className="mx-auto mb-12 max-w-2xl text-center">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">{eyebrow}</p>
       <h2 className="mt-3 font-display text-3xl font-semibold text-white sm:text-4xl">{title}</h2>
-      {desc && <p className="mt-3 text-base text-slate-400">{desc}</p>}
+      {desc && <p className="mt-4 text-base leading-relaxed text-slate-400">{desc}</p>}
+    </div>
+  );
+}
+
+// Texte au-dessus, capture en grand dessous : l'écran reste lisible.
+function TourContent({ screen }: { screen: TourScreen }) {
+  return (
+    <div>
+      <div className="mb-10 grid gap-6 lg:grid-cols-2 lg:gap-12">
+        <div>
+          <h3 className="font-display text-2xl font-semibold text-white sm:text-3xl">{screen.title}</h3>
+          <p className="mt-3 text-base leading-relaxed text-slate-400">{screen.desc}</p>
+        </div>
+        <div className="lg:pt-1">
+          <ul className="space-y-3 text-sm text-slate-300 sm:text-base">
+            {screen.points.map((p) => (
+              <li key={p} className="flex items-start gap-2.5">
+                <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-aurora-300 sm:mt-1" />
+                {p}
+              </li>
+            ))}
+          </ul>
+          {screen.plan && <p className="mt-4 text-xs text-slate-500">{screen.plan}</p>}
+        </div>
+      </div>
+      <ProductShot name={screen.shot} alt={screen.alt} sizes="(min-width: 1200px) 1104px, calc(100vw - 48px)" />
     </div>
   );
 }
@@ -125,6 +200,7 @@ function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: stri
 // déjà connecté est envoyé au tableau de bord par le middleware, avant
 // même que la page ne soit servie (voir src/middleware.ts).
 export default function LandingPage() {
+  const panels: TourPanel[] = TOUR.map((screen) => ({ id: screen.id, label: screen.label, content: <TourContent screen={screen} /> }));
 
   return (
     <>
@@ -133,124 +209,87 @@ export default function LandingPage() {
         {/* Données structurées de l'accueil (SEO, 29/09/2026) : l'éditeur, le
             site et l'application avec ses prix réels. */}
         <JsonLd nodes={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
-        {/* Fond commun à toute la page : étoiles très discrètes + deux halos
-            bas de page, pour que les sections après le hero ne tombent pas
-            sur un noir plat. */}
-        <div aria-hidden="true" className="hero-stars pointer-events-none absolute inset-0 opacity-30" />
-        <div aria-hidden="true" className="hero-orb pointer-events-none -left-32 top-[38%] h-[420px] w-[420px] bg-nebula-500/20" />
-        <div aria-hidden="true" className="hero-orb hero-orb-b pointer-events-none -right-32 top-[72%] h-[460px] w-[460px] bg-accent-violet/20" />
+        <div aria-hidden="true" className="hero-stars pointer-events-none absolute inset-0 opacity-20" />
         <Hero />
+
+        {/* Visite de l'application : vraies captures, écran par écran */}
+        <section id="visite" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
+          <Reveal>
+            <SectionHeading
+              eyebrow="L'application"
+              title="Ce que vous trouverez dans Nebula"
+              desc="Des captures de l'application telle qu'elle est, sur un compte de démonstration aux données fictives."
+            />
+          </Reveal>
+          <ProductTour panels={panels} />
+        </section>
+
+        {/* Pour qui */}
+        <section id="fonctionnalites" className="relative z-10 border-y border-white/[0.06] bg-white/[0.015] py-24">
+          <div className="mx-auto max-w-6xl px-6">
+            <Reveal>
+              <SectionHeading eyebrow="Pour qui" title="Pensé pour ceux qui publient chaque semaine" />
+            </Reveal>
+            <RevealGroup className="grid gap-5 md:grid-cols-2">
+              {AUDIENCES.map((a) => (
+                <RevealItem key={a.title}>
+                  <GlassCard hover={false} className="h-full p-7">
+                    <h3 className="font-display text-xl font-semibold text-white">{a.title}</h3>
+                    <p className="mt-2 text-sm text-slate-400">{a.desc}</p>
+                    <ul className="mt-5 space-y-3 text-sm text-slate-300">
+                      {a.points.map((p) => (
+                        <li key={p} className="flex items-start gap-2.5">
+                          <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-aurora-300" />
+                          {p}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                      {a.links.map((l) => (
+                        <Link key={l.href} href={l.href} className="font-medium text-aurora-300 hover:underline">
+                          {l.label} →
+                        </Link>
+                      ))}
+                    </p>
+                  </GlassCard>
+                </RevealItem>
+              ))}
+            </RevealGroup>
+
+            <Reveal className="mt-20">
+              <h3 className="text-center font-display text-xl font-semibold text-white">Et tout le reste, déjà inclus</h3>
+            </Reveal>
+            <RevealGroup className="mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+              {MORE.map((f) => (
+                <RevealItem key={f.title}>
+                  <div className="flex gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-aurora-300">
+                      <f.icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">{f.title}</h4>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-400">{f.desc}</p>
+                    </div>
+                  </div>
+                </RevealItem>
+              ))}
+            </RevealGroup>
+          </div>
+        </section>
 
         {/* Comment ça marche */}
         <section id="comment-ca-marche" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
           <Reveal>
-            <SectionHeading
-              eyebrow="Comment ça marche"
-              title="Trois étapes, un seul espace"
-              desc="De la connexion de vos comptes au rapport envoyé à vos clients, sans changer d'outil."
-            />
+            <SectionHeading eyebrow="Démarrer" title="Prêt en trois étapes" desc="Créez votre espace, connectez vos comptes, programmez votre première publication." />
           </Reveal>
-          <RevealGroup className="grid gap-5 md:grid-cols-3">
+          <RevealGroup className="grid gap-8 md:grid-cols-3">
             {STEPS.map((step, i) => (
               <RevealItem key={step.title}>
-                <GlassCard hover={false} className="relative h-full">
-                  <span className="absolute right-5 top-4 font-display text-4xl font-semibold text-white/[0.06]">0{i + 1}</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-aurora-400/30 bg-aurora-400/10 text-aurora-300">
-                    <step.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-5 font-display text-lg font-medium text-white">{step.title}</h3>
+                <div className="relative border-t border-white/10 pt-6">
+                  <span className="font-display text-sm font-semibold text-aurora-300">Étape {i + 1}</span>
+                  <h3 className="mt-2 font-display text-lg font-semibold text-white">{step.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-400">{step.desc}</p>
-                </GlassCard>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </section>
-
-        {/* Fonctionnalités */}
-        <section id="fonctionnalites" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 py-8 pb-24">
-          <Reveal>
-            <SectionHeading
-              eyebrow="Fonctionnalités"
-              title="Tout ce qu'il faut pour publier sérieusement"
-              desc="Pensé pour les créateurs qui veulent gagner du temps et les agences qui doivent rendre des comptes."
-            />
-          </Reveal>
-
-          <Reveal>
-            <div className="grid items-center gap-8 lg:grid-cols-2">
-              <div className="order-2 lg:order-1">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-aurora-400/30 bg-aurora-400/10 text-aurora-300">
-                  <IconUpload className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 font-display text-2xl font-semibold text-white">Une publication, tous vos réseaux</h3>
-                <p className="mt-3 text-base leading-relaxed text-slate-400">
-                  Importez un média, écrivez une fois, puis cochez les comptes à cibler : Nebula adapte la publication
-                  aux contraintes de chaque réseau (formats, longueur des textes) et l&apos;envoie à l&apos;heure prévue.
-                  Une publication reste bloquée ? Dupliquez-la en un clic pour la retenter.
-                </p>
-                <ul className="mt-5 space-y-2 text-sm text-slate-300">
-                  {[
-                    "Texte commun, ou adapté réseau par réseau",
-                    "Programmation à la date et à l'heure de votre choix",
-                    "Suggestions IA pour les titres et légendes (Pro)",
-                    "Publication en masse d'une vidéo vers tous les comptes (Agence)"
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-400" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="order-1 lg:order-2">
-                <ComposerVisual />
-              </div>
-            </div>
-          </Reveal>
-
-          <Reveal className="mt-20">
-            <div className="grid items-center gap-8 lg:grid-cols-2">
-              <div>
-                <ReportVisual />
-              </div>
-              <div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-aurora-400/30 bg-aurora-400/10 text-aurora-300">
-                  <IconReport className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 font-display text-2xl font-semibold text-white">Des rapports que vos clients comprennent</h3>
-                <p className="mt-3 text-base leading-relaxed text-slate-400">
-                  Pour chaque marque, une page de rapport à jour à chaque visite — abonnés, croissance, engagement,
-                  publications de la période — partagée par un simple lien, avec envoi automatique par email chaque
-                  semaine ou chaque mois si vous le souhaitez. Et un calendrier client en lecture seule pour montrer ce
-                  qui arrive.
-                </p>
-                <ul className="mt-5 space-y-2 text-sm text-slate-300">
-                  {[
-                    "Chiffres recalculés en direct, jamais un instantané figé",
-                    "Aucun compte à créer pour vos clients",
-                    "Envoi hebdomadaire ou mensuel automatique",
-                    "Calendrier des publications à venir, partageable"
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <IconCalendarShare className="mt-0.5 h-4 w-4 shrink-0 text-aurora-300" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Reveal>
-
-          <RevealGroup className="mt-20 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <RevealItem key={f.title}>
-                <GlassCard className="h-full">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-aurora-300">
-                    <f.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-4 font-display text-base font-medium text-white">{f.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
-                </GlassCard>
               </RevealItem>
             ))}
           </RevealGroup>
@@ -263,7 +302,7 @@ export default function LandingPage() {
               <SectionHeading
                 eyebrow="Confiance"
                 title="Vos comptes restent les vôtres"
-                desc="Nebula s'appuie uniquement sur les autorisations officielles des réseaux et ne garde que ce qui sert à publier et à mesurer."
+                desc="Nebula passe uniquement par les autorisations officielles des réseaux et ne garde que ce qui sert à publier et à mesurer."
               />
             </Reveal>
             <RevealGroup className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -277,6 +316,11 @@ export default function LandingPage() {
                 </RevealItem>
               ))}
             </RevealGroup>
+            <p className="mt-8 text-center text-sm">
+              <Link href="/securite" className="font-medium text-aurora-300 hover:underline">
+                Sécurité et protection des données →
+              </Link>
+            </p>
           </div>
         </section>
 
@@ -285,27 +329,33 @@ export default function LandingPage() {
         <Faq />
 
         {/* Appel final */}
-        <section className="relative z-10 mx-auto max-w-4xl px-6 pb-28">
+        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-28">
           <Reveal>
-            <GlassCard hover={false} className="relative overflow-hidden p-10 text-center sm:p-14">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[520px] -translate-x-1/2 rounded-full bg-aurora-400/15 blur-3xl"
-              />
-              <h2 className="relative font-display text-3xl font-semibold text-white sm:text-4xl">
-                Prêt à reprendre la main sur vos réseaux ?
-              </h2>
-              <p className="relative mx-auto mt-4 max-w-xl text-base text-slate-400">
-                Créez votre espace en une minute, connectez votre premier compte et programmez votre première
-                publication. Gratuit, sans carte bancaire.
-              </p>
-              <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <ButtonLink href="/register" className="w-full px-7 py-3.5 text-base sm:w-auto">
-                  Créer mon espace gratuitement
-                </ButtonLink>
-                <ButtonLink href="/outils" variant="ghost" className="w-full px-7 py-3.5 text-base sm:w-auto">
-                  Essayer les outils gratuits
-                </ButtonLink>
+            <GlassCard hover={false} className="relative overflow-hidden p-0">
+              <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+                <div className="p-8 sm:p-12">
+                  <h2 className="font-display text-3xl font-semibold text-white sm:text-4xl">Essayez Nebula sur vos propres comptes</h2>
+                  <p className="mt-4 text-base text-slate-400">
+                    Créez votre espace en une minute, connectez un premier compte et programmez votre première publication. Gratuit,
+                    sans carte bancaire.
+                  </p>
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <ButtonLink href="/register" className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
+                      Créer mon espace gratuit
+                    </ButtonLink>
+                    <ButtonLink href="/outils" variant="ghost" className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
+                      Essayer les outils gratuits
+                    </ButtonLink>
+                  </div>
+                </div>
+                <div className="hidden translate-x-8 translate-y-8 lg:block">
+                  <ProductShot
+                    name="calendrier"
+                    alt="Calendrier éditorial de Nebula (compte de démonstration)"
+                    sizes="560px"
+                    className="rounded-br-none"
+                  />
+                </div>
               </div>
             </GlassCard>
           </Reveal>

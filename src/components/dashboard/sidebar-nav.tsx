@@ -148,6 +148,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         key={item.href}
         href={item.href}
         onClick={onClose}
+        data-tour={`nav-${item.href.slice(1)}`}
         aria-current={active ? "page" : undefined}
         title={collapsed ? (eggBadge ? `${item.label} — ${eggBadge} nouveauté(s)` : item.label) : undefined}
         className={clsx(
