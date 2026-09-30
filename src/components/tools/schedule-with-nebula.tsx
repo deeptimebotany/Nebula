@@ -10,7 +10,8 @@ import { IconUpload } from "@/components/dashboard/icons";
 import { trackGrowthEvent } from "@/lib/growth-client";
 
 export interface DraftPayload {
-  kind: "CAPTION" | "THUMBNAIL";
+  /** POST : publication complète (générateur de publications, 30/09/2026). */
+  kind: "CAPTION" | "THUMBNAIL" | "POST";
   tool: string;
   network?: string;
   content: { title?: string; caption?: string; imageBase64?: string; imageMimeType?: string };

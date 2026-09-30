@@ -8,8 +8,9 @@ import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/dashboard/toast";
-import { useConfirm } from "@/components/dashboard/confirm";
 import { useSession } from "next-auth/react";
+import { ContentActions } from "@/components/community/content-actions";
+import { reportKey } from "@/lib/community/report-reasons";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -39,18 +40,33 @@ export default function ThreadDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const confirmDialog = useConfirm();
   const { data: session } = useSession();
 
   const [thread, setThread] = useState<Thread | null>(null);
+  // Modération (30/09/2026) : contenus déjà signalés, droit de supprimer.
+  const [canModerate, setCanModerate] = useState(false);
+  const [reported, setReported] = useState<Set<string>>(new Set());
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/community/threads/${params.id}`);
     const data = await res.json();
-    if (res.ok) setThread(data.thread);
+    if (res.ok) {
+      setThread(data.thread);
+      setCanModerate(Boolean(data.viewer?.canModerate));
+      setReported(new Set<string>(data.viewer?.reported ?? []));
+    }
   }, [params.id]);
+
+  const markReported = (key: string) => setReported((prev) => new Set(prev).add(key));
+
+  // Lien direct vers une réponse (#reponse-…, ex. depuis une alerte de
+  // signalement) : on y descend une fois la discussion chargée.
+  useEffect(() => {
+    if (!thread || !window.location.hash) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [thread]);
 
   useEffect(() => {
     load();
@@ -74,24 +90,6 @@ export default function ThreadDetailPage() {
     load();
   }
 
-  async function remove() {
-    const ok = await confirmDialog({
-      title: "Supprimer cette discussion ?",
-      message: "Elle sera retirée du forum ainsi que toutes ses réponses. Action définitive.",
-      confirmLabel: "Supprimer",
-      danger: true
-    });
-    if (!ok) return;
-    const res = await fetch(`/api/community/threads/${params.id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error ?? "Erreur lors de la suppression.");
-      return;
-    }
-    toast.success("Discussion supprimée.");
-    router.push("/community");
-  }
-
   if (!thread) {
     return (
       <div className="space-y-4" aria-busy="true">
@@ -110,31 +108,48 @@ export default function ThreadDetailPage() {
       <Link href="/community" className="text-xs text-slate-500 hover:text-slate-300">← Retour à la communauté</Link>
 
       <GlassCard>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400">
-              {CATEGORY_LABEL[thread.category] ?? thread.category}
-            </span>
-            <h1 className="mt-2 font-display text-xl font-semibold text-white">{thread.title}</h1>
-            <p className="mt-1 text-xs text-slate-500">
-              par <CommunityAuthor author={thread.author} /> · {new Date(thread.createdAt).toLocaleString("fr-FR")}
-            </p>
-          </div>
-          {userId === thread.author?.id && (
-            <Button variant="danger" onClick={remove}>Supprimer</Button>
-          )}
+        <div>
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400">
+            {CATEGORY_LABEL[thread.category] ?? thread.category}
+          </span>
+          <h1 className="mt-2 font-display text-xl font-semibold text-white">{thread.title}</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            par <CommunityAuthor author={thread.author} /> · {new Date(thread.createdAt).toLocaleString("fr-FR")}
+          </p>
         </div>
         <p className="mt-4 whitespace-pre-wrap text-sm text-slate-200">{thread.body}</p>
+        <ContentActions
+          className="mt-4 justify-end border-t border-white/[0.06] pt-3"
+          type="THREAD"
+          id={thread.id}
+          mine={userId === thread.author?.id}
+          canModerate={canModerate}
+          reported={reported.has(reportKey("THREAD", thread.id))}
+          onReported={() => markReported(reportKey("THREAD", thread.id))}
+          onDeleted={() => router.push("/community")}
+        />
       </GlassCard>
 
       <div className="space-y-3">
         <h2 className="font-display text-sm font-medium text-white">{thread.replies.length} réponse(s)</h2>
         {thread.replies.map((r) => (
-          <GlassCard key={r.id}>
+          <GlassCard key={r.id} id={`reponse-${r.id}`} className="scroll-mt-24">
             <p className="whitespace-pre-wrap text-sm text-slate-200">{r.body}</p>
-            <p className="mt-2 text-xs text-slate-500">
-              <CommunityAuthor author={r.author} /> · {new Date(r.createdAt).toLocaleString("fr-FR")}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-slate-500">
+                <CommunityAuthor author={r.author} /> · {new Date(r.createdAt).toLocaleString("fr-FR")}
+              </p>
+              <ContentActions
+                type="REPLY"
+                id={r.id}
+                threadId={thread.id}
+                mine={userId === r.author?.id}
+                canModerate={canModerate}
+                reported={reported.has(reportKey("REPLY", r.id))}
+                onReported={() => markReported(reportKey("REPLY", r.id))}
+                onDeleted={() => void load()}
+              />
+            </div>
           </GlassCard>
         ))}
       </div>

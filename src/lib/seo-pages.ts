@@ -47,13 +47,25 @@ export const SEO_TOOLS_HUB: SeoPage = {
   path: "/outils",
   title: "Outils IA gratuits pour les réseaux sociaux",
   description:
-    "Légendes, hashtags, bio Instagram, miniatures, audit de présence, taux d'engagement et meilleur moment pour publier : des outils gratuits, en français.",
+    "Légendes, titres et miniatures, hashtags, bio Instagram, audit de présence, taux d'engagement et meilleur moment pour publier : des outils gratuits.",
   eyebrow: "Outils gratuits",
-  imageSubtitle: "Légendes, hashtags, bio Instagram, miniatures, audit, taux d'engagement"
+  imageSubtitle: "Publications (titre, légende, miniature), hashtags, bio Instagram, audit"
 };
 
 /** Les outils de /outils, dans l'ordre du hub. */
 export const SEO_TOOLS: Record<string, SeoPage> = {
+  // Légendes & titres + miniatures, réunis en un seul outil comme la page
+  // Publier (30/09/2026) ; /outils/legendes et /outils/miniatures y mènent.
+  publier: {
+    path: "/outils/publier",
+    toolName: "Générateur de publications (titre, légende, miniature)",
+    title: "Générateur de légendes, titres et miniatures (IA)",
+    description:
+      "Titre, légende et miniature au même endroit, avec l'aperçu Instagram, TikTok, YouTube ou Facebook. L'IA écrit et choisit avec un compte gratuit.",
+    eyebrow: "Outil IA",
+    imageTitle: "Générateur de publications",
+    imageSubtitle: "Titre, légende et miniature, avec l'aperçu du réseau"
+  },
   audit: {
     path: "/outils/audit",
     toolName: "Audit de présence en ligne",
@@ -63,26 +75,6 @@ export const SEO_TOOLS: Record<string, SeoPage> = {
     eyebrow: "Outil gratuit",
     imageTitle: "Audit de présence en ligne",
     imageSubtitle: "Un score sur 100 et quoi faire en premier"
-  },
-  legendes: {
-    path: "/outils/legendes",
-    toolName: "Générateur de légendes et de titres",
-    title: "Générateur de légendes Instagram et TikTok (IA)",
-    description:
-      "Décrivez votre publication : l'IA écrit le titre et la légende pour Instagram, TikTok, YouTube ou Facebook, avec l'aperçu. Avec un compte gratuit.",
-    eyebrow: "Outil IA",
-    imageTitle: "Générateur de légendes",
-    imageSubtitle: "Instagram · TikTok · YouTube · Facebook"
-  },
-  miniatures: {
-    path: "/outils/miniatures",
-    toolName: "Générateur de miniatures",
-    title: "Générateur de miniatures YouTube par IA",
-    description:
-      "Déposez votre vidéo : les meilleures images en ressortent, en aperçu YouTube ou TikTok. L'IA les rend plus percutantes avec un compte gratuit.",
-    eyebrow: "Outil IA",
-    imageTitle: "Générateur de miniatures",
-    imageSubtitle: "Les meilleures images de votre vidéo, en miniature"
   },
   "bio-instagram": {
     path: "/outils/bio-instagram",

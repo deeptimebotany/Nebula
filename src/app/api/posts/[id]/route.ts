@@ -8,14 +8,29 @@ import { ownedBy, PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
 import { deleteBrandMediaFile } from "@/lib/media-files";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/trial-expiry";
+import { tiktokOptionsProblem } from "@/lib/social/tiktok-direct-post";
 
-/** Marque ou comptes en veille (lot E4) : ni « Publier maintenant » ni nouvelle date. */
+/**
+ * Marque ou comptes en veille (lot E4) : ni « Publier maintenant » ni
+ * nouvelle date. TikTok sans confidentialité choisie (règles Direct Post,
+ * 30/09/2026 — brouillon importé par CSV…) : non plus.
+ */
 async function writableError(postId: string, brandId: string): Promise<NextResponse | null> {
   const brand = await assertBrandWritable(brandId);
   if (!brand.ok) return NextResponse.json({ error: brand.message, reason: brand.reason }, { status: 402 });
-  const targets = await prisma.postTarget.findMany({ where: { postId }, select: { connectionId: true } });
+  const targets = await prisma.postTarget.findMany({ where: { postId }, select: { connectionId: true, network: true, status: true, metadata: true } });
   const conn = await assertConnectionsWritable(targets.map((t) => t.connectionId));
   if (!conn.ok) return NextResponse.json({ error: conn.message, reason: conn.reason }, { status: 402 });
+  const tiktok = targets.find((t) => t.network === "TIKTOK" && t.status !== "PUBLISHED" && tiktokOptionsProblem((t.metadata as { tiktok?: unknown } | null)?.tiktok));
+  if (tiktok) {
+    return NextResponse.json(
+      {
+        error: "Cette publication part sur TikTok sans confidentialité choisie : utilisez « Réutiliser » pour l'ouvrir dans Publier et choisir qui peut voir la vidéo.",
+        reason: "tiktok_options"
+      },
+      { status: 400 }
+    );
+  }
   return null;
 }
 

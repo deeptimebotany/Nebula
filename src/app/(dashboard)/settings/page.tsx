@@ -348,7 +348,7 @@ export default function SettingsPage() {
       toast.error("Échec de l'enregistrement.");
       return;
     }
-    toast.success(next ? "Mode focus activé : plus de surprises pendant le travail." : "Mode focus désactivé : les easter eggs sont de retour.");
+    toast.success(next ? "Mode focus activé : interface épurée, sans récompenses ni sons." : "Mode focus désactivé : les Réussites sont de retour.");
   }
 
   async function onTogglePublishSound() {
@@ -588,9 +588,9 @@ export default function SettingsPage() {
               <IconFocus className="h-4 w-4 text-aurora-300" /> Mode focus
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Activé par défaut : aucune surprise ni notification de succès pendant que vous travaillez. Désactivez-le
-              pour retrouver les easter eggs ambiants (code Konami, mot secret, étoiles filantes de minuit…) et les
-              toasts « succès débloqué ». Vos découvertes sont enregistrées dans les deux cas.
+              Une interface 100 % épurée, d&apos;un clic : plus de rang ni de carte « Rang de créateur », de pastilles, de
+              récompenses à l&apos;écran, de notifications de succès, d&apos;easter eggs ni de sons. Vos réussites restent
+              enregistrées et la page Réussites reste accessible depuis le menu.
             </p>
           </div>
           <Toggle checked={focusMode} onChange={onToggleFocusMode} disabled={!focusLoaded || savingFocus} aria-label="Mode focus" className="mt-1 shrink-0" />

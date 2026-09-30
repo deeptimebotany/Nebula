@@ -1,3 +1,4 @@
+import { parseTiktokOptions } from "@/lib/social/tiktok-direct-post";
 import { refreshReussites } from "@/lib/reussites/engine";
 import { prisma } from "@/lib/prisma";
 import { sendPublishFailureEmail } from "@/lib/email";
@@ -201,8 +202,18 @@ function buildPublishInput(post: PostForPublishing, target: TargetForPublishing,
     // composer-types.ts → PinterestOptions et social/pinterest.ts).
     ...(target.network === "PINTEREST" && target.metadata
       ? { pinterest: (target.metadata as { pinterest?: PinterestOptions }).pinterest }
-      : {})
+      : {}),
+    // TikTok (Direct Post, 30/09/2026) : choix de la section TikTok de
+    // Publier, revérifiés par social/tiktok.ts au moment de l'envoi.
+    ...(target.network === "TIKTOK" ? tiktokInputFor(post, target) : {})
   };
+}
+
+/** Choix TikTok et durée de la vidéo (mesurée à l'envoi du fichier, sinon dans Publier). */
+function tiktokInputFor(post: PostForPublishing, target: TargetForPublishing): Pick<PublishInput, "tiktok" | "videoDurationSec"> {
+  const tiktok = parseTiktokOptions((target.metadata as { tiktok?: unknown } | null)?.tiktok) ?? undefined;
+  const stored = post.media[0]?.mediaAsset.type === "VIDEO" ? (post.media[0]?.mediaAsset as { durationSeconds?: number | null }).durationSeconds : null;
+  return { ...(tiktok ? { tiktok } : {}), videoDurationSec: stored ?? tiktok?.videoDurationSec ?? null };
 }
 
 type TargetOutcome = "PUBLISHED" | "PROCESSING" | "FAILED" | "RETRY_WAIT";

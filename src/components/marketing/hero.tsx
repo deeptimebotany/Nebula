@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ProductShot, ShotCaption } from "@/components/marketing/product-shot";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
-import { IconCard, IconCheck, IconLock } from "@/components/dashboard/icons";
+import { IconCard, IconCheck, IconLock, IconTrophy } from "@/components/dashboard/icons";
 
 const REASSURANCE = [
   { icon: IconCard, text: "Gratuit pour commencer, sans carte bancaire" },
@@ -23,10 +23,16 @@ export function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-6 pb-10 pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-slate-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-            Planification, statistiques et rapports clients
-          </p>
+          {/* Les Réussites, dès la première ligne (30/09/2026) : c'est ce qui
+              distingue Nebula des autres outils de planification. */}
+          <a
+            href="/#reussites"
+            className="hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/60 hover:text-white"
+          >
+            <IconTrophy className="h-3.5 w-3.5 text-amber-300" />
+            Réussites : publier régulièrement devient un jeu
+            <span aria-hidden="true" className="text-aurora-300">→</span>
+          </a>
 
           <h1 className="hero-enter hero-enter-2 mt-6 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-6xl">
             Tous vos réseaux sociaux,
@@ -36,7 +42,8 @@ export function Hero() {
 
           <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
             Nebula programme vos publications sur Instagram, TikTok, YouTube, Facebook et Bluesky, rassemble vos statistiques
-            au même endroit et prépare les rapports de vos clients. Moins d&apos;onglets ouverts, plus de temps pour créer.
+            et prépare les rapports de vos clients. Et chaque publication vous fait progresser : missions de la semaine,
+            rangs et récompenses pour garder le rythme.
           </p>
 
           <div className="hero-enter hero-enter-4 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">

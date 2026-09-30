@@ -135,7 +135,11 @@ export function openApiSpec(baseUrl: string) {
                     caption: { type: "string" },
                     title: { type: "string" },
                     firstComment: { type: "string" },
-                    networks: { type: "array", items: { type: "string", enum: [...NETWORKS] }, description: "Premier compte connecté de chaque réseau" },
+                    networks: {
+                      type: "array",
+                      items: { type: "string", enum: [...NETWORKS] },
+                      description: "Premier compte connecté de chaque réseau. TikTok : brouillon seulement (TikTok exige une validation dans Publier)."
+                    },
                     connectionIds: { type: "array", items: { type: "string" }, description: "Ou des comptes précis" },
                     mediaIds: { type: "array", items: { type: "string" }, description: "Identifiants renvoyés par POST /media" },
                     scheduledAt: { type: "string", format: "date-time", description: "Date future : publication programmée" },

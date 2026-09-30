@@ -75,7 +75,7 @@ export default function TauxEngagementPage() {
         { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" },
         { href: "/outils/hashtags", title: "Générateur de hashtags" },
-        { href: "/outils/legendes", title: "Générateur de légendes" }
+        { href: "/outils/publier", title: "Générateur de publications" }
       ]}
       ctaLabel="Mesurer mon vrai taux avec Nebula"
     >

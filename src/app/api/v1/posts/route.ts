@@ -108,6 +108,17 @@ export async function POST(req: NextRequest) {
     chosen.set(c.id, c);
   }
 
+  // TikTok (règles Direct Post, 30/09/2026) : une vidéo ne part vers TikTok
+  // qu'après les choix et le clic de la personne dans Publier. Par l'API :
+  // brouillon seulement.
+  if ((input.scheduledAt || input.publishNow) && Array.from(chosen.values()).some((c) => c.network === "TIKTOK")) {
+    return apiError(
+      400,
+      "tiktok_requires_app",
+      "TikTok exige que chaque publication soit validée dans Nebula (confidentialité, consentement) : créez un brouillon, sans scheduledAt ni publishNow, puis programmez-le depuis Publier."
+    );
+  }
+
   const result = await createPost(auth.ctx.userId, {
     brandId: brand.id,
     title: input.title,

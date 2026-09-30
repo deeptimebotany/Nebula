@@ -80,6 +80,11 @@ const TIKTOK_CODES: Record<string, ErrorCategory> = {
   scope_not_authorized: "PERMISSION_MISSING",
   scope_permission_missed: "PERMISSION_MISSING",
   url_ownership_unverified: "PERMISSION_MISSING",
+  unaudited_client_can_only_post_to_private_accounts: "PERMISSION_MISSING",
+  privacy_level_option_mismatch: "INVALID_REQUEST",
+  // Vérifications de Nebula avant l'envoi (confidentialité, contenu
+  // commercial, durée — voir social/tiktok-direct-post.ts).
+  tiktok_options_invalid: "INVALID_REQUEST",
   spam_risk_user_banned_from_posting: "PERMISSION_MISSING",
   rate_limit_exceeded: "RATE_LIMITED",
   spam_risk_too_many_posts: "QUOTA_EXHAUSTED",

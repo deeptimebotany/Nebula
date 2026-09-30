@@ -9,10 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const update = vi.fn(async () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: { socialConnection: { update: (...a: unknown[]) => update(...(a as [])), findUnique: vi.fn(async () => null) } } }));
 
-import { SocialApiError, UNEXPECTED_RESPONSE, isPendingPublish, type ConnectionLike, type PublishInput } from "@/lib/social/base";
+import { SocialApiError, UNEXPECTED_RESPONSE, isPendingPublish, type ConnectionLike, type PublishCheckpoint, type PublishInput } from "@/lib/social/base";
 import { classifyProviderError } from "@/lib/social/errors";
 import { threadsClient } from "@/lib/social/threads";
-import { freshTiktokToken, tiktokClient } from "@/lib/social/tiktok";
+import { TIKTOK_SCOPES, fetchTiktokCreatorInfo, freshTiktokToken, tiktokClient } from "@/lib/social/tiktok";
 import { API_VERSIONS } from "@/lib/social/versions";
 import { fixture, installNetwork, without } from "./harness";
 
@@ -102,66 +102,221 @@ describe("Threads", () => {
   });
 });
 
-describe("TikTok : publication", () => {
-  it("envoi par URL puis statut : identifiant de vidéo de 19 chiffres JAMAIS arrondi", async () => {
-    const net = installNetwork([
-      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init" },
+describe("TikTok : publication directe (FILE_UPLOAD, règles Direct Post)", () => {
+  const VIDEO = "https://cdn.nebula.test/v.mp4";
+  const MB = 1024 * 1024;
+  const OPTIONS = { privacyLevel: "SELF_ONLY", allowComment: true, allowDuet: false, allowStitch: true, commercial: false, yourBrand: false, brandedContent: false };
+  const tiktokInput = (over: Partial<PublishInput> = {}) =>
+    input({ mediaType: "VIDEO", mediaUrls: [VIDEO], tiktok: { ...OPTIONS }, videoDurationSec: 42, waitUntil: Date.now() + 30_000, ...over });
+
+  /** Faux réseau d'un envoi complet : vidéo de `size` octets servie par morceaux (Range). */
+  function uploadRoutes(size: number, extra: Parameters<typeof installNetwork>[0] = []) {
+    return installNetwork([
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(size), "content-type": "video/mp4" } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init-upload" },
+      {
+        method: "GET",
+        url: "cdn.nebula.test/v.mp4",
+        reply: (req) => {
+          const [a, b] = req.headers.range.replace("bytes=", "").split("-").map(Number);
+          return { status: 206, raw: "a".repeat(b - a + 1), headers: { "content-type": "video/mp4", "content-range": `bytes ${a}-${b}/${size}` } };
+        }
+      },
+      {
+        method: "PUT",
+        url: /open-upload\.tiktokapis\.com\/video\//,
+        reply: (req) => ({ status: Number(req.headers["content-range"].split("/")[0].split("-")[1]) === size - 1 ? 201 : 206, raw: "" })
+      },
+      ...extra,
       { method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: "tiktok/status-complete" }
     ]);
-    const out = await tiktokClient.publishPost(conn({ externalAccountId: "723f24d7" }), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] }));
-    // 7301234567890123456 lu comme un nombre JavaScript deviendrait 7301234567890123000.
+  }
+
+  it("creator_info : compte, confidentialités, interactions coupées, durée maximale", async () => {
+    const net = installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" }]);
+    const info = await fetchTiktokCreatorInfo(conn());
+    expect(info).toEqual({
+      avatarUrl: "https://p16-sign.tiktokcdn.com/tos-maliva-avt-0068/exemple~c5_168x168.jpeg",
+      username: "cafe.nebula",
+      nickname: "Café Nebula",
+      privacyLevelOptions: ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"],
+      commentDisabled: false,
+      duetDisabled: false,
+      stitchDisabled: true,
+      maxVideoPostDurationSec: 300
+    });
+    expect(net.sent[0].headers.authorization).toBe("Bearer TOKEN");
+  });
+
+  it("dérive de creator_info : privacy_level_options absent → réponse inattendue, jamais « aucune option »", async () => {
+    installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, body: without(fixture("tiktok/creator-info"), "data.privacy_level_options") }]);
+    const err = (await fetchTiktokCreatorInfo(conn()).catch((e) => e)) as SocialApiError;
+    expect(err.code).toBe(UNEXPECTED_RESPONSE);
+    expect(err.message).toContain("data.privacy_level_options");
+  });
+
+  it("créateur qui ne peut plus publier (spam_risk_too_many_posts) : erreur avec le code TikTok", async () => {
+    installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/error-too-many-posts" }]);
+    const err = (await fetchTiktokCreatorInfo(conn()).catch((e) => e)) as SocialApiError;
+    expect(err.code).toBe("spam_risk_too_many_posts");
+    expect(classifyProviderError(err).category).toBe("QUOTA_EXHAUSTED");
+  });
+
+  it("envoi par morceaux : init FILE_UPLOAD, morceaux dans l'ordre avec Content-Range, puis statut (id de 19 chiffres intact)", async () => {
+    const size = 25 * MB;
+    const net = uploadRoutes(size);
+    const out = await tiktokClient.publishPost(conn({ externalAccountId: "723f24d7" }), tiktokInput({ aiGenerated: true }));
     expect(out).toEqual({ externalPostId: "7301234567890123456", externalUrl: "https://www.tiktok.com/video/7301234567890123456" });
-    const init = net.to(/video\/init\/$/)[0];
-    expect(init.headers.authorization).toBe("Bearer TOKEN");
-    expect(init.json).toMatchObject({ source_info: { source: "PULL_FROM_URL", video_url: "https://cdn.nebula.test/v.mp4" } });
-    expect(net.to(/status\/fetch\/$/)[0].json).toEqual({ publish_id: "v_pub_url~v2-1.7301234567890123456" });
+
+    const init = net.to(/video\/init\/$/)[0].json as { post_info: Record<string, unknown>; source_info: Record<string, unknown> };
+    expect(init.source_info).toEqual({ source: "FILE_UPLOAD", video_size: size, chunk_size: 10 * MB, total_chunk_count: 2 });
+    expect(init.post_info).toEqual({
+      title: "Nouveau menu d'automne ☕",
+      privacy_level: "SELF_ONLY",
+      disable_comment: false,
+      disable_duet: true,
+      // Coupé par le créateur dans TikTok (stitch_disabled) : même si l'utilisateur l'autorisait.
+      disable_stitch: true,
+      brand_content_toggle: false,
+      brand_organic_toggle: false,
+      is_aigc: true
+    });
+    expect(JSON.stringify(init)).not.toContain("PULL_FROM_URL");
+
+    const puts = net.to(/open-upload/, "PUT");
+    expect(puts.map((p) => p.headers["content-range"])).toEqual([`bytes 0-${10 * MB - 1}/${size}`, `bytes ${10 * MB}-${size - 1}/${size}`]);
+    expect(puts.map((p) => p.bytes)).toEqual([10 * MB, 15 * MB]);
+    expect(puts[0].headers["content-type"]).toBe("video/mp4");
+    // Lus depuis le stockage morceau par morceau (Range), jamais d'un bloc.
+    expect(net.to(/cdn\.nebula\.test/, "GET").map((r) => r.headers.range)).toEqual([`bytes=0-${10 * MB - 1}`, `bytes=${10 * MB}-${size - 1}`]);
+    // creator_info avant l'ouverture de l'envoi.
+    expect(net.sent.map((r) => r.url.pathname).indexOf("/v2/post/publish/creator_info/query/")).toBeLessThan(net.sent.map((r) => r.url.pathname).indexOf("/v2/post/publish/video/init/"));
   });
 
-  it("vidéo privée (compte non audité) : identifiant d'envoi, sans lien", async () => {
-    installNetwork([
-      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init" },
-      { method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: "tiktok/status-complete-private" }
-    ]);
-    const out = await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] }));
-    expect(out).toEqual({ externalPostId: "v_pub_url~v2-1.7301234567890123456", externalUrl: undefined });
+  it("petite vidéo (moins de 5 Mo) : un seul morceau de la taille du fichier", async () => {
+    const size = 3 * MB + 17;
+    const net = uploadRoutes(size);
+    await tiktokClient.publishPost(conn(), tiktokInput());
+    expect((net.to(/video\/init\/$/)[0].json as { source_info: unknown }).source_info).toEqual({ source: "FILE_UPLOAD", video_size: size, chunk_size: size, total_chunk_count: 1 });
+    expect(net.to(/open-upload/, "PUT").map((p) => p.headers["content-range"])).toEqual([`bytes 0-${size - 1}/${size}`]);
   });
 
-  it("traitement en cours : point de reprise", async () => {
-    installNetwork([
-      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init" },
-      { method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: "tiktok/status-processing" }
-    ]);
-    const out = await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"], waitUntil: Date.now() }));
+  it("heure limite proche : point de reprise (morceau suivant), puis la reprise envoie la suite sans rien renvoyer", async () => {
+    const size = 25 * MB;
+    const net = uploadRoutes(size);
+    const out = await tiktokClient.publishPost(conn(), tiktokInput({ waitUntil: Date.now() + 1_000 }));
     expect(isPendingPublish(out)).toBe(true);
+    const checkpoint = (out as { checkpoint: PublishCheckpoint }).checkpoint;
+    expect(checkpoint).toMatchObject({ step: "tiktok_upload", publishId: "v_inbox_file~v2.7301234567890123456", nextChunk: 0, totalChunks: 2, chunkSize: 10 * MB, videoSize: size });
+    expect(net.to(/open-upload/, "PUT")).toHaveLength(0);
+
+    // Reprise au passage suivant du cron, après un premier morceau déjà reçu.
+    const resumed = await tiktokClient.resumePublish!(conn(), tiktokInput(), { ...checkpoint, nextChunk: 1 });
+    expect(resumed).toMatchObject({ externalPostId: "7301234567890123456" });
+    expect(net.to(/video\/init\/$/)).toHaveLength(1);
+    expect(net.to(/open-upload/, "PUT").map((p) => p.headers["content-range"])).toEqual([`bytes ${10 * MB}-${size - 1}/${size}`]);
   });
 
-  it("refus (fail_reason) : classé comme média refusé grâce au code TikTok", async () => {
+  it("adresse d'envoi expirée (plus de 50 min) : l'envoi repart de zéro, rien n'avait été publié", async () => {
+    const size = 6 * MB;
+    const net = uploadRoutes(size);
+    const old = { step: "tiktok_upload", publishId: "ancien", uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=1", mimeType: "video/mp4", videoSize: size, chunkSize: size, totalChunks: 1, nextChunk: 0, uploadStartedAt: Date.now() - 55 * 60_000 };
+    await tiktokClient.resumePublish!(conn(), tiktokInput(), old);
+    expect(net.to(/video\/init\/$/)).toHaveLength(1);
+    expect(net.to(/status\/fetch\/$/)[0].json).toEqual({ publish_id: "v_inbox_file~v2.7301234567890123456" });
+  });
+
+  it("publication programmée : confidentialité plus proposée par le compte → échec clair, aucun autre choix fait à sa place", async () => {
+    const net = installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" }]);
+    const err = (await tiktokClient.publishPost(conn(), tiktokInput({ tiktok: { ...OPTIONS, privacyLevel: "FOLLOWER_OF_CREATOR" } })).catch((e) => e)) as SocialApiError;
+    expect(err.message).toContain("« Mes abonnés » n'est plus proposée");
+    expect(err.code).toBe("tiktok_options_invalid");
+    expect(classifyProviderError(err)).toMatchObject({ category: "INVALID_REQUEST", autoRetry: false });
+    expect(net.to(/video\/init\/$/)).toHaveLength(0);
+  });
+
+  it("sans confidentialité choisie, ou vidéo trop longue : rien n'est envoyé", async () => {
+    const net = installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" }]);
+    const missing = (await tiktokClient.publishPost(conn(), tiktokInput({ tiktok: undefined })).catch((e) => e)) as SocialApiError;
+    expect(missing.message).toContain("Confidentialité TikTok non choisie");
+    const long = (await tiktokClient.publishPost(conn(), tiktokInput({ videoDurationSec: 301 })).catch((e) => e)) as SocialApiError;
+    expect(long.message).toContain("vidéo trop longue pour ce compte (301 s, 300 s au plus)");
+    const photo = (await tiktokClient.publishPost(conn(), tiktokInput({ mediaType: "IMAGE" })).catch((e) => e)) as SocialApiError;
+    expect(photo.message).toContain("ajoutez une vidéo");
+    expect(net.to(/video\/init\/$/)).toHaveLength(0);
+    expect(net.to(/cdn\.nebula\.test/)).toHaveLength(0);
+  });
+
+  it("refus de TikTok (privacy_level_option_mismatch) : requête invalide, jamais relancée automatiquement", async () => {
     installNetwork([
-      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init" },
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(6 * MB) } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/error-privacy-mismatch" }
+    ]);
+    const err = (await tiktokClient.publishPost(conn(), tiktokInput()).catch((e) => e)) as SocialApiError;
+    expect(classifyProviderError(err)).toMatchObject({ category: "INVALID_REQUEST", autoRetry: false });
+  });
+
+  it("refus pendant le traitement (fail_reason) : classé comme média refusé", async () => {
+    const size = 6 * MB;
+    installNetwork([
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(size) } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init-upload" },
+      { method: "GET", url: "cdn.nebula.test/v.mp4", reply: () => ({ status: 206, raw: "a".repeat(size) }) },
+      { method: "PUT", url: /open-upload/, status: 201, raw: "" },
       { method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: "tiktok/status-failed" }
     ]);
-    const err = await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] })).catch((e) => e);
+    const err = await tiktokClient.publishPost(conn(), tiktokInput()).catch((e) => e);
     expect(err.message).toContain("picture_size_check_failed");
     expect(classifyProviderError(err).category).toBe("INVALID_MEDIA");
   });
 
-  it("erreur annoncée avec un statut 200 (error.code ≠ ok) : jamais prise pour un succès", async () => {
-    installNetwork([{ method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/error-too-many-posts" }]);
-    const err = await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] })).catch((e) => e);
-    expect(classifyProviderError(err).category).toBe("QUOTA_EXHAUSTED");
+  it("vidéo privée (compte non audité) : identifiant d'envoi, sans lien ; traitement encore en cours : point de reprise", async () => {
+    const size = 6 * MB;
+    const routes = (status: string) => [
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(size) } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/publish-init-upload" },
+      { method: "GET", url: "cdn.nebula.test/v.mp4", reply: () => ({ status: 206, raw: "a".repeat(size) }) },
+      { method: "PUT", url: /open-upload/, status: 201, raw: "" },
+      { method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: status }
+    ];
+    installNetwork(routes("tiktok/status-complete-private"));
+    expect(await tiktokClient.publishPost(conn(), tiktokInput())).toEqual({ externalPostId: "v_inbox_file~v2.7301234567890123456", externalUrl: undefined });
+    // Fichier reçu, TikTok traite encore : point de reprise « statut ».
+    vi.unstubAllGlobals();
+    installNetwork([{ method: "POST", url: `${TT}/post/publish/status/fetch/`, fixture: "tiktok/status-processing" }]);
+    const later = await tiktokClient.resumePublish!(conn(), tiktokInput({ waitUntil: Date.now() }), { step: "tiktok_status", publishId: "v_inbox_file~v2.7301234567890123456" });
+    expect(later).toMatchObject({ pending: true, checkpoint: { step: "tiktok_status", publishId: "v_inbox_file~v2.7301234567890123456" } });
   });
 
-  it("limite de débit (429) : relance automatique autorisée", async () => {
-    installNetwork([{ method: "POST", url: `${TT}/post/publish/video/init/`, status: 429, fixture: "tiktok/error-rate-limit" }]);
-    const err = await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] })).catch((e) => e);
+  it("limite de débit (429) à l'ouverture : relance automatique autorisée", async () => {
+    installNetwork([
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(6 * MB) } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, status: 429, fixture: "tiktok/error-rate-limit" }
+    ]);
+    const err = await tiktokClient.publishPost(conn(), tiktokInput()).catch((e) => e);
     expect(classifyProviderError(err)).toMatchObject({ category: "RATE_LIMITED", autoRetry: true });
   });
 
-  it("dérive : publish_id absent → réponse inattendue", async () => {
-    installNetwork([{ method: "POST", url: `${TT}/post/publish/video/init/`, body: without(fixture("tiktok/publish-init"), "data.publish_id") }]);
-    const err = (await tiktokClient.publishPost(conn(), input({ mediaType: "VIDEO", mediaUrls: ["https://cdn.nebula.test/v.mp4"] })).catch((e) => e)) as SocialApiError;
+  it("dérive : upload_url absent → réponse inattendue", async () => {
+    installNetwork([
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(6 * MB) } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, body: without(fixture("tiktok/publish-init-upload"), "data.upload_url") }
+    ]);
+    const err = (await tiktokClient.publishPost(conn(), tiktokInput()).catch((e) => e)) as SocialApiError;
     expect(err.code).toBe(UNEXPECTED_RESPONSE);
-    expect(err.message).toContain("champ « data.publish_id » absent");
+    expect(err.message).toContain("data.upload_url");
+  });
+
+  it("autorisations demandées : exactement celles déclarées dans le portail", () => {
+    const url = new URL(tiktokClient.getAuthUrl("state-1"));
+    expect(url.searchParams.get("scope")!.split(",").sort()).toEqual(["user.info.basic", "user.info.stats", "video.list", "video.publish"]);
+    expect([...TIKTOK_SCOPES].sort()).toEqual(["user.info.basic", "user.info.stats", "video.list", "video.publish"]);
   });
 });
 

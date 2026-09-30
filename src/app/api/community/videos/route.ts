@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canModerate, reportedKeys } from "@/lib/community/moderation";
 
 // "Vidéos du jour" — fil public des vidéos que des utilisateurs ont choisi de
 // partager depuis leurs publications déjà en ligne. On ne stocke jamais le
@@ -18,7 +19,8 @@ export async function GET() {
     take: 100
   });
 
-  return NextResponse.json({ videos });
+  const reported = await reportedKeys((session.user as { id: string }).id, videos.map((v) => ({ type: "VIDEO" as const, id: v.id })));
+  return NextResponse.json({ videos, viewer: { canModerate: canModerate(session.user.email), reported } });
 }
 
 // POST { postTargetId, note? } — partage volontaire d'une publication déjà

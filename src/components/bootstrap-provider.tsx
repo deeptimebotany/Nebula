@@ -115,7 +115,11 @@ export function BootstrapProvider({ children, initialData }: { children: React.R
   return <BootstrapContext.Provider value={value}>{children}</BootstrapContext.Provider>;
 }
 
-/** Mode focus : vrai tant que le bootstrap n'a pas répondu (défaut du produit). */
+/**
+ * Mode focus : vrai tant que le bootstrap n'a pas répondu (rien de ludique
+ * ne s'affiche avant de connaître le réglage). Désactivé par défaut pour
+ * les comptes créés depuis le 30/09/2026 (voir schema.prisma).
+ */
 export function useFocusMode(): { focusMode: boolean; loaded: boolean; setFocusMode: (v: boolean) => Promise<boolean> } {
   const { data, loaded, setFocusMode } = useBootstrap();
   return { focusMode: data?.focusMode ?? true, loaded, setFocusMode };

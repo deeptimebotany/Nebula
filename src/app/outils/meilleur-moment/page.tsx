@@ -75,7 +75,7 @@ export default function MeilleurMomentPage() {
       related={[
         { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/taux-engagement", title: "Calculateur de taux d'engagement" },
-        { href: "/outils/legendes", title: "Générateur de légendes" },
+        { href: "/outils/publier", title: "Générateur de publications" },
         { href: "/outils/titre-youtube", title: "Testeur de titre YouTube" }
       ]}
       ctaLabel="Mesurez vos vrais meilleurs créneaux"

@@ -14,16 +14,23 @@ import { sendEmail } from "@/lib/email";
 import { EMAIL_COLORS, emailButton, emailFrame } from "@/lib/emails/brand";
 import { publicAppUrl } from "@/lib/account-security";
 
-export const TOOL_SLUGS = ["audit", "bio-instagram", "hashtags", "legendes", "meilleur-moment", "miniatures", "taux-engagement", "titre-youtube"] as const;
+export const TOOL_SLUGS = ["audit", "bio-instagram", "hashtags", "meilleur-moment", "publier", "taux-engagement", "titre-youtube"] as const;
 export type ToolSlug = (typeof TOOL_SLUGS)[number];
 
 export function isToolSlug(value: string): value is ToolSlug {
   return (TOOL_SLUGS as readonly string[]).includes(value);
 }
 
+/**
+ * Anciens outils réunis dans le générateur de publications (30/09/2026) :
+ * les prospects déjà enregistrés sous ces noms y sont renvoyés.
+ */
+const LEGACY_TOOL_PATHS: Record<string, string> = { legendes: "/outils/publier", miniatures: "/outils/publier" };
+
 /** Chemin de l'outil, ou la page des outils si le nom est inconnu (anciennes lignes). */
 export function toolPathFor(tool: string): string {
-  return isToolSlug(tool) ? `/outils/${tool}` : "/outils";
+  if (isToolSlug(tool)) return `/outils/${tool}`;
+  return Object.prototype.hasOwnProperty.call(LEGACY_TOOL_PATHS, tool) ? LEGACY_TOOL_PATHS[tool] : "/outils";
 }
 
 function sign(leadId: string): string {

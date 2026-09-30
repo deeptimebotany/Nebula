@@ -10,6 +10,7 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun, IconTrophy } from "./icons";
 import { restartGuidedTour } from "@/lib/tour-events";
+import { findEasterEgg, secretEggFor } from "@/lib/easter-eggs-registry";
 
 interface Command {
   id: string;
@@ -73,7 +74,7 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
       {
         id: "toggle-focus",
         label: focusMode ? "Désactiver le Mode focus" : "Activer le Mode focus",
-        hint: focusMode ? "Réactive les surprises et notifications de succès" : "Coupe les surprises et notifications de succès",
+        hint: focusMode ? "Réactive récompenses, sons et notifications de succès" : "Coupe récompenses, sons et notifications de succès",
         icon: IconFocus,
         keywords: ["focus", "easter eggs", "succès", "notifications"],
         run: () => {
@@ -167,6 +168,14 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
     setActiveIndex(0);
   }, [query]);
 
+  // Codes secrets du commentaire caché dans le code source (page 404, page
+  // Soutenir) et du message de la console : « Vu dans le code source » et
+  // « Message dans la console » (voir easter-eggs-registry.ts).
+  const secretEgg = secretEggFor(query);
+  useEffect(() => {
+    if (secretEgg) reportEasterEggFound(secretEgg);
+  }, [secretEgg]);
+
   function execute(cmd: Command) {
     cmd.run();
     setOpen(false);
@@ -209,7 +218,13 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
           <kbd className="shrink-0 rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-slate-500">Esc</kbd>
         </div>
         <div id="command-palette-list" role="listbox" className="max-h-[60vh] overflow-y-auto p-1.5">
-          {filtered.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Aucun résultat.</p>}
+          {secretEgg ? (
+            <p className="px-3 py-4 text-center text-sm text-amber-200" role="status">
+              {findEasterEgg(secretEgg)?.emoji} Code secret reconnu : « {findEasterEgg(secretEgg)?.title} » est à vous.
+            </p>
+          ) : (
+            filtered.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Aucun résultat.</p>
+          )}
           {filtered.map((cmd, i) => {
             const Icon = cmd.icon;
             return (

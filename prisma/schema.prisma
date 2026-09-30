@@ -34,6 +34,7 @@ model User {
   forumReplies ForumReply[]
   sharedVideos SharedVideo[]
   communityReactions CommunityReaction[]
+  communityReports   CommunityReport[]
   pollVotes    PollVote[]
   easterEggsFound EasterEggFound[]
   notifications Notification[]
@@ -126,7 +127,10 @@ model User {
   // « succès débloqué » : les découvertes sont toujours enregistrées (page
   // Succès), mais rien ne vient interrompre le travail. Désactivable dans
   // Paramètres → Apparence & Succès.
-  focusMode Boolean @default(true)
+  // Désactivé par défaut pour les comptes créés à partir du 30/09/2026 : les
+  // Réussites sont visibles dès le départ, la visite guidée explique comment
+  // tout couper d'un clic (les comptes plus anciens gardent leur réglage).
+  focusMode Boolean @default(false)
 
   // Notification par email quand une publication PROGRAMMÉE échoue (Lot 4) :
   // envoyée par le worker planifié à l'auteur de la publication (voir
@@ -864,6 +868,26 @@ model ForumReply {
   @@index([authorId])
 }
 
+// Signalement d'un contenu de la Communauté (30/09/2026) : sujet (THREAD),
+// réponse (REPLY) ou lien partagé (VIDEO). Un seul par personne et par
+// contenu ; le propriétaire du site est prévenu dans sa cloche. Pas de clé
+// étrangère vers le contenu (trois tables possibles) : les signalements d'un
+// contenu supprimé sont effacés avec lui (voir src/lib/community/moderation.ts).
+// reason : "SPAM" | "OFFENSIVE" | "HARASSMENT" | "MISLEADING" | "OTHER"
+model CommunityReport {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String
+  targetId   String
+  reason     String
+  details    String?
+  createdAt  DateTime @default(now())
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
 // Contenu éditorial fixe (pas d'auteur "utilisateur") — géré via le script de
 // seed (prisma/seed.ts). Inclut un guide de démarrage pré-rempli.
 model Guide {
@@ -1242,7 +1266,7 @@ model PublicAudit {
 // par le cron), supprimé dès qu'il est consommé par le Composer.
 model PublicDraft {
   id        String   @id @default(cuid())
-  kind      String   // "CAPTION" | "THUMBNAIL"
+  kind      String   // "CAPTION" | "THUMBNAIL" | "POST"
   content   Json
   network   String?
   ipHash    String?

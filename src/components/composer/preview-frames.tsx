@@ -47,7 +47,7 @@ export function ScaledFrame({ width, height, reservedHeight, maxScale = 1, child
 
 export function PhoneFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="h-full w-full rounded-[54px] bg-[#1b1b1e] p-[10px] shadow-[0_0_0_2px_#2c2c30,0_30px_60px_rgba(0,0,0,.45)]">
+    <div className="nb-own-design h-full w-full rounded-[54px] bg-[#1b1b1e] p-[10px] shadow-[0_0_0_2px_#2c2c30,0_30px_60px_rgba(0,0,0,.45)]">
       <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[44px] bg-black">
         <div className="relative flex h-[46px] shrink-0 items-center justify-between px-8 text-[15px] font-semibold text-white">
           <span>9:41</span>
@@ -68,7 +68,7 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
 
 export function BrowserFrame({ address, children }: { address: string; children: ReactNode }) {
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-[#2c2c30] bg-[#1b1b1e] shadow-[0_30px_60px_rgba(0,0,0,.45)]">
+    <div className="nb-own-design flex h-full w-full flex-col overflow-hidden rounded-xl border border-[#2c2c30] bg-[#1b1b1e] shadow-[0_30px_60px_rgba(0,0,0,.45)]">
       <div className="flex h-11 shrink-0 items-center gap-3 px-4">
         <span className="flex gap-2">
           <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />

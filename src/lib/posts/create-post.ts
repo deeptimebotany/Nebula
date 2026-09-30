@@ -10,6 +10,7 @@ import { assertPostQuota } from "@/lib/billing/plan";
 import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/trial-expiry";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 import { emitWebhookEvent, postPayload } from "@/lib/webhooks";
+import { tiktokOptionsProblem } from "@/lib/social/tiktok-direct-post";
 
 export interface CreatePostTarget {
   connectionId: string;
@@ -70,6 +71,14 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
   }
 
   const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;
+  // TikTok (règles Direct Post, 30/09/2026) : rien ne part sans une
+  // confidentialité choisie par l'utilisateur (brouillon : choix plus tard).
+  if (scheduledDate || publishNow) {
+    for (const t of targets.filter((x) => x.network === "TIKTOK")) {
+      const problem = tiktokOptionsProblem((t.metadata as { tiktok?: unknown } | undefined)?.tiktok);
+      if (problem) return { ok: false, status: 400, error: problem, reason: "tiktok_options" };
+    }
+  }
   // Jamais de programmation dans le passé (voir src/lib/schedule-guard.ts).
   if (scheduledDate && isPastSchedule(scheduledDate)) {
     return { ok: false, status: 400, error: PAST_SCHEDULE_ERROR, reason: "past_schedule" };

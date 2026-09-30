@@ -194,6 +194,10 @@ export default function LegalPage() {
             avez définis. Tout contenu illicite, trompeur ou contraire aux règles des plateformes peut entraîner la
             suspension du compte.
           </p>
+          <p>
+            Dans l&apos;espace Communauté, chaque membre peut signaler un sujet, une réponse ou un lien partagé ; l&apos;équipe
+            de {SITE_NAME} lit les signalements et peut retirer tout contenu contraire aux présentes conditions.
+          </p>
         </Section>
 
         <Section title="6. Paliers, quotas et paiement">
@@ -303,6 +307,11 @@ export default function LegalPage() {
             répondre.
           </p>
           <p>
+            Signalements dans la Communauté : le contenu signalé, le motif choisi, vos précisions éventuelles et votre
+            compte (pour qu&apos;un contenu ne soit signalé qu&apos;une fois par personne). Seule l&apos;équipe de{" "}
+            {SITE_NAME} les voit ; la personne signalée ne sait pas qui l&apos;a signalée.
+          </p>
+          <p>
             Audit de présence en ligne (outil gratuit, sans compte) : les comptes et le site que vous indiquez, les
             données publiques que ces plateformes et ce site affichent à tout le monde (profil, dernières publications
             et leurs chiffres publics), et le rapport qui en résulte. L&apos;adresse email, facultative, sert
@@ -396,7 +405,8 @@ export default function LegalPage() {
             d&apos;usage de l&apos;IA sous huit jours ; le registre des essais (empreintes seulement) au bout de 12 mois,
             même si le compte a été supprimé entre-temps. Les rapports
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
-            contact sont supprimés 12 mois après leur réception. Les statistiques de groupe anonymes ne sont pas des
+            contact sont supprimés 12 mois après leur réception. Les signalements de la Communauté sont supprimés avec
+            le contenu signalé ou avec votre compte. Les statistiques de groupe anonymes ne sont pas des
             données personnelles et peuvent être conservées sans limite.
           </p>
         </Section>

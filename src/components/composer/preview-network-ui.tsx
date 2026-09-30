@@ -4,7 +4,8 @@
 // pour chaque réseau, une imitation fidèle de son interface (mode sombre de
 // chaque application), en version mobile et en version ordinateur. Purement
 // visuel : les compteurs sont des valeurs d'exemple, rien n'est cliquable.
-// Utilisé par composer-preview.tsx.
+// Les zones qui défilent (légende longue) se prennent au clavier (tabIndex,
+// 30/09/2026). Utilisé par composer-preview.tsx et tools/tool-preview.tsx.
 
 import type { ReactNode } from "react";
 import { clsx } from "@/lib/clsx";
@@ -89,7 +90,7 @@ function Media({ post, className, controls = false, fit = "cover" }: { post: Pre
   const { asset } = post;
   if (!asset) {
     return (
-      <div className={clsx("flex items-center justify-center bg-[#1c1c1e] text-[13px] text-white/40", className)}>
+      <div className={clsx("flex items-center justify-center bg-[#1c1c1e] text-[13px] text-white/60", className)}>
         <span className="px-6 text-center">Votre média apparaîtra ici</span>
       </div>
     );
@@ -212,7 +213,7 @@ function InstagramMobile({ post }: { post: PreviewPost }) {
             <span className="font-['Brush_Script_MT',cursive] text-[28px] italic leading-none">Instagram</span>
             <span className="flex gap-5"><Heart className="h-6 w-6" /><Plane className="h-6 w-6" /></span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto"><InstagramFeedPost post={post} /></div>
+          <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto"><InstagramFeedPost post={post} /></div>
         </>
       )}
       <nav className="flex items-center justify-around border-t border-white/10 bg-black py-2.5 text-white">
@@ -257,7 +258,7 @@ function InstagramDesktop({ post }: { post: PreviewPost }) {
             <InstagramReel post={post} desktop />
           </div>
         ) : (
-          <div className="w-[470px] overflow-y-auto">
+          <div tabIndex={0} className="w-[470px] overflow-y-auto">
             <InstagramFeedPost post={post} width={470} />
           </div>
         )}
@@ -323,7 +324,7 @@ function FacebookMobile({ post }: { post: PreviewPost }) {
         <Bell className="h-6 w-6" />
         <Menu className="h-6 w-6" />
       </nav>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-2">
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto pt-2">
         <FacebookPostCard post={post} />
       </div>
     </div>
@@ -350,7 +351,7 @@ function FacebookDesktop({ post }: { post: PreviewPost }) {
             <p key={l} className="flex items-center gap-3"><span className="h-8 w-8 rounded-full bg-[#3a3b3c]" />{l}</p>
           ))}
         </aside>
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main tabIndex={0} className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-[500px]"><FacebookPostCard post={post} rounded /></div>
         </main>
         <aside className="w-[220px] shrink-0 space-y-3 text-[15px] text-[#b0b3b8]">
@@ -569,7 +570,7 @@ function YoutubeMobile({ post }: { post: PreviewPost }) {
   return (
     <div className="flex h-full flex-col bg-[#0f0f0f]">
       <Media post={post} className="aspect-video w-full" controls fit="contain" />
-      <div className="min-h-0 flex-1 overflow-y-auto pb-3"><YoutubeWatchInfo post={post} compact /></div>
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto pb-3"><YoutubeWatchInfo post={post} compact /></div>
       <YoutubeMobileNav />
     </div>
   );
@@ -606,7 +607,7 @@ function YoutubeDesktop({ post }: { post: PreviewPost }) {
         <div className="min-h-0 flex-1"><YoutubeShorts post={post} desktop /></div>
       ) : (
         <div className="flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pt-2">
-          <div className="min-w-0 flex-1 overflow-y-auto">
+          <div tabIndex={0} className="min-w-0 flex-1 overflow-y-auto">
             <Media post={post} className="aspect-video w-full rounded-xl" controls fit="contain" />
             <YoutubeWatchInfo post={post} />
           </div>
@@ -683,7 +684,7 @@ function BlueskyMobile({ post }: { post: PreviewPost }) {
           <span className="pb-2 text-[#aebbc9]">Découvrir</span>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto">
         <BlueskyPostCard post={post} />
       </div>
       <nav className="flex items-center justify-around border-t border-[#2e4052] py-2.5 text-[#aebbc9]">
@@ -727,7 +728,7 @@ function BlueskyDesktop({ post }: { post: PreviewPost }) {
           <span className="border-b-[3px] border-[#208bfe] pb-2.5">Suivis</span>
           <span className="pb-2.5 text-[#aebbc9]">Découvrir</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto">
           <BlueskyPostCard post={post} />
         </div>
       </main>
@@ -781,7 +782,7 @@ function ThreadsMobile({ post }: { post: PreviewPost }) {
         <span className="border-b-2 border-[#f3f5f7] pb-2.5 text-[#f3f5f7]">Pour vous</span>
         <span className="pb-2.5 text-[#777]">Suivis</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto">
         <ThreadsPostCard post={post} />
       </div>
       <nav className="flex items-center justify-around border-t border-white/10 py-3 text-[#4d4d4d]">
@@ -807,7 +808,7 @@ function ThreadsDesktop({ post }: { post: PreviewPost }) {
       </aside>
       <main className="flex min-h-0 flex-1 flex-col items-center pt-4">
         <p className="pb-3 text-[15px] font-semibold">Pour vous</p>
-        <div className="min-h-0 w-[620px] flex-1 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#181818]">
+        <div tabIndex={0} className="min-h-0 w-[620px] flex-1 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#181818]">
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4 text-[15px] text-[#777]">
             <Avatar post={post} size={36} />
             Quoi de neuf ?
@@ -827,7 +828,7 @@ function ThreadsDesktop({ post }: { post: PreviewPost }) {
 function PinterestMobile({ post }: { post: PreviewPost }) {
   return (
     <div className="flex h-full flex-col bg-[#111] text-[#efefef]">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto">
         <div className="relative px-2 pt-2">
           <Media post={post} className={clsx("w-full rounded-[24px]", post.shape === "landscape" ? "aspect-video" : post.shape === "square" ? "aspect-square" : "aspect-[2/3]")} />
           <span className="absolute left-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white">‹</span>
@@ -943,7 +944,7 @@ function LinkedInMobile({ post }: { post: PreviewPost }) {
         <span className="flex h-8 flex-1 items-center gap-2 rounded bg-[#38434f] px-3 text-[14px] text-white/60"><Search className="h-4 w-4" />Rechercher</span>
         <Comment className="h-6 w-6 text-white/70" />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-2">
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto pt-2">
         <LinkedInPostCard post={post} />
       </div>
       <nav className="flex items-center justify-around bg-[#1b1f23] py-2 text-[10px] text-white/60">
@@ -989,7 +990,7 @@ function LinkedInDesktop({ post }: { post: PreviewPost }) {
           <p className="px-3 pt-2 text-[16px] font-semibold">{post.accountName}</p>
           <p className="px-3 pb-4 text-[12px] text-white/60">Créateur de contenu</p>
         </aside>
-        <main className="min-h-0 w-[555px] overflow-y-auto">
+        <main tabIndex={0} className="min-h-0 w-[555px] overflow-y-auto">
           <LinkedInPostCard post={post} rounded />
         </main>
         <aside className="h-fit w-[300px] shrink-0 space-y-3 rounded-lg bg-[#1b1f23] p-4 text-[13px]">

@@ -43,7 +43,13 @@ describe("liens dans les e-mails", () => {
   });
   it("un nom d'outil inconnu mène à la page des outils", () => {
     expect(toolPathFor('"><script>')).toBe("/outils");
-    expect(toolPathFor("legendes")).toBe("/outils/legendes");
+    expect(toolPathFor("publier")).toBe("/outils/publier");
+    expect(toolPathFor("constructor")).toBe("/outils");
+    expect(toolPathFor("__proto__")).toBe("/outils");
+  });
+  it("les prospects des anciens outils (légendes, miniatures) vont au générateur de publications", () => {
+    expect(toolPathFor("legendes")).toBe("/outils/publier");
+    expect(toolPathFor("miniatures")).toBe("/outils/publier");
   });
 });
 

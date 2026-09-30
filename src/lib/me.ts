@@ -128,7 +128,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     background: effectiveBackground,
     mode: user.colorMode === "dark" ? "dark" : "light",
     // Colonne ajoutée au Lot 3 : `?? true` couvre une base pas encore migrée.
-    focusMode: (user.focusMode as boolean | null | undefined) ?? true,
+    focusMode: (user.focusMode as boolean | null | undefined) ?? false,
     notifyOnFailure: (user.notifyOnFailure as boolean | null | undefined) ?? true,
     starfield: { enabled: Boolean(user.starfieldEnabled), allowed: access.starfieldAllowed },
     // Seuls les cosmétiques encore autorisés (palier actuel ou easter egg).

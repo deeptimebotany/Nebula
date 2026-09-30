@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isAiEnabled, pickBestFrames } from "@/lib/ai/gemini";
 import { requireToolAccess } from "@/lib/tools/access";
 
-// POST /api/public/tools/pick-frames — outil /outils/miniatures (29/09/2026),
+// POST /api/public/tools/pick-frames — outil /outils/publier (section Miniature, 29/09/2026),
 // même fonctionnement que la section Miniature de la page Publier : le
 // navigateur extrait 12 images de la vidéo (la vidéo n'est jamais envoyée),
 // l'IA choisit les 3 meilleures (netteté, cadrage, potentiel de clic) et

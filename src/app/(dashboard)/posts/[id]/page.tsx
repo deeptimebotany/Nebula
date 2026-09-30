@@ -429,6 +429,14 @@ export default function PostDetailPage() {
                       )}
                     </div>
                   </div>
+                  {/* TikTok (règles Direct Post, 30/09/2026) : prévenir du délai de traitement. */}
+                  {t.network === "TIKTOK" && (t.status === "PUBLISHING" || t.status === "PROCESSING" || t.status === "PUBLISHED") && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t.status === "PUBLISHED"
+                        ? "Envoyée à TikTok. Si elle n'apparaît pas encore sur votre profil, TikTok la traite encore : cela prend en général quelques minutes."
+                        : "TikTok reçoit et traite la vidéo : elle apparaîtra sur votre profil d'ici quelques minutes."}
+                    </p>
+                  )}
                   {t.network === "YOUTUBE" && t.thumbnailStatus && THUMBNAIL_NOTE[t.thumbnailStatus] && (
                     <p className={clsx("mt-2 text-xs", THUMBNAIL_NOTE[t.thumbnailStatus].tone)}>{THUMBNAIL_NOTE[t.thumbnailStatus].text}</p>
                   )}

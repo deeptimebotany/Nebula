@@ -7,11 +7,12 @@ import { trackGrowth } from "@/lib/growth";
 
 // POST /api/public/drafts — « Programmer cette publication avec Nebula »
 // (brief growth, lot G4.a) : met de côté le résultat d'un outil gratuit
-// (légende, miniature) le temps que le visiteur crée un compte, puis le
+// (légende, miniature, ou publication complète du générateur de
+// publications : titre, texte et image) le temps que le visiteur crée un compte, puis le
 // Composer le récupère via ?draft=<id> (GET/DELETE dans [id]/route.ts).
 // Sans authentification, limité par IP, expire en 7 jours (purge cron).
 const bodySchema = z.object({
-  kind: z.enum(["CAPTION", "THUMBNAIL"]),
+  kind: z.enum(["CAPTION", "THUMBNAIL", "POST"]),
   tool: z.string().max(40).optional(),
   network: z.string().max(20).optional(),
   content: z.object({

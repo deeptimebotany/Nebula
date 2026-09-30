@@ -1,6 +1,9 @@
 // Outils IA de /outils (démo sans compte, quotas par compte) et préférences
 // d'affichage enregistrées dans le compte (29/09/2026).
 import { describe, expect, it, vi } from "vitest";
+import { existsSync, readFileSync } from "fs";
+import { createRequire } from "module";
+import path from "path";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
@@ -46,6 +49,38 @@ describe("outils IA : démos", () => {
       expect(demo.title.length, n).toBeLessThanOrEqual(100);
       expect(demo.description.length, n).toBeLessThanOrEqual(NETWORK_META[n].maxCaption);
     }
+  });
+});
+
+describe("générateur de publications (légendes + miniatures réunis, 30/09/2026)", () => {
+  const root = process.cwd();
+  const read = (file: string) => readFileSync(path.join(root, file), "utf8");
+
+  it("un seul outil, construit comme la page Publier", () => {
+    expect(existsSync(path.join(root, "src/app/outils/publier/page.tsx"))).toBe(true);
+    expect(existsSync(path.join(root, "src/app/outils/legendes"))).toBe(false);
+    expect(existsSync(path.join(root, "src/app/outils/miniatures"))).toBe(false);
+    const page = read("src/app/outils/publier/page.tsx");
+    // Les cartes de Publier, dans l'ordre, puis l'aperçu.
+    const order = [">1. Média<", 'fieldHeader("title", 2', 'fieldHeader("description", 3', ">4. Réseau<", ">5. Publication<", "<ToolPreview"].map((m) => page.indexOf(m));
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // Les trois générations des anciens outils.
+    for (const api of ["/api/public/tools/captions", "/api/public/tools/pick-frames", "/api/public/tools/thumbnail"]) expect(page).toContain(api);
+  });
+
+  it("les anciennes adresses redirigent en permanence vers le nouvel outil", async () => {
+    const config = createRequire(import.meta.url)(path.join(root, "next.config.js")) as { redirects: () => Promise<{ source: string; destination: string; permanent: boolean }[]> };
+    const redirects = await config.redirects();
+    expect(redirects.find((r) => r.source === "/outils/legendes")).toMatchObject({ destination: "/outils/publier", permanent: true });
+    expect(redirects.find((r) => r.source === "/outils/miniatures")).toMatchObject({ destination: "/outils/publier?reseau=youtube", permanent: true });
+  });
+
+  it("une seule carte dans le hub, plus aucun lien vers les anciens outils", () => {
+    for (const file of ["src/app/outils/page.tsx", "src/components/marketing/marketing-footer.tsx", "src/app/sitemap.ts", "src/app/llms.txt/route.ts"]) {
+      expect(read(file), file).not.toMatch(/outils\/(legendes|miniatures)/);
+    }
+    expect(read("src/app/outils/page.tsx").match(/href: "\/outils\/publier"/g)).toHaveLength(1);
   });
 });
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconSparkle, IconMessage, IconUpload, IconChart, IconAvatar, IconHash, IconYouTube, IconClock, IconSearch } from "@/components/dashboard/icons";
+import { IconSparkle, IconSend, IconChart, IconAvatar, IconHash, IconYouTube, IconClock, IconSearch } from "@/components/dashboard/icons";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { SEO_TOOLS, SEO_TOOLS_HUB } from "@/lib/seo-pages";
@@ -28,24 +28,21 @@ const HUB_LD = [
   }
 ];
 
-const TOOLS = [
+// Le générateur de publications (30/09/2026 : légendes, titres et miniatures
+// réunis, comme la page Publier) prend toute la largeur, en tête.
+const TOOLS: { href: string; icon: (p: { className?: string }) => JSX.Element; title: string; desc: string; featured?: boolean }[] = [
+  {
+    href: "/outils/publier",
+    icon: IconSend,
+    title: "Générateur de publications",
+    desc: "Comme la page Publier de Nebula, en un seul outil : votre vidéo et sa miniature, le titre et la description écrits par l'IA pour le réseau visé, et l'aperçu fidèle de la publication.",
+    featured: true
+  },
   {
     href: "/outils/audit",
     icon: IconSearch,
     title: "Audit de présence en ligne",
     desc: "Collez vos liens (YouTube, Instagram, TikTok, site) : un score sur 100, ce qui freine votre présence et quoi faire en premier."
-  },
-  {
-    href: "/outils/legendes",
-    icon: IconMessage,
-    title: "Générateur de légendes & titres",
-    desc: "Le même éditeur que dans Nebula : l'IA écrit le titre et la description pour le réseau visé, avec l'aperçu fidèle de la publication."
-  },
-  {
-    href: "/outils/miniatures",
-    icon: IconUpload,
-    title: "Générateur de miniatures",
-    desc: "Déposez votre vidéo : les meilleures images en ressortent, en situation sur YouTube ou TikTok. L'IA peut les rendre plus percutantes."
   },
   {
     href: "/outils/bio-instagram",
@@ -104,7 +101,7 @@ export default function OutilsHubPage() {
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-16">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {TOOLS.map((tool) => (
-            <Link key={tool.href} href={tool.href}>
+            <Link key={tool.href} href={tool.href} className={tool.featured ? "sm:col-span-2" : undefined}>
               <GlassCard className="h-full transition hover:border-aurora-400/30">
                 <tool.icon className="h-6 w-6 text-aurora-300" />
                 <h2 className="mt-3 font-display text-lg font-medium text-white">{tool.title}</h2>

@@ -141,7 +141,8 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
     const Icon = item.icon;
     // Compteur « Réussites » : défis et accomplissements validés depuis la
     // dernière visite de la page (rien quand tout a été vu).
-    const unseen = item.href === "/reussites" && reussites && reussites.unseen > 0 ? reussites.unseen : 0;
+    // Mode focus (30/09/2026) : pas de pastille.
+    const unseen = item.href === "/reussites" && reussites && reussites.unseen > 0 && bootstrap?.focusMode === false ? reussites.unseen : 0;
     const eggBadge = unseen > 0 ? String(unseen > 99 ? "99+" : unseen) : null;
     return (
       <Link

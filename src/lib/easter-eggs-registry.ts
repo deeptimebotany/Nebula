@@ -41,7 +41,7 @@ export interface EasterEggDef {
 export const EASTER_EGGS: EasterEggDef[] = [
   { key: "konami", number: 1, emoji: "🕹️", title: "Code Konami", hint: "↑ ↑ ↓ ↓ ← → ← → B A, n'importe où sur le site." },
   { key: "nebula-word", number: 2, emoji: "🌌", title: "Le mot secret", hint: "Tapez « nebula » au clavier, sans cliquer dans un champ de texte." },
-  { key: "console-signature", number: 3, emoji: "🖥️", title: "Message dans la console", hint: "Ouvrez la console de votre navigateur (F12) sur n'importe quelle page." },
+  { key: "console-signature", number: 3, emoji: "🖥️", title: "Message dans la console", hint: "Ouvrez la console de votre navigateur (F12) sur le tableau de bord et suivez l'indice." },
   { key: "logo-spin", number: 4, emoji: "🌀", title: "Logo en surchauffe", hint: "Restez appuyé 3 secondes sur le logo, dans le menu latéral." },
   { key: "midnight-stars", number: 5, emoji: "🌠", title: "Étoiles filantes", hint: "Ouvrez Nebula pile à minuit." },
   { key: "starfield-theme", number: 6, emoji: "✨", title: "Ciel étoilé", hint: "Activez le thème étoilé animé dans Paramètres (palier Pro ou Agence).", reward: "Thème étoilé animé" },
@@ -58,7 +58,7 @@ export const EASTER_EGGS: EasterEggDef[] = [
   { key: "anniversary", number: 17, emoji: "🎂", title: "Anniversaire", hint: "Utilisez Nebula le jour de l'anniversaire du site." },
   { key: "loading-minigame", number: 18, emoji: "👾", title: "Petit jeu d'attente", hint: "Tombez sur le mini-jeu qui apparaît pendant un chargement un peu long." },
   { key: "theme-toggle-10x", number: 19, emoji: "🌗", title: "Indécis·e", hint: "Basculez sombre/clair 10 fois de suite, rapidement." },
-  { key: "hidden-comment", number: 20, emoji: "📜", title: "Vu dans le code source", hint: "Ouvrez le code source d'une page qui en cache un (Ctrl/Cmd+U)." },
+  { key: "hidden-comment", number: 20, emoji: "📜", title: "Vu dans le code source", hint: "Ouvrez le code source d'une page qui en cache un (Ctrl/Cmd+U) et suivez l'indice." },
 
   // --- Deuxième vague (choisie le 22/09/2026 sur une liste de 50
   // propositions détaillées) — voir src/lib/easter-eggs/server.ts pour les
@@ -183,4 +183,42 @@ export function isValidEasterEggKey(key: string): boolean {
 
 export function findEasterEgg(key: string): EasterEggDef | undefined {
   return EASTER_EGGS.find((e) => e.key === key);
+}
+
+/**
+ * Easter eggs « à lire » (corrigés le 30/09/2026) : « Vu dans le code
+ * source » et « Message dans la console » étaient accordés dès l'affichage
+ * de la page — impossible de savoir si le code source ou la console avaient
+ * été ouverts —, donc à toute personne tombant sur une adresse inexistante
+ * ou ouvrant le tableau de bord (constaté juste après une inscription).
+ * Le commentaire caché et le message de la console donnent maintenant un
+ * code à taper dans la palette (Ctrl/Cmd+K) : il faut vraiment les lire.
+ */
+export const SECRET_PHRASES = {
+  "hidden-comment": "poussière d'étoiles",
+  "console-signature": "hyperespace"
+} as const;
+export type SecretEggKey = keyof typeof SECRET_PHRASES;
+export const SOURCE_SECRET_PHRASE = SECRET_PHRASES["hidden-comment"];
+
+/** Texte tapé réduit à ses lettres (sans accent, espace ni ponctuation). */
+export function normalizeSecret(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Easter egg débloqué par ce texte tapé dans la palette, ou null. */
+export function secretEggFor(text: string): SecretEggKey | null {
+  const typed = normalizeSecret(text);
+  if (!typed) return null;
+  for (const [key, phrase] of Object.entries(SECRET_PHRASES) as [SecretEggKey, string][]) if (normalizeSecret(phrase) === typed) return key;
+  return null;
+}
+
+/** Commentaire HTML caché dans le code source (page 404, page Soutenir). */
+export function sourceSecretComment(intro: string): string {
+  return `<!-- ${intro} Code secret : tapez « ${SECRET_PHRASES["hidden-comment"]} » dans la palette de commandes (Ctrl/Cmd+K) pour débloquer l'easter egg « Vu dans le code source ». -->`;
 }

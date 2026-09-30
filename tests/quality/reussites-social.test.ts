@@ -78,10 +78,16 @@ describe("rareté réelle", () => {
 
 describe("badge Explorateur", () => {
   it("cookie : seulement des outils connus, sans doublon", () => {
-    expect(TOOL_IDS).toContain("legendes");
-    expect(parseToolsCookie("legendes.hashtags.legendes")).toEqual(["legendes", "hashtags"]);
-    expect(parseToolsCookie("legendes.<script>.inconnu")).toEqual(["legendes"]);
+    expect(TOOL_IDS).toContain("publier");
+    expect(TOOL_IDS).not.toContain("legendes");
+    expect(parseToolsCookie("publier.hashtags.publier")).toEqual(["publier", "hashtags"]);
+    expect(parseToolsCookie("publier.<script>.inconnu.constructor.__proto__")).toEqual(["publier"]);
     expect(toolsExploredCount(encodeURIComponent("miniatures.titre-youtube"))).toBe(2);
+  });
+
+  it("cookie posé avant la fusion : légendes et miniatures comptent pour le générateur de publications", () => {
+    expect(parseToolsCookie("legendes.miniatures.hashtags")).toEqual(["publier", "hashtags"]);
+    expect(toolsExploredCount("legendes.miniatures")).toBe(1);
     expect(toolsExploredCount(undefined)).toBe(0);
   });
 

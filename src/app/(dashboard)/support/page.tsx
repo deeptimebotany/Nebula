@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconHeart } from "@/components/dashboard/icons";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { sourceSecretComment } from "@/lib/easter-eggs-registry";
 
 // Variable publique (inlinée au build par Next.js) : tant qu'elle est vide,
 // aucun lien de paiement n'est affiché — pas de fausse promesse, pas de bouton
@@ -67,12 +68,9 @@ export default function SupportPage() {
   const heartClicks = useRef(0);
   const heartResetTimer = useRef<number | null>(null);
 
-  // Indétectable par nature (voir le commentaire équivalent dans
-  // easter-eggs.tsx pour "console-signature") : cette page cache aussi un
-  // commentaire dans son code source.
-  useEffect(() => {
-    reportEasterEggFound("hidden-comment");
-  }, []);
+  // Le commentaire caché dans le code source de cette page (en bas) donne un
+  // code à taper dans la palette : « Vu dans le code source » n'est plus
+  // accordé à la simple ouverture de la page (30/09/2026).
 
   function onHeartClick() {
     heartClicks.current += 1;
@@ -182,8 +180,7 @@ export default function SupportPage() {
       <div
         aria-hidden="true"
         dangerouslySetInnerHTML={{
-          __html:
-            "<!-- Vous lisez le code source d'une page de soutien : vous êtes exactement le genre de personne à qui elle s'adresse. Merci d'être passé·e par là. -->"
+          __html: sourceSecretComment("Vous lisez le code source d'une page de soutien : vous êtes exactement le genre de personne à qui elle s'adresse. Merci d'être passé·e par là.")
         }}
       />
     </div>

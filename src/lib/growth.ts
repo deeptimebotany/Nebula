@@ -28,7 +28,9 @@ export const PUBLIC_GROWTH_EVENTS = [
   "tour_started",
   "tour_step",
   "tour_skipped",
-  "tour_completed"
+  "tour_completed",
+  // Mode focus activé depuis la visite (30/09/2026)
+  "tour_focus_mode"
 ] as const;
 
 export type PublicGrowthEvent = (typeof PUBLIC_GROWTH_EVENTS)[number];

@@ -4,7 +4,7 @@ import { isAiEnabled, generateThumbnail } from "@/lib/ai/gemini";
 import { requireToolAccess } from "@/lib/tools/access";
 
 // POST /api/public/tools/thumbnail — générateur IA de miniatures de
-// /outils/miniatures. Depuis le 29/09/2026 : compte obligatoire et quota par
+// /outils/publier (section Miniature). Depuis le 29/09/2026 : compte obligatoire et quota par
 // compte (porte unique de l'IA, lib/ai/guard.ts) ; sans compte, la page montre une démo
 // illustrée, sans IA. Réutilise directement
 // generateThumbnail() de src/lib/ai/gemini.ts (déjà utilisée dans le

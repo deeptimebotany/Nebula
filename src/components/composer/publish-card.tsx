@@ -79,10 +79,14 @@ interface ComposerActionBarProps {
   canSubmit: boolean;
   submitting: boolean;
   onSubmit: () => void;
+  /** Ce qui empêche l'envoi (ex. confidentialité TikTok non choisie), affiché sous le résumé et au survol du bouton. */
+  blockedReason?: string | null;
+  /** Ligne sous le bouton (ex. phrase de consentement de TikTok). */
+  footnote?: React.ReactNode;
 }
 
 /** Barre d'action collante en bas de la page Publier : résumé + bouton principal toujours visible. */
-export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount, hasMedia, canSubmit, submitting, onSubmit }: ComposerActionBarProps) {
+export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount, hasMedia, canSubmit, submitting, onSubmit, blockedReason, footnote }: ComposerActionBarProps) {
   const scheduledUtc = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone) : null;
   const when =
     mode === "now"
@@ -90,7 +94,7 @@ export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount,
       : scheduledUtc
         ? `Programmée le ${scheduledUtc.toLocaleString("fr-FR", { timeZone: timezone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
         : "Choisissez une date";
-  const missing = !hasMedia ? "Ajoutez un média pour continuer" : selectedCount === 0 ? "Choisissez au moins un réseau" : null;
+  const missing = !hasMedia ? "Ajoutez un média pour continuer" : selectedCount === 0 ? "Choisissez au moins un réseau" : blockedReason ?? null;
 
   // Le bouton flottant de l'assistant remonte au-dessus de cette barre au
   // lieu de cacher « Publier maintenant » (voir ai-assistant-lazy.tsx, lot 5).
@@ -101,12 +105,15 @@ export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount,
 
   return (
     <div className="sticky bottom-[4.75rem] z-20 lg:bottom-4">
-      <div className="glass-panel-solid flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-glow-lg">
+      <div className="glass-panel-solid rounded-2xl px-4 py-3 shadow-glow-lg">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-white">
             {selectedCount === 0 ? "Aucun réseau sélectionné" : selectedCount === 1 ? "1 réseau" : `${selectedCount} réseaux`} · {when}
           </p>
-          <p className="truncate text-xs text-slate-500">{missing ?? (mode === "now" ? "Envoyée dès que vous cliquez." : `Heure de ${timezone.replace(/_/g, " ")}.`)}</p>
+          <p className={clsx("truncate text-xs", blockedReason && hasMedia && selectedCount > 0 ? "text-amber-200" : "text-slate-500")} title={missing ?? undefined}>
+            {missing ?? (mode === "now" ? "Envoyée dès que vous cliquez." : `Heure de ${timezone.replace(/_/g, " ")}.`)}
+          </p>
         </div>
         {/* disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton doit
             rester cliquable quand canSubmit est faux, pour l'easter egg des
@@ -115,10 +122,13 @@ export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount,
           className={clsx("shrink-0 whitespace-nowrap", !canSubmit && !submitting && "cursor-not-allowed opacity-50")}
           disabled={submitting}
           aria-disabled={!canSubmit}
+          title={!canSubmit && blockedReason ? blockedReason : undefined}
           onClick={onSubmit}
         >
           {submitting ? "Envoi..." : mode === "now" ? "Publier maintenant" : "Programmer"}
         </Button>
+      </div>
+      {footnote}
       </div>
     </div>
   );

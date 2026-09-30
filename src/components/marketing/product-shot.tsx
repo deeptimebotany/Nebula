@@ -17,6 +17,7 @@ export type ScreenName =
   | "studio"
   | "page-bio"
   | "rapports"
+  | "reussites"
   | "rapport-client"
   | "bio-mobile"
   | "kit-mobile";
@@ -32,6 +33,7 @@ const SCREENS: Record<ScreenName, { size: typeof DESKTOP; url: string }> = {
   studio: { size: DESKTOP, url: "nebulahub.space/studio" },
   "page-bio": { size: DESKTOP, url: "nebulahub.space/link-in-bio" },
   rapports: { size: DESKTOP, url: "nebulahub.space/reports" },
+  reussites: { size: DESKTOP, url: "nebulahub.space/reussites" },
   "rapport-client": { size: { width: 1280, height: 800, widths: [1200, 2400] }, url: "nebulahub.space/rapport/…" },
   "bio-mobile": { size: PHONE, url: "nebulahub.space/l/studio-nova" },
   "kit-mobile": { size: PHONE, url: "nebulahub.space/kit/studio-nova" }

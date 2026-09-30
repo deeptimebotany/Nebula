@@ -77,9 +77,8 @@ export const STATIC_PAGES = [
   "/outils/audit",
   "/outils/bio-instagram",
   "/outils/hashtags",
-  "/outils/legendes",
   "/outils/meilleur-moment",
-  "/outils/miniatures",
+  "/outils/publier",
   "/outils/taux-engagement",
   "/outils/titre-youtube",
   "/legal",
@@ -154,7 +153,13 @@ export function buildCsp({ nonce, dev }: { nonce: string | null; dev: boolean })
     // s'affiche dans une iframe docs.google.com ; Dropbox et Microsoft
     // ouvrent des fenêtres séparées, non concernées. Les fichiers eux-mêmes
     // sont téléchargés par le serveur, jamais par le navigateur.
-    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com${dev ? " ws: wss:" : ""}`,
+    // www.dropbox.com (30/09/2026) : le script du sélecteur Dropbox annonce
+    // sa carte source (dropins_sdk_v2.js.map), que les outils de
+    // développement du navigateur chargent sous la CSP de la page — sans
+    // cette entrée, une erreur « violates the following Content Security
+    // Policy directive » s'affichait dans la console après chaque ouverture
+    // de Publier. Même hôte que le script déjà chargé, aucun autre effet.
+    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com https://www.dropbox.com${dev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
     "frame-src https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
     "frame-ancestors 'self'",

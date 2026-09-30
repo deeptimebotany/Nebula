@@ -24,7 +24,7 @@
 //     tour_completed ; sons courts « tic » et accord final (lot U5).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useBootstrap } from "@/components/bootstrap-provider";
+import { useBootstrap, useFocusMode } from "@/components/bootstrap-provider";
 import { useUiSounds } from "@/components/use-ui-sounds";
 import { trackGrowthEvent } from "@/lib/growth-client";
 import { clsx } from "@/lib/clsx";
@@ -37,6 +37,8 @@ export interface TourStep {
   anchors: string[];
   title: string;
   text: string;
+  /** Bouton « Activer le Mode focus » dans la bulle (30/09/2026). */
+  focusChoice?: boolean;
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -45,7 +47,13 @@ export const TOUR_STEPS: TourStep[] = [
   { id: "compose", anchors: ["nav-composer"], title: "Publier", text: "Une publication, plusieurs réseaux, à l'heure de votre choix." },
   { id: "calendar", anchors: ["nav-calendar"], title: "Calendrier", text: "Tout ce qui est prévu, déplaçable d'un glisser." },
   { id: "analytics", anchors: ["nav-analytics"], title: "Analytics", text: "Vos chiffres de tous les réseaux au même endroit." },
-  { id: "reussites", anchors: ["nav-reussites", "mobile-menu"], title: "Réussites", text: "Chaque semaine, 3 missions pour publier régulièrement." }
+  {
+    id: "reussites",
+    anchors: ["nav-reussites", "mobile-menu"],
+    title: "Réussites",
+    text: "Chaque semaine, 3 missions pour publier régulièrement : rangs, coffres et badges suivent vos vraies publications. Vous préférez une interface neutre ? Le Mode focus coupe tout d'un clic : récompenses, sons et notifications de succès.",
+    focusChoice: true
+  }
 ];
 
 function isVisible(el: Element): boolean {
@@ -108,6 +116,7 @@ export function GuidedTour({ replay = 0 }: { replay?: number }) {
   const pathname = usePathname();
   const router = useRouter();
   const { play } = useUiSounds();
+  const { focusMode, setFocusMode } = useFocusMode();
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
   const [placement, setPlacement] = useState<Placement | null>(null);
@@ -262,6 +271,34 @@ export function GuidedTour({ replay = 0 }: { replay?: number }) {
         <p id="nb-tour-text" className="mt-1 text-sm leading-relaxed text-slate-300">
           {current.text}
         </p>
+        {current.focusChoice && (
+          // Mode focus en un clic, dès la visite (30/09/2026) ; réversible
+          // dans Paramètres → Apparence et dans la palette (Ctrl/Cmd+K).
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs">
+            {focusMode ? (
+              <>
+                <span className="text-emerald-300">Mode focus activé.</span>
+                <button type="button" onClick={() => void setFocusMode(false)} className="text-slate-400 underline underline-offset-2 hover:text-white">
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-slate-400">Interface 100 % épurée ?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void setFocusMode(true);
+                    trackGrowthEvent("tour_focus_mode", {});
+                  }}
+                  className="font-medium text-aurora-300 underline underline-offset-2 hover:text-white"
+                >
+                  Activer le Mode focus
+                </button>
+              </>
+            )}
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <button type="button" onClick={() => finish("skipped")} className="text-sm text-slate-400 transition hover:text-white">
             Passer

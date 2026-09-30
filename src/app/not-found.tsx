@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { sourceSecretComment } from "@/lib/easter-eggs-registry";
 
 const FLAVOR_TEXTS = [
   "Ce vaisseau a dérivé hors des cartes connues de Nebula.",
@@ -49,10 +50,8 @@ export default function NotFound() {
   useEffect(() => {
     setFlavorIndex(Math.floor(Math.random() * FLAVOR_TEXTS.length));
     reportEasterEggFound("lost-in-space");
-    // Indétectable par nature (voir le commentaire équivalent dans
-    // easter-eggs.tsx pour "console-signature") : cette page en cache un
-    // aussi, dans son code source.
-    reportEasterEggFound("hidden-comment");
+    // « Vu dans le code source » n'est PAS accordé ici (30/09/2026) : le
+    // commentaire caché plus bas donne un code à taper dans la palette.
   }, []);
 
   return (
@@ -112,7 +111,7 @@ export default function NotFound() {
         <div
           aria-hidden="true"
           dangerouslySetInnerHTML={{
-            __html: "<!-- Même perdu dans le vide, Nebula garde le sens de l'humour. -->"
+            __html: sourceSecretComment("Même perdu dans le vide, Nebula garde le sens de l'humour.")
           }}
         />
       </div>

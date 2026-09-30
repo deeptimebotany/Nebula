@@ -34,7 +34,9 @@ const TABLES = [
   "AnonStat",
   // Brief « Essai 14 jours » : registre des essais et coûts de l'IA, sans lien vers un compte.
   "TrialGrant",
-  "AiUsageDaily"
+  "AiUsageDaily",
+  // Brouillons « Programmer avec Nebula » des outils gratuits.
+  "PublicDraft"
 ];
 
 export async function resetDatabase(): Promise<void> {

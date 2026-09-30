@@ -6,7 +6,7 @@ import { SEO_TOOLS } from "@/lib/seo-pages";
 // métadonnées (titre, description, canonique, aperçus de partage) et ses
 // données structurées (WebApplication + fil d'Ariane), définies dans
 // src/lib/seo-pages.ts (SEO technique, 29/09/2026).
-const PAGE = SEO_TOOLS["miniatures"];
+const PAGE = SEO_TOOLS["publier"];
 
 export const metadata = pageMetadata(PAGE);
 

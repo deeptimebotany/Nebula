@@ -30,6 +30,8 @@ import { GREETING_VARIANTS } from "@/lib/dashboard-greetings";
 import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
 import { saveComposerDraftNow } from "@/lib/composer-draft-client";
 import { TrialChoiceCard } from "@/components/billing/dormant-brand";
+import { useFocusMode } from "@/components/bootstrap-provider";
+import { clsx } from "@/lib/clsx";
 
 
 const WEEKDAY_LABEL: Record<string, string> = {
@@ -103,6 +105,8 @@ export interface DashboardInitial {
 // variante côté serveur).
 
 export function DashboardClient({ initial }: { initial: DashboardInitial | null }) {
+  // Mode focus (30/09/2026) : pas de carte « Rang de créateur ».
+  const { focusMode } = useFocusMode();
   const { activeBrand } = useBrand();
   const router = useRouter();
   const cosmetics = useCosmetics();
@@ -331,7 +335,7 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
         </RevealItem>
       </RevealGroup>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className={clsx("grid grid-cols-1 gap-5 md:grid-cols-2", focusMode ? "xl:grid-cols-3" : "xl:grid-cols-4")}>
         <Reveal>
           <AttentionWidget items={attentionItems} loading={loading} />
         </Reveal>
@@ -379,10 +383,13 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
           </MotionGlassCard>
         </Reveal>
 
-        {/* Réussites : rang de créateur et mission de la semaine en cours. */}
-        <Reveal delay={0.07}>
-          <LevelCard initial={seedFresh && initial?.brandId === activeBrand?.id ? initial?.reussites ?? undefined : undefined} />
-        </Reveal>
+        {/* Réussites : rang de créateur et mission de la semaine en cours
+            (masqué en Mode focus, 30/09/2026). */}
+        {!focusMode && (
+          <Reveal delay={0.07}>
+            <LevelCard initial={seedFresh && initial?.brandId === activeBrand?.id ? initial?.reussites ?? undefined : undefined} />
+          </Reveal>
+        )}
       </div>
 
       {insights && insights.perNetwork.length > 0 && insights.perNetwork.some((n) => n.hasEnoughData) && (

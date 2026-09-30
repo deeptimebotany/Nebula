@@ -8,6 +8,7 @@
 //
 //   node scripts/demo/capture-screens.mjs media   → illustrations de démo (public/demo-media)
 //   node scripts/demo/capture-screens.mjs shots   → captures (application lancée sur BASE_URL)
+//   SCREENS_ONLY=reussites,publier node …  shots   → seulement ces écrans
 //
 // Outils : Playwright (Chromium) et sharp (déjà présent avec Next.js).
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -44,6 +45,8 @@ const SCREENS = [
   { name: "studio", path: "/studio", viewport: { width: 1440, height: 900 }, widths: [1200, 2400] },
   { name: "page-bio", path: "/link-in-bio", viewport: { width: 1440, height: 900 }, widths: [1200, 2400] },
   { name: "rapports", path: "/reports", viewport: { width: 1440, height: 900 }, widths: [1200, 2400], prepare: (p) => scrollToText(p, /Aperçu du rapport/, 20) },
+  // Réussites (30/09/2026) : mises en avant dès l'introduction de l'accueil.
+  { name: "reussites", path: "/reussites", viewport: { width: 1440, height: 900 }, widths: [1200, 2400] },
   // Pages publiques (vues par les abonnés et les clients) : design propre, toujours sombres.
   { name: "rapport-client", path: "/rapport/{reportToken}", viewport: { width: 1280, height: 800 }, widths: [1200, 2400], modes: ["dark"] },
   { name: "bio-mobile", path: "/l/studio-nova", viewport: { width: 390, height: 844 }, widths: [390, 780], modes: ["dark"] },
@@ -80,6 +83,8 @@ async function fillComposer(page) {
 // (il recouvre le contenu), animations figées, curseur de saisie caché.
 const CAPTURE_CSS = `
   .nebula-chat-launcher { display: none !important; }
+  /* Célébration « Accomplissement débloqué » (Réussites visibles, Mode focus désactivé). */
+  .nebula-achievement-card { display: none !important; }
   *, *::before, *::after { animation-play-state: paused !important; caret-color: transparent !important; }
   ::-webkit-scrollbar { display: none; }
 `;
@@ -120,8 +125,10 @@ async function shots() {
     await login(loginPage);
     const storageState = await loginCtx.storageState();
     await loginCtx.close();
+    const only = (process.env.SCREENS_ONLY || "").split(",").map((s) => s.trim()).filter(Boolean);
     for (const mode of ["light", "dark"]) {
       for (const screen of SCREENS) {
+        if (only.length && !only.includes(screen.name)) continue;
         if (screen.modes && !screen.modes.includes(mode)) continue;
         const ctx = await browser.newContext({ storageState, viewport: screen.viewport, deviceScaleFactor: screen.viewport.width < 600 ? 3 : 2, locale: "fr-FR", timezoneId: "Europe/Paris" });
         const page = await ctx.newPage();

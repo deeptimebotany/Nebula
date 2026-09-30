@@ -22,8 +22,8 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Outils gratuits",
     links: [
-      { href: "/outils/legendes", label: "Générateur de légendes" },
-      { href: "/outils/miniatures", label: "Idées de miniatures" },
+      { href: "/outils/publier", label: "Légendes, titres et miniatures" },
+      { href: "/outils/audit", label: "Audit de vos réseaux" },
       { href: "/outils", label: "Tous les outils" }
     ]
   },

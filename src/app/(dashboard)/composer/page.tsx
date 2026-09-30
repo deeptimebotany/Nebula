@@ -33,6 +33,8 @@ import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/compos
 import { InfoTip } from "@/components/ui/info-tip";
 import type { PickedLocation } from "@/components/composer/location-picker";
 import { PinterestOptions, DEFAULT_PINTEREST_OPTIONS, type PinterestComposerOptions } from "@/components/composer/pinterest-options";
+import { TiktokConsent, TiktokOptions, type TiktokSectionStatus } from "@/components/composer/tiktok-options";
+import { DEFAULT_TIKTOK_OPTIONS, type TiktokPostOptions } from "@/lib/social/tiktok-direct-post";
 import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -366,6 +368,11 @@ function ComposerPageInner() {
   const [youtubeOptionsOpen, setYoutubeOptionsOpen] = useState(false);
   // Pinterest : tableau et lien de l'épingle (voir pinterest-options.tsx).
   const [pinterestOptions, setPinterestOptions] = useState<PinterestComposerOptions>(DEFAULT_PINTEREST_OPTIONS);
+  // TikTok (règles Direct Post, 30/09/2026) : choix de la section TikTok,
+  // jamais gardés d'une publication à l'autre (la confidentialité se choisit
+  // à chaque fois), et ce qui bloque l'envoi (voir tiktok-options.tsx).
+  const [tiktokOptions, setTiktokOptions] = useState<TiktokPostOptions>(DEFAULT_TIKTOK_OPTIONS);
+  const [tiktokStatus, setTiktokStatus] = useState<TiktokSectionStatus>({ reason: null, creator: null });
   // Option « Contenu généré par l'IA » : un interrupteur général (carte
   // « 1. Média », en haut de page, pour y penser avant de descendre aux
   // réseaux) qui s'applique à tous les réseaux, plus une exception possible
@@ -1169,7 +1176,10 @@ function ComposerPageInner() {
     setAssets((prev) => prev.map((a) => (a.id === videoAsset.id ? { ...a, thumbnailUrl: url } : a)));
   }
 
-  const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand;
+  // TikTok sélectionné : confidentialité choisie, contenu commercial complet,
+  // durée acceptée… sinon le bouton reste désactivé (raison affichée).
+  const tiktokBlocked = selectedNetworks.includes("TIKTOK") && assets.length > 0 ? tiktokStatus.reason : null;
+  const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand && !tiktokBlocked;
 
   // Easter egg : 20 clics sur "Publier" alors qu'il est visuellement
   // désactivé (voir le bouton plus bas — désactivé par CSS/aria-disabled,
@@ -1179,6 +1189,8 @@ function ComposerPageInner() {
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) {
+      // TikTok : dire ce qui manque (confidentialité, contenu commercial…).
+      if (tiktokBlocked) toast.error(tiktokBlocked);
       disabledClicks.current += 1;
       if (disabledClicksResetTimer.current) window.clearTimeout(disabledClicksResetTimer.current);
       if (disabledClicks.current >= 20) {
@@ -1215,8 +1227,9 @@ function ComposerPageInner() {
           // + lieu (Instagram, Facebook, YouTube — voir LocationPicker).
           // + Pinterest : tableau et lien de l'épingle.
           metadata:
-            network === "YOUTUBE" || network === "PINTEREST" || (aiContentOverrides[network] ?? aiContentAll) || (location && LOCATION_NETWORKS.has(network))
+            network === "YOUTUBE" || network === "PINTEREST" || network === "TIKTOK" || (aiContentOverrides[network] ?? aiContentAll) || (location && LOCATION_NETWORKS.has(network))
               ? {
+                  ...(network === "TIKTOK" ? { tiktok: tiktokOptions } : {}),
                   ...(network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : {}),
                   ...(network === "PINTEREST"
                     ? {
@@ -1304,6 +1317,8 @@ function ComposerPageInner() {
     overrides,
     youtubeOptions,
     pinterestOptions,
+    tiktokOptions,
+    tiktokBlocked,
     aiContentAll,
     aiContentOverrides,
     location,
@@ -2006,6 +2021,17 @@ function ComposerPageInner() {
                         )}
                       </div>
 
+                      {n === "TIKTOK" && (
+                        <TiktokOptions
+                          connectionId={selectedConnectionByNetwork.TIKTOK || networkConnections[0]?.id}
+                          value={tiktokOptions}
+                          onChange={setTiktokOptions}
+                          video={assets[0] ? { url: assets[0].previewUrl, type: assets[0].type } : null}
+                          onStatus={setTiktokStatus}
+                          onPreview={() => setPreviewNetwork("TIKTOK")}
+                        />
+                      )}
+
                       {n === "PINTEREST" && (
                         <PinterestOptions
                           connectionId={selectedConnectionByNetwork.PINTEREST || networkConnections[0]?.id}
@@ -2183,6 +2209,8 @@ function ComposerPageInner() {
         canSubmit={canSubmit}
         submitting={submitting}
         onSubmit={onSubmit}
+        blockedReason={tiktokBlocked}
+        footnote={selectedNetworks.includes("TIKTOK") ? <TiktokConsent options={tiktokOptions} className="mt-2 border-t border-white/[0.06] pt-2" /> : null}
       />
 
       {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et

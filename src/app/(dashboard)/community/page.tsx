@@ -31,6 +31,8 @@ import { clsx } from "@/lib/clsx";
 import { IconUsers, IconMessage, IconHeart, IconTrophy, IconGift, IconChevronRight } from "@/components/dashboard/icons";
 import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
+import { ContentActions } from "@/components/community/content-actions";
+import { reportKey } from "@/lib/community/report-reasons";
 
 type Tab = "forum" | "guides" | "videos";
 
@@ -114,6 +116,11 @@ export default function CommunityPage() {
   const [videos, setVideos] = useState<SharedVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Modération (30/09/2026) : contenus déjà signalés par ce compte, et droit
+  // de supprimer ceux des autres (propriétaire du site).
+  const [canModerate, setCanModerate] = useState(false);
+  const [reported, setReported] = useState<Set<string>>(new Set());
+  const markReported = (key: string) => setReported((prev) => new Set(prev).add(key));
 
   // Colonne de droite + bannière : chargées à part, jamais bloquantes.
   const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
@@ -138,6 +145,8 @@ export default function CommunityPage() {
       if (tRes.ok) setThreads(tData.threads ?? []);
       if (gRes.ok) setGuides(gData.guides ?? []);
       if (vRes.ok) setVideos(vData.videos ?? []);
+      setCanModerate(Boolean(tData.viewer?.canModerate || vData.viewer?.canModerate));
+      setReported(new Set<string>([...(tData.viewer?.reported ?? []), ...(vData.viewer?.reported ?? [])]));
     } catch {
       setLoadError("Impossible de charger la communauté. Réessayez dans un instant.");
     } finally {
@@ -148,6 +157,17 @@ export default function CommunityPage() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Lien direct vers l'onglet des vidéos (?onglet=videos#video-…, ex. depuis
+  // une alerte de signalement).
+  useEffect(() => {
+    const onglet = new URLSearchParams(window.location.search).get("onglet");
+    if (onglet === "videos" || onglet === "guides") setTab(onglet);
+  }, []);
+  useEffect(() => {
+    if (loading || !window.location.hash.startsWith("#video-")) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [loading, tab]);
 
   useEffect(() => {
     fetch("/api/community/badges")
@@ -342,31 +362,45 @@ export default function CommunityPage() {
 
               <div className="space-y-2">
                 {visibleThreads.map((t) => (
-                  <Link key={t.id} href={`/community/${t.id}`} className="block">
-                    <GlassCard className="flex items-start gap-3">
-                      <AvatarRing ring={t.author?.ring} shapeClassName="rounded-full" className="mt-0.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
-                          {initials(t.author?.name)}
-                        </span>
-                      </AvatarRing>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {t.pinned && (
-                            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">Épinglé</span>
-                          )}
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400">{CATEGORY_LABEL[t.category] ?? t.category}</span>
-                        </div>
-                        <p className="mt-1 truncate font-display text-sm font-medium text-white">{t.title}</p>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{t.body}</p>
-                        <p className="mt-1 text-[11px] text-slate-500">
+                  // Titre en « lien étiré » sur toute la carte : les actions
+                  // (Signaler, Supprimer) restent des boutons à part.
+                  <GlassCard key={t.id} className="relative flex items-start gap-3">
+                    <AvatarRing ring={t.author?.ring} shapeClassName="rounded-full" className="mt-0.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
+                        {initials(t.author?.name)}
+                      </span>
+                    </AvatarRing>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {t.pinned && (
+                          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">Épinglé</span>
+                        )}
+                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400">{CATEGORY_LABEL[t.category] ?? t.category}</span>
+                      </div>
+                      <Link href={`/community/${t.id}`} className="mt-1 block truncate font-display text-sm font-medium text-white after:absolute after:inset-0 after:rounded-2xl after:content-['']">
+                        {t.title}
+                      </Link>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{t.body}</p>
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <p className="text-[11px] text-slate-500">
                           <CommunityAuthor author={t.author} /> · {relativeDate(t.createdAt)}
                         </p>
+                        <ContentActions
+                          className="relative z-10"
+                          type="THREAD"
+                          id={t.id}
+                          mine={me?.user?.id === t.author?.id}
+                          canModerate={canModerate}
+                          reported={reported.has(reportKey("THREAD", t.id))}
+                          onReported={() => markReported(reportKey("THREAD", t.id))}
+                          onDeleted={() => setThreads((prev) => prev.filter((x) => x.id !== t.id))}
+                        />
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-400" title={`${t._count.replies} réponse${t._count.replies > 1 ? "s" : ""}`}>
-                        <IconMessage className="h-4 w-4" /> {t._count.replies}
-                      </div>
-                    </GlassCard>
-                  </Link>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-400" title={`${t._count.replies} réponse${t._count.replies > 1 ? "s" : ""}`}>
+                      <IconMessage className="h-4 w-4" /> {t._count.replies}
+                    </div>
+                  </GlassCard>
                 ))}
                 {visibleThreads.length === 0 && (
                   <p className="py-10 text-center text-sm text-slate-500">
@@ -394,27 +428,38 @@ export default function CommunityPage() {
           {!loading && tab === "videos" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videos.map((v) => (
-                <a key={v.id} href={v.externalUrl} target="_blank" rel="noreferrer">
-                  <GlassCard className="h-full overflow-hidden p-0">
-                    <div className="aspect-video w-full bg-black/40">
-                      {v.thumbnailUrl ? (
-                        <RemoteImage src={v.thumbnailUrl} className="h-full w-full" sizes="(max-width: 640px) 100vw, 320px" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-500">
-                          <IconHeart className="h-6 w-6" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-1.5 p-3.5">
-                      <NetworkBadge network={v.network} size="sm" />
-                      <p className="truncate text-sm font-medium text-white">{v.title}</p>
-                      {v.note && <p className="text-xs text-slate-400">{v.note}</p>}
-                      <p className="text-xs text-slate-500">
-                        partagé par {v.author?.name ?? "utilisateur"} · {relativeDate(v.createdAt)}
-                      </p>
-                    </div>
-                  </GlassCard>
-                </a>
+                <GlassCard key={v.id} id={`video-${v.id}`} className="relative h-full scroll-mt-24 overflow-hidden p-0">
+                  <div className="aspect-video w-full bg-black/40">
+                    {v.thumbnailUrl ? (
+                      <RemoteImage src={v.thumbnailUrl} className="h-full w-full" sizes="(max-width: 640px) 100vw, 320px" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-slate-500">
+                        <IconHeart className="h-6 w-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 p-3.5">
+                    <NetworkBadge network={v.network} size="sm" />
+                    {/* Lien étiré : toute la carte ouvre la vidéo, sauf les actions. */}
+                    <a href={v.externalUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-white after:absolute after:inset-0 after:content-['']">
+                      {v.title}
+                    </a>
+                    {v.note && <p className="text-xs text-slate-400">{v.note}</p>}
+                    <p className="text-xs text-slate-500">
+                      partagé par {v.author?.name ?? "utilisateur"} · {relativeDate(v.createdAt)}
+                    </p>
+                    <ContentActions
+                      className="relative z-10 pt-1"
+                      type="VIDEO"
+                      id={v.id}
+                      mine={me?.user?.id === v.author?.id}
+                      canModerate={canModerate}
+                      reported={reported.has(reportKey("VIDEO", v.id))}
+                      onReported={() => markReported(reportKey("VIDEO", v.id))}
+                      onDeleted={() => setVideos((prev) => prev.filter((x) => x.id !== v.id))}
+                    />
+                  </div>
+                </GlassCard>
               ))}
               {videos.length === 0 && (
                 <p className="col-span-full py-10 text-center text-sm text-slate-500">

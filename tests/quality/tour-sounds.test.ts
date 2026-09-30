@@ -11,7 +11,11 @@ describe("visite guidée (lot U4)", () => {
   it("six bulles, dans l'ordre du brief, avec leurs textes", () => {
     expect(TOUR_STEPS.map((s) => s.id)).toEqual(["brand", "connect", "compose", "calendar", "analytics", "reussites"]);
     expect(TOUR_STEPS[1].text).toBe("Connectez YouTube, Instagram, Facebook ou TikTok. Nebula ne voit jamais vos mots de passe.");
-    expect(TOUR_STEPS[5].text).toBe("Chaque semaine, 3 missions pour publier régulièrement.");
+    // Réussites mises en avant, et le Mode focus proposé d'un clic dès la visite (30/09/2026).
+    expect(TOUR_STEPS[5].text).toMatch(/^Chaque semaine, 3 missions pour publier régulièrement/);
+    expect(TOUR_STEPS[5].text).toContain("Mode focus coupe tout d'un clic");
+    expect(TOUR_STEPS[5].focusChoice).toBe(true);
+    expect(TOUR_STEPS.filter((s) => s.focusChoice).map((s) => s.id)).toEqual(["reussites"]);
     // Sur téléphone, les zones du tiroir pointent le bouton Menu de la barre du bas.
     for (const id of ["brand", "connect", "reussites"]) expect(TOUR_STEPS.find((s) => s.id === id)?.anchors).toContain("mobile-menu");
   });

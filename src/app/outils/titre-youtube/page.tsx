@@ -86,8 +86,8 @@ export default function TitreYoutubePage() {
       faq={FAQ}
       related={[
         { href: "/outils/audit", title: "Audit de présence en ligne" },
-        { href: "/outils/miniatures", title: "Générateur de miniatures" },
-        { href: "/outils/legendes", title: "Générateur de légendes" },
+        { href: "/outils/publier", title: "Générateur de publications (miniature comprise)" },
+        { href: "/outils/hashtags", title: "Générateur de hashtags" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" }
       ]}
     >

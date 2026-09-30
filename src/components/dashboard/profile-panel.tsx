@@ -239,12 +239,20 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
               <p className="truncate text-xs text-slate-500">{user?.email}</p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 {me?.plan && <span className="inline-block rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">Palier {me.plan}</span>}
-                {me?.reussites && <LevelPill level={me.reussites.level} name={me.reussites.name} />}
+                {me?.reussites && !me.focusMode && <LevelPill level={me.reussites.level} name={me.reussites.name} />}
               </div>
             </div>
           </section>
 
-          {/* Rang de créateur (Réussites) */}
+          {/* Rang de créateur (Réussites) — une seule ligne en Mode focus (30/09/2026). */}
+          {me?.focusMode ? (
+            <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-400">
+              Mode focus activé : rangs, récompenses et notifications de succès sont masqués.{" "}
+              <Link href="/reussites" onClick={() => setOpen(false)} className="text-aurora-300 underline underline-offset-2">
+                Voir mes réussites
+              </Link>
+            </p>
+          ) : (
           <section>
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Rang de créateur</h3>
             <Link href="/reussites" onClick={() => setOpen(false)} className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/20">
@@ -278,6 +286,7 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
               )}
             </Link>
           </section>
+          )}
 
           {/* Activité */}
           <section ref={(el) => {

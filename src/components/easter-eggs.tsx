@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/toast";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
+import { SECRET_PHRASES } from "@/lib/easter-eggs-registry";
 import { watchStatue } from "@/lib/easter-eggs/statue";
 
 // Hypothèse : Nebula a été lancé le 21 septembre 2025 — à corriger ici si la
@@ -202,13 +203,12 @@ export function EasterEggs() {
     );
     // eslint-disable-next-line no-console
     console.log(
-      "%cVous cherchez quelque chose ? Essayez le code Konami, ou tapez simplement « nebula ».",
+      `%cVous cherchez quelque chose ? Essayez le code Konami, ou tapez simplement « nebula ». Et pour débloquer « Message dans la console » : tapez « ${SECRET_PHRASES["console-signature"]} » dans la palette (Ctrl/Cmd+K).`,
       "color:#8fd7ff;font-size:12px;"
     );
-    // Indétectable par nature (on ne peut pas savoir si la console a été
-    // lue) : marqué trouvé dès que ce message s'affiche, comme pour le
-    // commentaire caché dans le code source (voir "hidden-comment").
-    reportEasterEggFound("console-signature");
+    // « Message dans la console » n'est plus accordé à l'affichage de ce
+    // message (30/09/2026) : il faut taper le code qu'il donne dans la
+    // palette (voir easter-eggs-registry.ts → SECRET_PHRASES).
 
     function onKeyDown(e: KeyboardEvent) {
       if (isTypingTarget(e.target)) return;

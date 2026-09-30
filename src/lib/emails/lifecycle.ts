@@ -618,7 +618,7 @@ export async function sendLifecyclePreview(key: LifecycleKey, to: string) {
       locked: { reports: true, calendarShare: true, mediaKit: true, ai: true, bioLinksLimit: PLAN_LIMITS.FREE.maxBioLinks, maxBrands: 1 }
     },
     annualMonths: annualFreeMonths(PLAN_LIMITS.PRO.tiers[0]),
-    toolPath: "/outils/legendes",
+    toolPath: "/outils/publier",
     dormantBrands: 1,
     drafted: 4
   };

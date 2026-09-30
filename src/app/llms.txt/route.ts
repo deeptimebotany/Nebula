@@ -45,7 +45,7 @@ export function GET() {
     `- [Sécurité et données](${SITE_URL}/securite) : hébergement, chiffrement, API officielles, RGPD.`,
     `- [Audit de présence en ligne gratuit](${SITE_URL}/outils/audit) : score sur 100 d'une chaîne YouTube, d'un compte Instagram professionnel, d'un profil TikTok et d'un site (régularité, engagement, profil, contenu, cohérence), avec des conseils concrets. Données publiques, sans compte.`,
     `- [Media kit](${SITE_URL}/decouvrir/media-kit) : page à envoyer aux marques, avec les vrais chiffres des comptes relevés automatiquement, présentation, tarifs, PDF. Aperçu gratuit, publication avec ${pro.label}.`,
-    `- [Outils gratuits](${SITE_URL}/outils) : générateurs de légendes, miniatures, bio Instagram, hashtags ; testeur de titre YouTube ; calculateur de taux d'engagement ; meilleur moment pour publier. Les générateurs IA demandent un compte gratuit (sans compte : démo préparée à l'avance, sans IA) ; les calculateurs et l'audit sont ouverts à tous.`,
+    `- [Outils gratuits](${SITE_URL}/outils) : générateur de publications (titre, légende et miniature réunis, comme la page Publier), générateurs de bio Instagram et de hashtags ; testeur de titre YouTube ; calculateur de taux d'engagement ; meilleur moment pour publier. Les générateurs IA demandent un compte gratuit (sans compte : démo préparée à l'avance, sans IA) ; les calculateurs et l'audit sont ouverts à tous.`,
     `- [Alternatives](${SITE_URL}/alternatives) : comparatifs avec ${COMPETITORS.map((c) => c.name).join(", ")} (prix constatés et datés).`,
     `- [Réseaux](${SITE_URL}/reseaux) : pris en charge et à venir.`,
     `- [Contact](${SITE_URL}/contact)`,

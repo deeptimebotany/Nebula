@@ -1,3 +1,4 @@
+import type { TiktokPostOptions } from "./tiktok-direct-post";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { AnalyticsResult, Network, PublishResult } from "@/lib/types";
 import { describeIssue, endpointLabel, shapeOf } from "./contract";
@@ -73,6 +74,13 @@ export interface PublishInput {
   // PendingPublish : la cible passe « en traitement » et le cron la
   // termine. Absent : attente courte par défaut (voir waitBudgetMs).
   waitUntil?: number;
+  // TikTok (Direct Post, 30/09/2026) : choix de la section TikTok de Publier
+  // (confidentialité, interactions, contenu commercial — voir
+  // social/tiktok-direct-post.ts), revérifiés au moment de l'envoi.
+  tiktok?: TiktokPostOptions;
+  // Durée de la vidéo en secondes, quand elle est connue (MediaAsset, ou
+  // mesurée dans Publier) : TikTok limite la durée selon le compte.
+  videoDurationSec?: number | null;
   // Miniature choisie dans Publier pour la vidéo (MediaAsset.thumbnailUrl),
   // adresse publique. YouTube l'applique après l'envoi (thumbnails.set) ;
   // les autres réseaux l'ignorent pour l'instant.

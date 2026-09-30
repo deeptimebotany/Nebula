@@ -314,7 +314,7 @@ export async function generateCopy(input: {
 
 /**
  * Version "grand public" de generateCopy(), utilisée par le générateur
- * de /outils/legendes (compte gratuit requis, voir /api/public/tools/captions).
+ * de /outils/publier (compte gratuit requis, voir /api/public/tools/captions).
  * Différence clé : ici on ne décrit jamais un média réel (le visiteur n'a
  * rien uploadé) mais un simple SUJET tapé au clavier — le prompt doit donc
  * traiter ce texte comme le sujet de la publication, pas comme la légende

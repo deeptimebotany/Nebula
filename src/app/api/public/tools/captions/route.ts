@@ -5,7 +5,7 @@ import { requireToolAccess } from "@/lib/tools/access";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 
 // POST /api/public/tools/captions — générateur IA de titres/légendes de
-// /outils/legendes. Depuis le 29/09/2026 : compte obligatoire (gratuit ou
+// /outils/publier (Titre, Description). Depuis le 29/09/2026 : compte obligatoire (gratuit ou
 // payant) et quota par compte (porte unique de l'IA, lib/ai/guard.ts) ; sans compte, la
 // page montre une démo préparée à l'avance et n'appelle jamais cette route.
 

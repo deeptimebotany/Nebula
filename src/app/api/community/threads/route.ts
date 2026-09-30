@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canModerate, reportedKeys } from "@/lib/community/moderation";
 
 // Forum public Nebula — pas de scoping par marque : visible et utilisable par
 // tout compte connecté. category : "GENERAL" | "AIDE" | "SUGGESTIONS" | "SHOWCASE"
@@ -23,8 +24,13 @@ export async function GET(req: NextRequest) {
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }]
   });
 
+  const userId = (session.user as { id: string }).id;
+  const reported = await reportedKeys(userId, threads.map((t) => ({ type: "THREAD" as const, id: t.id })));
   // Niveau de créateur et anneau d'avatar (Réussites), sans autre préférence.
-  return NextResponse.json({ threads: threads.map((t) => ({ ...t, author: publicAuthor(t.author) })) });
+  return NextResponse.json({
+    threads: threads.map((t) => ({ ...t, author: publicAuthor(t.author) })),
+    viewer: { canModerate: canModerate(session.user.email), reported }
+  });
 }
 
 export async function POST(req: NextRequest) {

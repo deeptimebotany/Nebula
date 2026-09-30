@@ -153,12 +153,10 @@ describe("Facebook", () => {
 
 describe("TikTok", () => {
   it("statut pas encore final : point de reprise, puis identifiant de la vidéo", async () => {
-    mockFetch((url) => {
-      if (url.includes("/video/init/")) return { json: { data: { publish_id: "P1" } } };
-      if (url.includes("/status/fetch/")) return { json: { data: { status: "PROCESSING_UPLOAD" } } };
-      return { status: 404 };
-    });
-    const first = await tiktokClient.publishPost(conn({ tokenExpiresAt: new Date(Date.now() + 3_600_000) }), input({ waitUntil: Date.now() }));
+    // Fichier reçu par TikTok (envoi par morceaux terminé), traitement en cours
+    // (l'envoi lui-même est couvert par tests/contracts/threads-tiktok.test.ts).
+    mockFetch((url) => (url.includes("/status/fetch/") ? { json: { data: { status: "PROCESSING_UPLOAD" } } } : { status: 404 }));
+    const first = await tiktokClient.resumePublish!(conn({ tokenExpiresAt: new Date(Date.now() + 3_600_000) }), input({ waitUntil: Date.now() }), { step: "tiktok_status", publishId: "P1" });
     expect(isPendingPublish(first) && first.checkpoint).toEqual({ step: "tiktok_status", publishId: "P1" });
 
     mockFetch((url) =>

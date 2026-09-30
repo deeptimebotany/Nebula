@@ -21,6 +21,9 @@ import {
   IconPlug,
   IconRetention,
   IconShield,
+  IconSparkle,
+  IconClock,
+  IconSearch,
   IconTrophy,
   IconUsers
 } from "@/components/dashboard/icons";
@@ -136,6 +139,32 @@ const AUDIENCES = [
   }
 ];
 
+// Réussites (30/09/2026, demande de Lucas : « notre avantage concurrentiel
+// majeur ») : section juste après l'introduction. Tout ce qui est décrit
+// existe (src/lib/reussites/catalog.ts, easter-eggs-registry.ts).
+const REUSSITES = [
+  {
+    icon: IconTrophy,
+    title: "3 missions chaque semaine",
+    desc: "Une habitude, une progression au choix et une mission mystère, renouvelées chaque lundi. Les trois réussies ouvrent le coffre de la semaine."
+  },
+  {
+    icon: IconSparkle,
+    title: "5 rangs, d'Étincelle à Nébuleuse",
+    desc: "Chaque vraie publication vous fait monter. Les rangs débloquent emblèmes, anneaux d'avatar, fonds et cadres pour votre page bio."
+  },
+  {
+    icon: IconClock,
+    title: "Une série qui vous pardonne",
+    desc: "Vos semaines actives s'enchaînent, protégées par des boucliers : une semaine chargée ne remet pas tout à zéro."
+  },
+  {
+    icon: IconSearch,
+    title: "60 easter eggs à trouver",
+    desc: "Des secrets cachés un peu partout dans l'application, à découvrir en l'utilisant."
+  }
+];
+
 const MORE = [
   { icon: IconMessage, title: "Commentaires", desc: "Les commentaires de vos réseaux dans une seule boîte, à lire et à traiter." },
   { icon: IconHeart, title: "Engagements", desc: "Likes, partages, enregistrements : ce que chaque publication déclenche." },
@@ -143,7 +172,7 @@ const MORE = [
   { icon: IconMediaKit, title: "Media kit", desc: "Une page pour les marques, avec vos vrais chiffres relevés automatiquement." },
   { icon: IconLayers, title: "Multi-marques", desc: "Passez d'une marque à l'autre sans vous déconnecter." },
   { icon: IconPlug, title: "API et webhooks", desc: "Branchez Nebula à n8n, Make ou Zapier (palier Agence)." },
-  { icon: IconTrophy, title: "Réussites", desc: "Des missions et des rangs pour garder un rythme de publication régulier." },
+  { icon: IconUsers, title: "Communauté", desc: "Un forum d'entraide, des guides et les vidéos partagées par d'autres créateurs." },
   { icon: IconBioLink, title: "Liens de campagne", desc: "Des liens UTM prêts à coller, pour voir dans vos statistiques ce qui ramène du monde." }
 ];
 
@@ -211,6 +240,48 @@ export default function LandingPage() {
         <JsonLd nodes={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
         <div aria-hidden="true" className="hero-stars pointer-events-none absolute inset-0 opacity-20" />
         <Hero />
+
+        {/* Réussites : mises en avant dès l'introduction (30/09/2026) */}
+        <section id="reussites" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 pb-24 pt-10">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Réussites"
+              title="Publier régulièrement devient un jeu"
+              desc="La régularité fait grandir un compte. Nebula la transforme en progression : chaque publication fait avancer votre rang, valide vos missions et ouvre des coffres."
+            />
+          </Reveal>
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
+            <div>
+              <RevealGroup className="space-y-6">
+                {REUSSITES.map((r) => (
+                  <RevealItem key={r.title}>
+                    <div className="flex gap-4">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/[0.08] text-amber-300">
+                        <r.icon className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h3 className="font-display text-base font-semibold text-white">{r.title}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-slate-400">{r.desc}</p>
+                      </div>
+                    </div>
+                  </RevealItem>
+                ))}
+              </RevealGroup>
+              <p className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-slate-400">
+                Tout est calculé à partir de vos vraies publications, et aucune récompense n&apos;a de valeur marchande. Vous préférez une interface
+                neutre ? Le <span className="font-medium text-slate-200">Mode focus</span> coupe tout d&apos;un clic : récompenses, sons et notifications de
+                succès.
+              </p>
+            </div>
+            <Reveal>
+              <ProductShot
+                name="reussites"
+                sizes="(min-width: 1024px) 640px, calc(100vw - 48px)"
+                alt="Page Réussites de Nebula : rang de créateur, missions de la semaine et coffre de la marque Studio Nova (compte de démonstration)"
+              />
+            </Reveal>
+          </div>
+        </section>
 
         {/* Visite de l'application : vraies captures, écran par écran */}
         <section id="visite" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 py-24">

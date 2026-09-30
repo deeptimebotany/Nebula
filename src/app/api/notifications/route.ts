@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, focusMode: true } });
   if (!user) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
   await materializeNews(userId, user.createdAt).catch(() => undefined);
 
@@ -25,14 +25,18 @@ export async function GET(req: NextRequest) {
   const sinceRaw = req.nextUrl.searchParams.get("since");
   const since = sinceRaw ? new Date(sinceRaw) : null;
   const sinceFilter = since && !Number.isNaN(since.getTime()) ? { createdAt: { gt: since } } : {};
+  // Mode focus (30/09/2026) : pas de notifications « Succès » (réussites,
+  // parrainage) dans la cloche. Elles restent enregistrées et réapparaissent
+  // quand le Mode focus est désactivé.
+  const focusFilter = user.focusMode ? { category: { not: "win" } } : {};
   if (req.nextUrl.searchParams.get("count") === "1") {
-    const unread = await notificationDb.count({ where: { userId, readAt: null, ...sinceFilter } });
+    const unread = await notificationDb.count({ where: { userId, readAt: null, ...sinceFilter, ...focusFilter } });
     return NextResponse.json({ unread });
   }
-  const unread = await notificationDb.count({ where: { userId, readAt: null } });
+  const unread = await notificationDb.count({ where: { userId, readAt: null, ...focusFilter } });
 
   const rows = await notificationDb.findMany({
-    where: { userId },
+    where: { userId, ...focusFilter },
     orderBy: { createdAt: "desc" },
     take: 40
   });
@@ -55,6 +59,7 @@ export async function PATCH(req: NextRequest) {
 
   const where = "all" in parsed.data ? { userId, readAt: null } : { userId, readAt: null, id: { in: parsed.data.ids } };
   await notificationDb.updateMany({ where, data: { readAt: new Date() } });
-  const unread = await notificationDb.count({ where: { userId, readAt: null } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { focusMode: true } });
+  const unread = await notificationDb.count({ where: { userId, readAt: null, ...(user?.focusMode ? { category: { not: "win" } } : {}) } });
   return NextResponse.json({ ok: true, unread });
 }

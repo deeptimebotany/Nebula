@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { useFocusMode } from "@/components/bootstrap-provider";
 
 interface NotificationItem {
   id: string;
@@ -153,11 +154,15 @@ const KIND_STYLE: Record<string, { tone: string; icon: React.ReactNode }> = {
 };
 
 export function NotificationBell() {
+  const { focusMode } = useFocusMode();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [badge, setBadge] = useState(0);
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  useEffect(() => {
+    if (focusMode && filter === "win") setFilter("all");
+  }, [focusMode, filter]);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const lastUnread = useRef(0);
 
@@ -289,7 +294,8 @@ export function NotificationBell() {
     { id: "all", label: "Tout" },
     { id: "fix", label: counts.fix ? `À corriger · ${counts.fix}` : "À corriger" },
     { id: "pub", label: "Publications" },
-    { id: "win", label: "Succès" },
+    // Mode focus (30/09/2026) : le serveur ne renvoie plus les succès.
+    ...(focusMode ? [] : [{ id: "win" as Filter, label: "Succès" }]),
     { id: "news", label: "Actus" }
   ];
 
