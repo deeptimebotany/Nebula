@@ -22,6 +22,7 @@ import {
 import { countSchema, graphList, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { metaGraphVersion } from "./versions";
 import { envValue } from "@/lib/env-value";
+import { oauthRedirectUri } from "@/lib/network-availability";
 
 // --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
 // Doc : https://developers.facebook.com/docs/instagram-platform/content-publishing
@@ -205,9 +206,21 @@ export const META_INSTAGRAM_SCOPES = [
 
 export const META_OAUTH_SCOPES: readonly string[] = [...META_INSTAGRAM_SCOPES, ...META_PAGES_SCOPES];
 
+/**
+ * Adresse de retour de la connexion Meta, UNE seule pour Instagram et
+ * Facebook (même boîte de dialogue) : META_REDIRECT_URI, sinon
+ * <NEXTAUTH_URL>/api/connections/meta/callback. C'est cette adresse, à
+ * l'identique, qu'il faut déclarer dans le portail Meta (Facebook Login →
+ * Paramètres → « URI de redirection OAuth valides »). Le réseau demandé
+ * (Instagram ou Facebook) voyage dans l'état signé, voir la route callback.
+ */
+export function metaRedirectUri(): string {
+  return oauthRedirectUri("meta", "META_REDIRECT_URI");
+}
+
 function getMetaAuthUrl(state: string): string {
   const appId = requireEnv("META_APP_ID");
-  const redirectUri = requireEnv("META_REDIRECT_URI");
+  const redirectUri = metaRedirectUri();
   const scopes = META_OAUTH_SCOPES.join(",");
   const url = new URL(`https://www.facebook.com/${metaGraphVersion()}/dialog/oauth`);
   url.searchParams.set("client_id", appId);
@@ -239,7 +252,7 @@ export async function exchangeMetaCode(code: string): Promise<{
 }> {
   const appId = requireEnv("META_APP_ID");
   const appSecret = requireEnv("META_APP_SECRET");
-  const redirectUri = requireEnv("META_REDIRECT_URI");
+  const redirectUri = metaRedirectUri();
 
   // 1. Code -> token courte durée
   const shortLived = await fetchJson(

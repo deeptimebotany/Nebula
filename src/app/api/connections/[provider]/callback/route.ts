@@ -16,6 +16,9 @@ const PROVIDER_TO_NETWORK: Record<string, Network> = {
   linkedin: "LINKEDIN"
 };
 
+/** Instagram et Facebook : même connexion Meta (voir metaRedirectUri). */
+const META_PROVIDERS = ["facebook", "instagram"];
+
 export async function GET(req: NextRequest, { params }: { params: { provider: string } }) {
   const code = req.nextUrl.searchParams.get("code");
   const stateRaw = req.nextUrl.searchParams.get("state");
@@ -40,9 +43,17 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
   const userId = (session.user as { id: string }).id;
 
   let brandId: string;
+  // Réseau demandé au départ (/start). Meta revient sur UNE seule adresse,
+  // /api/connections/meta/callback (META_REDIRECT_URI) : le réseau voulu,
+  // Instagram ou Facebook, est alors celui de l'état signé. Les anciennes
+  // adresses /instagram/callback et /facebook/callback restent acceptées.
+  let provider: string;
   try {
     const state = decodeOAuthState<{ brandId: string; provider?: string; userId?: string }>(stateRaw);
-    if (state.userId !== userId || state.provider !== params.provider) throw new Error("mismatch");
+    if (state.userId !== userId) throw new Error("mismatch");
+    const viaMeta = params.provider === "meta" && typeof state.provider === "string" && META_PROVIDERS.includes(state.provider);
+    if (!viaMeta && state.provider !== params.provider) throw new Error("mismatch");
+    provider = state.provider as string;
     brandId = state.brandId;
   } catch (err) {
     const message = err instanceof Error && err.message.startsWith("État OAuth expiré") ? err.message : "État OAuth invalide.";
@@ -56,13 +67,13 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
 
   try {
     await assertConnectionQuota(brandId);
-    if (params.provider === "facebook" || params.provider === "instagram") {
+    if (META_PROVIDERS.includes(provider)) {
       // Facebook et Instagram partagent la même boîte de dialogue OAuth Meta
       // (une autorisation retourne les deux à la fois), mais on ne crée ici
       // que les comptes du réseau que la personne a explicitement demandé de
       // connecter — voir src/lib/providers.ts pour le contexte.
       const { instagramAccounts, facebookPages } = await exchangeMetaCode(code);
-      if (params.provider === "facebook") {
+      if (provider === "facebook") {
         for (const fb of facebookPages) await upsertConnection(brandId, "FACEBOOK", fb);
         if (facebookPages.length === 0) {
           throw new Error("Aucune Page Facebook n'a été trouvée pour cet utilisateur.");
@@ -78,7 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
         redirectTo.searchParams.set("count", String(instagramAccounts.length));
       }
     } else {
-      const network = PROVIDER_TO_NETWORK[params.provider];
+      const network = PROVIDER_TO_NETWORK[provider];
       if (!network) throw new Error("Fournisseur inconnu.");
       const token = await getSocialClient(network).exchangeCodeForToken(code);
       await upsertConnection(brandId, network, token);
@@ -88,6 +99,6 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
     return NextResponse.redirect(redirectTo);
   }
 
-  redirectTo.searchParams.set("connected", params.provider);
+  redirectTo.searchParams.set("connected", provider);
   return NextResponse.redirect(redirectTo);
 }
