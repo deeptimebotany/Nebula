@@ -25,7 +25,7 @@ import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import type { PreviewAccount } from "@/components/composer/composer-preview";
 // Aperçu, panneaux et voile d'envoi chargés à la demande (lot 5).
-import { CampaignLinkBuilder, ComposerPreview, LoadingMiniGame, LocationPicker, PublishOverlay, RepurposePanel } from "@/components/composer/lazy";
+import { CampaignLinkBuilder, ComposerPreview, LoadingMiniGame, LocationPicker, PublishOverlay, RepurposePanel, VideoEditor } from "@/components/composer/lazy";
 import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
 import { ComposerTips } from "@/components/composer/composer-tips";
 import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
@@ -861,6 +861,21 @@ function ComposerPageInner() {
     [activeBrand, toast]
   );
 
+  // Éditeur vidéo (30/09/2026) : la vidéo modifiée remplace l'actuelle.
+  const [editingVideo, setEditingVideo] = useState<UploadedAsset | null>(null);
+  const saveEditedVideo = useCallback(
+    async (file: File) => {
+      if (!activeBrand) throw new Error("Choisissez une marque avant d'enregistrer la vidéo.");
+      const asset = await uploadMediaFile(file, activeBrand.id, setUploadPercent);
+      setUploadPercent(null);
+      setAssets([{ id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: URL.createObjectURL(file) }]);
+      setThumbOptions([]);
+      setPreviewAspectClass("aspect-square");
+      toast.success("Vidéo modifiée : c'est elle qui sera publiée.");
+    },
+    [activeBrand, toast]
+  );
+
   function removeAsset(id: string) {
     setAssets((prev) => prev.filter((a) => a.id !== id));
     setPreviewAspectClass("aspect-square");
@@ -1554,6 +1569,18 @@ function ComposerPageInner() {
                     {/* Toujours visibles (24/09/2026) : avant, la croix n'apparaissait
                         qu'au survol — introuvable sur téléphone — et il fallait
                         redéposer un fichier pour remplacer celui-ci. */}
+                    {a.type === "VIDEO" && (
+                      <div className="px-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingVideo(a)}
+                          disabled={uploading}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-aurora-400/40 bg-aurora-400/10 px-2 py-1 text-[11px] font-medium text-aurora-200 transition hover:border-aurora-400/70 hover:text-white disabled:opacity-50"
+                        >
+                          <IconSparkle className="h-3.5 w-3.5" /> Modifier la vidéo
+                        </button>
+                      </div>
+                    )}
                     <div className="flex gap-1 px-2 pb-2 pt-1">
                       <button
                         type="button"
@@ -2216,6 +2243,9 @@ function ComposerPageInner() {
       {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et
           inutilisable tant que « Envoi... » tourne — voir publish-overlay.tsx. */}
       {submitting && <PublishOverlay active networks={selectedNetworks} mode={mode} mediaType={assets[0]?.type} />}
+      {editingVideo && (
+        <VideoEditor source={editingVideo.previewUrl} fileName={editingVideo.filename} logoUrl={activeBrand?.logoUrl ?? null} onClose={() => setEditingVideo(null)} onSave={saveEditedVideo} />
+      )}
 
       {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
         ? createPortal(

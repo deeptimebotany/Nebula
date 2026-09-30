@@ -36,13 +36,14 @@ import {
 } from "./base";
 import { countSchema, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { adoptConcurrentRefresh } from "./tokens";
+import { envValue } from "@/lib/env-value";
 
 const AUTH_URL = "https://www.pinterest.com/oauth/";
 const API = "https://api.pinterest.com/v5";
 const SCOPES = ["user_accounts:read", "boards:read", "boards:write", "pins:read", "pins:write"];
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) throw new Error(`${name} manquant. Voir .env.example (section Pinterest).`);
   return value;
 }

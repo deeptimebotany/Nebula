@@ -65,8 +65,8 @@ describe("palier : payant > offert > essai > gratuit", () => {
     db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(5) });
     const info = await getUserPlan("u1");
     expect(info).toMatchObject({ plan: "TRIAL", onTrial: true, paid: false });
-    expect(info.limits.aiDaily).toEqual({ text: 20, image: 3, assistant: 20, retention: 3 });
-    expect(info.limits.studioDailyLimit).toBe(5);
+    expect(info.limits.aiDaily).toEqual({ text: 20 });
+    expect(info.limits.aiMonthly).toEqual({ retention: 5, image: 5, studio: 15, assistant: 50 });
   });
   it("essai expiré : Gratuit", async () => {
     db.user.findUnique.mockResolvedValue({ ...user, trialEndsAt: inDays(-1) });

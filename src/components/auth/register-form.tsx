@@ -13,6 +13,7 @@ import { AuthShell, OAuthButtons } from "@/components/auth/auth-shell";
 import { clsx } from "@/lib/clsx";
 import { IntroOverlay, preloadAccountIntro } from "@/components/intro/intro-overlay";
 import { unlockIntroAudio } from "@/lib/intro/audio-unlock";
+import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 
 interface RegisterFormProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
@@ -36,6 +37,8 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
+  // 18 ans minimum (30/09/2026, conditions de l'API Gemini, CGU article 3).
+  const [isAdult, setIsAdult] = useState(false);
   // Statistiques anonymes (29/09/2026) : facultatif, décoché par défaut.
   const [statsConsent, setStatsConsent] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
@@ -43,7 +46,9 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   // Jeton anti-robot à usage unique : nouveau jeton après chaque essai refusé.
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "terms", string>>>({});
+  // Refus « pré-lancement » (adresse non invitée) : lien vers /bientot.
+  const [prelaunchRefused, setPrelaunchRefused] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "terms" | "adult", string>>>({});
   const [loading, setLoading] = useState(false);
   // Intro de création de compte (29/09/2026) : jouée dès que le compte est
   // créé ; on part vers l'application quand elle est finie ET la connexion
@@ -80,6 +85,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     if (form.name.trim().length < 2) next.name = "Indiquez votre nom (2 caractères minimum).";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = "Adresse email invalide.";
     if (form.password.length < 8) next.password = "8 caractères minimum.";
+    if (!isAdult) next.adult = "Nebula est réservé aux personnes de 18 ans et plus.";
     if (!acceptTerms) next.terms = "Merci d'accepter les conditions pour continuer.";
     setFieldErrors(next);
     return Object.keys(next).length === 0;
@@ -116,6 +122,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
         password: form.password,
         brandName: form.brandName.trim() || undefined,
         referralCode: form.referralCode.trim() || undefined,
+        isAdult,
         acceptTerms,
         statsConsent,
         turnstileToken: turnstileToken ?? undefined
@@ -132,6 +139,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
       setTurnstileReset((k) => k + 1);
       const data = await res.json().catch(() => ({}));
       setError(typeof data.error === "string" ? data.error : "Impossible de créer le compte pour le moment.");
+      setPrelaunchRefused(data.prelaunch === true);
       setLoading(false);
       return;
     }
@@ -154,6 +162,14 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
       {inviter && (
         <p className="mb-4 rounded-xl border border-aurora-400/30 bg-aurora-400/[0.08] px-4 py-3 text-center text-sm text-aurora-100" role="status">
           Invité{inviter.firstName ? ` par ${inviter.firstName}` : ""} : <strong className="font-semibold text-white">{inviter.trialDays} jours d&apos;essai offerts</strong> à l&apos;inscription.
+        </p>
+      )}
+      {!isSiteOpen() && (
+        <p className="mb-4 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] px-4 py-3 text-center text-sm text-amber-100" role="status">
+          Accès anticipé : pendant le pré-lancement, seules les adresses invitées (équipe, partenaires) peuvent créer un compte.{" "}
+          <Link href={PRELAUNCH_PAGE} className="font-medium text-white underline underline-offset-2">
+            Être prévenu de l&apos;ouverture
+          </Link>
         </p>
       )}
       <OAuthButtons oauth={oauth} onPick={(p) => signIn(p, { callbackUrl: nextPath })} separatorLabel="ou avec votre email" />
@@ -232,6 +248,24 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           </button>
         )}
 
+        <label className={clsx("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition", fieldErrors.adult ? "border-red-400/40 bg-red-400/[0.06]" : "border-white/10 bg-white/[0.02]")}>
+          <input
+            type="checkbox"
+            name="isAdult"
+            checked={isAdult}
+            onChange={(e) => setIsAdult(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/[0.03] accent-aurora-400"
+            aria-invalid={fieldErrors.adult ? true : undefined}
+            aria-describedby={fieldErrors.adult ? "register-adult-error" : undefined}
+          />
+          <span className="text-slate-300">J&apos;ai 18 ans ou plus.</span>
+        </label>
+        {fieldErrors.adult && (
+          <p id="register-adult-error" role="alert" className="-mt-2 text-xs text-red-400">
+            {fieldErrors.adult}
+          </p>
+        )}
+
         <label className={clsx("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition", fieldErrors.terms ? "border-red-400/40 bg-red-400/[0.06]" : "border-white/10 bg-white/[0.02]")}>
           <input
             type="checkbox"
@@ -244,11 +278,11 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           />
           <span className="text-slate-300">
             J&apos;accepte les{" "}
-            <Link href="/legal#conditions" target="_blank" className="text-aurora-300 hover:underline">
+            <Link href="/legal#conditions" target="_blank" className="text-aurora-300 underline underline-offset-2">
               conditions d&apos;utilisation
             </Link>{" "}
             et la{" "}
-            <Link href="/legal#confidentialite" target="_blank" className="text-aurora-300 hover:underline">
+            <Link href="/legal#confidentialite" target="_blank" className="text-aurora-300 underline underline-offset-2">
               politique de confidentialité
             </Link>
             .
@@ -273,7 +307,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
             <span className="font-medium text-white">Facultatif :</span> j&apos;accepte que mon usage de Nebula contribue à des statistiques anonymes.
             <span id="register-stats-hint" className="mt-1 block text-xs text-slate-500">
               Uniquement des chiffres de groupe (20 comptes minimum), calculés à partir de ce que vous faites dans Nebula, jamais des données de vos réseaux. Modifiable à tout moment dans les paramètres.{" "}
-              <Link href="/legal#statistiques" target="_blank" className="text-aurora-300 hover:underline">
+              <Link href="/legal#statistiques" target="_blank" className="text-aurora-300 underline underline-offset-2">
                 En savoir plus
               </Link>
             </span>
@@ -284,6 +318,14 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
         {error && (
           <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
             {error}
+            {prelaunchRefused && (
+              <>
+                {" "}
+                <Link href={PRELAUNCH_PAGE} className="font-medium text-white underline underline-offset-2">
+                  Aller à la page « Bientôt »
+                </Link>
+              </>
+            )}
           </p>
         )}
         <Button type="submit" disabled={loading} className="w-full">

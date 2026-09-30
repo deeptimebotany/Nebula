@@ -5,11 +5,14 @@ import { consumeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { trackGrowth } from "@/lib/growth";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
+import { LAUNCH_WAITLIST } from "@/lib/launch";
 
 // POST /api/public/waitlist — liste d'attente par réseau (brief growth, lot
 // G5.d) : « Prévenez-moi quand Threads / LinkedIn / Pinterest / Bluesky
 // arrive ». Un enregistrement par (email, réseau) ; les compteurs ne sont
 // visibles que dans /admin/acquisition. Rate-limit + Turnstile.
+// Pré-lancement (30/09/2026) : même table pour « Prévenez-moi du lancement »
+// de /bientot (network = "lancement", suivi dans /admin/lancement).
 const bodySchema = z.object({
   email: z.string().trim().email().max(200),
   network: z.string().max(40),
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Adresse email invalide." }, { status: 400 });
   const { email, network, consent, turnstileToken } = parsed.data;
-  if (!UPCOMING_NETWORKS.some((n) => n.slug === network)) return NextResponse.json({ error: "Réseau inconnu." }, { status: 400 });
+  if (network !== LAUNCH_WAITLIST && !UPCOMING_NETWORKS.some((n) => n.slug === network)) return NextResponse.json({ error: "Réseau inconnu." }, { status: 400 });
 
   if (!(await verifyTurnstileToken(turnstileToken))) {
     return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });

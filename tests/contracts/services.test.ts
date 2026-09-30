@@ -25,7 +25,8 @@ vi.mock("@/lib/prisma", () => ({
   }
 }));
 
-import { GeminiQuotaError, chatComplete, generateThumbnail } from "@/lib/ai/gemini";
+import { GeminiQuotaError, chatComplete, generateRetentionJson, generateThumbnail } from "@/lib/ai/gemini";
+import { runWithAiContext, type AiCallContext } from "@/lib/ai/usage";
 import { emailIdempotencyKey, sendEmail } from "@/lib/email";
 import { extractLinktreeLinksDetailed } from "@/lib/linktree";
 import { verifyTurnstileToken } from "@/lib/turnstile";
@@ -47,6 +48,46 @@ afterEach(() => {
 });
 
 describe("Gemini", () => {
+  it("Rétention (30/09/2026) : réponse en flux SSE recollée, vidéo YouTube en basse résolution, réflexion demandée, jetons de vidéo mesurés", async () => {
+    // Flux de https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+    // (alt=sse) : une « pensée », le texte en deux morceaux, l'usage à la fin.
+    const events = [
+      { candidates: [{ content: { role: "model", parts: [{ text: "Je regarde la vidéo…", thought: true }] } }] },
+      { candidates: [{ content: { role: "model", parts: [{ text: '{"summary":"Intro trop longue.",' }] } }] },
+      {
+        candidates: [{ content: { role: "model", parts: [{ text: '"drops":[],"recommendations":["Coupez l\'intro."]}' }] }, finishReason: "STOP" }],
+        usageMetadata: {
+          promptTokenCount: 60500,
+          candidatesTokenCount: 120,
+          thoughtsTokenCount: 900,
+          totalTokenCount: 61520,
+          promptTokensDetails: [
+            { modality: "TEXT", tokenCount: 500 },
+            { modality: "VIDEO", tokenCount: 52000 },
+            { modality: "AUDIO", tokenCount: 8000 }
+          ]
+        }
+      }
+    ];
+    const raw = events.map((e) => `data: ${JSON.stringify(e)}\r\n\r\n`).join("");
+    const net = installNetwork([{ method: "POST", url: /^generativelanguage\.googleapis\.com\/v1beta\/models\/.+:streamGenerateContent$/, raw, headers: { "content-type": "text/event-stream" } }]);
+    const ctx: AiCallContext = { plan: "PRO", kind: "retention", billed: false, model: null };
+    const text = await runWithAiContext(ctx, () =>
+      generateRetentionJson({ systemInstruction: "Analyste", parts: [{ text: "Chutes…" }, { file_data: { file_uri: "https://www.youtube.com/watch?v=abc" } }], thinking: "high", video: true })
+    );
+    expect(JSON.parse(text)).toEqual({ summary: "Intro trop longue.", drops: [], recommendations: ["Coupez l'intro."] });
+    const sent = net.sent[0];
+    expect(sent.url.pathname).toContain("gemini-3.8-flash:streamGenerateContent");
+    expect(sent.url.search).toBe("?alt=sse");
+    expect(sent.headers["x-goog-api-key"]).toBe("cle-gemini");
+    const body = sent.json as { contents: { parts: Record<string, unknown>[] }[]; generationConfig: Record<string, unknown> };
+    expect(body.contents[0].parts[1]).toEqual({ file_data: { file_uri: "https://www.youtube.com/watch?v=abc" } });
+    expect(body.generationConfig).toMatchObject({ responseMimeType: "application/json", mediaResolution: "MEDIA_RESOLUTION_LOW", thinkingConfig: { thinkingLevel: "high" } });
+    expect(body.generationConfig).not.toHaveProperty("temperature"); // Gemini 3 : température par défaut
+    // Jetons réels, « pensée » comptée en sortie, vidéo et son de la vidéo à part.
+    expect(ctx).toMatchObject({ billed: true, model: "gemini-3.8-flash", usage: { input: 60500, video: 60000, output: 1020 } });
+  });
+
   it("texte : parties assemblées ; clé dans l'en-tête, jamais dans l'adresse", async () => {
     const net = installNetwork([{ method: "POST", url: GEMINI, fixture: "gemini/text" }]);
     expect(await chatComplete([{ role: "user", text: "Bonjour" }], "Assistant")).toBe("Nouveau menu d'automne : venez goûter nos tartes ! #cafe #automne");
@@ -64,6 +105,29 @@ describe("Gemini", () => {
     const image = await generateThumbnail({ frameBase64: "AAAA", frameMimeType: "image/jpeg", title: "Menu" });
     expect(image.mimeType).toBe("image/png");
     expect(image.base64).toMatch(/^iVBOR/);
+  });
+
+  it("gemini-3.1-flash-image : images « brouillon » ignorées, réglages 1K et 16:9 envoyés", async () => {
+    const net = installNetwork([{ method: "POST", url: GEMINI, fixture: "gemini/image-3.1" }]);
+    const image = await generateThumbnail({ frameBase64: "AAAA", frameMimeType: "image/jpeg", title: "Menu" });
+    expect(image.base64).toMatch(/^iVBOR/);
+    expect(net.sent[0].url.pathname).toContain("gemini-3.1-flash-image:generateContent");
+    const body = net.sent[0].json as { generationConfig: { responseModalities: string[]; imageConfig: { aspectRatio: string; imageSize: string } } };
+    expect(body.generationConfig.responseModalities).toEqual(["TEXT", "IMAGE"]);
+    expect(body.generationConfig.imageConfig).toEqual({ aspectRatio: "16:9", imageSize: "1K" });
+  });
+
+  it("image : si Google refuse le champ de réglage, nouvel essai avec l'autre écriture (refus non facturé)", async () => {
+    const net = installNetwork([
+      { method: "POST", url: GEMINI, times: 1, status: 400, body: { error: { code: 400, status: "INVALID_ARGUMENT", message: 'Invalid JSON payload received. Unknown name "imageConfig" at \'generation_config\': Cannot find field.' } } },
+      { method: "POST", url: GEMINI, fixture: "gemini/image-3.1" }
+    ]);
+    const image = await generateThumbnail({ frameBase64: "AAAA", frameMimeType: "image/jpeg", title: "Menu" });
+    expect(image.base64).toMatch(/^iVBOR/);
+    expect(net.sent).toHaveLength(2);
+    const second = net.sent[1].json as { generationConfig: Record<string, unknown> };
+    expect(second.generationConfig.imageConfig).toBeUndefined();
+    expect(second.generationConfig.responseFormat).toEqual({ image: { aspectRatio: "16:9", imageSize: "1K" } });
   });
 
   it("demande bloquée par les filtres ou coupée : message clair en français", async () => {

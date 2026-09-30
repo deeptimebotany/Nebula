@@ -37,6 +37,7 @@ import {
 } from "./base";
 import { endpointLabel, opt, soft, textSchema, z } from "./contract";
 import { linkedinApiVersion } from "./versions";
+import { envValue } from "@/lib/env-value";
 
 // --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
 // Doc : https://learn.microsoft.com/linkedin/marketing/community-management/shares/posts-api
@@ -59,7 +60,7 @@ const REST = "https://api.linkedin.com/rest";
 const SCOPES = ["openid", "profile", "w_member_social"];
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) throw new Error(`${name} manquant. Voir .env.example (section LinkedIn).`);
   return value;
 }

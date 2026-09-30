@@ -8,6 +8,7 @@ import { ProductShot, ShotCaption } from "@/components/marketing/product-shot";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
 import { IconCard, IconCheck, IconLock, IconTrophy } from "@/components/dashboard/icons";
+import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 
 const REASSURANCE = [
   { icon: IconCard, text: "Gratuit pour commencer, sans carte bancaire" },
@@ -47,9 +48,15 @@ export function Hero() {
           </p>
 
           <div className="hero-enter hero-enter-4 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/register" className="w-full px-7 py-3.5 text-base sm:w-auto">
-              Créer mon espace gratuit
-            </ButtonLink>
+            {isSiteOpen() ? (
+              <ButtonLink href="/register" className="w-full px-7 py-3.5 text-base sm:w-auto">
+                Créer mon espace gratuit
+              </ButtonLink>
+            ) : (
+              <ButtonLink href={PRELAUNCH_PAGE} className="w-full px-7 py-3.5 text-base sm:w-auto">
+                Être prévenu du lancement
+              </ButtonLink>
+            )}
             <ButtonLink href="/#visite" variant="outline" className="w-full px-7 py-3.5 text-base sm:w-auto">
               Voir l&apos;application
             </ButtonLink>

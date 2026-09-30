@@ -11,6 +11,8 @@ export interface MeResponse {
   maxBrands: number;
   brandsOwned: number;
   billingEnabled: boolean;
+  /** Recharges Rétention achetables (Stripe et STRIPE_PRICE_RETENTION_PACK configurés). */
+  retentionPacksOpen: boolean;
   isOwner: boolean;
   /** Progression des easter eggs (section « Succès » de la page Réussites). */
   eggs: { found: number; total: number };
@@ -54,8 +56,12 @@ export interface MeResponse {
   /** Réseaux proposés dans l'application (clés configurées, voir network-availability.ts). */
   networks: Network[];
   // --- Brief « Essai 14 jours » (lots E1 à E4, U4, U5) ---
-  /** IA : adresse confirmée (Gratuit et Essai l'exigent) et quotas du jour par type. */
-  ai: { emailConfirmed: boolean; quota: Record<AiQuotaKind, { limit: number; used: number; remaining: number }> };
+  /**
+   * IA : adresse confirmée (Gratuit et Essai l'exigent), âge confirmé (18 ans
+   * et plus, obligatoire) et quotas par type — textes par jour, le reste par
+   * mois (ou sur la durée de l'essai), analyses Rétention achetées.
+   */
+  ai: { emailConfirmed: boolean; ageConfirmed: boolean; quota: AiQuotaView };
   /** Essai refusé à l'inscription (adresse ou réseau déjà utilisés, adresse jetable). */
   trialDenied: { reason: string } | null;
   /** Fin d'essai : marque active choisie et date du prochain changement possible. */
@@ -72,3 +78,18 @@ export interface MeResponse {
 }
 
 export type AiQuotaKind = "text" | "image" | "studio" | "assistant" | "retention";
+
+export interface AiQuotaEntryView {
+  limit: number;
+  used: number;
+  remaining: number;
+  /** « day » (textes), « month », ou « trial » (toute la durée de l'essai). */
+  per: "day" | "month" | "trial";
+}
+
+export type AiQuotaView = Record<AiQuotaKind, AiQuotaEntryView> & {
+  retentionCredits: number;
+  retentionPacks: boolean;
+  /** Remise à zéro des quotas du mois (« AAAA-MM-01 »), null pendant un essai. */
+  resetsOn: string | null;
+};

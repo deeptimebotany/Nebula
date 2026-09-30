@@ -27,9 +27,9 @@ import { POST as postRegister } from "@/app/api/auth/register/route";
 import { DELETE as deleteAccount } from "@/app/api/settings/account/route";
 import { POST as postAnalyticsSync } from "@/app/api/analytics/sync/route";
 import { POST as postActiveBrand } from "@/app/api/billing/active-brand/route";
-import { assertAiAllowed, BUDGET_KEY } from "@/lib/ai/guard";
+import { aiPeriodFor, assertAiAllowed, BUDGET_KEY } from "@/lib/ai/guard";
 import { recordAiUsage } from "@/lib/ai/usage";
-import { parisDay } from "@/lib/ai/counters";
+import { accountCounterKey, parisDay, reserveMonthly } from "@/lib/ai/counters";
 import { getUserPlan } from "@/lib/billing/plan";
 import { generateStudio } from "@/lib/studio/generate";
 import { applyTrialExpirations } from "@/lib/billing/trial-expiry";
@@ -57,6 +57,7 @@ async function makeUser(opts: { trialDays?: number | null; verified?: boolean; b
       name: "Essai",
       passwordHash: "x",
       emailVerifiedAt: opts.verified === false ? null : new Date(),
+      ageConfirmedAt: new Date(),
       trialEndsAt: opts.trialDays === null ? null : new Date(Date.now() + (opts.trialDays ?? 10) * DAY)
     }
   });
@@ -110,7 +111,7 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     expect(await prisma.publicToolUsage.count({ where: { tool: { startsWith: "ai-" } } })).toBe(0);
   });
 
-  it("quotas de l'essai comptés sur toutes les marques du compte : 20 textes, 3 miniatures, 5 Studio", async () => {
+  it("quotas de l'essai comptés sur toutes les marques du compte : 20 textes par jour ; 5 miniatures et 15 Studio sur tout l'essai", async () => {
     const { user, brands } = await makeUser({ brands: 2 });
     session.userId = user.id;
     for (let i = 0; i < 20; i++) {
@@ -121,23 +122,29 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     expect(refused.status).toBe(429);
     const body = await refused.json();
     expect(body.reason).toBe("trial_ai_limit");
-    expect(body.error).toMatch(/Pendant l'essai, 20 textes par jour.*En Pro, 60/);
+    expect(body.error).toMatch(/En Essai, 20 textes par jour.*En Pro, 60/);
     expect(gemini.copy).toHaveBeenCalledTimes(20);
 
     const image = { imageBase64: "a".repeat(200), imageMimeType: "image/png" };
-    for (let i = 0; i < 3; i++) expect((await postToolThumbnail(req("/api/public/tools/thumbnail", image))).status).toBe(200);
-    const fourth = await postToolThumbnail(req("/api/public/tools/thumbnail", image));
-    expect(fourth.status).toBe(429);
-    expect((await fourth.json()).error).toMatch(/3 miniatures par jour.*En Pro, 15/);
+    for (let i = 0; i < 5; i++) expect((await postToolThumbnail(req("/api/public/tools/thumbnail", image))).status).toBe(200);
+    const sixthImage = await postToolThumbnail(req("/api/public/tools/thumbnail", image));
+    expect(sixthImage.status).toBe(429);
+    expect(await sixthImage.json()).toMatchObject({ reason: "trial_ai_limit", error: expect.stringMatching(/Pendant l'essai, 5 miniatures en tout.*En Pro, 20 par mois/) });
+    // Compté sur la période de l'essai (clé « essai:<dernier jour> »), pas le mois.
+    const monthly = await prisma.aiMonthlyUsage.findMany();
+    expect(monthly.map((m) => [m.period.startsWith("essai:"), m.kind, m.count])).toEqual([[true, "image", 5]]);
 
     const info = await getUserPlan(user.id);
     const ideas = JSON.stringify({ ideas: [{ title: "Le flat white expliqué", angle: "Montrer la différence avec le latte.", format: "court", network: "YOUTUBE", basedOn: null, hooks: ["Vous faites sûrement cette erreur avec votre lait"] }] });
+    // 10 générations déjà faites pendant l'essai (la rafale du Studio borne à 8 par 10 min), puis 5 vraies.
+    await reserveMonthly(accountCounterKey(user.id), aiPeriodFor(info).key, "studio", 15, 10);
     for (let i = 0; i < 5; i++) {
       const r = await generateStudio({ userId: user.id, brandId: brands[i % 2].id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideas, plan: info });
       expect(r.ok).toBe(true);
     }
-    const sixth = await generateStudio({ userId: user.id, brandId: brands[0].id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideas, plan: info });
-    expect(sixth).toMatchObject({ ok: false, status: 429 });
+    const sixteenth = await generateStudio({ userId: user.id, brandId: brands[0].id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideas, plan: info });
+    expect(sixteenth).toMatchObject({ ok: false, status: 429, reason: "trial_ai_limit" });
+    expect((sixteenth as { error: string }).error).toMatch(/Pendant l'essai, 15 générations du Studio en tout.*En Pro, 50 par mois/);
   });
 
   it("budget global atteint : 429 trial_ai_busy pour l'essai ; un compte Pro passe sans être compté", async () => {
@@ -173,7 +180,7 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     if (!billed.ok) throw new Error("refusé");
     await expect(
       billed.run(async () => {
-        await recordAiUsage({ inputTokens: 100, outputTokens: 20, images: 0, imageModel: false });
+        await recordAiUsage({ model: "gemini-3.8-flash", inputTokens: 100, outputTokens: 20, images: 0, imageModel: false });
         throw new Error("réponse illisible");
       })
     ).rejects.toThrow();
@@ -181,7 +188,7 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     expect((await prisma.publicToolUsage.findFirst({ where: { tool: "ai-text", day } }))?.count).toBe(0);
     expect((await prisma.publicToolUsage.findFirst({ where: { ipHash: BUDGET_KEY, day, tool: "budget:trial:text" } }))?.count).toBe(1);
     const usage = await prisma.aiUsageDaily.findFirst({ where: { day, plan: "TRIAL", kind: "text" } });
-    expect(usage).toMatchObject({ calls: 1, inputTokens: 100, outputTokens: 20 });
+    expect(usage).toMatchObject({ calls: 1, inputTokens: 100, outputTokens: 20, model: "gemini-3.8-flash", actions: 0 });
   });
 });
 
@@ -194,7 +201,7 @@ describe.skipIf(!hasDatabase)("anti-abus de l'essai (lot E3)", () => {
   });
 
   const signup = (email: string, ip: string) =>
-    postRegister(req("/api/auth/register", { name: "Alex Martin", email, password: "MotDePasse-Test-1", acceptTerms: true }, "POST", ip) as unknown as Request);
+    postRegister(req("/api/auth/register", { name: "Alex Martin", email, password: "MotDePasse-Test-1", acceptTerms: true, isAdult: true }, "POST", ip) as unknown as Request);
 
   it("même adresse canonique, ou compte supprimé puis recréé : pas d'essai, compte créé en Gratuit", async () => {
     expect((await signup("Alex.Martin+pro@gmail.com", "192.0.2.1")).status).toBe(200);

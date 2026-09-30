@@ -144,11 +144,12 @@ describe("réponses de l'IA : contrats", () => {
 });
 
 describe("quota et reprise dans Publier", () => {
-  it("générations par jour selon le palier ; essai IA = comme Pro", () => {
+  it("générations par mois selon le palier (30/09/2026) ; ancien essai IA du parrainage = quotas de l'essai", () => {
     expect(studioLimitFor({ limits: PLAN_LIMITS.FREE })).toBe(0);
-    expect(studioLimitFor({ limits: PLAN_LIMITS.PRO })).toBe(15);
-    expect(studioLimitFor({ limits: PLAN_LIMITS.AGENCY })).toBe(40);
-    expect(studioLimitFor({ limits: { ...PLAN_LIMITS.FREE, aiEnabled: true } })).toBe(15);
+    expect(studioLimitFor({ limits: PLAN_LIMITS.TRIAL })).toBe(15);
+    expect(studioLimitFor({ limits: PLAN_LIMITS.PRO })).toBe(50);
+    expect(studioLimitFor({ limits: PLAN_LIMITS.AGENCY })).toBe(120);
+    expect(studioLimitFor({ limits: { ...PLAN_LIMITS.FREE, aiEnabled: true, aiMonthly: PLAN_LIMITS.TRIAL.aiMonthly } })).toBe(15);
   });
 
   it("le jour recommence à minuit, heure de Paris", () => {

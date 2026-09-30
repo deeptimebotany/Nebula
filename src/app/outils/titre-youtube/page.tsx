@@ -39,7 +39,7 @@ const FAQ = [
   { q: "Quelle longueur pour un titre YouTube ?", a: "Environ 40 à 60 caractères : au-delà, YouTube tronque le titre dans la plupart des emplacements (recherche, suggestions, mobile), et l'idée principale doit tenir dans les premiers mots." },
   { q: "Le score garantit-il des clics ?", a: "Non. C'est un repère heuristique sur des critères connus (longueur, chiffre, mot fort, question). Le taux de clics dépend surtout du couple titre + miniature et de la promesse tenue dans la vidéo." },
   { q: "Que fait l'IA ici ?", a: "Avec un compte (gratuit), elle propose trois reformulations différentes (avec un chiffre, sous forme de question, avec un mot fort) à partir de votre titre et du sujet — sans clickbait mensonger. Sans compte, vous voyez un exemple préparé à l'avance. Le score, lui, se calcule dans votre navigateur, sans IA et sans compte." },
-  { q: "Et pour la miniature ?", a: "Nebula analyse la rétention de vos vidéos YouTube et son assistant explique le pourquoi de chaque choix de miniature (accroche, composition, couleurs). Un générateur de miniatures gratuit est aussi disponible dans ces outils." }
+  { q: "Et pour la miniature ?", a: "Nebula analyse la rétention de vos vidéos YouTube et son assistant explique le pourquoi de chaque choix de miniature (accroche, composition, couleurs). Le générateur de publications de ces outils choisit aussi, avec un compte gratuit, les meilleures images de votre vidéo pour la miniature ; les miniatures retravaillées par l'IA font partie de Pro." }
 ];
 
 export default function TitreYoutubePage() {

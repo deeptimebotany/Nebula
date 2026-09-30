@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import path from "path";
-import { readFile } from "fs/promises";
+import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { assertBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
-import { localUploadDir, localUploadPath } from "@/lib/storage";
-import { fetchRetention } from "@/lib/social/youtube";
-import { checkFfmpegAvailable, extractFrames, getVideoDurationSeconds } from "@/lib/video/frames";
-import { isAiEnabled, analyzeVideoRetention, type RetentionPoint } from "@/lib/ai/gemini";
-import { gateAppAi } from "@/lib/ai/guard";
-import { consumeRetentionBurst } from "@/lib/ai/retention-burst";
-import { z } from "zod";
+import { isAiEnabled } from "@/lib/ai/gemini";
+import { runRetentionAnalysis } from "@/lib/ai/retention-run";
 
-const bodySchema = z.object({ postTargetId: z.string() });
+const bodySchema = z.object({ postTargetId: z.string(), force: z.boolean().optional() });
 
-// POST /api/ai/analyze-video — analyse de rétention façon "YouTube Studio
-// AI Insights" : récupère la vraie courbe de rétention (YouTube Analytics
-// API), extrait les frames de la vidéo aux plus grosses chutes (ffmpeg), et
-// demande à Gemini d'expliquer ce qui se passe à l'écran à ces instants.
+// POST /api/ai/analyze-video — Rétention IA d'une vidéo publiée sur YouTube
+// depuis Nebula : même méthode que /api/ai/analyze-channel-video (l'IA
+// regarde la vidéo publique ; images extraites ou miniature sinon), voir
+// src/lib/ai/retention-run.ts. Réutilise l'analyse déjà faite sauf force.
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -27,8 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "L'assistant IA n'est pas configuré (GEMINI_API_KEY manquant)." }, { status: 503 });
   }
 
-  const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Données invalides." }, { status: 400 });
 
   const target = await prisma.postTarget.findUnique({
     where: { id: parsed.data.postTargetId },
@@ -38,75 +34,29 @@ export async function POST(req: NextRequest) {
     }
   });
   if (!target) return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
-  // La publication doit appartenir à une des marques de l'utilisateur (même
-  // schéma que analyze-channel-video) : la connexion YouTube chargée ci-dessus
-  // sert ensuite à interroger YouTube Analytics avec ses jetons.
-  if (!(await assertBrandMembership((session.user as { id: string }).id, target.post.brandId))) {
+  // La publication doit appartenir à une des marques de l'utilisateur : la
+  // connexion YouTube chargée ci-dessus sert ensuite à interroger YouTube.
+  const userId = (session.user as { id: string }).id;
+  if (!(await assertBrandMembership(userId, target.post.brandId))) {
     return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
   }
   if (target.network !== "YOUTUBE") {
     return NextResponse.json({ error: "L'analyse de rétention n'est disponible que pour YouTube." }, { status: 400 });
   }
-  const externalPostId = target.externalPostId;
-  if (!externalPostId) {
+  if (!target.externalPostId) {
     return NextResponse.json({ error: "Cette vidéo n'a pas encore été publiée." }, { status: 400 });
   }
+  const videoAsset = target.post.media.find((m: { mediaAsset: { type: string } }) => m.mediaAsset.type === "VIDEO")?.mediaAsset;
 
-  // Porte de l'IA (lot E2) : palier de la marque, analyses du jour, rafale.
-  const userId = (session.user as { id: string }).id;
-  const burst = await consumeRetentionBurst(userId);
-  if (burst) return burst;
-  const gate = await gateAppAi({ userId, brandId: target.post.brandId, kind: "retention" });
-  if (!gate.ok) return gate.response;
-
-  try {
-    return await gate.allowance.run(async () => {
-      const retentionCurve: RetentionPoint[] = await fetchRetention(target.connection, externalPostId);
-
-      // Sélectionne les 4 plus grosses chutes de rétention entre deux points
-      // consécutifs pour savoir où extraire des frames.
-      const drops = retentionCurve
-        .map((p, i) => ({ point: p, delta: i > 0 ? retentionCurve[i - 1].watchRatio - p.watchRatio : 0 }))
-        .sort((a, b) => b.delta - a.delta)
-        .slice(0, 4)
-        .map((d) => d.point)
-        .sort((a, b) => a.timeRatio - b.timeRatio);
-
-      const videoAsset = target.post.media.find((m: { mediaAsset: { type: string } }) => m.mediaAsset.type === "VIDEO")?.mediaAsset;
-      const frames: { timeRatio: number; base64: string; mimeType: string }[] = [];
-
-      if (videoAsset && !videoAsset.url.startsWith("http") && (await checkFfmpegAvailable())) {
-        const filePath = localUploadPath(videoAsset.url);
-        const duration = videoAsset.durationSeconds ?? (await getVideoDurationSeconds(filePath));
-        const outDir = path.join(localUploadDir(), "insights");
-        const timestamps = drops.map((d) => d.timeRatio * duration);
-        const files = await extractFrames(filePath, outDir, `${target.id}-insight`, timestamps);
-        for (let i = 0; i < files.length; i++) {
-          const buffer = await readFile(files[i]);
-          frames.push({ timeRatio: drops[i].timeRatio, base64: buffer.toString("base64"), mimeType: "image/jpeg" });
-        }
-      }
-
-      const analysis = await analyzeVideoRetention({
-        title: target.titleOverride || target.post.title,
-        caption: target.captionOverride || target.post.caption,
-        retentionCurve,
-        frames
-      });
-
-      const insight = await prisma.videoInsight.create({
-        data: {
-          postTargetId: target.id,
-          summary: analysis.summary,
-          dropOffPoints: JSON.stringify(analysis.dropOffPoints),
-          recommendations: JSON.stringify(analysis.recommendations),
-          retentionCurve: JSON.stringify(retentionCurve)
-        }
-      });
-
-      return NextResponse.json({ insight });
-    });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
-  }
+  return runRetentionAnalysis({
+    userId,
+    brandId: target.post.brandId,
+    connection: target.connection,
+    videoId: target.externalPostId,
+    postTargetId: target.id,
+    titleOverride: target.titleOverride || target.post.title,
+    captionOverride: target.captionOverride || target.post.caption,
+    localVideoUrl: videoAsset?.url ?? null,
+    force: Boolean(parsed.data.force)
+  });
 }

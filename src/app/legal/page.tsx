@@ -3,6 +3,7 @@ import { PublicShell, PublicPageHeading } from "@/components/marketing/public-sh
 import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL, formatSiren } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
 import { SEO_LEGAL } from "@/lib/seo-pages";
+import { RETENTION_PACK, formatEuroCents } from "@/lib/plans";
 
 // Page publique combinée (aucune authentification requise) : mentions
 // légales, conditions d'utilisation et politique de confidentialité sur une
@@ -18,7 +19,7 @@ import { SEO_LEGAL } from "@/lib/seo-pages";
 // manquait, la page l'indiquerait honnêtement plutôt que d'inventer. Ceci
 // n'est pas un avis juridique.
 
-const LAST_UPDATED = "29 septembre 2026";
+const LAST_UPDATED = "30 septembre 2026";
 
 export const metadata = pageMetadata(SEO_LEGAL);
 
@@ -30,7 +31,11 @@ const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
   { name: "Stripe", role: "Paiement des abonnements (Nebula ne voit jamais votre numéro de carte)", where: "Union européenne / États-Unis" },
   { name: "Resend", role: "Envoi des emails transactionnels (réinitialisation de mot de passe, rapports)", where: "États-Unis" },
   { name: "Cloudflare (Turnstile)", role: "Protection anti-robot des formulaires publics", where: "Réseau mondial" },
-  { name: "Google (Gemini)", role: "Assistant IA, uniquement si vous utilisez ces fonctions (dont les conseils de l'audit de présence, rédigés à partir des chiffres du rapport, et le Studio IA, qui reçoit les titres et les statistiques calculées de vos publications, jamais vos identifiants)", where: "États-Unis / Union européenne" }
+  {
+    name: "Google (Gemini, API payante)",
+    role: "Fonctions IA, uniquement si vous les utilisez : titres, légendes, miniatures, assistant, conseils de l'audit de présence (rédigés à partir des chiffres du rapport), Studio IA (titres et statistiques calculées de vos publications) et Rétention IA, qui envoie l'adresse de la vidéo YouTube publique analysée (Google la regarde), sa courbe de rétention, son titre et sa description ; pour une vidéo privée ou non listée, seulement sa miniature ou des images de la vidéo. Jamais vos identifiants. Nebula utilise le palier payant de l'API : Google n'utilise pas ces contenus pour améliorer ses produits et ne les garde que pour une durée limitée, pour détecter les abus",
+    where: "États-Unis / Union européenne"
+  }
 ];
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
@@ -162,7 +167,8 @@ export default function LegalPage() {
 
         <Section title="3. Compte utilisateur">
           <p>
-            Vous devez avoir au moins 18 ans ou l&apos;autorisation d&apos;un représentant légal. Vous êtes
+            {SITE_NAME} est réservé aux personnes de 18 ans et plus : vous le confirmez à l&apos;inscription (les
+            comptes créés avant le 30 septembre 2026 le confirment une fois, à leur prochaine visite). Vous êtes
             responsable de la confidentialité de votre mot de passe et de toute activité effectuée depuis votre
             compte. Vous devez fournir une adresse email valide et nous informer de toute utilisation non autorisée.
           </p>
@@ -208,13 +214,31 @@ export default function LegalPage() {
             moment depuis la page Facturation ; la résiliation prend effet à la fin de la période déjà payée, sans
             remboursement au prorata sauf obligation légale contraire.
           </p>
+          <p>
+            Quotas de l&apos;IA : chaque palier inclut un nombre d&apos;analyses Rétention, de miniatures, de générations du
+            Studio et de messages à l&apos;assistant par mois (indiqué sur la page Tarifs), remis à zéro le 1er de chaque
+            mois à minuit (heure de Paris) ; pendant l&apos;essai, un quota vaut pour toute la durée de l&apos;essai. Ce qui
+            n&apos;est pas utilisé n&apos;est pas reporté. Un appel qui échoue n&apos;est jamais décompté.
+          </p>
+          <p>
+            Recharges Rétention (Pro et Agence) : {RETENTION_PACK.credits} analyses supplémentaires pour{" "}
+            {formatEuroCents(RETENTION_PACK.priceCents)}, en paiement unique via Stripe (facture envoyée par email). Elles
+            servent une fois le quota du mois utilisé, n&apos;expirent pas et restent sur votre compte si votre abonnement
+            s&apos;arrête (utilisables de nouveau en Pro ou en Agence). S&apos;agissant d&apos;un contenu numérique fourni
+            immédiatement, vous demandez l&apos;accès immédiat et renoncez expressément à votre droit de rétractation de
+            14 jours au moment de l&apos;achat (article L221-28 du Code de la consommation). En cas de problème, écrivez-nous :
+            une recharge remboursée retire les analyses qui n&apos;ont pas encore été utilisées.
+          </p>
         </Section>
 
         <Section title="7. Assistant IA">
           <p>
             Les fonctions d&apos;assistant IA (suggestions de titres, légendes, idées, analyse de vidéos) sont
             optionnelles et produisent des propositions que vous restez libre de modifier ou d&apos;ignorer. Elles
-            peuvent contenir des erreurs : vérifiez tout contenu avant publication.
+            peuvent contenir des erreurs : vérifiez tout contenu avant publication. Dans Rétention IA, les chiffres
+            (moments des chutes, spectateurs restants) sont calculés par {SITE_NAME} à partir de YouTube Analytics ;
+            les explications viennent de l&apos;IA et restent des hypothèses à vérifier. Les images produites par
+            l&apos;IA de Google portent un filigrane invisible (SynthID) qui signale leur origine.
           </p>
         </Section>
 
@@ -300,11 +324,21 @@ export default function LegalPage() {
             d&apos;inscription — jamais l&apos;adresse elle-même. Ces empreintes ne servent qu&apos;à vérifier
             l&apos;éligibilité à un nouvel essai, jamais à vous identifier ni à la connexion ; elles restent 12 mois, y
             compris après la suppression du compte, puis sont effacées automatiquement. Pour l&apos;IA, des compteurs
-            d&apos;usage du jour sont tenus par compte (sous une empreinte), gardés au plus 8 jours.
+            d&apos;usage sont tenus par compte (sous une empreinte) : ceux du jour gardés au plus 8 jours, ceux du mois
+            (quotas mensuels) environ deux mois. La date à laquelle vous avez confirmé avoir 18 ans et plus est gardée
+            avec votre compte ; le nombre d&apos;analyses Rétention achetées et l&apos;historique des recharges
+            (montant, date, référence Stripe) aussi, et les recharges le temps requis par la loi pour la facturation.
           </p>
           <p>
             Formulaire de contact : votre nom, votre adresse e-mail, le sujet et votre message, uniquement pour vous
             répondre.
+          </p>
+          <p>
+            Listes « Prévenez-moi » (ouverture de {SITE_NAME}, arrivée d&apos;un nouveau réseau) : votre adresse e-mail,
+            la date d&apos;inscription, votre choix pour les conseils (case facultative) et la date de l&apos;e-mail
+            d&apos;annonce. Elle sert uniquement à vous envoyer cet e-mail unique ; si vous nous écrivez pour être
+            prévenu, votre adresse est ajoutée à la même liste. Vous pouvez demander à en être retiré à tout moment
+            (page Contact).
           </p>
           <p>
             Signalements dans la Communauté : le contenu signalé, le motif choisi, vos précisions éventuelles et votre
@@ -402,10 +436,11 @@ export default function LegalPage() {
             → Compte &amp; confidentialité), vos données personnelles, vos contenus et les jetons de connexion sont
             effacés de nos systèmes ; les données de facturation sont conservées par Stripe et par nous le temps
             requis par la loi. Les empreintes d&apos;adresse IP anti-abus sont purgées sous deux jours ; les compteurs
-            d&apos;usage de l&apos;IA sous huit jours ; le registre des essais (empreintes seulement) au bout de 12 mois,
+            d&apos;usage de l&apos;IA du jour sous huit jours, ceux du mois sous deux mois environ ; le registre des essais (empreintes seulement) au bout de 12 mois,
             même si le compte a été supprimé entre-temps. Les rapports
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
-            contact sont supprimés 12 mois après leur réception. Les signalements de la Communauté sont supprimés avec
+            contact sont supprimés 12 mois après leur réception. Les adresses de la liste « Prévenez-moi du lancement » sont
+            supprimées 6 mois après l&apos;e-mail d&apos;annonce. Les signalements de la Communauté sont supprimés avec
             le contenu signalé ou avec votre compte. Les statistiques de groupe anonymes ne sont pas des
             données personnelles et peuvent être conservées sans limite.
           </p>

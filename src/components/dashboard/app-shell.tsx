@@ -21,6 +21,8 @@ import { TOUR_RESTART_EVENT } from "@/lib/tour-events";
 // la visite guidée (nouveaux comptes, « Revoir la visite ») et le bandeau
 // d'une marque en veille (lot E4).
 const GuidedTour = dynamic(() => import("@/components/tour/guided-tour").then((m) => m.GuidedTour), { ssr: false });
+// Confirmation de l'âge : chargée seulement pour les comptes qui ne l'ont pas encore faite.
+const AgeGate = dynamic(() => import("@/components/age-gate").then((m) => m.AgeGate), { ssr: false });
 const DormantBrandBanner = dynamic(() => import("@/components/billing/dormant-brand").then((m) => m.DormantBrandBanner), { ssr: false });
 import { useAiAssistant } from "./ai-assistant-context";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
@@ -200,8 +202,9 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>
         <MobileTabBar onOpenMenu={openDrawer} menuOpen={drawerOpen} />
-        {/* Visite guidée à la première connexion (lot U4). */}
-        {data && (!data.tour.completed || tourReplay > 0) && <GuidedTour replay={tourReplay} />}
+        {/* Âge (18 ans et plus) confirmé une fois, avant tout le reste ; puis
+            la visite guidée à la première connexion (lot U4). */}
+        {data && !data.ai.ageConfirmed ? <AgeGate /> : data && (!data.tour.completed || tourReplay > 0) && <GuidedTour replay={tourReplay} />}
       </div>
     </div>
   );

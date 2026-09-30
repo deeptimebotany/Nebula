@@ -660,9 +660,11 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
 
             <Reveal delay={0.1}>
             <MotionGlassCard glow>
-              <div className="mb-4 flex items-center justify-between">
+              {/* flex-wrap (30/09/2026) : les pastilles débordaient sur mobile
+                  (page de 466 px de large sur un écran de 390). */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-display text-base font-medium text-white">Évolution des abonnés</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {networksToShow.map((n) => (
                     <NetworkBadge key={n} network={n} size="sm" />
                   ))}

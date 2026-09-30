@@ -36,7 +36,12 @@ const TABLES = [
   "TrialGrant",
   "AiUsageDaily",
   // Brouillons « Programmer avec Nebula » des outils gratuits.
-  "PublicDraft"
+  "PublicDraft",
+  // Gemini payant (30/09/2026) : quotas du mois (empreintes, sans lien vers un compte) et recharges.
+  "AiMonthlyUsage",
+  "AiCreditPurchase",
+  // Listes d'attente (réseaux à venir, lancement du site), sans lien vers un compte.
+  "NetworkWaitlist"
 ];
 
 export async function resetDatabase(): Promise<void> {
@@ -52,7 +57,8 @@ export async function resetDatabase(): Promise<void> {
 let seq = 0;
 export async function makeBrand() {
   seq++;
-  const user = await prisma.user.create({ data: { email: `user${seq}-${Date.now()}@test.fr`, name: "Test" } });
+  // Âge confirmé (18 ans et plus) : sans lui, la porte de l'IA refuse tout (30/09/2026).
+  const user = await prisma.user.create({ data: { email: `user${seq}-${Date.now()}@test.fr`, name: "Test", ageConfirmedAt: new Date() } });
   const brand = await prisma.brand.create({ data: { name: "Marque", slug: `marque-${seq}-${Date.now()}` } });
   await prisma.membership.create({ data: { userId: user.id, brandId: brand.id, role: "OWNER" } });
   return { user, brand };

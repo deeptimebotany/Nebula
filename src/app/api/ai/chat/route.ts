@@ -13,16 +13,17 @@ import { z } from "zod";
 
 // POST /api/ai/chat — l'assistant « Demander à Nebula ».
 //
-// Économie du quota Gemini gratuit, en quatre points (voir aussi
+// Économie de l'IA (Gemini en version payante depuis le 30/09/2026 : chaque
+// jeton se paie), en quatre points (voir aussi
 // src/lib/ai/assistant-prompts.ts) :
 //   1. le navigateur n'envoie qu'une CLÉ de contexte (l'onglet actif), le
 //      serveur assemble une instruction courte et n'injecte que les données
 //      utiles à cet onglet ;
 //   2. l'historique est tronqué aux 10 derniers messages, chacun plafonné ;
-//   3. un nombre de messages par jour et par compte selon le palier (porte
-//      de l'IA, lib/ai/guard.ts) et une rafale par utilisateur
-//      (AI_CHAT_LIMIT messages / fenêtre) : une boucle ou un enthousiasme
-//      excessif ne vide pas le quota de tout le monde ;
+//   3. un nombre de messages par mois (ou pendant l'essai) et par compte
+//      selon le palier (porte de l'IA, lib/ai/guard.ts) et une rafale par
+//      utilisateur (AI_CHAT_LIMIT messages / fenêtre) : une boucle ou un
+//      enthousiasme excessif ne vide pas le quota du mois ;
 //   4. un 429 Gemini est renvoyé en 429 (et non 500) avec un délai, pour
 //      que le tiroir affiche un compte à rebours au lieu d'une erreur.
 // L'accueil et les suggestions du tiroir ne passent JAMAIS par ici : ils
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
     await gate.allowance.release();
     return NextResponse.json(
       {
-        error: `Vous avez envoyé beaucoup de questions d'un coup — l'assistant reprend dans ${Math.ceil(limit.retryAfterSeconds / 60)} min. (Le quota gratuit de l'IA est partagé entre tous les utilisateurs.)`,
+        error: `Vous avez envoyé beaucoup de questions d'un coup — l'assistant reprend dans ${Math.ceil(limit.retryAfterSeconds / 60)} min. Rien n'a été décompté.`,
         retryAfterSeconds: limit.retryAfterSeconds
       },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }

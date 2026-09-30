@@ -2010,3 +2010,118 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
 [data-mode="light"] .nb-plan-badge {
   background-color: transparent;
 }
+
+/* Page « Bientôt » (pré-lancement, 30/09/2026, voir src/app/bientot) :
+   logo en orbite, barre de chargement rayée et scintillante. La règle
+   prefers-reduced-motion commune (plus haut) fige toutes ces animations. */
+.launch-stage {
+  position: relative;
+  width: 13rem;
+  height: 13rem;
+}
+.launch-glow {
+  position: absolute;
+  inset: 22%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(var(--c-accent-violet) / 0.45), rgb(var(--c-accent-cyan) / 0.12) 55%, transparent 72%);
+  filter: blur(6px);
+  animation: launch-breathe 3.6s ease-in-out infinite;
+}
+.launch-ring {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  animation: launch-spin var(--launch-spin, 18s) linear infinite;
+}
+.launch-ring--reverse { animation-direction: reverse; }
+.launch-planet {
+  position: absolute;
+  top: -5px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  box-shadow: 0 0 12px 2px currentColor;
+  background: currentColor;
+}
+.launch-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: #fff;
+  opacity: 0.2;
+  animation: launch-twinkle var(--launch-twinkle, 2.8s) ease-in-out infinite;
+}
+[data-mode="light"] .launch-ring { border-color: rgba(30, 27, 75, 0.18); }
+[data-mode="light"] .launch-star { background: rgb(var(--c-accent-violet)); }
+
+.launch-bar {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+[data-mode="light"] .launch-bar {
+  background: #eceef4;
+  box-shadow: inset 0 0 0 1px rgba(30, 27, 75, 0.08);
+}
+.launch-bar-fill {
+  position: relative;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--c-accent-cyan)), rgb(var(--c-accent-blue)) 40%, rgb(var(--c-accent-violet)) 70%, rgb(var(--c-accent-magenta)));
+  transition: width 1.6s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+.launch-bar-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.22) 0 8px, transparent 8px 16px);
+  background-size: 22.6px 22.6px;
+  animation: launch-stripes 0.9s linear infinite;
+}
+.launch-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55) 45%, transparent 60%);
+  background-size: 250% 100%;
+  animation: launch-glint 2.6s ease-in-out infinite;
+}
+.launch-dots::after {
+  content: "";
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: launch-dots 1.4s steps(4, end) infinite;
+}
+.launch-status-enter { animation: launch-status 0.45s ease-out both; }
+
+@keyframes launch-spin { to { transform: rotate(360deg); } }
+@keyframes launch-breathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.75; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes launch-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50% { opacity: 0.95; transform: scale(1.25); }
+}
+@keyframes launch-stripes { to { background-position: 22.6px 0; } }
+@keyframes launch-glint {
+  0% { background-position: 150% 0; }
+  60%, 100% { background-position: -100% 0; }
+}
+@keyframes launch-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75%, 100% { content: "..."; }
+}
+@keyframes launch-status {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

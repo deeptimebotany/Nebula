@@ -26,7 +26,8 @@ import {
   IconFlask,
   IconHeart,
   IconGift,
-  IconSparkle
+  IconSparkle,
+  IconSend
 } from "./icons";
 
 export type NavIcon = (props: { className?: string }) => JSX.Element;
@@ -119,6 +120,7 @@ export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA
 export const OWNER_NAV_ITEMS: NavItem[] = [
   OWNER_NAV_ITEM,
   { href: "/admin/acquisition", label: "Acquisition", icon: IconChart, description: "D'où viennent inscrits et payants", keywords: ["admin", "stats", "croissance"] },
+  { href: "/admin/lancement", label: "Lancement", icon: IconSend, description: "Pré-lancement : personnes à prévenir, annonce", keywords: ["admin", "bientôt", "liste d'attente", "ouverture", "inscriptions"] },
   { href: "/admin/messages", label: "Messages", icon: IconMessage, description: "Formulaire de contact du site", keywords: ["admin", "contact", "support", "prospects", "e-mails"] },
   { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] },
   { href: "/admin/reseaux", label: "Réseaux", icon: IconPlug, description: "Suspendre un réseau, disjoncteur", keywords: ["admin", "incident", "panne", "api", "suspendre"] },

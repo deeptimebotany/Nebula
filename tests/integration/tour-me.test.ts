@@ -54,8 +54,11 @@ describe.skipIf(!hasDatabase)("visite guidée, sons et bootstrap", () => {
     const me = await buildMe({ user: { id: user.id, email: user.email } } as unknown as Session);
     expect(me).toMatchObject({ plan: "TRIAL", onTrial: true, trialDaysLeft: 5, maxBrands: 2 });
     expect(me?.ai.emailConfirmed).toBe(false);
-    expect(me?.ai.quota.text).toEqual({ limit: 20, used: 0, remaining: 20 });
-    expect(me?.ai.quota.studio.limit).toBe(5);
+    expect(me?.ai.quota.text).toEqual({ limit: 20, used: 0, remaining: 20, per: "day" });
+    // Quotas de l'essai sur toute sa durée (30/09/2026).
+    expect(me?.ai.quota.studio).toEqual({ limit: 15, used: 0, remaining: 15, per: "trial" });
+    expect(me?.ai.quota).toMatchObject({ retention: { limit: 5 }, image: { limit: 5 }, assistant: { limit: 50 }, retentionPacks: false, resetsOn: null });
+    expect(me?.ai.ageConfirmed).toBe(true);
     expect(me?.trialDenied).toBeNull();
   });
 });

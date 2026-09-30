@@ -76,7 +76,8 @@ const MEASURES: { title: string; items: string[] }[] = [
       "Statistiques anonymes seulement si vous l'acceptez (case facultative, décochée par défaut) : des chiffres de groupe d'au moins 20 comptes, jamais les données de vos réseaux.",
       "Les photos que vous envoyez sont débarrassées de leurs métadonnées cachées (position GPS, appareil) avant d'être enregistrées.",
       "Uniquement des cookies strictement nécessaires : pas de bannière de consentement parce qu'il n'y a rien à consentir.",
-      "Les fonctions d'IA ne traitent vos textes et images que lorsque vous les utilisez.",
+      "Les fonctions d'IA ne traitent vos textes, images et vidéos que lorsque vous les utilisez, via l'API payante de Google Gemini : Google n'utilise pas ces contenus pour améliorer ses produits.",
+      "L'éditeur vidéo de Publier travaille sur votre appareil : la vidéo n'est envoyée qu'une fois enregistrée, comme un import normal.",
       "Les empreintes d'adresse IP servant à limiter les abus sont purgées automatiquement sous deux jours."
     ]
   }

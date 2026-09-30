@@ -28,6 +28,7 @@ import {
   IconUsers
 } from "@/components/dashboard/icons";
 import { JsonLd } from "@/components/seo/json-ld";
+import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { organizationLd, pageMetadata, softwareApplicationLd, websiteLd } from "@/lib/seo";
 import { SEO_HOME } from "@/lib/seo-pages";
 
@@ -411,9 +412,15 @@ export default function LandingPage() {
                     sans carte bancaire.
                   </p>
                   <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                    <ButtonLink href="/register" className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
-                      Créer mon espace gratuit
-                    </ButtonLink>
+                    {isSiteOpen() ? (
+                      <ButtonLink href="/register" className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
+                        Créer mon espace gratuit
+                      </ButtonLink>
+                    ) : (
+                      <ButtonLink href={PRELAUNCH_PAGE} className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
+                        Être prévenu du lancement
+                      </ButtonLink>
+                    )}
                     <ButtonLink href="/outils" variant="ghost" className="w-full whitespace-nowrap px-6 py-3.5 text-base sm:w-auto">
                       Essayer les outils gratuits
                     </ButtonLink>

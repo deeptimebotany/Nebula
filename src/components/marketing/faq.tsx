@@ -4,7 +4,7 @@
 // et un seul style à maintenir. Les réponses reprennent le fonctionnement
 // RÉEL du produit (quotas de plans.ts, OAuth, pages partagées par lien,
 // export des données) — rien n'est promis qui n'existe pas.
-import { PLAN_LIMITS } from "@/lib/plans";
+import { AI_MONTHLY, PLAN_LIMITS } from "@/lib/plans";
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -29,7 +29,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "L'assistant IA est-il obligatoire ?",
-    a: "Non. L'IA (titres, légendes, chat, analyse de rétention, miniatures) est une aide optionnelle des paliers Pro et Agence. Sans elle, toutes les fonctions de planification, de publication et d'analyse fonctionnent normalement."
+    a: `Non. L'IA (titres, légendes, chat, analyse de rétention, miniatures) est une aide optionnelle des paliers Pro et Agence, avec des quotas par mois (en Pro : ${AI_MONTHLY.PRO.retention} analyses Rétention, ${AI_MONTHLY.PRO.image} miniatures). Sans elle, toutes les fonctions de planification, de publication et d'analyse fonctionnent normalement.`
   },
   {
     q: "Puis-je résilier ou récupérer mes données ?",

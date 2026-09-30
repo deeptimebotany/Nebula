@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { ATTRIBUTION_COOKIE, ATTRIBUTION_MAX_AGE_SECONDS, attributionFromSearchParams, parseAttributionCookie, serializeAttribution } from "@/lib/growth-attribution";
 import { buildCsp, isAppPath, usesStrictCsp } from "@/lib/csp";
+import { EARLY_ACCESS_QUERY, PRELAUNCH_PAGE, canEnterSite, isSiteOpen } from "@/lib/launch";
 
 // Middleware (Lot 5) : trois rôles.
 //
@@ -38,6 +39,13 @@ import { buildCsp, isAppPath, usesStrictCsp } from "@/lib/csp";
 //    contact — jamais écrasé ensuite, sauf pour compléter `ref` s'il
 //    manquait. /api/auth/register et la connexion rapide le lisent à la
 //    création du compte (voir src/lib/growth.ts).
+//
+// 4. Pré-lancement (30/09/2026, voir src/lib/launch.ts) : tant que le site
+//    n'est pas ouvert, /register mène à /bientot (sauf ?acces=anticipe,
+//    pour les adresses invitées), et une session d'une adresse non
+//    autorisée n'entre pas dans l'application. La vraie barrière reste
+//    côté serveur (inscription, connexion, jeton de session) : ceci évite
+//    seulement d'afficher des pages inutiles.
 
 function makeNonce(): string {
   const bytes = new Uint8Array(16);
@@ -49,6 +57,22 @@ function makeNonce(): string {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  const locked = !isSiteOpen();
+
+  if (!locked && pathname === PRELAUNCH_PAGE) {
+    // Site ouvert : l'ancienne page « Bientôt » mène à l'inscription.
+    const url = req.nextUrl.clone();
+    url.pathname = "/register";
+    return NextResponse.redirect(url);
+  }
+
+  if (locked && pathname === "/register" && req.nextUrl.searchParams.get(EARLY_ACCESS_QUERY.name) !== EARLY_ACCESS_QUERY.value) {
+    // Inscriptions fermées : page « Bientôt » (les paramètres utm_… sont
+    // gardés, le cookie d'attribution sera posé sur /bientot).
+    const url = req.nextUrl.clone();
+    url.pathname = PRELAUNCH_PAGE;
+    return NextResponse.redirect(url);
+  }
 
   if (isAppPath(pathname)) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -58,13 +82,23 @@ export async function middleware(req: NextRequest) {
       url.search = `?callbackUrl=${encodeURIComponent(pathname + search)}`;
       return NextResponse.redirect(url);
     }
-  } else if (pathname === "/" && (await getToken({ req, secret: process.env.NEXTAUTH_SECRET }))) {
+    if (locked && !canEnterSite(typeof token.email === "string" ? token.email : null)) {
+      const url = req.nextUrl.clone();
+      url.pathname = PRELAUNCH_PAGE;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  } else if (pathname === "/") {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     // Déjà connecté : directement au tableau de bord (session révoquée
-    // entre-temps : le tableau de bord renvoie vers /login).
-    const url = req.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
+    // entre-temps : le tableau de bord renvoie vers /login). Pendant le
+    // pré-lancement, seulement pour les adresses autorisées.
+    if (token && canEnterSite(typeof token.email === "string" ? token.email : null)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   const dev = process.env.NODE_ENV !== "production";

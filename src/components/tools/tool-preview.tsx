@@ -9,7 +9,7 @@ import { clsx } from "@/lib/clsx";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NetworkLogo } from "@/components/ui/network-badge";
 import { NETWORK_META, type Network } from "@/lib/types";
-import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, type MediaShape, type PreviewDevice, type PreviewPost } from "@/components/composer/preview-network-ui";
+import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, PreviewSoundButton, type MediaShape, type PreviewDevice, type PreviewPost } from "@/components/composer/preview-network-ui";
 import { BrowserFrame, PhoneFrame, ScaledFrame } from "@/components/composer/preview-frames";
 import type { UploadedAsset } from "@/components/composer/composer-types";
 
@@ -74,6 +74,7 @@ export function ToolPreview({
             </button>
           ))}
         </div>
+        {asset?.type === "VIDEO" && <PreviewSoundButton className="ml-auto" />}
         {devices.length > 1 && (
           <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-0.5 text-[11px]" role="group" aria-label="Format de l'aperçu">
             {devices.map((d) => (

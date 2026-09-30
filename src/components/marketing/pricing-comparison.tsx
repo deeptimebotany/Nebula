@@ -1,7 +1,7 @@
 // Tableau comparatif des paliers, construit à partir de PLAN_LIMITS
 // (src/lib/plans.ts) — la même source que la page Facturation et la grille
 // tarifaire, pour que les trois ne puissent jamais se contredire.
-import { PLAN_LIMITS, PUBLIC_PLANS as PLANS, isUnlimitedPlan, type PublicPlan as Plan } from "@/lib/plans";
+import { PLAN_LIMITS, PUBLIC_PLANS as PLANS, RETENTION_PACK, formatEuroCents, isUnlimitedPlan, type AiMonthlyLimits, type PublicPlan as Plan } from "@/lib/plans";
 import { IconCheck } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
 
@@ -14,6 +14,12 @@ function brandsLabel(plan: Plan): string {
 
 function limitLabel(plan: Plan, value: number, unit: string): string {
   return isUnlimitedPlan(plan) ? "Illimité" : `${value} ${unit}`.trim();
+}
+
+/** Quota d'IA du mois (30/09/2026) : « 15 par mois », ou — si le palier n'en a pas. */
+function monthly(key: keyof AiMonthlyLimits): Record<Plan, Cell> {
+  const cell = (plan: Plan): Cell => (PLAN_LIMITS[plan].aiMonthly[key] > 0 ? `${PLAN_LIMITS[plan].aiMonthly[key]} par mois` : false);
+  return { FREE: cell("FREE"), PRO: cell("PRO"), AGENCY: cell("AGENCY") };
 }
 
 const ROWS: { label: string; cells: Record<Plan, Cell>; hint?: string }[] = [
@@ -45,9 +51,16 @@ const ROWS: { label: string; cells: Record<Plan, Cell>; hint?: string }[] = [
   },
   { label: "Calendrier éditorial et analytics", cells: { FREE: true, PRO: true, AGENCY: true } },
   { label: "Publier une même vidéo sur plusieurs réseaux", cells: { FREE: true, PRO: true, AGENCY: true } },
-  { label: "Assistant IA (titres, légendes, chat)", cells: { FREE: PLAN_LIMITS.FREE.aiEnabled, PRO: PLAN_LIMITS.PRO.aiEnabled, AGENCY: PLAN_LIMITS.AGENCY.aiEnabled } },
-  { label: "Analyse de rétention vidéo (YouTube)", cells: { FREE: PLAN_LIMITS.FREE.aiEnabled, PRO: PLAN_LIMITS.PRO.aiEnabled, AGENCY: PLAN_LIMITS.AGENCY.aiEnabled } },
-  { label: "Génération de miniatures par IA", cells: { FREE: PLAN_LIMITS.FREE.aiEnabled, PRO: PLAN_LIMITS.PRO.aiEnabled, AGENCY: PLAN_LIMITS.AGENCY.aiEnabled } },
+  { label: "Titres et légendes par IA", cells: { FREE: PLAN_LIMITS.FREE.aiEnabled, PRO: PLAN_LIMITS.PRO.aiEnabled, AGENCY: PLAN_LIMITS.AGENCY.aiEnabled } },
+  { label: "Rétention IA : l'IA regarde vos vidéos YouTube", cells: monthly("retention"), hint: "Les moments où les spectateurs partent, et pourquoi. Analyses remises à zéro le 1er du mois." },
+  {
+    label: "Recharges Rétention",
+    cells: { FREE: PLAN_LIMITS.FREE.retentionPacks, PRO: PLAN_LIMITS.PRO.retentionPacks ? `+${RETENTION_PACK.credits} pour ${formatEuroCents(RETENTION_PACK.priceCents)}` : false, AGENCY: PLAN_LIMITS.AGENCY.retentionPacks ? `+${RETENTION_PACK.credits} pour ${formatEuroCents(RETENTION_PACK.priceCents)}` : false },
+    hint: "Paiement unique, sans date limite, utilisées après le quota du mois."
+  },
+  { label: "Miniatures générées par IA", cells: monthly("image") },
+  { label: "Studio IA (idées, scripts, séries)", cells: monthly("studio") },
+  { label: "Messages à l'assistant IA", cells: monthly("assistant") },
   { label: "Rapports clients automatiques", cells: { FREE: PLAN_LIMITS.FREE.reportsEnabled, PRO: PLAN_LIMITS.PRO.reportsEnabled, AGENCY: PLAN_LIMITS.AGENCY.reportsEnabled } },
   { label: "Calendrier client en lecture seule", cells: { FREE: PLAN_LIMITS.FREE.calendarShareEnabled, PRO: PLAN_LIMITS.PRO.calendarShareEnabled, AGENCY: PLAN_LIMITS.AGENCY.calendarShareEnabled } },
   { label: "Media kit public pour les sponsors", cells: { FREE: PLAN_LIMITS.FREE.mediaKitEnabled, PRO: PLAN_LIMITS.PRO.mediaKitEnabled, AGENCY: PLAN_LIMITS.AGENCY.mediaKitEnabled }, hint: "Vos vrais chiffres, relevés par Nebula, avec PDF et image de partage. Aperçu gratuit." },

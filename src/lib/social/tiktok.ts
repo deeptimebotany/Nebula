@@ -23,6 +23,7 @@ import {
 import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { adoptConcurrentRefresh } from "./tokens";
 import { tiktokBlockingReason, tiktokChunkPlan, tiktokChunkRange, tiktokPostInfo, type TiktokChunkPlan, type TiktokCreatorInfo } from "./tiktok-direct-post";
+import { envValue } from "@/lib/env-value";
 
 // Doc officielle : https://developers.tiktok.com/doc/content-posting-api-get-started
 // Le scope video.publish est en accès audité : sans audit TikTok, la
@@ -45,7 +46,7 @@ const API_BASE = "https://open.tiktokapis.com/v2";
 export const TIKTOK_SCOPES = ["user.info.basic", "user.info.stats", "video.publish", "video.list"] as const;
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) throw new Error(`${name} manquant. Voir developers.tiktok.com et .env.example.`);
   return value;
 }

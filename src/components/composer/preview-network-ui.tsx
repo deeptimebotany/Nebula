@@ -6,8 +6,13 @@
 // visuel : les compteurs sont des valeurs d'exemple, rien n'est cliquable.
 // Les zones qui défilent (légende longue) se prennent au clavier (tabIndex,
 // 30/09/2026). Utilisé par composer-preview.tsx et tools/tool-preview.tsx.
+//
+// Son (30/09/2026) : la vidéo démarre muette (les navigateurs bloquent la
+// lecture automatique avec le son) ; le bouton haut-parleur de la barre de
+// l'aperçu, ou un clic sur la vidéo, active le son. Le choix est gardé en
+// passant d'un réseau ou d'un format à l'autre (même page).
 
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { clsx } from "@/lib/clsx";
 import type { Network } from "@/lib/types";
 import type { UploadedAsset } from "./composer-types";
@@ -61,6 +66,50 @@ const Menu = ({ className }: P) => S(<path d="M4 6h16M4 12h16M4 18h16" />, class
 const Bell = ({ className }: P) => S(<><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15Z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>, className);
 const Compass = ({ className }: P) => S(<><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" /></>, className);
 
+// --- Son de l'aperçu (partagé par tous les rendus de la page) -------------
+
+let previewSoundOn = false;
+const soundListeners = new Set<() => void>();
+
+export function setPreviewSound(on: boolean): void {
+  previewSoundOn = on;
+  soundListeners.forEach((l) => l());
+}
+
+function subscribeSound(listener: () => void): () => void {
+  soundListeners.add(listener);
+  return () => soundListeners.delete(listener);
+}
+
+export function usePreviewSound(): boolean {
+  return useSyncExternalStore(subscribeSound, () => previewSoundOn, () => false);
+}
+
+const SpeakerOn = ({ className }: P) => S(<><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>, className);
+const SpeakerOff = ({ className }: P) => S(<><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" /><path d="m16 9.5 5 5M21 9.5l-5 5" /></>, className);
+
+/** Bouton « son » de la barre de l'aperçu (vidéo seulement). */
+export function PreviewSoundButton({ className }: { className?: string }) {
+  const on = usePreviewSound();
+  const label = on ? "Couper le son de l'aperçu" : "Activer le son de l'aperçu";
+  return (
+    <button
+      type="button"
+      onClick={() => setPreviewSound(!on)}
+      aria-pressed={on}
+      title={label}
+      className={clsx(
+        "flex h-8 w-8 items-center justify-center rounded-lg transition",
+        on ? "bg-aurora-400/15 text-aurora-200" : "text-slate-500 hover:bg-white/[0.05] hover:text-white",
+        className
+      )}
+    >
+      {on ? <SpeakerOn className="h-4 w-4" /> : <SpeakerOff className="h-4 w-4" />}
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
 // --- Briques communes ------------------------------------------------------
 
 function Avatar({ post, size, ring }: { post: PreviewPost; size: number; ring?: "instagram" | "white" }) {
@@ -88,6 +137,7 @@ function Avatar({ post, size, ring }: { post: PreviewPost; size: number; ring?: 
 
 function Media({ post, className, controls = false, fit = "cover" }: { post: PreviewPost; className?: string; controls?: boolean; fit?: "cover" | "contain" }) {
   const { asset } = post;
+  const sound = usePreviewSound();
   if (!asset) {
     return (
       <div className={clsx("flex items-center justify-center bg-[#1c1c1e] text-[13px] text-white/60", className)}>
@@ -101,12 +151,22 @@ function Media({ post, className, controls = false, fit = "cover" }: { post: Pre
       key={asset.id}
       src={asset.previewUrl}
       poster={asset.thumbnailUrl}
-      className={clsx("bg-black", fitClass, className)}
-      muted={!controls}
+      className={clsx("bg-black", fitClass, !controls && "cursor-pointer", className)}
+      muted={!controls && !sound}
       autoPlay={!controls}
       loop={!controls}
       playsInline
       controls={controls}
+      title={controls ? undefined : sound ? "Cliquer pour couper le son" : "Cliquer pour activer le son"}
+      onClick={
+        controls
+          ? undefined
+          : (e) => {
+              setPreviewSound(!sound);
+              // Après un clic, le navigateur autorise la lecture avec le son.
+              void e.currentTarget.play().catch(() => undefined);
+            }
+      }
       onLoadedMetadata={(e) => post.onMediaShape(e.currentTarget.videoWidth, e.currentTarget.videoHeight)}
     />
   ) : (

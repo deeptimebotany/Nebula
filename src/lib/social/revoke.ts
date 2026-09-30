@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { Network } from "@/lib/types";
 import { sendRequest } from "./base";
 import { deleteBlueskySession } from "./bluesky";
+import { envValue } from "@/lib/env-value";
 
 type ConnectionRow = {
   id: string;
@@ -57,8 +58,8 @@ export async function revokeAtProvider(connection: ConnectionRow): Promise<boole
   if (sameAccountElsewhere > 0) return false;
 
   if (network === "TIKTOK") {
-    const key = process.env.TIKTOK_CLIENT_KEY;
-    const secret = process.env.TIKTOK_CLIENT_SECRET;
+    const key = envValue("TIKTOK_CLIENT_KEY");
+    const secret = envValue("TIKTOK_CLIENT_SECRET");
     if (!key || !secret || !connection.accessToken) return false;
     return postForm("TIKTOK", "https://open.tiktokapis.com/v2/oauth/revoke/", { client_key: key, client_secret: secret, token: connection.accessToken });
   }

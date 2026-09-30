@@ -286,6 +286,15 @@ model User {
   compUntil     DateTime?
   compNote      String?
   partnerGrants PartnerGrant[]
+  // Âge (30/09/2026) : Nebula est réservé aux 18 ans et plus (conditions de
+  // l'API Gemini, CGU article 3). Posé par la case de l'inscription, ou par
+  // la confirmation demandée une fois aux comptes existants et aux comptes
+  // créés avec Google, Apple ou Facebook.
+  ageConfirmedAt DateTime?
+  // Recharges Rétention (30/09/2026) : analyses achetées (Stripe, paiement
+  // unique), utilisées après le quota du mois, sans date d'expiration.
+  retentionCredits Int                @default(0)
+  aiCreditPurchases AiCreditPurchase[]
 }
 
 // Accès offerts par le propriétaire (voir /admin/partenaires et
@@ -751,6 +760,15 @@ model VideoInsight {
   dropOffPoints   String // JSON : [{ timeRatio, watchRatio, note }]
   recommendations String // JSON : string[]
   retentionCurve  String // JSON : [{ timeRatio, watchRatio }]
+  // 30/09/2026 : ce que l'IA a vu (« video » = vidéo entière, « clips » =
+  // début + extraits autour des chutes, « thumbnail » = miniature seule,
+  // « frames » = images extraites), modèle, durée et jetons consommés.
+  mode            String          @default("thumbnail")
+  model           String?
+  durationSeconds Int?
+  promptTokens    Int?
+  videoTokens     Int?
+  outputTokens    Int?
   createdAt       DateTime        @default(now())
 
   @@index([postTargetId, createdAt])
@@ -1305,6 +1323,9 @@ model NetworkWaitlist {
   network   String
   consent   Boolean  @default(false)
   createdAt DateTime @default(now())
+  /// Liste « lancement » (pré-lancement, 30/09/2026) : date de l'e-mail
+  /// d'annonce de l'ouverture (un seul envoi par adresse).
+  notifiedAt DateTime?
 
   @@unique([email, network])
   @@index([network])
@@ -1723,12 +1744,58 @@ model AiUsageDaily {
   day          String
   plan         String
   kind         String
+  // Modèle Gemini appelé (30/09/2026) : le prix dépend du modèle et de la date.
+  model        String   @default("")
   calls        Int      @default(0)
+  // Actions de l'utilisateur (une analyse, une image, un message, une
+  // génération du Studio…) : base du coût moyen PAR ACTION de /admin/ia.
+  actions      Int      @default(0)
   inputTokens  Int      @default(0)
+  // Part de l'entrée qui vient d'une vidéo (Rétention), comptée aussi dans inputTokens.
+  videoTokens  Int      @default(0)
   outputTokens Int      @default(0)
   images       Int      @default(0)
   updatedAt    DateTime @updatedAt
 
-  @@unique([day, plan, kind])
+  @@unique([day, plan, kind, model])
   @@index([day])
+}
+
+// Quotas MENSUELS de l'IA (30/09/2026) : une ligne par compte (empreinte,
+// jamais l'identifiant en clair), période et type. Période = « AAAA-MM »
+// (mois du calendrier, heure de Paris) ou « essai:AAAA-MM-JJ » (toute la
+// durée d'un essai). Réservation atomique comme les compteurs du jour
+// (src/lib/ai/counters.ts). Purgée par le cron après ~2 mois sans usage.
+model AiMonthlyUsage {
+  id        String   @id @default(cuid())
+  keyHash   String
+  period    String
+  kind      String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([keyHash, period, kind])
+  @@index([period])
+  @@index([updatedAt])
+}
+
+// Achats de recharges IA (30/09/2026) : une ligne par paiement Stripe. La
+// session Checkout est unique : un même paiement ne crédite jamais deux fois
+// (Stripe peut renvoyer un événement). Sert aussi d'historique.
+model AiCreditPurchase {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind                  String    @default("retention")
+  credits               Int
+  amountCents           Int
+  currency              String    @default("eur")
+  stripeCheckoutSessionId String  @unique
+  stripePaymentIntentId String?   @unique
+  // Remboursement (charge.refunded) : analyses retirées du solde, sans le faire passer sous zéro.
+  creditsRemoved        Int       @default(0)
+  refundedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

@@ -129,7 +129,7 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
   return {
     plan: "FREE",
     // Ancien essai IA de parrainage : l'IA de l'essai, pas davantage.
-    limits: aiOnly ? { ...limits, aiEnabled: true, aiDaily: PLAN_LIMITS.TRIAL.aiDaily, studioDailyLimit: PLAN_LIMITS.TRIAL.studioDailyLimit } : limits,
+    limits: aiOnly ? { ...limits, aiEnabled: true, aiDaily: PLAN_LIMITS.TRIAL.aiDaily, aiMonthly: PLAN_LIMITS.TRIAL.aiMonthly } : limits,
     interval: "month",
     maxBrands: limits.tiers[0].maxBrands,
     aiTrialUntil: aiOnly ? user!.aiTrialUntil! : null,

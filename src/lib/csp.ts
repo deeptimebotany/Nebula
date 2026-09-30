@@ -84,7 +84,9 @@ export const STATIC_PAGES = [
   "/legal",
   "/securite",
   "/contact",
-  "/decouvrir/rapports-clients"
+  "/decouvrir/rapports-clients",
+  // Pré-lancement (30/09/2026) : page « Bientôt » (formulaire + Turnstile).
+  "/bientot"
 ] as const;
 
 function matches(pathname: string, prefixes: readonly string[]): boolean {
@@ -124,7 +126,11 @@ export function buildCsp({ nonce, dev }: { nonce: string | null; dev: boolean })
       // L'empreinte autorise le script du mode clair/sombre posé dans <head>
       // par la mise en page racine (texte fixe, sans nonce : voir
       // color-mode.ts).
-      `script-src 'self' 'nonce-${nonce}' '${COLOR_MODE_SCRIPT_HASH}' 'strict-dynamic' https://challenges.cloudflare.com`
+      // 'wasm-unsafe-eval' (30/09/2026) : autorise seulement la compilation de
+      // WebAssembly (jamais eval() en JavaScript), pour l'encodeur AAC de
+      // l'éditeur vidéo de Publier sur les navigateurs qui n'en ont pas
+      // (Firefox, certains Safari).
+      `script-src 'self' 'nonce-${nonce}' '${COLOR_MODE_SCRIPT_HASH}' 'strict-dynamic' 'wasm-unsafe-eval' https://challenges.cloudflare.com`
     : // Vitrine : scripts du site (fichiers de Next.js) et scripts écrits
       // dans la page pré-générée (données de rendu de Next.js).
       "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com";
@@ -159,7 +165,10 @@ export function buildCsp({ nonce, dev }: { nonce: string | null; dev: boolean })
     // cette entrée, une erreur « violates the following Content Security
     // Policy directive » s'affichait dans la console après chaque ouverture
     // de Publier. Même hôte que le script déjà chargé, aucun autre effet.
-    `connect-src 'self' https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com https://www.dropbox.com${dev ? " ws: wss:" : ""}`,
+    // blob: (30/09/2026) : relire une vidéo ou une image choisie sur
+    // l'appareil (adresse locale créée par la page), pour l'éditeur vidéo et
+    // l'analyse IA d'une image — rien ne sort du navigateur.
+    `connect-src 'self' blob: https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com https://www.dropbox.com${dev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
     "frame-src https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
     "frame-ancestors 'self'",

@@ -73,6 +73,8 @@ export interface StudioQuota {
   remaining: number;
   /** L'IA est configurée sur le site (GEMINI_API_KEY). */
   aiConfigured: boolean;
+  /** Période du quota : mois du calendrier, ou toute la durée de l'essai. */
+  per?: "month" | "trial";
 }
 
 export interface StudioPageDTO {

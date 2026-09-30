@@ -14,7 +14,8 @@ import { sourceSecretComment } from "@/lib/easter-eggs-registry";
 const DONATE_URL = process.env.NEXT_PUBLIC_DONATE_URL;
 
 // Encadré « Bientôt disponible » : ce que les abonnements et les soutiens
-// permettront de financer.
+// permettront de financer. (30/09/2026 : « Palier IA avancé (Gemini) » est
+// fait — Nebula utilise l'API payante — et a quitté la liste.)
 const SOON_GROUPS: { title: string; items: { title: string; text: string }[] }[] = [
   {
     title: "Nouvelles fonctionnalités",
@@ -26,10 +27,6 @@ const SOON_GROUPS: { title: string; items: { title: string; text: string }[] }[]
       {
         title: "Hashtag Tracker",
         text: "Suivre la tendance d'un hashtag en temps réel (façon Metricool) suppose d'interroger l'API de recherche X, elle-même payante — voir juste au-dessus. Reviendra en même temps que la connexion X."
-      },
-      {
-        title: "Palier IA avancé (Gemini)",
-        text: "Nebula utilise aujourd'hui la version gratuite de Google Gemini. Un palier payant donnera accès aux modèles Gemini les plus puissants : réponses plus rapides, pas de limite quotidienne, et des agents IA dédiés pour peaufiner titres, légendes et miniatures."
       },
       {
         title: "Sous-titres automatiques des vidéos",

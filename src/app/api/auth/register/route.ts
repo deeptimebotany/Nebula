@@ -12,6 +12,7 @@ import { TOOLS_COOKIE, toolsExploredCount } from "@/lib/tools-explored";
 import { isPrivilegedEmail, sendVerificationEmail } from "@/lib/account-security";
 import { REFERRED_TRIAL_DAYS, TRIAL_DAYS } from "@/lib/trial";
 import { decideTrial, trialUserFields } from "@/lib/billing/trial-eligibility";
+import { PRELAUNCH_REGISTER_MESSAGE, canEnterSite } from "@/lib/launch";
 
 /** Inscriptions par adresse IP et par heure (lot E3). */
 const REGISTER_PER_IP_PER_HOUR = 5;
@@ -32,6 +33,9 @@ const schema = z.object({
   // Consentement explicite aux conditions et à la politique de
   // confidentialité (RGPD) — vérifié aussi côté serveur.
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "Vous devez accepter les conditions d'utilisation pour créer un compte." }) }),
+  // 18 ans minimum (30/09/2026) : conditions de l'API Gemini (aucun service
+  // « susceptible d'être utilisé par des moins de 18 ans ») et CGU article 3.
+  isAdult: z.literal(true, { errorMap: () => ({ message: "Nebula est réservé aux personnes de 18 ans et plus." }) }),
   // Statistiques anonymes (29/09/2026) : case FACULTATIVE, décochée par
   // défaut ; absente = refus.
   statsConsent: z.boolean().optional().default(false),
@@ -64,6 +68,13 @@ export async function POST(req: Request) {
   }
   const { name, email, password, referralCode, turnstileToken } = body.data;
   const brandName = body.data.brandName?.trim() || name;
+
+  // Pré-lancement (src/lib/launch.ts) : seules les adresses invitées
+  // peuvent créer un compte. Vérifié avant la base (aucune indication sur
+  // l'existence d'un compte).
+  if (!canEnterSite(email)) {
+    return NextResponse.json({ error: PRELAUNCH_REGISTER_MESSAGE, prelaunch: true }, { status: 403 });
+  }
 
   const humanVerified = await verifyTurnstileToken(turnstileToken);
   if (!humanVerified) {
@@ -131,6 +142,8 @@ export async function POST(req: Request) {
       ...trial,
       // Badge Explorateur (Réussites, lot C) : outils gratuits essayés avant l'inscription.
       toolsExplored: toolsExploredCount(cookieStore.get(TOOLS_COOKIE)?.value),
+      // Âge confirmé à l'inscription (case « J'ai 18 ans ou plus »), daté.
+      ageConfirmedAt: new Date(),
       // Accord facultatif aux statistiques anonymes, daté (preuve du choix).
       statsConsent: body.data.statsConsent === true,
       statsConsentAt: body.data.statsConsent === true ? new Date() : null,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 
 // Rafale de l'analyse de rétention (lot E2, brief « Essai 14 jours ») : en
-// plus des analyses du jour (plans.ts, aiDaily.retention), au plus 8
+// plus des analyses du mois (plans.ts, aiMonthly.retention), au plus 8
 // analyses par compte et par 10 minutes, tous paliers confondus. Coupe court
 // à un double clic répété ou à une boucle côté navigateur.
 export const RETENTION_BURST = { limit: 8, windowMinutes: 10 } as const;

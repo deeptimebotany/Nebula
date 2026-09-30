@@ -40,3 +40,7 @@ export const LocationPicker = dynamic(() => import("./location-picker").then((m)
 export const PublishOverlay = dynamic(() => import("./publish-overlay").then((m) => m.PublishOverlay), { ssr: false });
 
 export const LoadingMiniGame = dynamic(() => import("@/components/mini-game/loading-mini-game").then((m) => m.LoadingMiniGame), { ssr: false });
+
+// Éditeur vidéo (30/09/2026) : téléchargé seulement quand on l'ouvre, avec
+// Mediabunny (export MP4) chargé au moment d'enregistrer.
+export const VideoEditor = dynamic(() => import("@/components/video-editor/video-editor"), { ssr: false });

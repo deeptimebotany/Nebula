@@ -11,8 +11,10 @@
 //     quota de l'essai atteint (429 trial_ai_limit), budget du jour de
 //     l'essai ou du Gratuit (429 trial_ai_busy / free_ai_busy), plafond par
 //     connexion (429 ai_ip_limit), adresse non confirmée (403
-//     email_unverified : variante sans offre, avec « Renvoyer le lien »).
-//     Le message du serveur (« Pendant l'essai, 3 miniatures par jour… En
+//     email_unverified : variante sans offre, avec « Renvoyer le lien »),
+//     quota du mois d'un compte payant (429 ai_monthly_limit : avis, avec
+//     la recharge Rétention quand elle est proposée), âge non confirmé.
+//     Le message du serveur (« Pendant l'essai, 5 miniatures en tout… En
 //     Pro, 15. ») s'affiche tel quel ; le prix est lu dans plans.ts.
 // Offre unique de bienvenue : à la première ouverture par un compte dont
 // l'essai est terminé (ou sans essai), le serveur pose offerExpiresAt
@@ -31,6 +33,7 @@ import { trackGrowthEvent } from "@/lib/growth-client";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import { IconClose } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
+import { RetentionPackButton } from "@/components/billing/retention-pack";
 
 export type UpgradeReason =
   | "links_limit"
@@ -45,17 +48,20 @@ export type UpgradeReason =
   | "post_quota"
   | "trial_ai_limit"
   | "ai_daily_limit"
+  | "ai_monthly_limit"
   | "ai_ip_limit"
   | "trial_ai_busy"
   | "free_ai_busy"
   | "email_unverified"
+  | "age_unconfirmed"
   | "generic";
 
-const PRO_AI = PLAN_LIMITS.PRO.aiDaily;
-const PRO_AI_LINE = `En Pro, chaque jour : ${PRO_AI.text} textes, ${PRO_AI.image} miniatures, ${PLAN_LIMITS.PRO.studioDailyLimit} générations du Studio, ${PRO_AI.assistant} messages à l'assistant et ${PRO_AI.retention} analyses de rétention.`;
+const PRO_AI = PLAN_LIMITS.PRO.aiMonthly;
+const TRIAL_AI = PLAN_LIMITS.TRIAL.aiMonthly;
+const PRO_AI_LINE = `En Pro, chaque mois : ${PRO_AI.retention} analyses Rétention, ${PRO_AI.image} miniatures, ${PRO_AI.studio} générations du Studio et ${PRO_AI.assistant} messages à l'assistant (textes : ${PLAN_LIMITS.PRO.aiDaily.text} par jour).`;
 
-/** Raisons sans offre : un simple avis (adresse à confirmer, limite d'un compte payant). */
-const NOTICE_ONLY: ReadonlySet<UpgradeReason> = new Set(["email_unverified"]);
+/** Raisons sans offre : un simple avis (adresse à confirmer, âge à confirmer, limite d'un compte payant). */
+const NOTICE_ONLY: ReadonlySet<UpgradeReason> = new Set(["email_unverified", "age_unconfirmed"]);
 
 const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; visual: "dashboard" | "composer" | "report" }> = {
   links_limit: {
@@ -69,13 +75,23 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
     visual: "dashboard"
   },
   trial_ai_limit: {
-    title: "Limite de l'essai atteinte pour aujourd'hui",
-    lines: [`Pendant l'essai, ${PLAN_LIMITS.TRIAL.aiDaily.text} textes et ${PLAN_LIMITS.TRIAL.aiDaily.image} miniatures par jour. Le compteur repart à minuit.`, PRO_AI_LINE],
+    title: "Limite de l'essai atteinte",
+    lines: [`Pendant l'essai : ${TRIAL_AI.retention} analyses Rétention, ${TRIAL_AI.image} miniatures, ${TRIAL_AI.studio} générations du Studio et ${TRIAL_AI.assistant} messages à l'assistant, et ${PLAN_LIMITS.TRIAL.aiDaily.text} textes par jour.`, PRO_AI_LINE],
     visual: "composer"
   },
   ai_daily_limit: {
     title: "Limite du jour atteinte",
-    lines: ["Le compteur de l'IA repart à zéro à minuit (heure de Paris).", PRO_AI_LINE],
+    lines: ["Le compteur des textes IA repart à zéro à minuit (heure de Paris).", PRO_AI_LINE],
+    visual: "composer"
+  },
+  ai_monthly_limit: {
+    title: "Quota du mois atteint",
+    lines: ["Les quotas de l'IA repartent le 1er de chaque mois (heure de Paris).", PRO_AI_LINE],
+    visual: "composer"
+  },
+  age_unconfirmed: {
+    title: "Nebula est réservé aux 18 ans et plus",
+    lines: ["Confirmez votre âge dans la fenêtre qui s'affiche à l'ouverture de Nebula pour utiliser l'IA.", "Si elle ne s'affiche pas, rechargez la page."],
     visual: "composer"
   },
   ai_ip_limit: {
@@ -127,7 +143,7 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
     title: "Le Studio IA, à partir de vos chiffres",
     lines: [
       "Des idées, des accroches et des scripts de vidéo tirés de ce qui marche déjà chez vous : vos meilleures publications, vos heures, vos courbes de rétention.",
-      `${PLAN_LIMITS.PRO.studioDailyLimit} générations par jour en Pro, ${PLAN_LIMITS.AGENCY.studioDailyLimit} en Agence, et tout l'historique gardé.`
+      `${PLAN_LIMITS.PRO.aiMonthly.studio} générations par mois en Pro, ${PLAN_LIMITS.AGENCY.aiMonthly.studio} en Agence, et tout l'historique gardé.`
     ],
     visual: "composer"
   },
@@ -152,7 +168,7 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
 };
 
 interface UpgradeModalContextValue {
-  /** `detail` : message précis du serveur (ex. « Pendant l'essai, 3 miniatures par jour… »). */
+  /** `detail` : message précis du serveur (ex. « Pendant l'essai, 5 miniatures en tout… »). */
   open: (reason: UpgradeReason, detail?: string) => void;
   close: () => void;
   /** Ouvre la modale si une réponse d'API porte une raison de palier. */
@@ -192,14 +208,17 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [reason, setReason] = useState<UpgradeReason | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
+  // Refus « quota du mois » de Rétention en Pro / Agence : proposer une recharge.
+  const [packOffer, setPackOffer] = useState(false);
   const [starting, setStarting] = useState(false);
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const open = useCallback(
-    (r: UpgradeReason, message?: string) => {
+    (r: UpgradeReason, message?: string, retentionPack = false) => {
       setReason(r);
       setDetail(message?.trim() || null);
+      setPackOffer(retentionPack);
       setResend("idle");
       trackGrowthEvent("upgrade_modal_shown", { reason: r });
       // Offre de bienvenue : le serveur décide (essai terminé, jamais
@@ -219,10 +238,10 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const openFromResponse = useCallback(
     (status: number, data: unknown) => {
       if ((status === 402 || status === 403 || status === 429) && data && typeof data === "object" && isUpgradeReason((data as { reason?: unknown }).reason)) {
-        const d = data as { reason: UpgradeReason; error?: unknown };
+        const d = data as { reason: UpgradeReason; error?: unknown; retentionPack?: unknown };
         // 402 : fonction absente du palier → texte de la raison ; 403/429 :
-        // le message du serveur précise la limite (« Pendant l'essai, 3… »).
-        open(d.reason, status !== 402 && typeof d.error === "string" ? d.error : undefined);
+        // le message du serveur précise la limite (« Pendant l'essai, 5… »).
+        open(d.reason, status !== 402 && typeof d.error === "string" ? d.error : undefined, d.retentionPack === true);
         return true;
       }
       return false;
@@ -294,9 +313,17 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const def = reason ? REASONS[reason] : null;
   // Avis sans offre : adresse à confirmer, ou limite du jour d'un compte
   // déjà payant (Agence : rien au-dessus ; Pro : lien vers Facturation).
-  const noticeOnly = Boolean(reason && (NOTICE_ONLY.has(reason) || (reason === "ai_daily_limit" && me?.paid)));
+  const paidLimit = (reason === "ai_daily_limit" || reason === "ai_monthly_limit") && Boolean(me?.paid || me?.comp);
+  const noticeOnly = Boolean(reason && (NOTICE_ONLY.has(reason) || paidLimit));
   const nextPlan = me ? PLAN_LIMITS[me.plan].upgradeTo : null;
-  const lines: [string, string] = def ? [detail ?? def.lines[0], noticeOnly && reason === "ai_daily_limit" ? (nextPlan ? `Besoin de plus ? Le palier ${PLAN_LIMITS[nextPlan].label} en permet davantage chaque jour.` : "Merci de votre fidélité : le compteur repart à minuit.") : def.lines[1]] : ["", ""];
+  const paidSecondLine = reason === "ai_monthly_limit"
+    ? nextPlan
+      ? `Besoin de plus ? Le palier ${PLAN_LIMITS[nextPlan].label} en permet davantage chaque mois.`
+      : "Merci de votre fidélité : les quotas repartent le 1er du mois."
+    : nextPlan
+      ? `Besoin de plus ? Le palier ${PLAN_LIMITS[nextPlan].label} en permet davantage chaque jour.`
+      : "Merci de votre fidélité : le compteur repart à minuit.";
+  const lines: [string, string] = def ? [detail ?? def.lines[0], paidLimit ? (packOffer ? "Les analyses achetées servent une fois le quota du mois utilisé, et n'expirent pas." : paidSecondLine) : def.lines[1]] : ["", ""];
   // Vraie capture de l'écran concerné (compte de démonstration, voir scripts/demo/).
   const shot = def?.visual === "composer" ? "publier" : def?.visual === "report" ? "rapports" : "tableau-de-bord";
 
@@ -317,7 +344,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                 <div className="flex items-start justify-between gap-3">
                   {noticeOnly ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                      {reason === "email_unverified" ? "Adresse email" : "IA"}
+                      {reason === "email_unverified" ? "Adresse email" : reason === "age_unconfirmed" ? "Âge" : "IA"}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-aurora-400/30 bg-aurora-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-aurora-200">
@@ -350,7 +377,9 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                           {resend === "sent" ? `Lien envoyé à ${me?.user.email ?? "votre adresse"} : ouvrez-le, puis relancez la génération.` : resend === "error" ? "Envoi impossible pour le moment : réessayez dans quelques minutes." : ""}
                         </p>
                       </>
-                    ) : nextPlan ? (
+                    ) : packOffer ? (
+                      <RetentionPackButton variant="glow" />
+                    ) : nextPlan && reason !== "age_unconfirmed" ? (
                       <button
                         type="button"
                         onClick={() => {

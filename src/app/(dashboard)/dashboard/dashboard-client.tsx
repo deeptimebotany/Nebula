@@ -423,9 +423,12 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
       <RevealGroup className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <RevealItem className="lg:col-span-2">
         <MotionGlassCard>
-          <div className="mb-4 flex items-center justify-between">
+          {/* flex-wrap (30/09/2026) : sur mobile, les 4 pastilles de réseaux
+              débordaient de l'écran (page de 465 px de large sur un écran
+              de 390 : tout le tableau de bord apparaissait dézoomé). */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-base font-medium text-white">Croissance des abonnés</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {chartNetworks.map((n) => (
                 <NetworkBadge key={n} network={n} size="sm" />
               ))}

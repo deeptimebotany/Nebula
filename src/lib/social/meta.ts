@@ -21,6 +21,7 @@ import {
 } from "./base";
 import { countSchema, graphList, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { metaGraphVersion } from "./versions";
+import { envValue } from "@/lib/env-value";
 
 // --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
 // Doc : https://developers.facebook.com/docs/instagram-platform/content-publishing
@@ -114,7 +115,7 @@ export function graphBase(): string {
 export const PAGE_TOKEN_MARKER = "page_token";
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) {
     throw new Error(
       `${name} manquant. Créez une app sur developers.facebook.com et renseignez .env (voir .env.example).`

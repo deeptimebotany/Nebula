@@ -20,6 +20,8 @@ import {
 } from "./base";
 import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { adoptConcurrentRefresh } from "./tokens";
+import { isoDurationSeconds } from "@/lib/audit/sources/youtube";
+import { envValue } from "@/lib/env-value";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -33,7 +35,7 @@ const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
 const ANALYTICS_BASE = "https://youtubeanalytics.googleapis.com/v2";
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) throw new Error(`${name} manquant. Voir console.cloud.google.com et .env.example.`);
   return value;
 }
@@ -597,14 +599,29 @@ export interface YoutubeVideoMetadata {
   title: string;
   description: string;
   thumbnailUrl: string;
+  /** « public », « unlisted », « private » (null si YouTube ne le dit pas). */
+  privacyStatus: string | null;
+  /** Durée en secondes (null si illisible). */
+  durationSeconds: number | null;
 }
 
-/** Métadonnées publiques d'une vidéo précise (titre, description, miniature). */
+/**
+ * Métadonnées d'une vidéo précise (titre, description, miniature,
+ * visibilité et durée — Rétention IA ne passe l'adresse de la vidéo à
+ * Gemini que pour une vidéo PUBLIQUE, et vérifie les moments dans sa durée).
+ * Même coût de quota YouTube (1 unité), quelles que soient les parties lues.
+ */
 export async function fetchVideoMetadata(connection: ConnectionLike, videoId: string): Promise<YoutubeVideoMetadata> {
   await freshYoutubeToken(connection);
-  const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=snippet&id=${encodeURIComponent(videoId)}`, {
+  const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=snippet,status,contentDetails&id=${encodeURIComponent(videoId)}`, {
     headers: { Authorization: `Bearer ${connection.accessToken}` },
-    schema: ytList(z.object({ snippet: z.object({ title: z.string(), description: z.string().default(""), thumbnails: thumbnailsSchema }) }))
+    schema: ytList(
+      z.object({
+        snippet: z.object({ title: z.string(), description: z.string().default(""), thumbnails: thumbnailsSchema }),
+        status: soft(z.object({ privacyStatus: textSchema })),
+        contentDetails: soft(z.object({ duration: textSchema }))
+      })
+    )
   });
 
   const item = data.items?.[0];
@@ -614,6 +631,8 @@ export async function fetchVideoMetadata(connection: ConnectionLike, videoId: st
   return {
     title: item.snippet.title,
     description: item.snippet.description,
-    thumbnailUrl: thumbs?.medium?.url ?? thumbs?.default?.url ?? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`
+    thumbnailUrl: thumbs?.medium?.url ?? thumbs?.default?.url ?? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`,
+    privacyStatus: item.status?.privacyStatus ?? null,
+    durationSeconds: isoDurationSeconds(item.contentDetails?.duration ?? undefined) || null
   };
 }

@@ -17,6 +17,7 @@ import { useBootstrap } from "@/components/bootstrap-provider";
 import { useBrand } from "@/components/brand-context";
 import type { BrandUsage } from "@/lib/billing/usage";
 import { useUsage } from "@/lib/data/hooks";
+import { AiQuotaCard } from "@/components/billing/ai-quota-card";
 
 interface PlanResponse {
   plan: Plan;
@@ -32,12 +33,14 @@ function trialComparisonRows(): { label: string; trial: string; pro: string }[] 
   const t = PLAN_LIMITS.TRIAL;
   const p = PLAN_LIMITS.PRO;
   const n = (v: number) => (v >= 9999 ? "illimité" : String(v));
+  const trial = (v: number) => `${n(v)} pour l'essai`;
+  const month = (v: number) => `${n(v)} par mois`;
   return [
+    { label: "Analyses Rétention", trial: trial(t.aiMonthly.retention), pro: `${month(p.aiMonthly.retention)} + recharges` },
+    { label: "Miniatures IA", trial: trial(t.aiMonthly.image), pro: month(p.aiMonthly.image) },
+    { label: "Générations du Studio", trial: trial(t.aiMonthly.studio), pro: month(p.aiMonthly.studio) },
+    { label: "Messages à l'assistant", trial: trial(t.aiMonthly.assistant), pro: month(p.aiMonthly.assistant) },
     { label: "Textes IA par jour", trial: n(t.aiDaily.text), pro: n(p.aiDaily.text) },
-    { label: "Miniatures IA par jour", trial: n(t.aiDaily.image), pro: n(p.aiDaily.image) },
-    { label: "Générations du Studio par jour", trial: n(t.studioDailyLimit), pro: n(p.studioDailyLimit) },
-    { label: "Messages à l'assistant par jour", trial: n(t.aiDaily.assistant), pro: n(p.aiDaily.assistant) },
-    { label: "Analyses de rétention par jour", trial: n(t.aiDaily.retention), pro: n(p.aiDaily.retention) },
     { label: "Marques", trial: n(t.tiers[0].maxBrands), pro: `jusqu'à ${p.tiers[p.tiers.length - 1].maxBrands}` },
     { label: "Comptes par marque", trial: n(t.maxConnections), pro: n(p.maxConnections) },
     { label: "Publications par mois et par marque", trial: n(t.maxPostsPerMonth), pro: n(p.maxPostsPerMonth) }
@@ -135,6 +138,7 @@ function BillingPageInner() {
   });
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get("checkout");
+  const rechargeStatus = searchParams.get("recharge");
   // Le message technique « Stripe non configuré » ne concerne que le
   // propriétaire du site ; un client voit une phrase neutre (Lot 4).
   const { data: me, patch: patchMe } = useBootstrap();
@@ -187,6 +191,14 @@ function BillingPageInner() {
         <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
           <p className="text-sm text-emerald-300">
             Paiement confirmé — votre palier sera mis à jour dès que Stripe aura notifié Nebula (quelques secondes).
+          </p>
+        </GlassCard>
+      )}
+
+      {rechargeStatus === "success" && (
+        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
+          <p className="text-sm text-emerald-300">
+            Recharge payée : vos analyses Rétention apparaissent dès que Stripe aura notifié Nebula (quelques secondes). Une notification vous le confirme.
           </p>
         </GlassCard>
       )}
@@ -260,7 +272,7 @@ function BillingPageInner() {
           </div>
           {me.ai && (
             <p className="mt-3 text-xs text-slate-400">
-              Aujourd&apos;hui : {me.ai.quota.text.used}/{me.ai.quota.text.limit} textes, {me.ai.quota.image.used}/{me.ai.quota.image.limit} miniatures, {me.ai.quota.studio.used}/{me.ai.quota.studio.limit} Studio, {me.ai.quota.assistant.used}/{me.ai.quota.assistant.limit} messages — le compteur repart à minuit (heure de Paris).
+              Pendant l&apos;essai : {me.ai.quota.retention.used}/{me.ai.quota.retention.limit} analyses Rétention, {me.ai.quota.image.used}/{me.ai.quota.image.limit} miniatures, {me.ai.quota.studio.used}/{me.ai.quota.studio.limit} Studio, {me.ai.quota.assistant.used}/{me.ai.quota.assistant.limit} messages ; aujourd&apos;hui, {me.ai.quota.text.used}/{me.ai.quota.text.limit} textes (retour à minuit, heure de Paris).
             </p>
           )}
           {me.brandsOwned > PLAN_LIMITS.FREE.tiers[0].maxBrands && (
@@ -312,6 +324,8 @@ function BillingPageInner() {
           </p>
         </GlassCard>
       )}
+
+      {!me?.onTrial && <AiQuotaCard />}
 
       {data && (
         <GlassCard>

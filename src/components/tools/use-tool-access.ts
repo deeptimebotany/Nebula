@@ -8,13 +8,15 @@ import { useCallback, useEffect, useState } from "react";
 export interface ToolAccessState {
   /** "loading" le temps de la réponse, puis visiteur (démo) ou compte. */
   status: "loading" | "visitor" | "member";
-  plan: "FREE" | "PRO" | "AGENCY" | null;
+  plan: "FREE" | "TRIAL" | "PRO" | "AGENCY" | null;
   aiEnabled: boolean;
   remaining: { text: number; thumbnail: number } | null;
   limits: { text: number; thumbnail: number } | null;
+  /** Période du quota de miniatures (mois, essai) ; aucune miniature en Gratuit. */
+  thumbnailPer: "month" | "trial" | "day" | null;
 }
 
-const INITIAL: ToolAccessState = { status: "loading", plan: null, aiEnabled: true, remaining: null, limits: null };
+const INITIAL: ToolAccessState = { status: "loading", plan: null, aiEnabled: true, remaining: null, limits: null, thumbnailPer: null };
 
 export function useToolAccess() {
   const [state, setState] = useState<ToolAccessState>(INITIAL);
@@ -26,7 +28,7 @@ export function useToolAccess() {
         signedIn?: boolean;
         plan?: ToolAccessState["plan"];
         aiEnabled?: boolean;
-        quota?: Record<"text" | "thumbnail", { limit: number; remaining: number }>;
+        quota?: Record<"text" | "thumbnail", { limit: number; remaining: number; per?: ToolAccessState["thumbnailPer"] }>;
       };
       if (!res.ok || !d.signedIn || !d.quota) {
         setState({ ...INITIAL, status: "visitor" });
@@ -37,7 +39,8 @@ export function useToolAccess() {
         plan: d.plan ?? "FREE",
         aiEnabled: d.aiEnabled !== false,
         remaining: { text: d.quota.text.remaining, thumbnail: d.quota.thumbnail.remaining },
-        limits: { text: d.quota.text.limit, thumbnail: d.quota.thumbnail.limit }
+        limits: { text: d.quota.text.limit, thumbnail: d.quota.thumbnail.limit },
+        thumbnailPer: d.quota.thumbnail.per ?? null
       });
     } catch {
       setState({ ...INITIAL, status: "visitor" });

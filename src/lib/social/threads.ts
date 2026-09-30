@@ -34,6 +34,7 @@ import {
 } from "./base";
 import { countSchema, graphList, idSchema, opt, soft, textSchema, toDate, z } from "./contract";
 import { API_VERSIONS } from "./versions";
+import { envValue } from "@/lib/env-value";
 
 const AUTH_URL = "https://threads.net/oauth/authorize";
 const GRAPH = "https://graph.threads.net";
@@ -71,7 +72,7 @@ const SCOPES = ["threads_basic", "threads_content_publish", "threads_manage_insi
 const MAX_CAROUSEL = 20;
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = envValue(name);
   if (!value) throw new Error(`${name} manquant. Voir .env.example (section Threads).`);
   return value;
 }

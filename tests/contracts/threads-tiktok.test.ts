@@ -313,6 +313,16 @@ describe("TikTok : publication directe (FILE_UPLOAD, règles Direct Post)", () =
     expect(err.message).toContain("data.upload_url");
   });
 
+  it("clé collée dans Vercel avec guillemets, espaces ou retour à la ligne : envoyée propre (sinon TikTok affiche « client_key »)", () => {
+    process.env.TIKTOK_CLIENT_KEY = ' "sbawxbk1yy7rf2k75i" \n';
+    process.env.TIKTOK_REDIRECT_URI = " https://nebulahub.space/api/connections/tiktok/callback\n";
+    const url = new URL(tiktokClient.getAuthUrl("state-1"));
+    expect(url.searchParams.get("client_key")).toBe("sbawxbk1yy7rf2k75i");
+    expect(url.searchParams.get("redirect_uri")).toBe("https://nebulahub.space/api/connections/tiktok/callback");
+    process.env.TIKTOK_CLIENT_KEY = "   ";
+    expect(() => tiktokClient.getAuthUrl("state-1")).toThrow("TIKTOK_CLIENT_KEY manquant");
+  });
+
   it("autorisations demandées : exactement celles déclarées dans le portail", () => {
     const url = new URL(tiktokClient.getAuthUrl("state-1"));
     expect(url.searchParams.get("scope")!.split(",").sort()).toEqual(["user.info.basic", "user.info.stats", "video.list", "video.publish"]);

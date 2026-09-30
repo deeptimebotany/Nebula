@@ -5,16 +5,22 @@ import { PageHeader } from "@/components/ui/page-header";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PLAN_LIMITS, PLANS, type Plan } from "@/lib/plans";
 
-// Page propriétaire « Coûts de l'IA » (lot E5, brief « Essai 14 jours ») :
-// ce que l'IA coûte chaque jour, par palier, pour ajuster les limites sur
-// des chiffres réels. Tout est estimé (jetons × prix de pricing.ts). 404
-// pour tout autre compte, exclue des robots. Page serveur, sans JavaScript.
+// Page propriétaire « Coûts de l'IA » (lot E5, brief « Essai 14 jours » ;
+// palier payant de Gemini le 30/09/2026) : modèles et prix en vigueur, ce que
+// l'IA coûte chaque jour, par palier, et en moyenne PAR ACTION, pour ajuster
+// les quotas sur des chiffres réels. Tout est estimé (jetons × prix de
+// pricing.ts). 404 pour tout autre compte, exclue des robots. Page serveur,
+// sans JavaScript.
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Coûts de l'IA — Nebula", robots: { index: false, follow: false } };
 
 const usd = (v: number) => `${v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 3 : 2 })} $`;
 const int = (v: number) => v.toLocaleString("fr-FR");
 const KIND_LABEL: Record<string, string> = { text: "Textes", image: "Images", studio: "Studio", assistant: "Assistant", retention: "Rétention" };
+const ACTION_LABEL: Record<string, string> = { text: "par texte", image: "par image", studio: "par génération", assistant: "par message", retention: "par analyse" };
+/** Prix au million de jetons : « 0,75 $ ». */
+const perM = (v: number) => `${v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} $`;
+const dateFr = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
 function planLabel(plan: string): string {
   if ((PLANS as readonly string[]).includes(plan)) return PLAN_LIMITS[plan as Plan].label;
@@ -54,9 +60,53 @@ export default async function AdminAiCostsPage() {
         </GlassCard>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <GlassCard hover={false}>
+          <h2 className="font-display text-base font-medium text-white">Modèles et prix en vigueur</h2>
+          <p className="mt-1 text-xs text-slate-500">Palier payant de l&apos;API Gemini. Réglage : GEMINI_MODEL, GEMINI_RETENTION_MODEL, GEMINI_IMAGE_MODEL sur Vercel. Jetons de vidéo comptés en entrée.</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {r.models.map((m) => (
+              <li key={m.model} className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+                <p className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-mono text-xs text-white">{m.model}</span>
+                  <span className="text-xs text-slate-400">{m.roles.join(" · ")}</span>
+                </p>
+                <p className="mt-1 text-xs tabular-nums text-slate-300">
+                  {perM(m.price.inputPerMillion)} entrée · {perM(m.price.outputPerMillion)} sortie (par million de jetons)
+                  {m.price.perImage > 0 && <> · {usd(m.price.perImage)} par image 1K</>}
+                </p>
+                {m.next && (
+                  <p className="mt-1 text-xs text-amber-200">
+                    À partir du {dateFr(m.next.from)} : {perM(m.next.inputPerMillion)} entrée · {perM(m.next.outputPerMillion)} sortie
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-slate-500">
+                  30 jours : {int(m.calls30)} appel{m.calls30 > 1 ? "s" : ""} · {usd(m.costUsd30)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+        <GlassCard hover={false}>
+          <h2 className="font-display text-base font-medium text-white">Coût moyen par action (30 jours)</h2>
+          <p className="mt-1 text-xs text-slate-500">Coût estimé ÷ actions abouties (une analyse, une image, un message, une génération). Sans mesure : estimation de départ, en gris.</p>
+          <ul className="mt-3 divide-y divide-white/[0.06] text-sm">
+            {r.last30.byKind.map((k) => (
+              <li key={k.kind} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                <span className="text-slate-300">{KIND_LABEL[k.kind] ?? k.kind}</span>
+                <span className={k.measured ? "tabular-nums text-white" : "tabular-nums text-slate-500"}>
+                  {usd(k.perActionUsd)} {ACTION_LABEL[k.kind] ?? ""}
+                  <span className="ml-2 text-xs text-slate-500">{k.measured ? `${int(k.actions)} action${k.actions > 1 ? "s" : ""}` : "estimation"}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      </div>
+
       <GlassCard hover={false}>
         <h2 className="font-display text-base font-medium text-white">Budgets globaux du jour</h2>
-        <p className="mt-1 text-sm text-slate-400">Essai et Gratuit, compteurs séparés ; les comptes payants ne sont jamais comptés. Réglage : variables TRIAL_AI_DAILY_* et FREE_AI_DAILY_* sur Vercel.</p>
+        <p className="mt-1 text-sm text-slate-400">Essai et Gratuit, compteurs séparés ; les comptes payants n&apos;y sont pas comptés (ils ont leurs quotas du mois). Réglage : variables TRIAL_AI_DAILY_* et FREE_AI_DAILY_* sur Vercel.</p>
         <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {r.budgets.map((b) => {
             const pct = b.limit > 0 ? Math.min(100, Math.round((b.used / b.limit) * 100)) : 100;
@@ -101,16 +151,19 @@ export default async function AdminAiCostsPage() {
           <p className="mt-3 text-sm text-slate-400">Aucun appel mesuré sur la période.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-slate-500">
                   <th scope="col" className="py-2 pr-3 font-medium">Palier</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Type</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-medium">Actions</th>
                   <th scope="col" className="py-2 pr-3 text-right font-medium">Appels</th>
                   <th scope="col" className="py-2 pr-3 text-right font-medium">Jetons entrée</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-medium">Dont vidéo</th>
                   <th scope="col" className="py-2 pr-3 text-right font-medium">Jetons sortie</th>
                   <th scope="col" className="py-2 pr-3 text-right font-medium">Images</th>
-                  <th scope="col" className="py-2 text-right font-medium">Coût estimé</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-medium">Coût estimé</th>
+                  <th scope="col" className="py-2 text-right font-medium">Par action</th>
                 </tr>
               </thead>
               <tbody>
@@ -118,11 +171,14 @@ export default async function AdminAiCostsPage() {
                   <tr key={`${row.plan}-${row.kind}`} className="border-t border-white/[0.06]">
                     <td className="py-2 pr-3 text-slate-200">{planLabel(row.plan)}</td>
                     <td className="py-2 pr-3 text-slate-300">{KIND_LABEL[row.kind] ?? row.kind}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{int(row.actions)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{int(row.calls)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-400">{int(row.inputTokens)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-400">{row.videoTokens > 0 ? int(row.videoTokens) : "—"}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-400">{int(row.outputTokens)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-400">{int(row.images)}</td>
-                    <td className="py-2 text-right tabular-nums text-white">{usd(row.costUsd)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-white">{usd(row.costUsd)}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-300">{row.perActionUsd === null ? "—" : usd(row.perActionUsd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -133,10 +189,10 @@ export default async function AdminAiCostsPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <GlassCard hover={false}>
-          <h2 className="font-display text-base font-medium text-white">Les 20 comptes les plus coûteux (7 jours)</h2>
-          <p className="mt-1 text-xs text-slate-500">Identifiant et palier seulement. Estimation à partir des compteurs par compte (outils, assistant, Rétention ; tout l&apos;usage en Gratuit et en Essai) et du Studio.</p>
+          <h2 className="font-display text-base font-medium text-white">Les 20 comptes les plus coûteux (ce mois-ci)</h2>
+          <p className="mt-1 text-xs text-slate-500">Identifiant et palier seulement. Quotas du mois de chaque compte (Rétention, images, Studio, assistant ; essais : depuis leur début) et textes des 7 derniers jours, × coût moyen par action. Les analyses achetées ne sont pas comptées ici.</p>
           {r.topAccounts.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400">Aucun usage compté cette semaine.</p>
+            <p className="mt-3 text-sm text-slate-400">Aucun usage compté ce mois-ci.</p>
           ) : (
             <ol className="mt-3 space-y-1.5 text-sm">
               {r.topAccounts.map((a, i) => (

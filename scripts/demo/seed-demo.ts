@@ -137,6 +137,8 @@ export async function seedDemo(db: PrismaClient, opts: { now?: Date; passwordHas
       name: "Camille Durand",
       passwordHash: opts.passwordHash,
       emailVerifiedAt: new Date(now.getTime() - 200 * DAY),
+      // 18 ans et plus confirmés (30/09/2026) : sinon la fenêtre d'âge cacherait les captures.
+      ageConfirmedAt: new Date(now.getTime() - 200 * DAY),
       createdAt: new Date(now.getTime() - 200 * DAY),
       colorMode: "light",
       creatorXp: 2570,

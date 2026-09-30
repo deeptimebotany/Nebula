@@ -5,6 +5,7 @@
 // pour ne pas proposer un bouton qui ne mène nulle part pendant que la
 // plateforme valide l'application. Côté serveur uniquement (process.env).
 import { NETWORKS, type Network } from "@/lib/types";
+import { envValue } from "@/lib/env-value";
 
 const REQUIRED_ENV: Partial<Record<Network, string[]>> = {
   THREADS: ["THREADS_APP_ID", "THREADS_APP_SECRET"],
@@ -14,7 +15,7 @@ const REQUIRED_ENV: Partial<Record<Network, string[]>> = {
 
 export function isNetworkConfigured(network: Network): boolean {
   const required = REQUIRED_ENV[network];
-  return !required || required.every((name) => Boolean(process.env[name]));
+  return !required || required.every((name) => Boolean(envValue(name)));
 }
 
 export function availableNetworks(): Network[] {
@@ -23,7 +24,7 @@ export function availableNetworks(): Network[] {
 
 /** Adresse de retour OAuth : variable dédiée, sinon <NEXTAUTH_URL>/api/connections/<fournisseur>/callback. */
 export function oauthRedirectUri(provider: string, envName: string): string {
-  const explicit = process.env[envName];
+  const explicit = envValue(envName);
   if (explicit) return explicit;
   const base = (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
   return `${base}/api/connections/${provider}/callback`;

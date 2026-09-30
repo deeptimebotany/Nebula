@@ -9,6 +9,7 @@ import { invalidateAllMediaKits } from "@/lib/media-kit/cache";
 import { isPaidPlanId } from "@/lib/plans";
 import { getUserPlan } from "@/lib/billing/plan";
 import { applyFreeLimits, reactivateAfterUpgrade } from "@/lib/billing/free-limits";
+import { grantRetentionPack, revokeRefundedPack } from "@/lib/billing/retention-pack";
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
 // confirmé, abonnement modifié/annulé) et met à jour la table Subscription
@@ -169,11 +170,26 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      // Recharge Rétention (paiement unique, 30/09/2026) : créditée une seule fois.
+      if (session.mode === "payment") {
+        await grantRetentionPack(session);
+        break;
+      }
       const userId = session.client_reference_id || (session.metadata?.userId as string | undefined);
       if (session.subscription && userId) {
         const sub = await stripe().subscriptions.retrieve(session.subscription as string);
         await upsertFromSubscription(sub, userId);
       }
+      break;
+    }
+    case "checkout.session.async_payment_succeeded": {
+      // Moyen de paiement différé (virement…) encaissé après coup.
+      await grantRetentionPack(event.data.object as Stripe.Checkout.Session);
+      break;
+    }
+    case "charge.refunded": {
+      // Recharge remboursée : analyses retirées du solde (jamais sous zéro).
+      await revokeRefundedPack(event.data.object as Stripe.Charge);
       break;
     }
     case "customer.subscription.updated":
@@ -209,7 +225,7 @@ export async function POST(req: NextRequest) {
 
   // Abonnement créé, modifié ou terminé : les pages bio publiques (thème
   // premium, nombre de liens) sont recalculées à la prochaine visite.
-  if (event.type.startsWith("customer.subscription.") || event.type === "checkout.session.completed") {
+  if (event.type.startsWith("customer.subscription.") || (event.type === "checkout.session.completed" && (event.data.object as Stripe.Checkout.Session).mode !== "payment")) {
     invalidateAllLinkPages();
     // Media kits : leur publication dépend du palier.
     invalidateAllMediaKits();

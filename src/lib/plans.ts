@@ -31,17 +31,52 @@ export function isPaidPlanId(value: unknown): value is PaidPlan {
   return typeof value === "string" && (PAID_PLANS as readonly string[]).includes(value);
 }
 
-/** Limites d'IA par jour et par compte (heure de Paris). 0 = non inclus. */
+/**
+ * Limite d'IA PAR JOUR et par compte (heure de Paris) : les textes (titres,
+ * légendes, choix des 3 images, recyclage, idées, outils de /outils). Comptés
+ * en Gratuit et en Essai partout, et sur les outils de /outils pour tous ;
+ * pas dans l'application en Pro et Agence (appels les moins chers).
+ */
 export interface AiDailyLimits {
-  /** Textes : outils, légendes, titres, idées, recyclage, choix d'images. */
   text: number;
-  /** Images : miniatures, stickers. */
-  image: number;
-  /** Messages de l'assistant IA (chat). */
-  assistant: number;
-  /** Analyses Rétention IA. */
-  retention: number;
 }
+
+/**
+ * Quotas d'IA PAR MOIS et par compte (30/09/2026, passage de Gemini au palier
+ * payant) : mois du calendrier, heure de Paris ; pendant l'Essai, sur toute
+ * la durée de l'essai. 0 = non inclus. Les images se comptent en images.
+ */
+export interface AiMonthlyLimits {
+  /** Analyses Rétention IA (en plus : recharges achetées, voir RETENTION_PACK). */
+  retention: number;
+  /** Images générées (miniatures « Rendre plus percutante »). */
+  image: number;
+  /** Générations du Studio IA (idées et accroches, scripts). */
+  studio: number;
+  /** Messages à l'assistant IA (chat). */
+  assistant: number;
+}
+
+export const AI_MONTHLY: Record<Plan, AiMonthlyLimits> = {
+  FREE: { retention: 0, image: 0, studio: 0, assistant: 0 },
+  TRIAL: { retention: 5, image: 5, studio: 15, assistant: 50 },
+  PRO: { retention: 15, image: 20, studio: 50, assistant: 150 },
+  AGENCY: { retention: 50, image: 60, studio: 120, assistant: 400 }
+};
+
+/**
+ * Recharge Rétention (30/09/2026) : paiement unique Stripe, Pro et Agence.
+ * Les analyses achetées s'ajoutent au quota du mois, sont utilisées APRÈS
+ * lui et n'expirent pas. Prix Stripe : variable STRIPE_PRICE_RETENTION_PACK.
+ */
+export const RETENTION_PACK = { credits: 20, priceCents: 399, currency: "eur", stripePriceEnvVar: "STRIPE_PRICE_RETENTION_PACK" } as const;
+
+/** « 3,99 € » */
+export function formatEuroCents(cents: number): string {
+  return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
+}
+
+const PACK_LINE = `Recharges Rétention : +${RETENTION_PACK.credits} analyses pour ${formatEuroCents(RETENTION_PACK.priceCents)}, sans date limite`;
 
 export const BILLING_INTERVALS = ["month", "year"] as const;
 export type BillingInterval = (typeof BILLING_INTERVALS)[number];
@@ -60,9 +95,6 @@ export interface PlanLimits {
   maxConnections: number; // comptes réseaux connectés, PAR marque
   maxPostsPerMonth: number; // publications programmées/mois, PAR marque
   aiEnabled: boolean;
-  // Studio IA (produit n°9, /studio) : générations par jour et par compte
-  // (idées + accroches, scripts). 0 = aperçu seulement. Voir src/lib/studio.
-  studioDailyLimit: number;
   // Publier la même vidéo/post sur un ensemble de comptes choisis librement,
   // à travers TOUS les réseaux en même temps — réservé au palier Agence.
   massPublishEnabled: boolean;
@@ -93,8 +125,12 @@ export interface PlanLimits {
   purchasable: boolean;
   /** Palier proposé ensuite (bouton « Passer en … ») ; null = le plus haut. */
   upgradeTo: Plan | null;
-  /** Limites d'IA par jour et par compte (Studio : studioDailyLimit). */
+  /** Limite d'IA par jour et par compte (textes). */
   aiDaily: AiDailyLimits;
+  /** Quotas d'IA par mois et par compte (Essai : sur toute sa durée). */
+  aiMonthly: AiMonthlyLimits;
+  /** Recharges Rétention achetables et utilisables (Pro, Agence). */
+  retentionPacks: boolean;
   /**
    * Garde-fous des paliers sans paiement (Gratuit, Essai) : IA seulement avec
    * une adresse confirmée, TOUT usage de l'IA compté par compte (outils et
@@ -136,7 +172,6 @@ export const PLAN_LIMITS = {
     maxConnections: 4,
     maxPostsPerMonth: 20,
     aiEnabled: false,
-    studioDailyLimit: 0,
     massPublishEnabled: false,
     maxBioLinks: 3,
     tiers: [{ maxBrands: 1, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
@@ -153,7 +188,9 @@ export const PLAN_LIMITS = {
     mediaKitEnabled: false,
     purchasable: false,
     upgradeTo: "PRO",
-    aiDaily: { text: 10, image: 2, assistant: 0, retention: 0 },
+    aiDaily: { text: 10 },
+    aiMonthly: AI_MONTHLY.FREE,
+    retentionPacks: false,
     aiGuardrails: true,
     aiBudgetBucket: "free",
     approvalsEnabled: false,
@@ -167,23 +204,23 @@ export const PLAN_LIMITS = {
     featureLevel: 0
   },
   // Essai (14 jours, 30 avec un parrainage) : les fonctions de Pro, 2 marques
-  // au plus à la création, et une IA bridée (texte 20, images 3, Studio 5,
-  // assistant 20, Rétention 3 par jour). Pire cas IA ≈ 3 $ par essai.
+  // au plus à la création, et une IA bridée : textes 20 par jour ; pour tout
+  // l'essai, 5 analyses Rétention, 5 images, 15 générations du Studio et 50
+  // messages à l'assistant (30/09/2026). Pire cas IA ≈ 2 $ par essai.
   TRIAL: {
     id: "TRIAL",
     label: "Essai",
     maxConnections: 8,
     maxPostsPerMonth: 100,
     aiEnabled: true,
-    studioDailyLimit: 5,
     massPublishEnabled: false,
     maxBioLinks: 15,
     tiers: [{ maxBrands: 2, priceMonthly: 0, priceYearly: 0, stripePriceEnvVars: { month: "", year: "" } }],
     features: [
       "Jusqu'à 2 marques",
       "Comptes connectés et publications comme en Pro",
-      "IA : 20 textes, 3 miniatures et 5 générations du Studio par jour",
-      "Assistant IA : 20 messages par jour ; 3 analyses de rétention par jour",
+      `IA pendant l'essai : ${AI_MONTHLY.TRIAL.retention} analyses Rétention, ${AI_MONTHLY.TRIAL.image} miniatures, ${AI_MONTHLY.TRIAL.studio} générations du Studio et ${AI_MONTHLY.TRIAL.assistant} messages à l'assistant`,
+      "Textes IA (titres, légendes) : 20 par jour",
       "Rapports clients, calendrier partagé, media kit",
       "Page « link in bio » publique (15 liens)"
     ],
@@ -192,7 +229,9 @@ export const PLAN_LIMITS = {
     mediaKitEnabled: true,
     purchasable: false,
     upgradeTo: "PRO",
-    aiDaily: { text: 20, image: 3, assistant: 20, retention: 3 },
+    aiDaily: { text: 20 },
+    aiMonthly: AI_MONTHLY.TRIAL,
+    retentionPacks: false,
     aiGuardrails: true,
     aiBudgetBucket: "trial",
     approvalsEnabled: false,
@@ -211,7 +250,6 @@ export const PLAN_LIMITS = {
     maxConnections: 8,
     maxPostsPerMonth: 100,
     aiEnabled: true,
-    studioDailyLimit: 15,
     massPublishEnabled: false,
     maxBioLinks: 15,
     tiers: [
@@ -224,10 +262,11 @@ export const PLAN_LIMITS = {
       "Jusqu'à 8 comptes connectés par marque (plusieurs comptes par réseau)",
       "100 publications programmées par mois et par marque",
       "Publications envoyées plus rapidement",
-      "Assistant IA (titres, légendes, chat)",
-      "Studio IA : idées, accroches et scripts tirés de vos chiffres (15 par jour)",
-      "Analyse de rétention vidéo par IA",
-      "Génération de miniatures",
+      `Assistant IA (titres, légendes, chat) : ${AI_MONTHLY.PRO.assistant} messages par mois`,
+      `Studio IA : idées, accroches et scripts tirés de vos chiffres (${AI_MONTHLY.PRO.studio} par mois)`,
+      `Rétention IA : ${AI_MONTHLY.PRO.retention} analyses par mois, l'IA regarde vos vidéos YouTube publiques`,
+      `Miniatures IA : ${AI_MONTHLY.PRO.image} par mois`,
+      PACK_LINE,
       "Page « link in bio » publique (15 liens)",
       "Thèmes exclusifs « Saphir », « Or Impérial » et « Aube »",
       "Rapports clients automatiques",
@@ -239,7 +278,9 @@ export const PLAN_LIMITS = {
     mediaKitEnabled: true,
     purchasable: true,
     upgradeTo: "AGENCY",
-    aiDaily: { text: 60, image: 15, assistant: 100, retention: 10 },
+    aiDaily: { text: 60 },
+    aiMonthly: AI_MONTHLY.PRO,
+    retentionPacks: true,
     aiGuardrails: false,
     aiBudgetBucket: null,
     approvalsEnabled: false,
@@ -258,7 +299,6 @@ export const PLAN_LIMITS = {
     maxConnections: 9999,
     maxPostsPerMonth: 999999,
     aiEnabled: true,
-    studioDailyLimit: 40,
     massPublishEnabled: true,
     maxBioLinks: 9999,
     tiers: [
@@ -271,8 +311,11 @@ export const PLAN_LIMITS = {
       "Comptes réseaux illimités par marque",
       "Publications illimitées",
       "Publication en masse (1 vidéo → tous les réseaux/comptes en 1 clic)",
-      "Assistant IA + analyse de rétention",
-      "Studio IA : 40 idées ou scripts par jour",
+      `Assistant IA : ${AI_MONTHLY.AGENCY.assistant} messages par mois`,
+      `Rétention IA : ${AI_MONTHLY.AGENCY.retention} analyses par mois, avec une réflexion plus poussée`,
+      `Studio IA : ${AI_MONTHLY.AGENCY.studio} idées ou scripts par mois`,
+      `Miniatures IA : ${AI_MONTHLY.AGENCY.image} par mois`,
+      PACK_LINE,
       "Publications prioritaires",
       "Support prioritaire",
       "Page « link in bio » publique (liens illimités)",
@@ -287,7 +330,9 @@ export const PLAN_LIMITS = {
     mediaKitEnabled: true,
     purchasable: true,
     upgradeTo: null,
-    aiDaily: { text: 150, image: 40, assistant: 300, retention: 30 },
+    aiDaily: { text: 150 },
+    aiMonthly: AI_MONTHLY.AGENCY,
+    retentionPacks: true,
     aiGuardrails: false,
     aiBudgetBucket: null,
     approvalsEnabled: true,

@@ -16,6 +16,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
+import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { PAID_PLANS as PAID_PLAN_IDS, PLAN_LIMITS, type Plan, type BillingInterval } from "@/lib/plans";
 import { clsx } from "@/lib/clsx";
@@ -97,8 +98,8 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
         ))}
       </ul>
 
-      <ButtonLink href="/register" className="mt-6 w-full" variant={highlighted ? "glow" : "outline"}>
-        Commencer avec {plan.label}
+      <ButtonLink href={isSiteOpen() ? "/register" : PRELAUNCH_PAGE} className="mt-6 w-full" variant={highlighted ? "glow" : "outline"}>
+        {isSiteOpen() ? `Commencer avec ${plan.label}` : "Être prévenu du lancement"}
       </ButtonLink>
     </GlassCard>
   );
@@ -170,11 +171,11 @@ export function PricingSection({ showComparisonLink = true, showHeading = true }
               ))}
               <li className="flex items-start gap-2 text-slate-500">
                 <IconLock className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Assistant IA, rapports et calendrier clients : à partir de Pro</span>
+                <span>IA (assistant, miniatures, Rétention), rapports et calendrier clients : à partir de Pro</span>
               </li>
             </ul>
-            <ButtonLink href="/register" variant="outline" className="mt-6 w-full">
-              Créer mon espace gratuitement
+            <ButtonLink href={isSiteOpen() ? "/register" : PRELAUNCH_PAGE} variant="outline" className="mt-6 w-full">
+              {isSiteOpen() ? "Créer mon espace gratuitement" : "Être prévenu du lancement"}
             </ButtonLink>
           </GlassCard>
         </RevealItem>

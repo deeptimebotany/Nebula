@@ -7,11 +7,11 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
-import { PAID_PLANS, PLANS, PLAN_LIMITS, PUBLIC_PLANS, isPaidPlanId, planIncludes } from "@/lib/plans";
+import { AI_MONTHLY, PAID_PLANS, PLANS, PLAN_LIMITS, PUBLIC_PLANS, RETENTION_PACK, isPaidPlanId, planIncludes } from "@/lib/plans";
 import { canonicalEmail } from "@/lib/billing/trial-eligibility";
 import { isDisposableDomain } from "@/data/disposable-domains";
 import { pickConnectionsToKeep, pickDefaultActiveBrand, sortByUsage } from "@/lib/billing/free-limits";
-import { aiDailyLimit, aiEmailConfirmed, globalAiBudget } from "@/lib/ai/guard";
+import { aiEmailConfirmed, aiLimit, globalAiBudget } from "@/lib/ai/guard";
 import { TOOL_DAILY_LIMITS } from "@/lib/tools/quota";
 import { estimateCostUsd } from "@/lib/ai/pricing";
 
@@ -22,13 +22,24 @@ describe("palier Essai (lot E1)", () => {
     const keys = Object.keys(PLAN_LIMITS.PRO).sort();
     for (const plan of PLANS) expect(Object.keys(PLAN_LIMITS[plan]).sort()).toEqual(keys);
   });
-  it("les limites du tableau « Décisions retenues »", () => {
-    expect(PLAN_LIMITS.FREE.aiDaily).toEqual({ text: 10, image: 2, assistant: 0, retention: 0 });
-    expect(PLAN_LIMITS.TRIAL.aiDaily).toEqual({ text: 20, image: 3, assistant: 20, retention: 3 });
-    expect(PLAN_LIMITS.PRO.aiDaily).toEqual({ text: 60, image: 15, assistant: 100, retention: 10 });
-    expect(PLAN_LIMITS.AGENCY.aiDaily).toEqual({ text: 150, image: 40, assistant: 300, retention: 30 });
-    expect([PLAN_LIMITS.FREE, PLAN_LIMITS.TRIAL, PLAN_LIMITS.PRO, PLAN_LIMITS.AGENCY].map((l) => l.studioDailyLimit)).toEqual([0, 5, 15, 40]);
+  it("les limites décidées (textes par jour ; quotas du mois depuis le 30/09/2026)", () => {
+    expect([PLAN_LIMITS.FREE, PLAN_LIMITS.TRIAL, PLAN_LIMITS.PRO, PLAN_LIMITS.AGENCY].map((l) => l.aiDaily)).toEqual([{ text: 10 }, { text: 20 }, { text: 60 }, { text: 150 }]);
+    // Tableau de Lucas : Rétention / images / Studio / assistant.
+    expect(PLAN_LIMITS.FREE.aiMonthly).toEqual({ retention: 0, image: 0, studio: 0, assistant: 0 });
+    expect(PLAN_LIMITS.TRIAL.aiMonthly).toEqual({ retention: 5, image: 5, studio: 15, assistant: 50 });
+    expect(PLAN_LIMITS.PRO.aiMonthly).toEqual({ retention: 15, image: 20, studio: 50, assistant: 150 });
+    expect(PLAN_LIMITS.AGENCY.aiMonthly).toEqual({ retention: 50, image: 60, studio: 120, assistant: 400 });
     expect(PLAN_LIMITS.TRIAL.tiers.map((t) => t.maxBrands)).toEqual([2]);
+  });
+  it("recharges Rétention : +20 pour 3,99 €, Pro et Agence seulement", () => {
+    expect(RETENTION_PACK).toMatchObject({ credits: 20, priceCents: 399, currency: "eur" });
+    expect(PLANS.filter((p) => PLAN_LIMITS[p].retentionPacks)).toEqual(["PRO", "AGENCY"]);
+  });
+  it("les textes des paliers suivent les quotas du mois", () => {
+    expect(PLAN_LIMITS.PRO.features.join(" ")).toContain(`${AI_MONTHLY.PRO.retention} analyses par mois`);
+    expect(PLAN_LIMITS.AGENCY.features.join(" ")).toContain(`Miniatures IA : ${AI_MONTHLY.AGENCY.image} par mois`);
+    expect(PLAN_LIMITS.TRIAL.features.join(" ")).toContain(`${AI_MONTHLY.TRIAL.retention} analyses Rétention`);
+    expect(PLAN_LIMITS.PRO.features.join(" ")).toContain("3,99 €");
   });
   it("l'essai a les fonctions de Pro, sans celles d'Agence", () => {
     const t = PLAN_LIMITS.TRIAL;
@@ -45,8 +56,10 @@ describe("palier Essai (lot E1)", () => {
     expect(PUBLIC_PLANS).not.toContain("TRIAL");
   });
   it("les quotas des outils se lisent dans plans.ts", () => {
-    expect(TOOL_DAILY_LIMITS.TRIAL).toEqual({ text: 20, thumbnail: 3 });
-    expect(aiDailyLimit(PLAN_LIMITS.TRIAL, "studio")).toBe(5);
+    expect(TOOL_DAILY_LIMITS.TRIAL).toEqual({ text: 20, thumbnail: 5 });
+    expect(TOOL_DAILY_LIMITS.FREE.thumbnail).toBe(0); // pas de miniature IA en Gratuit
+    expect(aiLimit(PLAN_LIMITS.TRIAL, "studio")).toBe(15);
+    expect(aiLimit(PLAN_LIMITS.PRO, "text")).toBe(60);
     expect(PLAN_LIMITS.PRO.aiBudgetBucket).toBeNull();
     expect(PLAN_LIMITS.TRIAL.aiBudgetBucket).toBe("trial");
   });
@@ -81,9 +94,12 @@ describe("porte de l'IA (lot E2)", () => {
     expect(globalAiBudget("trial")).toEqual({ image: 100, text: 1000 });
     expect(globalAiBudget("free")).toEqual({ image: 100, text: 1000 });
   });
-  it("coût estimé : jetons × prix, image au prix unitaire", () => {
-    expect(estimateCostUsd({ inputTokens: 1_000_000, outputTokens: 0, images: 0 }, "text")).toBeCloseTo(0.3);
-    expect(estimateCostUsd({ inputTokens: 0, outputTokens: 0, images: 2 }, "image")).toBeCloseTo(0.078);
+  it("coût estimé : jetons × prix du jour, image au prix unitaire", () => {
+    expect(estimateCostUsd({ inputTokens: 1_000_000, outputTokens: 0, images: 0 }, "text", "2026-10-01")).toBeCloseTo(0.75);
+    expect(estimateCostUsd({ inputTokens: 0, outputTokens: 1_000_000, images: 0 }, "text", "2026-10-01")).toBeCloseTo(3.75);
+    // gemini-3.8-flash double le 01/01/2027.
+    expect(estimateCostUsd({ inputTokens: 1_000_000, outputTokens: 1_000_000, images: 0 }, "gemini-3.8-flash", "2027-01-01")).toBeCloseTo(9);
+    expect(estimateCostUsd({ inputTokens: 0, outputTokens: 0, images: 2 }, "image")).toBeCloseTo(0.134); // 2 × 0,067 $ (1K, gemini-3.1-flash-image)
   });
 });
 

@@ -6,6 +6,7 @@ import { getEnabledOAuthProviders } from "@/lib/oauth-providers";
 import { safeRelativePath } from "@/lib/safe-redirect";
 import { pageMetadata } from "@/lib/seo";
 import { SEO_LOGIN } from "@/lib/seo-pages";
+import { PRELAUNCH_ERROR, PRELAUNCH_LOGIN_MESSAGE } from "@/lib/launch";
 
 // Titre d'onglet et description propres à cette page (le gabarit
 // "%s — Nebula" vient de src/app/layout.tsx).
@@ -23,7 +24,9 @@ const ERRORS: Record<string, string> = {
   AccessDenied: "Connexion refusée. Réessayez ou utilisez un autre moyen de connexion.",
   OAuthCallback: "La connexion a échoué. Réessayez dans un instant.",
   OAuthSignin: "La connexion a échoué. Réessayez dans un instant.",
-  Callback: "La connexion a échoué. Réessayez dans un instant."
+  Callback: "La connexion a échoué. Réessayez dans un instant.",
+  // Pré-lancement (src/lib/launch.ts) : adresse non invitée.
+  [PRELAUNCH_ERROR]: PRELAUNCH_LOGIN_MESSAGE
 };
 const INFOS: Record<string, string> = {
   "confirmer-email": "Connectez-vous pour confirmer votre adresse e-mail."

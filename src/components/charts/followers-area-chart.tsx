@@ -2,6 +2,7 @@
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/lib/chart-theme";
+import { axisTick } from "@/lib/chart-format";
 
 export interface FollowersPoint {
   date: string;
@@ -33,7 +34,7 @@ export function FollowersAreaChart({ data, variant = "theme" }: { data: Follower
           </linearGradient>
         </defs>
         <XAxis dataKey="date" tick={{ fontSize: 11, fill: axis }} />
-        <YAxis tick={{ fontSize: 11, fill: axis }} width={40} />
+        <YAxis tick={{ fontSize: 11, fill: axis }} tickFormatter={axisTick} width={40} />
         {variant === "public" ? (
           <Tooltip contentStyle={PUBLIC_COLORS.tooltip} />
         ) : (

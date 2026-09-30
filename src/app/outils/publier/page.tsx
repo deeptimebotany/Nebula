@@ -10,8 +10,9 @@
 //      Publier : avec un compte, l'IA choisit les 3 meilleures images et
 //      explique pourquoi ; sans compte, 3 images prises à intervalles
 //      réguliers (du vrai, pas une démo). « Rendre plus percutante avec
-//      l'IA » : compte obligatoire. Le sujet de la publication, en bas de la
-//      carte, sert à l'IA pour écrire les textes.
+//      l'IA » : génération d'image, Pro, Agence et essai seulement depuis le
+//      30/09/2026 (en Gratuit, le bouton ouvre l'offre Pro). Le sujet de la
+//      publication, en bas de la carte, sert à l'IA pour écrire les textes.
 //   2. Titre et 3. Description : bouton « IA » (compte, quota par compte) ;
 //      sans compte, exemple écrit à l'avance pour une publication fictive,
 //      adapté au réseau choisi, et signalé comme tel.
@@ -28,7 +29,8 @@ import { LAUNCHED_NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { IconDownload, IconSend, IconSparkle, IconUpload } from "@/components/dashboard/icons";
 import { NetworkTargetChip } from "@/components/ui/network-badge";
 import { ScheduleWithNebula } from "@/components/tools/schedule-with-nebula";
-import { ToolDemoNotice, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { ToolDemoNotice, ToolProOffer, ToolQuotaLine } from "@/components/tools/tool-demo-notice";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { ToolPreview } from "@/components/tools/tool-preview";
 import { ToolError } from "@/components/tools/tool-error";
 import { saveToolDraft, takeToolDraft, useToolAccess } from "@/components/tools/use-tool-access";
@@ -107,6 +109,9 @@ function Score({ label, value }: { label: string; value: number }) {
 export default function FreePublishToolPage() {
   const access = useToolAccess();
   const member = access.status === "member";
+  // Miniatures générées par l'IA : paliers payants et essai (30/09/2026) ; en
+  // Gratuit, le bouton ouvre l'offre Pro au lieu d'appeler l'IA.
+  const imagesIncluded = member && (access.limits?.thumbnail ?? 0) > 0;
 
   // Textes
   const [topic, setTopic] = useState("");
@@ -136,6 +141,7 @@ export default function FreePublishToolPage() {
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaErrorReason, setMediaErrorReason] = useState<string | null>(null);
   const [askAccount, setAskAccount] = useState(false);
+  const [askPro, setAskPro] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -261,6 +267,7 @@ export default function FreePublishToolPage() {
     setChosen(null);
     setImproved(null);
     setAskAccount(false);
+    setAskPro(false);
     setMediaError(null);
     setMediaErrorReason(null);
   }
@@ -356,6 +363,10 @@ export default function FreePublishToolPage() {
       setAskAccount(true);
       return;
     }
+    if (!imagesIncluded) {
+      setAskPro(true);
+      return;
+    }
     setImproving(true);
     setMediaError(null);
     setMediaErrorReason(null);
@@ -369,6 +380,12 @@ export default function FreePublishToolPage() {
       if (res.status === 401 && data.signupRequired) {
         access.becomeVisitor();
         setAskAccount(true);
+        return;
+      }
+      if (res.status === 402) {
+        // Palier sans miniatures IA (ex. fin d'essai entre-temps) : l'offre Pro.
+        setAskPro(true);
+        void access.refresh();
         return;
       }
       if (!res.ok) {
@@ -452,7 +469,8 @@ export default function FreePublishToolPage() {
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">
           Tout ce que contient la page Publier de Nebula, au même endroit : votre vidéo et sa miniature, le titre, la description et l&apos;aperçu fidèle du
-          réseau. Avec un compte gratuit, l&apos;IA écrit les textes (10 par jour) et retravaille vos miniatures (2 par jour).
+          réseau. Avec un compte gratuit, l&apos;IA écrit les textes ({PLAN_LIMITS.FREE.aiDaily.text} par jour) et choisit les meilleures images de votre vidéo ;
+          en Pro, elle retravaille aussi vos miniatures ({PLAN_LIMITS.PRO.aiMonthly.image} par mois).
         </p>
       </section>
 
@@ -626,8 +644,11 @@ export default function FreePublishToolPage() {
                         <Button variant="outline" onClick={() => void improve()} disabled={improving || access.status === "loading"} className="w-full">
                           <IconSparkle className={clsx("h-4 w-4 text-aurora-300", improving && "animate-pulse")} />
                           {improving ? "Génération..." : "Rendre plus percutante avec l'IA"}
+                          {member && !imagesIncluded && access.limits && (
+                            <span className="rounded-full border border-aurora-400/40 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-aurora-300">Pro</span>
+                          )}
                         </Button>
-                        <ToolQuotaLine status={member ? "member" : "loading"} remaining={access.remaining?.thumbnail ?? null} kind="thumbnail" />
+                        {imagesIncluded && <ToolQuotaLine status="member" remaining={access.remaining?.thumbnail ?? null} kind="thumbnail" per={access.thumbnailPer} />}
                       </div>
                       <a
                         href={current ?? chosen.url}
@@ -644,10 +665,12 @@ export default function FreePublishToolPage() {
             <ToolError message={mediaError} reason={mediaErrorReason} />
             {askAccount && !member && (
               <ToolDemoNotice slug="publier" input="" label="Avec un compte gratuit" onBeforeLeave={saveDraft}>
-                L&apos;IA retravaille votre miniature (couleurs, contraste, titre lisible) et choisit les meilleures images de vos vidéos : il faut un compte
-                gratuit, avec 2 miniatures par jour. L&apos;extraction des images et l&apos;aperçu restent libres, sans compte.
+                Avec un compte gratuit, l&apos;IA choisit les 3 meilleures images de vos vidéos et explique pourquoi. Les miniatures retravaillées par
+                l&apos;IA (couleurs, contraste, titre lisible) font partie de Pro ({PLAN_LIMITS.PRO.aiMonthly.image} par mois) et de l&apos;essai. L&apos;extraction
+                des images et l&apos;aperçu restent libres, sans compte.
               </ToolDemoNotice>
             )}
+            {askPro && member && !imagesIncluded && <ToolProOffer proImages={PLAN_LIMITS.PRO.aiMonthly.image} onClose={() => setAskPro(false)} />}
 
             <div className="mt-4 border-t border-white/[0.06] pt-4">
               <label htmlFor="publier-topic" className="block text-sm font-medium text-white">

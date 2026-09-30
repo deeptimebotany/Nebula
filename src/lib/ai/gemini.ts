@@ -1,29 +1,46 @@
 // Client pour l'API Gemini (Google AI Studio) — https://ai.google.dev
 //
-// Choisi pour son palier gratuit réel (contrairement à l'API Anthropic ou
-// OpenAI, payantes dès la première requête), ce qui compte tant que Nebula
-// ne génère pas de revenu. Toute la couche IA est OPTIONNELLE : sans
-// GEMINI_API_KEY dans .env, `isAiEnabled()` renvoie false et l'UI masque
-// simplement les boutons IA — zéro coût, zéro obligation.
+// Palier PAYANT depuis le 30/09/2026 (une seule clé, GEMINI_API_KEY, avec la
+// facturation activée) : plus de refus dus aux limites du palier gratuit,
+// accès aux modèles d'image, et Google n'utilise pas les contenus envoyés
+// pour améliorer ses produits (conditions de l'API, palier payant). Toute la
+// couche IA reste OPTIONNELLE : sans GEMINI_API_KEY, `isAiEnabled()` renvoie
+// false et l'UI masque simplement les boutons IA.
 //
-// Clé gratuite : https://aistudio.google.com/apikey
+// Modèles (défauts du code, réglables sur Vercel sans redéployer) :
+//   - GEMINI_MODEL : gemini-3.8-flash — tout le texte (assistant, Studio,
+//     audit, titres, légendes, choix des 3 meilleures images) ;
+//   - GEMINI_RETENTION_MODEL : gemini-3.8-flash — Rétention IA (vidéo) ;
+//   - GEMINI_IMAGE_MODEL : gemini-3.1-flash-image — miniatures, stickers (1K).
+// Prix et coûts estimés : src/lib/ai/pricing.ts, /admin/ia.
 
-import { SocialApiError, fetchJson } from "@/lib/social/base";
+import { SocialApiError, NO_RESPONSE_CODES, checkShape, errorFromResponse, fetchJson, readBody, sendRequest } from "@/lib/social/base";
 import { classifyProviderError } from "@/lib/social/errors";
 import { opt, soft, textSchema, z } from "@/lib/social/contract";
 import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
 import { recordAiUsage } from "@/lib/ai/usage";
+import { TOKENS_PER_IMAGE_1K } from "@/lib/ai/pricing";
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 // Google retire régulièrement les anciens modèles (gemini-2.5-flash a été
-// retiré pour les nouvelles clés le 19/09/2026, remplacé par gemini-3.6-flash
-// — message d'erreur retourné directement par l'API). Si ça se reproduit,
-// pas besoin de redéployer le code : réglez simplement GEMINI_MODEL (ou
-// GEMINI_IMAGE_MODEL) dans les variables d'environnement Vercel avec le nom
-// du nouveau modèle indiqué par l'erreur.
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-// Modèle avec génération d'image (utilisé uniquement pour les miniatures IA).
-const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// retiré pour les nouvelles clés le 19/09/2026, gemini-2.5-flash-image est
+// coupé le 02/10/2026). Si ça se reproduit, pas besoin de redéployer le
+// code : réglez simplement GEMINI_MODEL (ou GEMINI_IMAGE_MODEL,
+// GEMINI_RETENTION_MODEL) dans les variables d'environnement Vercel avec le
+// nom du nouveau modèle indiqué par l'erreur.
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+// Modèle de Rétention IA (analyse de la vidéo) : séparé pour pouvoir le
+// changer un jour sans toucher au reste.
+const RETENTION_MODEL = process.env.GEMINI_RETENTION_MODEL || DEFAULT_MODEL;
+// Modèle avec génération d'image (miniatures IA, stickers). gemini-2.5-flash-image
+// est coupé par Google le 02/10/2026 : remplacé le 30/09/2026 par
+// gemini-3.1-flash-image (stable), en 1K.
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+
+/** Modèles configurés (affichés dans /admin/ia). */
+export function configuredModels(): { text: string; retention: string; image: string } {
+  return { text: DEFAULT_MODEL, retention: RETENTION_MODEL, image: IMAGE_MODEL };
+}
 
 export function isAiEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
@@ -32,9 +49,7 @@ export function isAiEnabled(): boolean {
 function requireKey(): string {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    throw new Error(
-      "GEMINI_API_KEY manquant. Obtenez une clé gratuite sur aistudio.google.com/apikey et ajoutez-la à .env pour activer les fonctions IA."
-    );
+    throw new Error("GEMINI_API_KEY manquant. Créez une clé sur aistudio.google.com/apikey (facturation activée) et ajoutez-la à .env pour activer les fonctions IA.");
   }
   return key;
 }
@@ -44,10 +59,24 @@ export interface ChatMessage {
   text: string;
 }
 
-/** Partie d'une requête (Gemini accepte inline_data en snake_case dans les requêtes). */
-interface GenerateContentPart {
+/** Niveau de réflexion des modèles Gemini 3 (« minimal » n'existe pas sur 3.8 Flash). */
+export type ThinkingLevel = "low" | "medium" | "high";
+
+/** Partie d'une requête (Gemini accepte inline_data / file_data en snake_case dans les requêtes). */
+export interface GenerateContentPart {
   text?: string;
   inline_data?: { mime_type: string; data: string };
+  /** Vidéo par adresse (URL YouTube publique) ou fichier envoyé chez Google. */
+  file_data?: { file_uri: string; mime_type?: string };
+  /** Extrait d'une vidéo (mode normal seulement, pas en mode agentique). */
+  video_metadata?: { start_offset?: string; end_offset?: string; fps?: number };
+  /** Mode vidéo « agentique » : le modèle parcourt la vidéo lui-même. */
+  media_processing?: "AGENTIC";
+}
+
+/** Les modèles Gemini 3 : réflexion réglable, pas de température à régler. */
+export function isGemini3(model: string): boolean {
+  return /^gemini-3/i.test(model);
 }
 
 // --- Contrat de la réponse (lot 9, voir social/contract.ts) ------------------
@@ -58,18 +87,24 @@ interface GenerateContentPart {
 // Les deux formes sont acceptées. Réponses types : tests/contracts/fixtures/gemini.
 const inlineSchema = z.object({ data: z.string().min(1), mimeType: textSchema, mime_type: textSchema });
 const responsePartSchema = z.object({ text: textSchema, inlineData: soft(inlineSchema), inline_data: soft(inlineSchema), thought: soft(z.boolean()) });
+const modalityCountSchema = soft(z.array(z.object({ modality: textSchema, tokenCount: soft(z.number()) })));
+const usageSchema = soft(
+  z.object({
+    promptTokenCount: soft(z.number()),
+    candidatesTokenCount: soft(z.number()),
+    thoughtsTokenCount: soft(z.number()),
+    // Mode vidéo « agentique » : jetons lus par l'outil de parcours de la vidéo.
+    toolUsePromptTokenCount: soft(z.number()),
+    promptTokensDetails: modalityCountSchema,
+    candidatesTokensDetails: modalityCountSchema
+  })
+);
 const generateResponseSchema = z
   .object({
     candidates: opt(z.array(z.object({ content: soft(z.object({ parts: soft(z.array(responsePartSchema)) })), finishReason: textSchema }))),
     promptFeedback: soft(z.object({ blockReason: textSchema })),
     // Jetons facturés (lot E5, mesure des coûts) : la « pensée » compte en sortie.
-    usageMetadata: soft(
-      z.object({
-        promptTokenCount: soft(z.number()),
-        candidatesTokenCount: soft(z.number()),
-        thoughtsTokenCount: soft(z.number())
-      })
-    )
+    usageMetadata: usageSchema
   })
   .superRefine((d, ctx) => {
     // Sans candidat, Gemini explique toujours pourquoi (promptFeedback).
@@ -88,13 +123,52 @@ function responseText(data: GenerateResponse): string {
   throw new Error(emptyReason(data));
 }
 
-/** Image générée de la réponse (inlineData, ou inline_data par sécurité). */
-function responseImage(data: GenerateResponse): { base64: string; mimeType: string } | null {
+/**
+ * Images d'une réponse. Depuis gemini-3.1-flash-image, le modèle peut
+ * renvoyer jusqu'à deux images « brouillon » (thought: true) AVANT l'image
+ * finale : seules les images finales comptent (voir responseImage).
+ */
+function responseImages(data: GenerateResponse): { base64: string; mimeType: string; thought: boolean }[] {
+  const out: { base64: string; mimeType: string; thought: boolean }[] = [];
   for (const p of data.candidates?.[0]?.content?.parts ?? []) {
     const inline = p.inlineData ?? p.inline_data;
-    if (inline?.data) return { base64: inline.data, mimeType: inline.mimeType || inline.mime_type || "image/png" };
+    if (inline?.data) out.push({ base64: inline.data, mimeType: inline.mimeType || inline.mime_type || "image/png", thought: Boolean(p.thought) });
   }
-  return null;
+  return out;
+}
+
+/** Image générée de la réponse : la dernière image finale (jamais un brouillon). */
+function responseImage(data: GenerateResponse): { base64: string; mimeType: string } | null {
+  const images = responseImages(data);
+  const final = images.filter((i) => !i.thought);
+  const pick = final[final.length - 1] ?? images[images.length - 1];
+  return pick ? { base64: pick.base64, mimeType: pick.mimeType } : null;
+}
+
+/** Nombre d'images facturées comme « image produite » : les finales seulement. */
+function billedImageCount(data: GenerateResponse): number {
+  const images = responseImages(data);
+  if (images.length === 0) return 0;
+  return Math.max(1, images.filter((i) => !i.thought).length);
+}
+
+/** Jetons d'une réponse pour la mesure des coûts (usage.ts). */
+export function usageFromResponse(data: GenerateResponse, model: string, imageModel: boolean): { model: string; inputTokens: number; videoTokens: number; outputTokens: number; images: number; imageModel: boolean } {
+  const u = data.usageMetadata;
+  const images = billedImageCount(data);
+  const sum = (list: { modality?: string | null; tokenCount?: number | null }[] | null | undefined, match: RegExp) =>
+    (list ?? []).filter((d) => match.test(d.modality ?? "")).reduce((s, d) => s + (d.tokenCount ?? 0), 0);
+  const output = (u?.candidatesTokenCount ?? 0) + (u?.thoughtsTokenCount ?? 0);
+  // Les jetons de l'image produite sont payés au prix par image : retirés de la sortie.
+  const imageTokens = images > 0 ? sum(u?.candidatesTokensDetails, /^IMAGE$/i) || images * TOKENS_PER_IMAGE_1K : 0;
+  return {
+    model,
+    inputTokens: (u?.promptTokenCount ?? 0) + (u?.toolUsePromptTokenCount ?? 0),
+    videoTokens: sum(u?.promptTokensDetails, /^(VIDEO|AUDIO)$/i),
+    outputTokens: Math.max(0, output - imageTokens),
+    images,
+    imageModel
+  };
 }
 
 function emptyReason(data: GenerateResponse): string {
@@ -117,7 +191,8 @@ const GEMINI_ATTEMPT_TIMEOUT_MS = 50_000;
  * RESOURCE_EXHAUSTED) après les tentatives automatiques — distinguée d'une
  * simple surcharge pour que /api/ai/chat puisse répondre 429 + délai au
  * navigateur, qui affiche alors un compte à rebours au lieu d'une erreur
- * rouge (le palier gratuit de Gemini a des limites par minute et par jour).
+ * rouge (même au palier payant, Google limite le nombre de demandes par
+ * minute selon le niveau du compte).
  */
 export class GeminiQuotaError extends Error {
   retryAfterSeconds: number;
@@ -126,6 +201,101 @@ export class GeminiQuotaError extends Error {
     this.name = "GeminiQuotaError";
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+/** Options de transport d'un appel (Rétention : flux et délai plus long). */
+interface CallOptions {
+  /** Réponse en flux (streamGenerateContent, SSE) : plus de délai coupé sur une longue vidéo. */
+  stream?: boolean;
+  /** Délai total, relances comprises (55 s par défaut). */
+  deadlineMs?: number;
+  /** Délai d'une tentative (50 s par défaut). */
+  attemptTimeoutMs?: number;
+}
+
+/** Délai sans nouvelle donnée dans un flux avant d'abandonner. */
+const STREAM_IDLE_MS = 90_000;
+
+/**
+ * Appel en flux (`streamGenerateContent?alt=sse`) : même requête, réponse en
+ * morceaux « data: {…} » assemblés ici en une seule réponse, vérifiée par le
+ * même contrat. Utilisé par Rétention (vidéos jusqu'à 20 minutes).
+ */
+async function streamGenerate(url: string, key: string, body: unknown, timeoutMs: number): Promise<GenerateResponse> {
+  const res = await sendRequest("GEMINI", url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    timeoutMs
+  });
+  if (!res.ok) {
+    const { text, json } = await readBody("GEMINI", res, "POST");
+    throw errorFromResponse("GEMINI", res, text, json);
+  }
+  const merged: { candidates?: { content: { parts: Record<string, unknown>[] }; finishReason?: string }[]; promptFeedback?: unknown; usageMetadata?: unknown } = {};
+  const parts: Record<string, unknown>[] = [];
+  let finishReason: string | undefined;
+  let sawCandidate = false;
+  const absorb = (payload: string) => {
+    const trimmed = payload.trim();
+    if (!trimmed || trimmed === "[DONE]") return;
+    let chunk: { candidates?: { content?: { parts?: Record<string, unknown>[] }; finishReason?: string }[]; promptFeedback?: unknown; usageMetadata?: unknown };
+    try {
+      chunk = JSON.parse(trimmed);
+    } catch {
+      throw new SocialApiError("GEMINI", "réponse en flux illisible.", 502, trimmed.slice(0, 200), "UNEXPECTED_RESPONSE");
+    }
+    const c = chunk.candidates?.[0];
+    if (c) {
+      sawCandidate = true;
+      for (const part of c.content?.parts ?? []) {
+        // Morceaux de texte consécutifs de même nature : recollés.
+        const last = parts[parts.length - 1];
+        if (typeof part.text === "string" && last && typeof last.text === "string" && Boolean(last.thought) === Boolean(part.thought)) last.text = `${last.text}${part.text}`;
+        else parts.push({ ...part });
+      }
+      if (c.finishReason) finishReason = c.finishReason;
+    }
+    if (chunk.promptFeedback) merged.promptFeedback = chunk.promptFeedback;
+    if (chunk.usageMetadata) merged.usageMetadata = chunk.usageMetadata;
+  };
+  const reader = res.body?.getReader();
+  if (!reader) throw new SocialApiError("GEMINI", "réponse en flux vide.", 502, undefined, "UNEXPECTED_RESPONSE");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const idle = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new SocialApiError("GEMINI", "le service IA ne répond plus (flux interrompu).", 504, undefined, NO_RESPONSE_CODES.TIMEOUT)), STREAM_IDLE_MS);
+    });
+    let step: ReadableStreamReadResult<Uint8Array>;
+    try {
+      step = await Promise.race([reader.read(), idle]);
+    } catch (err) {
+      if (err instanceof SocialApiError) throw err;
+      const name = (err as Error).name;
+      throw new SocialApiError("GEMINI", "connexion coupée pendant la réponse.", name === "TimeoutError" || name === "AbortError" ? 504 : 503, undefined, name === "TimeoutError" || name === "AbortError" ? NO_RESPONSE_CODES.TIMEOUT : NO_RESPONSE_CODES.CONNECTION_LOST);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (step.done) break;
+    buffer += decoder.decode(step.value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.search(/\r?\n\r?\n/)) >= 0) {
+      const event = buffer.slice(0, sep);
+      buffer = buffer.slice(sep).replace(/^\r?\n\r?\n/, "");
+      const data = event
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith("data:"))
+        .map((l) => l.slice(5))
+        .join("\n");
+      absorb(data);
+    }
+  }
+  if (buffer.trim()) absorb(buffer.replace(/^data:/, ""));
+  if (sawCandidate) merged.candidates = [{ content: { parts }, ...(finishReason ? { finishReason } : {}) }];
+  return checkShape("GEMINI", generateResponseSchema, merged, "POST :streamGenerateContent", 200);
 }
 
 // "This model is currently experiencing high demand" (503/UNAVAILABLE) et
@@ -142,32 +312,31 @@ export class GeminiQuotaError extends Error {
 // elle pouvait finir dans des journaux), réponse vérifiée par son contrat,
 // et le propriétaire prévenu quand la configuration est en cause (modèle
 // retiré par Google, clé refusée, format de réponse changé).
-async function fetchGeminiWithRetry(model: string, body: unknown): Promise<GenerateResponse> {
+async function fetchGeminiWithRetry(model: string, body: unknown, options: CallOptions = {}): Promise<GenerateResponse> {
   const key = requireKey();
-  const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`;
-  const maxAttempts = 3;
-  const deadline = Date.now() + GEMINI_DEADLINE_MS;
+  const url = options.stream
+    ? `${API_BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`
+    : `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`;
+  const maxAttempts = options.stream ? 2 : 3;
+  const deadline = Date.now() + (options.deadlineMs ?? GEMINI_DEADLINE_MS);
+  const attemptTimeout = options.attemptTimeoutMs ?? GEMINI_ATTEMPT_TIMEOUT_MS;
 
   for (let attempt = 1; ; attempt++) {
     const remaining = deadline - Date.now();
     try {
-      const data = await fetchJson("GEMINI", url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify(body),
-        cache: "no-store",
-        timeoutMs: Math.max(1_000, Math.min(GEMINI_ATTEMPT_TIMEOUT_MS, remaining)),
-        schema: generateResponseSchema
-      });
-      // Réponse reçue = appel facturé : jetons et images comptés (lot E5).
-      const usage = data.usageMetadata;
-      const images = (data.candidates?.[0]?.content?.parts ?? []).filter((p) => (p.inlineData ?? p.inline_data)?.data).length;
-      await recordAiUsage({
-        inputTokens: usage?.promptTokenCount ?? 0,
-        outputTokens: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
-        images,
-        imageModel: model === IMAGE_MODEL
-      });
+      const timeoutMs = Math.max(1_000, Math.min(attemptTimeout, remaining));
+      const data = options.stream
+        ? await streamGenerate(url, key, body, timeoutMs)
+        : await fetchJson("GEMINI", url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+            body: JSON.stringify(body),
+            cache: "no-store",
+            timeoutMs,
+            schema: generateResponseSchema
+          });
+      // Réponse reçue = appel facturé : jetons, jetons de vidéo et images comptés.
+      await recordAiUsage(usageFromResponse(data, model, model === IMAGE_MODEL));
       return data;
     } catch (err) {
       if (!(err instanceof SocialApiError)) throw err;
@@ -188,7 +357,7 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
       if (err.status === 404 || status === "NOT_FOUND") {
         void alertOwner({
           title: "Gemini : modèle IA indisponible",
-          body: `Google ne trouve plus le modèle « ${model} ». Réglez GEMINI_MODEL (ou GEMINI_IMAGE_MODEL pour les images) sur Vercel avec un modèle actuel (voir ai.google.dev/gemini-api/docs/models). Message : ${googleMessage}`,
+          body: `Google ne trouve plus le modèle « ${model} ». Réglez GEMINI_MODEL (ou GEMINI_IMAGE_MODEL, GEMINI_RETENTION_MODEL) sur Vercel avec un modèle actuel (voir ai.google.dev/gemini-api/docs/models). Message : ${googleMessage}`,
           dedupeKey: `gemini-model:${model}`
         });
         throw new Error("Le modèle d'IA configuré n'est plus disponible chez Google. L'équipe Nebula est prévenue et le remplace au plus vite.");
@@ -197,7 +366,7 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
       if (err.status === 401 || err.status === 403 || /API_KEY_INVALID|API key not valid/i.test(JSON.stringify(err.raw ?? ""))) {
         void alertOwner({
           title: "Gemini : clé d'API refusée",
-          body: `Google refuse la clé GEMINI_API_KEY : toutes les fonctions IA sont en panne. Créez une nouvelle clé sur aistudio.google.com/apikey et remplacez-la sur Vercel. Message : ${googleMessage}`,
+          body: `Google refuse la clé GEMINI_API_KEY : toutes les fonctions IA sont en panne. Vérifiez la facturation du projet dans AI Studio, ou créez une nouvelle clé sur aistudio.google.com/apikey et remplacez-la sur Vercel. Message : ${googleMessage}`,
           dedupeKey: "gemini-key"
         });
         throw new Error("Le service IA est momentanément indisponible (configuration). L'équipe Nebula est prévenue.");
@@ -212,7 +381,7 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
           const hinted = /retry in (\d+(?:\.\d+)?)s/i.exec(googleMessage);
           const retryAfter = hinted ? Math.ceil(Number(hinted[1])) : err.retryAfterMs ? Math.ceil(err.retryAfterMs / 1000) : 60;
           throw new GeminiQuotaError(
-            "Le quota gratuit de l'IA est atteint pour le moment (limite par minute de Google Gemini). Ce n'est pas un bug : patientez un instant avant de renvoyer votre question.",
+            "Le service IA de Google reçoit trop de demandes en ce moment. Ce n'est pas un bug : patientez un instant avant de renvoyer votre demande.",
             Math.min(Math.max(retryAfter, 10), 300)
           );
         }
@@ -226,34 +395,43 @@ async function fetchGeminiWithRetry(model: string, body: unknown): Promise<Gener
   }
 }
 
+/** Marge ajoutée au plafond de sortie pour la « pensée » (comptée dans la sortie). */
+const THINKING_HEADROOM: Record<ThinkingLevel, number> = { low: 1024, medium: 4096, high: 8192 };
+
 async function callGemini(params: {
   contents: { role: string; parts: GenerateContentPart[] }[];
   systemInstruction?: string;
   jsonMode?: boolean;
   model?: string;
-  /** Plafond de tokens de la réponse (1024 par défaut). Le chat contextuel
-   *  le règle par onglet : plus haut pour une fiche miniature détaillée,
-   *  plus bas pour une question d'usage — chaque token de sortie compte
-   *  dans le quota gratuit. */
+  /** Plafond de tokens de la RÉPONSE visible (1024 par défaut) ; la marge de
+   *  « pensée » du niveau de réflexion s'y ajoute (voir THINKING_HEADROOM). */
   maxOutputTokens?: number;
-  /** 0,8 par défaut ; plus bas pour des textes fidèles à des chiffres donnés. */
+  /** Niveau de réflexion des modèles Gemini 3 (« low » par défaut : textes
+   *  courts ; « medium » : Studio, audit, Rétention ; « high » : Rétention
+   *  en Agence). Chaque jeton de « pensée » est facturé comme de la sortie. */
+  thinking?: ThinkingLevel;
+  /** Ignorée sur Gemini 3 (Google recommande de laisser la valeur par
+   *  défaut) ; gardée pour un éventuel modèle plus ancien. */
   temperature?: number;
+  /** Vidéo : résolution basse (≈ 100 jetons par seconde de vidéo). */
+  mediaResolutionLow?: boolean;
+  transport?: CallOptions;
 }): Promise<string> {
   const model = params.model || DEFAULT_MODEL;
-
-  const body: Record<string, unknown> = {
-    contents: params.contents,
-    generationConfig: {
-      temperature: params.temperature ?? 0.8,
-      maxOutputTokens: params.maxOutputTokens ?? 1024,
-      ...(params.jsonMode ? { responseMimeType: "application/json" } : {})
-    }
+  const gemini3 = isGemini3(model);
+  const thinking = params.thinking ?? "low";
+  const generationConfig: Record<string, unknown> = {
+    maxOutputTokens: (params.maxOutputTokens ?? 1024) + (gemini3 ? THINKING_HEADROOM[thinking] : 0),
+    ...(gemini3 ? { thinkingConfig: { thinkingLevel: thinking } } : { temperature: params.temperature ?? 0.8 }),
+    ...(params.jsonMode ? { responseMimeType: "application/json" } : {}),
+    ...(params.mediaResolutionLow ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {})
   };
+  const body: Record<string, unknown> = { contents: params.contents, generationConfig };
   if (params.systemInstruction) {
     body.systemInstruction = { role: "system", parts: [{ text: params.systemInstruction }] };
   }
 
-  const data = await fetchGeminiWithRetry(model, body);
+  const data = await fetchGeminiWithRetry(model, body, params.transport);
   return responseText(data);
 }
 
@@ -360,7 +538,7 @@ export async function generateAuditParagraphs(systemInstruction: string, factsJs
   const text = await callGemini({
     jsonMode: true,
     maxOutputTokens: 900,
-    temperature: 0.4,
+    thinking: "medium",
     systemInstruction,
     contents: [{ role: "user", parts: [{ text: `Faits calculés (JSON) :\n${factsJson}\n\nRéponds UNIQUEMENT par un objet JSON {"paragraphs": ["…", "…", "…"]}.` }] }]
   });
@@ -383,7 +561,7 @@ export async function generateStudioJson(systemInstruction: string, prompt: stri
   return callGemini({
     jsonMode: true,
     maxOutputTokens,
-    temperature: 0.85,
+    thinking: "medium",
     systemInstruction,
     contents: [{ role: "user", parts: [{ text: prompt }] }]
   });
@@ -482,6 +660,49 @@ export interface GeneratedThumbnail {
   mimeType: string;
 }
 
+/** Réglages d'image : taille 1K (0,067 $ l'image) et format imposé. */
+export type ImageAspect = "16:9" | "1:1";
+
+/**
+ * Corps possibles de la requête d'image, du plus précis au plus simple.
+ * La doc de Google montre aujourd'hui deux écritures du réglage d'image
+ * (`imageConfig`, et `responseFormat.image` dans l'exemple REST le plus
+ * récent) : si Google refuse la première (champ inconnu, 400), on essaie la
+ * suivante, puis sans réglage (le format est aussi demandé dans le texte).
+ * Un refus 400 n'est pas facturé.
+ */
+export function imageRequestBodies(parts: GenerateContentPart[], aspect: ImageAspect): Record<string, unknown>[] {
+  const contents = [{ role: "user", parts }];
+  const image = { aspectRatio: aspect, imageSize: "1K" };
+  return [
+    { contents, generationConfig: { responseModalities: ["TEXT", "IMAGE"], imageConfig: image } },
+    { contents, generationConfig: { responseModalities: ["TEXT", "IMAGE"], responseFormat: { image } } },
+    { contents, generationConfig: { responseModalities: ["TEXT", "IMAGE"] } }
+  ];
+}
+
+const CONFIG_REFUSED = /imageConfig|responseFormat|image_config|response_format|Unknown name|Invalid JSON payload|Cannot find field|INVALID_ARGUMENT/i;
+
+async function generateImage(parts: GenerateContentPart[], aspect: ImageAspect): Promise<GeneratedThumbnail> {
+  const bodies = imageRequestBodies(parts, aspect);
+  let lastError: unknown;
+  for (let i = 0; i < bodies.length; i++) {
+    try {
+      const data = await fetchGeminiWithRetry(IMAGE_MODEL, bodies[i]);
+      const image = responseImage(data);
+      if (!image) throw new Error(data.candidates?.length ? "Gemini n'a renvoyé aucune image cette fois : réessayez." : emptyReason(data));
+      return image;
+    } catch (err) {
+      lastError = err;
+      const message = (err as Error).message ?? "";
+      // Seul un refus du RÉGLAGE fait passer à l'écriture suivante.
+      if (i < bodies.length - 1 && CONFIG_REFUSED.test(message) && !/aucune image|refusé de traiter/i.test(message)) continue;
+      throw err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Erreur du service IA.");
+}
+
 /**
  * Génère une miniature "punchy" à partir d'une frame réelle de la vidéo
  * (extraite côté navigateur, sans ffmpeg — voir composer/page.tsx) : Gemini
@@ -511,18 +732,7 @@ export async function generateThumbnail(input: {
     "Format 16:9."
   ].join(" ");
 
-  const data = await fetchGeminiWithRetry(IMAGE_MODEL, {
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }]
-      }
-    ]
-  });
-
-  const image = responseImage(data);
-  if (!image) throw new Error(data.candidates?.length ? "Gemini n'a renvoyé aucune image cette fois : réessayez." : emptyReason(data));
-  return image;
+  return generateImage([{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }], "16:9");
 }
 
 /**
@@ -542,19 +752,7 @@ export async function generateStickerPack(input: { prompt: string }): Promise<Ge
     "utilisable en petite taille (comme une réaction sur un réseau social)."
   ].join(" ");
 
-  const data = await fetchGeminiWithRetry(IMAGE_MODEL, {
-    contents: [{ role: "user", parts: [{ text: prompt }] }]
-  });
-
-  const image = responseImage(data);
-  if (!image) throw new Error(data.candidates?.length ? "Gemini n'a renvoyé aucune image cette fois : réessayez." : emptyReason(data));
-  return image;
-}
-
-export interface FrameInput {
-  timeRatio: number; // 0..1, position dans la vidéo
-  base64: string;
-  mimeType: string;
+  return generateImage([{ text: prompt }], "1:1");
 }
 
 export interface RetentionPoint {
@@ -562,115 +760,35 @@ export interface RetentionPoint {
   watchRatio: number;
 }
 
-export interface VideoAnalysis {
-  summary: string;
-  dropOffPoints: { timeRatio: number; watchRatio: number; note: string }[];
-  recommendations: string[];
+/**
+ * Rétention IA (30/09/2026) : envoie la demande préparée par
+ * src/lib/ai/retention.ts (courbe, chutes calculées par Nebula, vidéo
+ * YouTube publique entière, extraits, miniature ou images) au modèle de
+ * Rétention, en flux, avec un délai long (vidéos jusqu'à 20 minutes).
+ * Renvoie le texte JSON brut : son contrat est vérifié par retention.ts.
+ */
+export async function generateRetentionJson(params: {
+  systemInstruction: string;
+  parts: GenerateContentPart[];
+  thinking: ThinkingLevel;
+  /** Vidéo en résolution basse (≈ 100 jetons par seconde). */
+  video: boolean;
+  deadlineMs?: number;
+}): Promise<string> {
+  return callGemini({
+    model: RETENTION_MODEL,
+    systemInstruction: params.systemInstruction,
+    contents: [{ role: "user", parts: params.parts }],
+    jsonMode: true,
+    maxOutputTokens: 3_000,
+    thinking: params.thinking,
+    mediaResolutionLow: params.video,
+    transport: { stream: true, deadlineMs: params.deadlineMs ?? 250_000, attemptTimeoutMs: params.deadlineMs ?? 240_000 }
+  });
 }
 
-/**
- * Analyse la rétention d'une vidéo à la manière du "YouTube Studio AI
- * Insights" : on fournit à Gemini la vraie courbe de rétention (récupérée
- * via YouTube Analytics API, voir src/lib/social/youtube.ts::fetchRetention)
- * ainsi que des frames extraites de la vidéo aux points de décrochage
- * (ffmpeg, voir src/lib/video/frames.ts). Gemini "regarde" ces images et
- * corrèle avec la courbe pour expliquer ce qui se passe à l'écran à ces
- * instants et ce qu'il faudrait changer.
- */
-export async function analyzeVideoRetention(input: {
-  title: string;
-  caption: string;
-  retentionCurve: RetentionPoint[];
-  frames: FrameInput[];
-}): Promise<VideoAnalysis> {
-  const { title, caption, retentionCurve, frames } = input;
-
-  const curveDescription = retentionCurve
-    .map((p) => `t=${Math.round(p.timeRatio * 100)}% → ${Math.round(p.watchRatio * 100)}% de spectateurs restants`)
-    .join("\n");
-
-  const promptText = [
-    "Tu es un analyste de performance vidéo, comme l'assistant IA de YouTube Studio.",
-    `Titre de la vidéo : ${title}`,
-    `Description : ${caption}`,
-    "Voici la courbe réelle de rétention d'audience (donnée par YouTube Analytics) :",
-    curveDescription,
-    "Voici des images extraites de la vidéo aux instants correspondant aux plus grosses chutes de rétention (dans l'ordre des frames fournies, timeRatio croissant).",
-    "Analyse ce qui se passe visuellement à ces moments et pourquoi les spectateurs partent probablement.",
-    "Réponds STRICTEMENT en JSON avec ce format :",
-    `{"summary": "résumé en 2-3 phrases", "dropOffPoints": [{"timeRatio": 0.0-1.0, "watchRatio": 0.0-1.0, "note": "explication du décrochage à ce moment, basée sur l'image"}], "recommendations": ["conseil actionnable 1", "conseil actionnable 2", "..."]}`
-  ].join("\n\n");
-
-  const parts: GenerateContentPart[] = [{ text: promptText }];
-  for (const frame of frames) {
-    parts.push({ inline_data: { mime_type: frame.mimeType, data: frame.base64 } });
-  }
-
-  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      summary: parsed.summary ?? "",
-      dropOffPoints: Array.isArray(parsed.dropOffPoints) ? parsed.dropOffPoints : [],
-      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : []
-    };
-  } catch {
-    return { summary: raw, dropOffPoints: [], recommendations: [] };
-  }
-}
-
-/**
- * Version "chaîne entière" de analyzeVideoRetention(), utilisée par l'outil
- * autonome /retention (voir produit n°3 de la feuille de route) : contraint
- * à la miniature publique de la vidéo (via l'API YouTube Data) plutôt qu'à
- * des frames extraites au ffmpeg aux instants de décrochage, car on n'a pas
- * forcément le fichier vidéo source stocké dans Nebula (vidéo publiée
- * ailleurs, ou importée avant l'existence de l'outil). Volontairement plus
- * prudent dans le prompt : Gemini n'a qu'UNE SEULE image (la miniature, pas
- * le contenu réel à chaque seconde), donc ses observations "visuelles" sont
- * cadrées comme des hypothèses à vérifier, pas des faits établis — pour ne
- * jamais donner l'impression d'avoir "vu" un instant qu'il n'a pas vu.
- */
-export async function analyzeVideoRetentionByThumbnail(input: {
-  title: string;
-  description: string;
-  retentionCurve: RetentionPoint[];
-  thumbnailBase64: string;
-  thumbnailMimeType: string;
-}): Promise<VideoAnalysis> {
-  const { title, description, retentionCurve, thumbnailBase64, thumbnailMimeType } = input;
-
-  const curveDescription = retentionCurve
-    .map((p) => `t=${Math.round(p.timeRatio * 100)}% → ${Math.round(p.watchRatio * 100)}% de spectateurs restants`)
-    .join("\n");
-
-  const promptText = [
-    "Tu es un analyste de performance vidéo YouTube, comme l'assistant IA de YouTube Studio.",
-    `Titre de la vidéo : ${title}`,
-    `Description : ${description || "(aucune)"}`,
-    "Voici la courbe RÉELLE de rétention d'audience (donnée par YouTube Analytics) :",
-    curveDescription,
-    "Tu ne disposes que de la miniature publique de la vidéo (image jointe) — PAS des images du contenu à chaque instant. Base tes hypothèses sur le titre, la description, la forme de la courbe (chute brutale au début = accroche faible, décrochage progressif = rythme qui s'essouffle, plateau = contenu qui retient bien...) et ce que suggère la miniature, sans jamais prétendre avoir vu ce qui se passe réellement à l'écran à un instant précis.",
-    "Réponds STRICTEMENT en JSON avec ce format :",
-    `{"summary": "résumé en 2-3 phrases", "dropOffPoints": [{"timeRatio": 0.0-1.0, "watchRatio": 0.0-1.0, "note": "hypothèse sur la cause probable de ce décrochage, formulée comme une hypothèse"}], "recommendations": ["conseil actionnable 1", "conseil actionnable 2", "..."]}`
-  ].join("\n\n");
-
-  const parts: GenerateContentPart[] = [
-    { text: promptText },
-    { inline_data: { mime_type: thumbnailMimeType, data: thumbnailBase64 } }
-  ];
-
-  const raw = await callGemini({ contents: [{ role: "user", parts }], jsonMode: true });
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      summary: parsed.summary ?? "",
-      dropOffPoints: Array.isArray(parsed.dropOffPoints) ? parsed.dropOffPoints : [],
-      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : []
-    };
-  } catch {
-    return { summary: raw, dropOffPoints: [], recommendations: [] };
-  }
+export function retentionModel(): string {
+  return RETENTION_MODEL;
 }
 
 /**

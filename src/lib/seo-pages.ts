@@ -159,6 +159,15 @@ export const SEO_REGISTER: SeoPage = {
   eyebrow: "Inscription"
 };
 
+/** Pré-lancement (30/09/2026) : page « Bientôt », non indexée (temporaire). */
+export const SEO_PRELAUNCH: SeoPage = {
+  path: "/bientot",
+  title: "Nebula ouvre bientôt : être prévenu du lancement",
+  description:
+    "Nebula se prépare au décollage. Laissez votre adresse pour recevoir un seul e-mail le jour de l'ouverture officielle, et essayez déjà les outils gratuits.",
+  eyebrow: "Bientôt"
+};
+
 export const SEO_LOGIN: SeoPage = {
   path: "/login",
   title: "Connexion",

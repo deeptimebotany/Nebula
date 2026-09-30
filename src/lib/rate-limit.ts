@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { purgeMonthlyCounters } from "@/lib/ai/counters";
 
 // Limitation de débit par IP pour les routes publiques sensibles
 // (inscription, connexion par mot de passe, mot de passe oublié). Réutilise
@@ -91,9 +92,11 @@ export const RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques 
 export async function purgeExpiredRateLimits(): Promise<number> {
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   const aiCutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
-  const [short, ai] = await Promise.all([
+  const [short, ai, monthly] = await Promise.all([
     prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: cutoff }, NOT: { tool: { startsWith: "ai-" } } } }),
-    prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: aiCutoff }, tool: { startsWith: "ai-" } } })
+    prisma.publicToolUsage.deleteMany({ where: { updatedAt: { lt: aiCutoff }, tool: { startsWith: "ai-" } } }),
+    // Quotas mensuels de l'IA (30/09/2026) : ~2 mois sans usage.
+    purgeMonthlyCounters().catch(() => 0)
   ]);
-  return short.count + ai.count;
+  return short.count + ai.count + monthly;
 }

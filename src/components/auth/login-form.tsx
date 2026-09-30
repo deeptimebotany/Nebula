@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { AuthShell, OAuthButtons } from "@/components/auth/auth-shell";
+import { EARLY_ACCESS_QUERY, PRELAUNCH_ERROR, PRELAUNCH_LOGIN_MESSAGE, PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 
 interface LoginFormProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
@@ -28,6 +29,10 @@ export function LoginForm({ oauth, callbackUrl = "/dashboard", initialError = nu
     setError(null);
     const res = await signIn("credentials", { email: email.trim(), password, redirect: false });
     setLoading(false);
+    if (res?.error === PRELAUNCH_ERROR) {
+      setError(PRELAUNCH_LOGIN_MESSAGE);
+      return;
+    }
     if (res?.error) {
       // NextAuth ne distingue pas volontairement « compte inconnu » et
       // « mauvais mot de passe » (anti-énumération) ; le rate-limit (voir
@@ -42,8 +47,15 @@ export function LoginForm({ oauth, callbackUrl = "/dashboard", initialError = nu
     window.location.assign(callbackUrl);
   }
 
+  const open = isSiteOpen();
+
   return (
     <AuthShell title="Bon retour" subtitle="Connectez-vous à votre espace Nebula.">
+      {!open && (
+        <p role="status" className="mb-4 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] px-3 py-2 text-center text-sm text-amber-100">
+          Pré-lancement : la connexion est réservée à l&apos;équipe et aux partenaires invités.
+        </p>
+      )}
       <OAuthButtons oauth={oauth} onPick={(p) => signIn(p, { callbackUrl })} separatorLabel="ou avec votre email" />
 
       {info && (
@@ -83,6 +95,14 @@ export function LoginForm({ oauth, callbackUrl = "/dashboard", initialError = nu
         {error && (
           <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">
             {error}
+            {error === PRELAUNCH_LOGIN_MESSAGE && (
+              <>
+                {" "}
+                <Link href={PRELAUNCH_PAGE} className="font-medium text-white underline underline-offset-2">
+                  Aller à la page « Bientôt »
+                </Link>
+              </>
+            )}
           </p>
         )}
         <Button type="submit" disabled={loading || !email || !password} className="w-full">
@@ -90,12 +110,25 @@ export function LoginForm({ oauth, callbackUrl = "/dashboard", initialError = nu
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-400">
-        Pas encore de compte ?{" "}
-        <Link href="/register" className="text-aurora-300 hover:underline">
-          Créer mon espace gratuitement
-        </Link>
-      </p>
+      {open ? (
+        <p className="mt-6 text-center text-sm text-slate-400">
+          Pas encore de compte ?{" "}
+          <Link href="/register" className="text-aurora-300 hover:underline">
+            Créer mon espace gratuitement
+          </Link>
+        </p>
+      ) : (
+        <p className="mt-6 text-center text-sm text-slate-400">
+          Pas encore de compte ?{" "}
+          <Link href={PRELAUNCH_PAGE} className="text-aurora-300 hover:underline">
+            Être prévenu de l&apos;ouverture
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link href={`/register?${EARLY_ACCESS_QUERY.name}=${EARLY_ACCESS_QUERY.value}`} className="text-slate-400 underline-offset-2 hover:text-white hover:underline">
+            J&apos;ai une invitation
+          </Link>
+        </p>
+      )}
     </AuthShell>
   );
 }

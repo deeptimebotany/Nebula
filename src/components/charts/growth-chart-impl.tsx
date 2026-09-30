@@ -3,6 +3,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { ChartPoint } from "@/lib/types";
 import { useChartTheme } from "@/lib/chart-theme";
+import { axisTick } from "@/lib/chart-format";
 
 // Courbe de croissance des abonnés (Vue d'ensemble, Analytics). Chaque série
 // prend la couleur officielle de son réseau (la même que les pastilles) et
@@ -24,7 +25,7 @@ export function GrowthChart({ data, seriesKeys }: { data: ChartPoint[]; seriesKe
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
         <XAxis dataKey="date" tick={{ fill: theme.axis, fontSize: 11 }} axisLine={{ stroke: theme.grid }} tickLine={false} minTickGap={24} />
-        <YAxis tick={{ fill: theme.axis, fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
+        <YAxis tick={{ fill: theme.axis, fontSize: 11 }} tickFormatter={axisTick} axisLine={false} tickLine={false} width={44} />
         <Tooltip contentStyle={theme.tooltip} labelStyle={theme.labelStyle} />
         {seriesKeys.map((key, i) => (
           <Area key={key} type="monotone" dataKey={key} stroke={theme.seriesColor(key, i)} strokeWidth={2} fill={`url(#fill-${key})`} />

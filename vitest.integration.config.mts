@@ -17,6 +17,8 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    env: integrationUrl ? { NODE_ENV: "test", DATABASE_URL: integrationUrl } : { NODE_ENV: "test" }
+    // Site ouvert pour les tests existants ; les tests du pré-lancement le
+    // referment eux-mêmes (vi.stubEnv, voir tests/integration/prelaunch.test.ts).
+    env: integrationUrl ? { NODE_ENV: "test", NEXT_PUBLIC_SITE_OPEN: "true", DATABASE_URL: integrationUrl } : { NODE_ENV: "test", NEXT_PUBLIC_SITE_OPEN: "true" }
   }
 });

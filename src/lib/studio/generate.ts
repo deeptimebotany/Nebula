@@ -16,9 +16,9 @@ import { prisma } from "@/lib/prisma";
 import { GeminiQuotaError, generateStudioJson, isAiEnabled } from "@/lib/ai/gemini";
 import { getBrandPlan, type UserPlanInfo } from "@/lib/billing/plan";
 import { consumeRateLimit } from "@/lib/rate-limit";
-import { assertAiAllowed, type AiRefusalReason } from "@/lib/ai/guard";
+import { aiPeriodFor, assertAiAllowed, type AiRefusalReason } from "@/lib/ai/guard";
+import { accountCounterKey, readMonthly } from "@/lib/ai/counters";
 import { DEFAULT_TIMEZONE, utcToWallClock, wallClockToUtc } from "@/lib/timezone";
-import { PLAN_LIMITS } from "@/lib/plans";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { factsForPrompt, type StudioFacts, type TopPost } from "./facts";
 import { loadStudioFacts } from "./load";
@@ -66,10 +66,10 @@ export const studioDb = (prisma as unknown as { studioGeneration: StudioDelegate
 
 // --- Quota -----------------------------------------------------------------------
 
-/** Générations par jour pour ce palier (essai IA du parrainage : comme Pro). */
+/** Générations par MOIS pour ce palier (Essai : sur toute sa durée), 30/09/2026. */
 export function studioLimitFor(info: Pick<UserPlanInfo, "limits">): number {
   if (!info.limits.aiEnabled) return 0;
-  return info.limits.studioDailyLimit > 0 ? info.limits.studioDailyLimit : PLAN_LIMITS.PRO.studioDailyLimit;
+  return info.limits.aiMonthly.studio;
 }
 
 /** Minuit (heure de Paris) du jour de `now`, en UTC. */
@@ -78,10 +78,12 @@ export function startOfParisDay(now: Date): Date {
   return wallClockToUtc({ ...w, hour: 0, minute: 0 }, DEFAULT_TIMEZONE);
 }
 
-export async function studioQuota(userId: string, info: Pick<UserPlanInfo, "limits">, now: Date = new Date()): Promise<StudioQuota> {
+/** Quota du Studio : compteur du mois de la porte de l'IA (réservé avant chaque génération). */
+export async function studioQuota(userId: string, info: Pick<UserPlanInfo, "plan" | "limits"> & Partial<Pick<UserPlanInfo, "aiTrialUntil">>, now: Date = new Date()): Promise<StudioQuota> {
   const limit = studioLimitFor(info);
-  const used = limit > 0 ? await studioDb.count({ where: { userId, createdAt: { gte: startOfParisDay(now) } } }) : 0;
-  return { limit, used, remaining: Math.max(0, limit - used), aiConfigured: isAiEnabled() };
+  const period = aiPeriodFor(info, now);
+  const used = limit > 0 ? (await readMonthly(accountCounterKey(userId), period.key, ["studio"])).studio : 0;
+  return { limit, used, remaining: Math.max(0, limit - used), aiConfigured: isAiEnabled(), per: period.per };
 }
 
 // --- Contrats des réponses de l'IA ------------------------------------------------
@@ -267,7 +269,7 @@ export async function generateStudio(params: {
   input: IdeasInput | ScriptInput;
   now?: Date;
   llm?: LlmCall;
-  plan?: Pick<UserPlanInfo, "plan" | "limits">;
+  plan?: Pick<UserPlanInfo, "plan" | "limits"> & Partial<Pick<UserPlanInfo, "aiTrialUntil">>;
 }): Promise<GenerateResult> {
   const now = params.now ?? new Date();
   const plan = params.plan ?? (await getBrandPlan(params.brandId));
@@ -276,17 +278,10 @@ export async function generateStudio(params: {
     return { ok: false, status: 402, reason: "studio", error: "Le Studio IA écrit vos idées et vos scripts à partir de vos chiffres : il fait partie des paliers Pro et Agence." };
   }
   if (!params.llm && !isAiEnabled()) return { ok: false, status: 503, error: "L'IA n'est pas configurée sur ce site (GEMINI_API_KEY manquant)." };
-  if (quota.remaining <= 0) {
-    return {
-      ok: false,
-      status: 429,
-      error: `Vous avez utilisé vos ${quota.limit} générations du jour : elles reviennent à minuit (heure de Paris). Vos résultats restent dans l'historique.`
-    };
-  }
-  // Porte de l'IA (lot E2) : pendant l'essai, adresse confirmée et budget
-  // global du jour (le quota du Studio reste compté sur ses générations).
+  // Porte de l'IA : âge, adresse confirmée (essai), quota du MOIS réservé
+  // atomiquement, budget global du jour (essai).
   const gate = await assertAiAllowed({ userId: params.userId, plan, kind: "studio", now });
-  if (!gate.ok) return { ok: false, status: gate.status, error: gate.error, reason: gate.reason };
+  if (!gate.ok) return { ok: false, status: gate.status, error: gate.status === 429 ? `${gate.error} Vos résultats restent dans l'historique.` : gate.error, reason: gate.reason };
   const burst = await consumeRateLimit("studio", params.userId, BURST_LIMIT, BURST_WINDOW_MIN);
   if (!burst.ok) {
     await gate.release();
@@ -308,6 +303,9 @@ export async function generateStudio(params: {
       output = { kind: "script", script: annotateScript(parseScript(await llm(system, prompt, input.format === "long" ? 2_600 : 1_600), input.format), facts) };
     }
   } catch (err) {
+    // Rien n'est décompté à l'utilisateur quand la génération échoue (réponse
+    // illisible comprise) ; le budget global garde ce que Google a facturé.
+    await gate.refundAccount();
     if (err instanceof GeminiQuotaError) return { ok: false, status: 429, error: err.message };
     console.warn("[studio] génération :", (err as Error).message);
     // Réponse illisible (JSON cassé, contrat non respecté, aucune idée) : message
@@ -324,9 +322,9 @@ export async function generateStudio(params: {
   const sources = facts.topPosts.filter((p) => cited.has(p.ref));
   const row = await studioDb.create({ data: { brandId: params.brandId, userId: params.userId, kind: params.kind, input: params.input, output, sources } });
 
-  // Historique borné : les plus anciennes générations de la marque au-delà de 50.
-  // Jamais celles du jour : le quota se compte dessus (sinon, à plusieurs sur
-  // une marque, effacer les lignes du jour rendrait des générations).
+  // Historique borné : les plus anciennes générations de la marque au-delà de 50
+  // (jamais celles du jour). Le quota ne se compte plus sur ces lignes mais sur
+  // le compteur du mois de la porte de l'IA.
   const dayStart = startOfParisDay(now);
   const old = await studioDb.findMany({ where: { brandId: params.brandId }, orderBy: { createdAt: "desc" }, skip: HISTORY_KEEP, select: { id: true, createdAt: true } });
   const removable = old.filter((o) => new Date(o.createdAt).getTime() < dayStart.getTime());

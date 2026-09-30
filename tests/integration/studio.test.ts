@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Studio IA (produit n°9), sur une vraie base : faits lus en base, palier
-// Gratuit bloqué (402 « studio »), quota du jour compté sur l'historique
-// (un échec de l'IA ne coûte rien), historique borné à 50 sans jamais effacer
-// les générations du jour, publications citées gardées avec leurs chiffres,
+// Gratuit bloqué (402 « studio »), quota du MOIS compté par la porte de
+// l'IA depuis le 30/09/2026 (un échec de l'IA ne coûte rien), historique
+// borné à 50 sans jamais effacer les générations du jour, publications citées gardées avec leurs chiffres,
 // routes protégées par l'appartenance à la marque. L'IA est simulée.
 const session = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn(async () => (session.userId ? { user: { id: session.userId } } : null)) }));
@@ -16,6 +16,7 @@ import { GET as getGeneration } from "@/app/api/studio/generations/[id]/route";
 import { generateStudio, HISTORY_KEEP, studioDb, type LlmCall } from "@/lib/studio/generate";
 import { PLAN_LIMITS } from "@/lib/plans";
 import type { StudioPageDTO } from "@/lib/studio/types";
+import { accountCounterKey, parisMonth, reserveMonthly } from "@/lib/ai/counters";
 import { hasDatabase, makeBrand, resetDatabase } from "./helpers";
 
 const DAY = 86_400_000;
@@ -106,7 +107,7 @@ describe.skipIf(!hasDatabase)("Studio IA : génération, quota, historique, rout
     expect(r.generation.output).toMatchObject({ kind: "ideas", ideas: [{ basedOn: 1, network: "YOUTUBE" }, { basedOn: null, network: null }] });
     expect(r.generation.sources).toHaveLength(1);
     expect(r.generation.sources[0]).toMatchObject({ ref: 1, title: "Le cappuccino parfait", value: 9000 });
-    expect(r.quota).toMatchObject({ limit: 15, used: 1, remaining: 14 });
+    expect(r.quota).toMatchObject({ limit: 50, used: 1, remaining: 49, per: "month" });
     expect(await studioDb.count({ where: { userId: user.id } })).toBe(1);
   });
 
@@ -130,17 +131,19 @@ describe.skipIf(!hasDatabase)("Studio IA : génération, quota, historique, rout
     expect(garbled).toMatchObject({ ok: false, status: 502 });
     expect((garbled as { error: string }).error).toContain("format inattendu");
     expect(await studioDb.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.aiMonthlyUsage.findFirst({ where: { kind: "studio" } })).toMatchObject({ count: 0 });
   });
 
-  it("quota du jour : 15 en Pro, les générations d'hier ne comptent pas ; rafale bornée", { timeout: 45_000 }, async () => {
+  it("quota du mois : 50 en Pro, le mois dernier ne compte pas ; rafale bornée", { timeout: 45_000 }, async () => {
     const { user, brand } = await seedBrand();
-    await insertRows(brand.id, user.id, 3, new Date(Date.now() - 2 * DAY));
-    await insertRows(brand.id, user.id, 15, new Date(Date.now() - 60_000));
+    const key = accountCounterKey(user.id);
+    await reserveMonthly(key, "2026-08", "studio", 50, 50); // mois passé : ignoré
+    await reserveMonthly(key, parisMonth(), "studio", 50, 50);
     const r = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: PRO });
-    expect(r).toMatchObject({ ok: false, status: 429 });
-    expect((r as { error: string }).error).toContain("vos 15 générations du jour");
+    expect(r).toMatchObject({ ok: false, status: 429, reason: "ai_monthly_limit" });
+    expect((r as { error: string }).error).toMatch(/vos 50 générations du Studio de ce mois-ci.*En Agence, 120 par mois\. Vos résultats restent dans l'historique\.$/);
     const agency = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: { plan: "AGENCY" as const, limits: PLAN_LIMITS.AGENCY } });
-    expect(agency).toMatchObject({ ok: true, quota: { limit: 40, used: 16, remaining: 24 } });
+    expect(agency).toMatchObject({ ok: true, quota: { limit: 120, used: 51, remaining: 69 } });
 
     // Rafale : 8 essais en 10 minutes au plus, même ratés. La fenêtre est un
     // créneau fixe de 10 min : on évite de chevaucher sa fin (test instable sinon).
@@ -215,7 +218,7 @@ describe.skipIf(!hasDatabase)("Studio IA : génération, quota, historique, rout
 
     session.userId = user.id;
     const after = (await (await getStudio(req(`/api/studio?brandId=${brand.id}`))).json()) as StudioPageDTO;
-    expect(after.quota).toMatchObject({ limit: 15, used: 1, remaining: 14 });
+    expect(after.quota).toMatchObject({ limit: 50, used: 1, remaining: 49 });
     expect(after.history).toEqual([{ id: made.generation.id, kind: "ideas", createdAt: made.generation.createdAt, title: "Le flat white expliqué (+1)" }]);
   });
 

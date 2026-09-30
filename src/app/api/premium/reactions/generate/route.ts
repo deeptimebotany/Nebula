@@ -30,6 +30,9 @@ const PACK: { key: string; label: string; prompt: string }[] = [
 // Réservé à l'admin (ADMIN_EMAILS, voir src/lib/admin.ts) : c'est une action
 // coûteuse (8 appels IA) destinée à être lancée une fois, pas par n'importe
 // quel utilisateur.
+// 8 images à la suite : jusqu'à 300 s (Vercel avec Fluid compute).
+export const maxDuration = 300;
+
 export async function POST() {
   const session = await getServerSession(authOptions);
   const email = (session?.user as { email?: string } | undefined)?.email;
@@ -49,7 +52,7 @@ export async function POST() {
   for (const item of PACK) {
     try {
       // Coût rangé sous « ADMIN » dans /admin/ia (hors quotas : action du propriétaire).
-      const { base64, mimeType } = await runWithAiContext({ plan: "ADMIN", kind: "image", billed: false }, () => generateStickerPack({ prompt: item.prompt }));
+      const { base64, mimeType } = await runWithAiContext({ plan: "ADMIN", kind: "image", billed: false, model: null }, () => generateStickerPack({ prompt: item.prompt }));
       const { url } = await saveGeneratedImage({ base64, mimeType, baseName: item.key });
       await prisma.premiumReaction.upsert({
         where: { key: item.key },

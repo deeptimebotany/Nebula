@@ -6,6 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TURNSTILE_ENABLED, TURNSTILE_PENDING_MESSAGE, TurnstileWidget } from "@/components/turnstile-widget";
+import { isSiteOpen } from "@/lib/launch";
 
 export function NetworkWaitlistForm({ network, label }: { network: string; label: string }) {
   const [email, setEmail] = useState("");
@@ -45,7 +46,8 @@ export function NetworkWaitlistForm({ network, label }: { network: string; label
   if (done) {
     return (
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] p-5 text-sm text-emerald-100" role="status">
-        C&apos;est noté : vous recevrez un email le jour où {label} arrive dans Nebula. En attendant, votre espace gratuit vous attend.
+        C&apos;est noté : vous recevrez un email le jour où {label} arrive dans Nebula.
+        {isSiteOpen() ? " En attendant, votre espace gratuit vous attend." : " En attendant, les outils gratuits sont déjà ouverts à tous."}
       </div>
     );
   }

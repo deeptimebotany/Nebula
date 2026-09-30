@@ -3,7 +3,7 @@
 // Studio IA (produit n°9) : idées + accroches, et scripts de vidéo, écrits
 // par l'IA à partir de ce qui marche déjà pour la marque (meilleures
 // publications, heures, courbes de rétention). Choix de Lucas : une page à
-// part, 15 générations par jour en Pro et 40 en Agence ; en Gratuit, les
+// part, 50 générations par mois en Pro et 120 en Agence (30/09/2026) ; en Gratuit, les
 // faits restent visibles (calculés sans IA) et « Générer » ouvre l'offre Pro.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -123,7 +123,7 @@ export default function StudioPage() {
   const quotaLine = quota
     ? locked
       ? "Aperçu : vos chiffres sont calculés sans IA. Les idées et les scripts font partie des paliers Pro et Agence."
-      : `${quota.remaining} génération${quota.remaining > 1 ? "s" : ""} restante${quota.remaining > 1 ? "s" : ""} aujourd'hui sur ${quota.limit} · l'historique est gratuit`
+      : `${quota.remaining} génération${quota.remaining > 1 ? "s" : ""} restante${quota.remaining > 1 ? "s" : ""} ${quota.per === "trial" ? "pendant l'essai" : "ce mois-ci"} sur ${quota.limit} · l'historique est gratuit`
     : null;
 
   return (

@@ -15,7 +15,8 @@ import { DEFAULT_TIMEZONE, timeZoneLabel } from "@/lib/timezone";
 import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
-import { RetentionCurveChart } from "@/components/charts/lazy";
+import { RetentionInsightView, RetentionQuotaLine, type InsightData } from "@/components/retention/insight-view";
+import { useBootstrap } from "@/components/bootstrap-provider";
 import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { errorAdvice } from "@/lib/social/error-advice";
@@ -30,13 +31,7 @@ interface MediaAsset {
   thumbnailUrl?: string | null;
 }
 
-interface Insight {
-  id: string;
-  summary: string;
-  dropOffPoints: string;
-  recommendations: string;
-  retentionCurve: string;
-}
+type Insight = InsightData;
 
 interface Target {
   id: string;
@@ -112,6 +107,7 @@ export default function PostDetailPage() {
   const aiStatus = useAiStatus(activeBrand?.id);
   const toast = useToast();
   const upgrade = useUpgradeModal();
+  const { data: me, patch: patchMe } = useBootstrap();
   const confirmDialog = useConfirm();
   const { celebrateMilestone } = useMilestoneCelebration();
 
@@ -213,21 +209,22 @@ export default function PostDetailPage() {
     router.push("/calendar");
   }
 
-  async function analyzeRetention(targetId: string) {
+  async function analyzeRetention(targetId: string, force = false) {
     setAnalyzing(targetId);
     setAnalyzeError((prev) => ({ ...prev, [targetId]: "" }));
     const res = await fetch("/api/ai/analyze-video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postTargetId: targetId })
-    });
-    const data = await res.json();
+      body: JSON.stringify({ postTargetId: targetId, force })
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
     setAnalyzing(null);
-    if (!res.ok) {
-      if (upgrade.openFromResponse(res.status, data)) return;
+    if (!res || !res.ok) {
+      if (res && upgrade.openFromResponse(res.status, data)) return;
       setAnalyzeError((prev) => ({ ...prev, [targetId]: data.error ?? "Erreur d'analyse." }));
       return;
     }
+    if (data.quota && me) patchMe({ ai: { ...me.ai, quota: data.quota } });
     load();
   }
 
@@ -386,13 +383,6 @@ export default function PostDetailPage() {
           <div className="space-y-3">
             {post.targets.map((t) => {
               const insight = t.insights[0];
-              const retentionCurve: { timeRatio: number; watchRatio: number }[] = insight
-                ? JSON.parse(insight.retentionCurve)
-                : [];
-              const dropOffPoints: { timeRatio: number; watchRatio: number; note: string }[] = insight
-                ? JSON.parse(insight.dropOffPoints)
-                : [];
-              const recommendations: string[] = insight ? JSON.parse(insight.recommendations) : [];
 
               return (
                 <div key={t.id} className="rounded-xl border border-white/[0.06] bg-white/[0.015] p-3">
@@ -462,36 +452,16 @@ export default function PostDetailPage() {
                               {analyzeError[t.id]}
                             </p>
                           )}
+                          <RetentionQuotaLine />
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          <p className="text-sm text-slate-200">{insight.summary}</p>
-                          {retentionCurve.length > 0 && (
-                            <RetentionCurveChart points={retentionCurve} height={140} />
+                        <div className="space-y-2">
+                          <RetentionInsightView insight={insight} onRedo={() => analyzeRetention(t.id, true)} redoing={analyzing === t.id} chartHeight={140} />
+                          {analyzeError[t.id] && (
+                            <p className="max-w-md rounded-lg border border-red-400/20 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300">
+                              {analyzeError[t.id]}
+                            </p>
                           )}
-                          {dropOffPoints.length > 0 && (
-                            <ul className="space-y-1 text-xs text-slate-400">
-                              {dropOffPoints.map((d, i) => (
-                                <li key={i}>
-                                  <span className="text-aurora-300">{Math.round(d.timeRatio * 100)}%</span> — {d.note}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {recommendations.length > 0 && (
-                            <ul className="space-y-1 text-xs text-emerald-300">
-                              {recommendations.map((r, i) => (
-                                <li key={i}>✓ {r}</li>
-                              ))}
-                            </ul>
-                          )}
-                          <button
-                            onClick={() => analyzeRetention(t.id)}
-                            className="text-xs text-slate-500 hover:text-slate-300"
-                            disabled={analyzing === t.id}
-                          >
-                            {analyzing === t.id ? "Analyse en cours..." : "Relancer l'analyse"}
-                          </button>
                         </div>
                       )}
                     </div>
@@ -531,9 +501,12 @@ export default function PostDetailPage() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Écrire un message..."
+            aria-label="Message à l'équipe"
             className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
           />
           <button
+            type="button"
+            aria-label="Envoyer le message"
             onClick={sendMessage}
             disabled={sending || !input.trim()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-nebula-500 to-accent-cyan text-white disabled:opacity-40"

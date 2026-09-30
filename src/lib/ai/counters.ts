@@ -49,3 +49,69 @@ export async function readCounters(key: string, counters: string[], day: string)
   const rows = await prisma.publicToolUsage.findMany({ where: { ipHash: key, day, tool: { in: counters } }, select: { tool: true, count: true } });
   return Object.fromEntries(counters.map((c) => [c, rows.find((r) => r.tool === c)?.count ?? 0]));
 }
+
+// --- Quotas MENSUELS (30/09/2026) --------------------------------------------
+// Table à part (AiMonthlyUsage) : PublicToolUsage est purgée après 8 jours
+// sans activité, ce qui remettrait à zéro un compteur du mois resté quelques
+// jours sans usage. Même réservation atomique que ci-dessus.
+
+/** Mois « AAAA-MM » à Paris : les quotas mensuels repartent le 1er à minuit. */
+export function parisMonth(now: Date = new Date()): string {
+  return parisDay(now).slice(0, 7);
+}
+
+/** Premier jour du mois suivant (« AAAA-MM-01 »), pour l'affichage. */
+export function nextParisMonthStart(now: Date = new Date()): string {
+  const [y, m] = parisMonth(now).split("-").map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}-01`;
+}
+
+/** Période d'un essai : toute sa durée (clé stable = son dernier jour). */
+export function trialPeriod(trialEndsAt: Date): string {
+  return `essai:${parisDay(trialEndsAt)}`;
+}
+
+export async function reserveMonthly(key: string, period: string, kind: string, limit: number, amount = 1): Promise<number | null> {
+  if (limit <= 0 || amount > limit) return null;
+  const rows = await prisma.$queryRaw<{ count: number }[]>`
+    INSERT INTO "AiMonthlyUsage" ("id", "keyHash", "period", "kind", "count", "updatedAt")
+    VALUES (${randomUUID()}, ${key}, ${period}, ${kind}, ${amount}, NOW())
+    ON CONFLICT ("keyHash", "period", "kind")
+    DO UPDATE SET "count" = "AiMonthlyUsage"."count" + ${amount}, "updatedAt" = NOW()
+    WHERE "AiMonthlyUsage"."count" + ${amount} <= ${limit}
+    RETURNING "count"`;
+  return rows.length ? Number(rows[0].count) : null;
+}
+
+export async function releaseMonthly(key: string, period: string, kind: string, amount = 1): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "AiMonthlyUsage" SET "count" = GREATEST(0, "count" - ${amount}), "updatedAt" = NOW()
+    WHERE "keyHash" = ${key} AND "period" = ${period} AND "kind" = ${kind}`.catch(() => undefined);
+}
+
+export async function readMonthly(key: string, period: string, kinds: string[]): Promise<Record<string, number>> {
+  const rows = await prisma.aiMonthlyUsage.findMany({ where: { keyHash: key, period, kind: { in: kinds } }, select: { kind: true, count: true } });
+  return Object.fromEntries(kinds.map((k) => [k, rows.find((r) => r.kind === k)?.count ?? 0]));
+}
+
+/** Purge (cron) : compteurs du mois sans usage depuis plus de 62 jours (période forcément finie). */
+export async function purgeMonthlyCounters(now: Date = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - 62 * 24 * 60 * 60 * 1000);
+  const r = await prisma.aiMonthlyUsage.deleteMany({ where: { updatedAt: { lt: cutoff } } });
+  return r.count;
+}
+
+// --- Analyses Rétention achetées (recharges) ---------------------------------
+
+/** Utilise une analyse achetée : true si le solde le permettait (atomique). */
+export async function takeRetentionCredit(userId: string): Promise<boolean> {
+  const n = await prisma.$executeRaw`UPDATE "User" SET "retentionCredits" = "retentionCredits" - 1 WHERE "id" = ${userId} AND "retentionCredits" > 0`;
+  return n > 0;
+}
+
+/** Rend une analyse achetée (l'appel a échoué sans être facturé). */
+export async function giveBackRetentionCredit(userId: string): Promise<void> {
+  await prisma.$executeRaw`UPDATE "User" SET "retentionCredits" = "retentionCredits" + 1 WHERE "id" = ${userId}`.catch(() => undefined);
+}

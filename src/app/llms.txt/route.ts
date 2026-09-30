@@ -1,4 +1,4 @@
-import { PLAN_LIMITS } from "@/lib/plans";
+import { AI_MONTHLY, PLAN_LIMITS, RETENTION_PACK, formatEuroCents } from "@/lib/plans";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { COMPETITORS, UPCOMING_NETWORKS } from "@/data/competitors";
@@ -35,9 +35,10 @@ export function GET() {
     "## Tarifs",
     "",
     `- ${free.label} : ${euros(0)}, ${free.features[0]}, ${free.features[1].toLowerCase()}, ${free.features[2].toLowerCase()}, page bio (${free.maxBioLinks} liens). Sans carte bancaire, sans limite de durée.`,
-    `- ${pro.label} : ${pro.tiers.map((t) => `${euros(t.priceMonthly)}/mois pour ${t.maxBrands} marques`).join(", ")} (annuel : ${pro.tiers.map((t) => euros(t.priceYearly)).join(", ")} par an, deux mois offerts). ${pro.maxConnections} comptes par marque, ${pro.maxPostsPerMonth} publications par mois et par marque, assistant IA, rapports clients, calendrier client, page bio (${pro.maxBioLinks} liens), utilisateurs illimités.`,
-    `- ${agency.label} : ${agency.tiers.map((t) => `${euros(t.priceMonthly)}/mois pour ${t.maxBrands} marques`).join(", ")}. Comptes et publications illimités, publication en masse, support prioritaire.`,
-    `- Tout nouveau compte reçoit ${TRIAL_DAYS} jours de ${pro.label} offerts. Le prix ne dépend que du nombre de marques ; rien n'est supprimé en cas de retour au palier ${free.label}.`,
+    `- ${pro.label} : ${pro.tiers.map((t) => `${euros(t.priceMonthly)}/mois pour ${t.maxBrands} marques`).join(", ")} (annuel : ${pro.tiers.map((t) => euros(t.priceYearly)).join(", ")} par an, deux mois offerts). ${pro.maxConnections} comptes par marque, ${pro.maxPostsPerMonth} publications par mois et par marque, IA avec quotas du mois (${pro.aiMonthly.retention} analyses Rétention, ${pro.aiMonthly.image} miniatures, ${pro.aiMonthly.studio} générations du Studio, ${pro.aiMonthly.assistant} messages à l'assistant), rapports clients, calendrier client, page bio (${pro.maxBioLinks} liens), utilisateurs illimités.`,
+    `- ${agency.label} : ${agency.tiers.map((t) => `${euros(t.priceMonthly)}/mois pour ${t.maxBrands} marques`).join(", ")}. Comptes et publications illimités, publication en masse, IA avec quotas du mois (${agency.aiMonthly.retention} analyses Rétention, ${agency.aiMonthly.image} miniatures, ${agency.aiMonthly.studio} générations du Studio, ${agency.aiMonthly.assistant} messages), support prioritaire.`,
+    `- Recharge Rétention (${pro.label} et ${agency.label}) : +${RETENTION_PACK.credits} analyses pour ${formatEuroCents(RETENTION_PACK.priceCents)}, paiement unique, sans date limite.`,
+    `- Tout nouveau compte reçoit ${TRIAL_DAYS} jours d'essai (IA sur tout l'essai : ${AI_MONTHLY.TRIAL.retention} analyses Rétention, ${AI_MONTHLY.TRIAL.image} miniatures, ${AI_MONTHLY.TRIAL.studio} générations du Studio, ${AI_MONTHLY.TRIAL.assistant} messages). Le prix ne dépend que du nombre de marques ; rien n'est supprimé en cas de retour au palier ${free.label}.`,
     "",
     "## Pages utiles",
     "",

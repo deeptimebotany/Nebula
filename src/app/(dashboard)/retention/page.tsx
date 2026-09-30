@@ -5,14 +5,16 @@
 // "Analyser" sur /posts/[id], réservé aux vidéos publiées via le Composer),
 // ceci fonctionne pour N'IMPORTE QUELLE vidéo de la chaîne YouTube connectée
 // — voir le produit n°3 de la feuille de route ("outil autonome").
+// 30/09/2026 : l'IA regarde la vidéo quand elle est publique ; analyses
+// comptées par mois (+ recharges), résultat réutilisé tant qu'on ne demande
+// pas « Refaire l'analyse ».
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { RetentionCurveChart } from "@/components/charts/lazy";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
@@ -22,7 +24,9 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { IconRetention, IconSparkle, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import dynamic from "next/dynamic";
-import { useFocusMode } from "@/components/bootstrap-provider";
+import { useBootstrap, useFocusMode } from "@/components/bootstrap-provider";
+import { RetentionInsightView, RetentionQuotaLine, type InsightData } from "@/components/retention/insight-view";
+import { useSearchParams } from "next/navigation";
 import { useConnections } from "@/lib/data/hooks";
 
 // Mini-jeu d'attente chargé seulement pendant une analyse (lot 5).
@@ -42,13 +46,7 @@ interface VideoRow {
   publishedAt: string;
 }
 
-interface Insight {
-  id: string;
-  summary: string;
-  dropOffPoints: string;
-  recommendations: string;
-  retentionCurve: string;
-}
+type Insight = InsightData;
 
 // Accepte une URL YouTube complète (watch?v=, youtu.be/, /shorts/) ou un id brut.
 function extractVideoId(input: string): string | null {
@@ -63,11 +61,13 @@ function extractVideoId(input: string): string | null {
   return null;
 }
 
-export default function RetentionToolPage() {
+function RetentionTool() {
   // Mini-jeu d'attente (voir loading-mini-game.tsx) : jamais en Mode focus,
   // même règle que dans le Composer (composer/page.tsx).
   const { focusMode } = useFocusMode();
   const { activeBrand } = useBrand();
+  const { data: me, patch } = useBootstrap();
+  const recharge = useSearchParams().get("recharge");
   const toast = useToast();
   const upgrade = useUpgradeModal();
   const aiStatus = useAiStatus(activeBrand?.id);
@@ -127,22 +127,25 @@ export default function RetentionToolPage() {
     selectVideo(id, "Vidéo collée manuellement");
   }
 
-  async function analyze() {
+  async function analyze(force = false) {
     if (!connectionId || !selectedVideoId) return;
     setAnalyzing(true);
     const res = await fetch("/api/ai/analyze-channel-video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ connectionId, videoId: selectedVideoId })
-    });
-    const data = await res.json();
+      body: JSON.stringify({ connectionId, videoId: selectedVideoId, force })
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
     setAnalyzing(false);
-    if (!res.ok) {
-      if (upgrade.openFromResponse(res.status, data)) return;
+    if (!res || !res.ok) {
+      if (res && upgrade.openFromResponse(res.status, data)) return;
       toast.error(data.error ?? "Erreur d'analyse.");
       return;
     }
     setInsight(data.insight);
+    if (data.quota && me) patch({ ai: { ...me.ai, quota: data.quota } });
+    if (data.reused) toast.info("Cette vidéo a déjà été analysée : voici le résultat, rien n'a été décompté.");
+    else if (data.usedCredit) toast.info("Analyse faite avec une de vos analyses achetées.");
   }
 
   if (!activeBrand) {
@@ -155,17 +158,19 @@ export default function RetentionToolPage() {
 
   const locked = aiStatus !== null && !aiStatus.planAllowsAi;
 
-  const retentionCurve: { timeRatio: number; watchRatio: number }[] = insight ? JSON.parse(insight.retentionCurve) : [];
-  const dropOffPoints: { timeRatio: number; watchRatio: number; note: string }[] = insight ? JSON.parse(insight.dropOffPoints) : [];
-  const recommendations: string[] = insight ? JSON.parse(insight.recommendations) : [];
-
   return (
     <div className="space-y-6">
       <PageHeader
         icon={<IconRetention className="h-5 w-5" />}
         title="Rétention IA"
-        description="Analysez n'importe quelle vidéo de votre chaîne YouTube connectée — publiée via Nebula ou non — avec la vraie courbe de rétention YouTube Analytics et des recommandations générées par IA."
+        description="Analysez n'importe quelle vidéo de votre chaîne YouTube connectée — publiée via Nebula ou non. Nebula relève les chutes de la vraie courbe YouTube Analytics ; l'IA regarde la vidéo (si elle est publique) pour expliquer ce qui se passe à ces moments."
       />
+
+      {recharge === "success" && (
+        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
+          <p className="text-sm text-emerald-300">Recharge payée : vos analyses apparaissent dès que Stripe aura notifié Nebula (quelques secondes). Une notification vous le confirme.</p>
+        </GlassCard>
+      )}
 
       {locked && (
         <GlassCard>
@@ -273,6 +278,7 @@ export default function RetentionToolPage() {
               {!selectedVideoId ? (
                 <GlassCard>
                   <p className="text-sm text-slate-500">Choisissez une vidéo à gauche pour lancer une analyse.</p>
+                  <RetentionQuotaLine className="mt-3" />
                 </GlassCard>
               ) : (
                 <GlassCard>
@@ -282,36 +288,18 @@ export default function RetentionToolPage() {
                     <SkeletonText lines={4} className="mt-3" />
                   ) : !insight ? (
                     <>
-                      <Button onClick={analyze} disabled={analyzing} className="mt-3">
-                        <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la rétention (IA)"}
+                      <Button onClick={() => analyze(false)} disabled={analyzing} className="mt-3">
+                        <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours…" : "Analyser la rétention (IA)"}
                       </Button>
+                      {analyzing && <p className="mt-2 text-xs text-slate-500">L&apos;IA regarde la vidéo : jusqu&apos;à 2 ou 3 minutes pour une vidéo longue.</p>}
+                      <RetentionQuotaLine className="mt-3" />
                       {!focusMode && analyzing && <LoadingMiniGame active />}
                     </>
                   ) : (
                     <div className="mt-3 space-y-3">
-                      <p className="text-sm text-slate-200">{insight.summary}</p>
-                      {retentionCurve.length > 0 && (
-                        <RetentionCurveChart points={retentionCurve} height={180} />
-                      )}
-                      {dropOffPoints.length > 0 && (
-                        <ul className="space-y-1 text-xs text-slate-400">
-                          {dropOffPoints.map((d, i) => (
-                            <li key={i}>
-                              <span className="text-aurora-300">{Math.round(d.timeRatio * 100)}%</span> — {d.note}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {recommendations.length > 0 && (
-                        <ul className="space-y-1 text-xs text-emerald-300">
-                          {recommendations.map((r, i) => (
-                            <li key={i}>✓ {r}</li>
-                          ))}
-                        </ul>
-                      )}
-                      <button onClick={analyze} disabled={analyzing} className="text-xs text-slate-500 hover:text-slate-300">
-                        {analyzing ? "Analyse en cours..." : "Relancer l'analyse"}
-                      </button>
+                      <RetentionInsightView insight={insight} onRedo={() => analyze(true)} redoing={analyzing} />
+                      <RetentionQuotaLine />
+                      {!focusMode && analyzing && <LoadingMiniGame active />}
                     </div>
                   )}
                 </GlassCard>
@@ -321,5 +309,14 @@ export default function RetentionToolPage() {
         </>
       )}
     </div>
+  );
+}
+
+// useSearchParams (retour de Stripe, ?recharge=) : sous Suspense, comme Facturation.
+export default function RetentionToolPage() {
+  return (
+    <Suspense fallback={null}>
+      <RetentionTool />
+    </Suspense>
   );
 }

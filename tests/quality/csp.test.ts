@@ -103,7 +103,9 @@ describe("politiques", () => {
     expect(s).toContain("'nonce-abc123'");
     expect(s).toContain("'strict-dynamic'");
     expect(s).not.toContain("unsafe-inline");
-    expect(s).not.toContain("unsafe-eval");
+    expect(s).not.toMatch(/(^|\s)'unsafe-eval'/);
+    // WebAssembly seulement (encodeur AAC de l'éditeur vidéo), jamais eval().
+    expect(s).toContain("'wasm-unsafe-eval'");
   });
 
   it("vitrine : scripts du site et de la page, sans nonce ; toutes les autres règles identiques", () => {
@@ -123,6 +125,8 @@ describe("middleware", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("CSP_MODE", "");
     vi.stubEnv("NEXTAUTH_SECRET", "secret-de-test");
+    // Site ouvert (le pré-lancement a ses propres tests : tests/security/prelaunch.test.ts).
+    vi.stubEnv("NEXT_PUBLIC_SITE_OPEN", "true");
   });
   const run = (url: string) => middleware(new NextRequest(url));
 

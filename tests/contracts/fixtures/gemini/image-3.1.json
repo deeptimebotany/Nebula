@@ -1,0 +1,32 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          { "text": "Je cadre plus serré sur la tasse et j'augmente le contraste.", "thought": true },
+          { "inlineData": { "mimeType": "image/png", "data": "QlJPVUlMTE9OLTE=" }, "thought": true },
+          { "inlineData": { "mimeType": "image/png", "data": "QlJPVUlMTE9OLTI=" }, "thought": true },
+          { "text": "Voici la miniature." },
+          {
+            "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" },
+            "thoughtSignature": "c2lnbmF0dXJlLWV4ZW1wbGU="
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1310,
+    "candidatesTokenCount": 1130,
+    "thoughtsTokenCount": 214,
+    "totalTokenCount": 2654,
+    "candidatesTokensDetails": [
+      { "modality": "IMAGE", "tokenCount": 1120 },
+      { "modality": "TEXT", "tokenCount": 10 }
+    ]
+  },
+  "modelVersion": "gemini-3.1-flash-image"
+}

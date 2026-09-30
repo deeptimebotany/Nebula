@@ -3,7 +3,7 @@
 // partie visible : accueil + suggestions). Importé uniquement par
 // /api/ai/chat : rien d'ici n'est envoyé au navigateur.
 //
-// Principe d'économie du quota Gemini gratuit : le navigateur n'envoie
+// Principe d'économie de l'IA (Gemini payant, chaque jeton compte) : le navigateur n'envoie
 // qu'une CLÉ de contexte (« analytics », « thumbnails »…), jamais un texte
 // d'instruction. Le serveur assemble ici, à chaque message, une instruction
 // courte = socle commun + module de l'onglet + SEULEMENT les données que ce

@@ -16,6 +16,7 @@ import { assertSecretConfig } from "@/lib/secrets";
 import { currentSessionVersion, forgetSessionCache, isPrivilegedEmail, providerEmailVerified, sendVerificationEmail } from "@/lib/account-security";
 import { notify } from "@/lib/notifications";
 import { WELCOME_INTRO_COOKIE, WELCOME_INTRO_MAX_AGE } from "@/lib/intro/welcome";
+import { PRELAUNCH_ERROR, canEnterSite } from "@/lib/launch";
 
 // Refuse un NEXTAUTH_SECRET resté à la valeur d'exemple (voir lib/secrets.ts).
 assertSecretConfig();
@@ -223,6 +224,10 @@ export const authOptions: NextAuthOptions = {
         ]);
         if (!byIp.ok || !byAccount.ok) return null;
 
+        // Pré-lancement (src/lib/launch.ts) : adresse non invitée, refus
+        // AVANT toute lecture en base (même réponse, compte existant ou non).
+        if (!canEnterSite(emailKey)) throw new Error(PRELAUNCH_ERROR);
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() }
         });
@@ -277,6 +282,8 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" || account?.provider === "apple" || account?.provider === "facebook") {
         if (!user.email) return false;
+        // Pré-lancement : ni compte créé ni connexion pour une adresse non invitée.
+        if (!canEnterSite(user.email)) return `/login?error=${PRELAUNCH_ERROR}`;
         const result = await resolveOAuthSignIn({
           provider: account.provider,
           providerAccountId: account.providerAccountId,
@@ -315,6 +322,9 @@ export const authOptions: NextAuthOptions = {
         const own = typeof token.sv === "number" ? token.sv : 0;
         if (current === null || current !== own) throw new Error("Session révoquée");
       }
+      // Pré-lancement : une session ouverte avant la fermeture (ou copiée
+      // par « Changer de compte ») d'une adresse non invitée est refusée.
+      if (!canEnterSite(typeof token.email === "string" ? token.email : null)) throw new Error("Pré-lancement : accès réservé");
       return token;
     },
     async session({ session, token }) {

@@ -2,6 +2,7 @@
 // Remplace l'ancien footer de l'accueil (« Nebula — projet personnel… voir
 // le README »), qui n'inspirait pas confiance et pointait vers un fichier
 // que le visiteur ne peut pas ouvrir.
+import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import Link from "next/link";
 import { NebulaBrandMark } from "@/components/dashboard/nebula-brandmark";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
@@ -38,7 +39,7 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Compte",
     links: [
-      { href: "/register", label: "Créer mon espace" },
+      isSiteOpen() ? { href: "/register", label: "Créer mon espace" } : { href: PRELAUNCH_PAGE, label: "Être prévenu du lancement" },
       { href: "/login", label: "Se connecter" },
       { href: "/forgot-password", label: "Mot de passe oublié" }
     ]

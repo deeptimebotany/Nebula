@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { countOwnedBrands, getUserPlan } from "@/lib/billing/plan";
 import { getAppearanceAccess } from "@/lib/appearance-access";
 import { isBillingEnabled } from "@/lib/billing/stripe";
+import { retentionPackAvailable } from "@/lib/billing/retention-pack";
 import { DEFAULT_THEME_KEY, THEMES, canUseTheme } from "@/lib/themes";
 import { DEFAULT_BACKGROUND_KEY, canUseBackground, findBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import type { MeResponse } from "@/lib/me-types";
@@ -37,6 +38,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         email: true,
         avatarUrl: true,
         emailVerifiedAt: true,
+        ageConfirmedAt: true,
         passwordHash: true,
         themePreference: true,
         backgroundPreference: true,
@@ -117,6 +119,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     maxBrands: planInfo.maxBrands,
     brandsOwned,
     billingEnabled: isBillingEnabled(),
+    retentionPacksOpen: retentionPackAvailable(),
     isOwner: access.isOwner,
     // Easter eggs devenus des accomplissements : comptés dans Réussites, plus ici.
     eggs: { found: eggsFound, total: EASTER_EGGS.length - LINKED_EGG_KEYS.length },
@@ -154,7 +157,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     referralPromptsSeen: Array.isArray(user.referralPromptsSeen) ? (user.referralPromptsSeen as string[]) : [],
     referralCode: user.referralCode ?? null,
     networks: availableNetworks(),
-    ai: { emailConfirmed: aiEmailConfirmed(user), quota: aiQuota },
+    ai: { emailConfirmed: aiEmailConfirmed(user), ageConfirmed: Boolean(user?.ageConfirmedAt), quota: aiQuota },
     trialDenied: user.trialDeniedAt ? { reason: user.trialDeniedReason ?? "used" } : null,
     freeActiveBrandId: user.freeActiveBrandId ?? null,
     activeBrandChangeableAt: user.activeBrandChangedAt ? new Date(user.activeBrandChangedAt.getTime() + ACTIVE_BRAND_CHANGE_DAYS * 86_400_000).toISOString() : null,

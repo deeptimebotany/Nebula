@@ -22,7 +22,7 @@ import { NetworkLogo } from "@/components/ui/network-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import type { UploadedAsset } from "./composer-types";
-import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, type MediaShape, type PreviewDevice, type PreviewPost } from "./preview-network-ui";
+import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, PreviewSoundButton, type MediaShape, type PreviewDevice, type PreviewPost } from "./preview-network-ui";
 import { MotionRoot } from "@/components/motion/motion-root";
 import { BrowserFrame, PhoneFrame, ScaledFrame } from "./preview-frames";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
@@ -220,6 +220,7 @@ export function ComposerPreview({
         })}
       </div>
       <div className="flex items-center gap-1">
+        {asset?.type === "VIDEO" && <PreviewSoundButton />}
         <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-0.5" role="group" aria-label="Format de l'aperçu">
           {(
             [

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { IconSparkle, IconSend, IconChart, IconAvatar, IconHash, IconYouTube, IconClock, IconSearch } from "@/components/dashboard/icons";
@@ -93,8 +94,8 @@ export default function OutilsHubPage() {
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-sm text-slate-400 sm:text-base">
           Les mêmes assistants IA que dans Nebula. Voyez une démo tout de suite, puis générez les vôtres avec un
-          compte gratuit (10 textes et 2 miniatures par jour). Audit, taux d&apos;engagement et meilleur moment : sans
-          compte.
+          compte gratuit ({PLAN_LIMITS.FREE.aiDaily.text} textes par jour ; miniatures générées par l&apos;IA en Pro). Audit, taux
+          d&apos;engagement et meilleur moment : sans compte.
         </p>
       </section>
 

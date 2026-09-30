@@ -3,7 +3,7 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import { PricingComparison } from "@/components/marketing/pricing-comparison";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { AI_MONTHLY, PLAN_LIMITS, RETENTION_PACK, formatEuroCents } from "@/lib/plans";
 import { SavingsCalculator } from "@/components/marketing/savings-calculator";
 import { ExitIntentModal } from "@/components/marketing/exit-intent";
 import { COMPETITORS } from "@/data/competitors";
@@ -32,6 +32,14 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   {
     q: "L'abonnement annuel est-il vraiment moins cher ?",
     a: "Oui : l'annuel correspond à 10 mois au prix mensuel, soit deux mois offerts, facturés en une fois au début de la période."
+  },
+  {
+    q: "Comment fonctionnent les quotas de l'IA ?",
+    a: `Chaque palier inclut un nombre d'usages de l'IA par mois : en Pro, ${AI_MONTHLY.PRO.retention} analyses Rétention, ${AI_MONTHLY.PRO.image} miniatures, ${AI_MONTHLY.PRO.studio} générations du Studio et ${AI_MONTHLY.PRO.assistant} messages à l'assistant ; en Agence, ${AI_MONTHLY.AGENCY.retention}, ${AI_MONTHLY.AGENCY.image}, ${AI_MONTHLY.AGENCY.studio} et ${AI_MONTHLY.AGENCY.assistant}. Ils repartent à zéro le 1er de chaque mois, et la page Facturation affiche ce qu'il vous reste. Un appel qui échoue n'est jamais décompté. Nebula utilise les modèles récents de Google Gemini, en version payante : Google n'utilise pas vos contenus pour améliorer ses produits.`
+  },
+  {
+    q: "Et si je n'ai plus d'analyses Rétention avant la fin du mois ?",
+    a: `En Pro et en Agence, vous pouvez ajouter ${RETENTION_PACK.credits} analyses pour ${formatEuroCents(RETENTION_PACK.priceCents)}, en paiement unique. Elles servent une fois le quota du mois utilisé et n'expirent pas. Relancer l'analyse d'une vidéo déjà analysée n'est pas nécessaire : Nebula garde le résultat.`
   },
   {
     q: "Comment se passe le paiement ?",

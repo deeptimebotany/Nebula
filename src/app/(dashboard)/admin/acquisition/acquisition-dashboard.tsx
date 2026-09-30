@@ -217,7 +217,7 @@ export function AcquisitionDashboard() {
               ) : (
                 <ul className="mt-2 space-y-1 text-sm text-slate-300">
                   {data.waitlist.map((w) => (
-                    <li key={w.network} className="flex justify-between"><span>{w.network}</span><span className="tabular-nums text-white">{w.count}</span></li>
+                    <li key={w.network} className="flex justify-between"><span>{w.network === "lancement" ? "Lancement du site (/bientot)" : w.network}</span><span className="tabular-nums text-white">{w.count}</span></li>
                   ))}
                 </ul>
               )}
