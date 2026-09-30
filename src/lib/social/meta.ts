@@ -172,22 +172,43 @@ export async function graph<T = unknown>(
   return fetchJson(network, url.toString(), { method, cache: "no-store", timeoutMs: init.timeoutMs, schema: init.schema });
 }
 
+/**
+ * Permissions demandées à Meta, rangées comme dans le portail Meta for
+ * Developers (Cas d'utilisation → Personnaliser). Chacune correspond à un
+ * appel réellement fait par Nebula : le portail doit afficher exactement
+ * ces permissions « Prête pour le test », ni plus (Meta refuse en App Review
+ * une permission que l'app n'utilise pas) ni moins (sinon l'appel échoue).
+ * Vérifié par tests/contracts/meta-scopes.test.ts.
+ *
+ * Ajout du 30/09/2026 : read_insights (vues de la Page), pages_read_user_content
+ * (commentaires reçus sur la Page) et instagram_manage_insights (vues, portée,
+ * partages, enregistrements Instagram) — les appels existaient déjà mais
+ * revenaient vides faute de permission. Les comptes déjà connectés doivent
+ * se reconnecter pour en profiter.
+ */
+export const META_PAGES_SCOPES = [
+  "pages_show_list", // liste des Pages (/me/accounts)
+  "pages_read_engagement", // publications, abonnés, réactions de la Page
+  "pages_manage_posts", // publier sur la Page (/feed, /photos, /videos)
+  "pages_manage_engagement", // premier commentaire publié par la Page
+  "pages_read_user_content", // commentaires des abonnés (Commentaires, Engagements)
+  "read_insights", // vues de la Page (/insights page_media_view)
+  "business_management" // Pages et comptes Instagram rattachés à un portefeuille business
+] as const;
+
+export const META_INSTAGRAM_SCOPES = [
+  "instagram_basic", // profil, abonnés, liste des médias
+  "instagram_content_publish", // publier (conteneurs, /media_publish)
+  "instagram_manage_comments", // lire les commentaires, premier commentaire
+  "instagram_manage_insights" // vues, portée, partages, enregistrements (/insights)
+] as const;
+
+export const META_OAUTH_SCOPES: readonly string[] = [...META_INSTAGRAM_SCOPES, ...META_PAGES_SCOPES];
+
 function getMetaAuthUrl(state: string): string {
   const appId = requireEnv("META_APP_ID");
   const redirectUri = requireEnv("META_REDIRECT_URI");
-  const scopes = [
-    "instagram_basic",
-    "instagram_content_publish",
-    "pages_show_list",
-    "pages_read_engagement",
-    "pages_manage_posts",
-    "business_management",
-    // Nécessaires pour la fonction "premier commentaire" (bulle du Composer/
-    // Importation) — voir postComment ci-dessous. Les comptes déjà connectés
-    // avant l'ajout de ces scopes devront se reconnecter pour en bénéficier.
-    "instagram_manage_comments",
-    "pages_manage_engagement"
-  ].join(",");
+  const scopes = META_OAUTH_SCOPES.join(",");
   const url = new URL(`https://www.facebook.com/${metaGraphVersion()}/dialog/oauth`);
   url.searchParams.set("client_id", appId);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -264,7 +285,7 @@ export async function exchangeMetaCode(code: string): Promise<{
     externalAccountId: p.id,
     displayName: p.name,
     avatarUrl: p.picture?.data.url,
-    scopes: ["pages_show_list", "pages_read_engagement", "pages_manage_posts", ...(p.access_token ? [PAGE_TOKEN_MARKER] : [])].join(","),
+    scopes: [...META_PAGES_SCOPES, ...(p.access_token ? [PAGE_TOKEN_MARKER] : [])].join(","),
     authUserId: me?.id
   }));
 
@@ -282,7 +303,7 @@ export async function exchangeMetaCode(code: string): Promise<{
       displayName: igAccount.username,
       handle: `@${igAccount.username}`,
       avatarUrl: igAccount.profile_picture_url,
-      scopes: "instagram_basic,instagram_content_publish,pages_show_list",
+      scopes: [...META_INSTAGRAM_SCOPES, "pages_show_list"].join(","),
       authUserId: me?.id
     });
   }
@@ -486,7 +507,7 @@ async function fetchFacebookPostMetrics(connection: ConnectionLike): Promise<Pos
 
 /**
  * Commentaires reçus sur les publications Facebook les plus récentes de la
- * Page (scope pages_read_engagement, déjà demandé — voir getMetaAuthUrl).
+ * Page (pages_read_engagement + pages_read_user_content, voir META_PAGES_SCOPES).
  */
 async function fetchFacebookEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
   const token = await ensureFacebookPageToken(connection);
