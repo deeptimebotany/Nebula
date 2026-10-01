@@ -85,6 +85,9 @@ export interface PublishInput {
   // adresse publique. YouTube l'applique après l'envoi (thumbnails.set) ;
   // les autres réseaux l'ignorent pour l'instant.
   thumbnailUrl?: string;
+  // Instagram (01/10/2026) : collaborateurs invités comme co-auteurs (3 au
+  // plus, voir social/instagram-collaborators.ts). Ignoré par les autres réseaux.
+  instagram?: { collaborators?: string[] };
 }
 
 /**

@@ -31,6 +31,15 @@ export interface PreviewPost {
   caption: string;
   shape: MediaShape;
   onMediaShape: (w: number, h: number) => void;
+  /** Instagram : collaborateurs invités (affichés « compte et collaborateur », comme dans l'app). */
+  coAuthors?: string[];
+}
+
+/** « moncompte et cafe.nova », « moncompte et 2 autres » (en-tête Instagram d'une publication en collaboration). */
+function instagramAuthors(post: PreviewPost): string {
+  const co = post.coAuthors ?? [];
+  if (co.length === 0) return post.handle;
+  return co.length === 1 ? `${post.handle} et ${co[0]}` : `${post.handle} et ${co.length} autres`;
 }
 
 // --- Icônes (traits fins, façon applications) ------------------------------
@@ -204,7 +213,7 @@ function InstagramFeedPost({ post, width }: { post: PreviewPost; width?: number 
       <header className="flex items-center gap-2.5 px-3 py-2.5">
         <Avatar post={post} size={32} ring="instagram" />
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-[13.5px] font-semibold">{post.handle}</p>
+          <p className="truncate text-[13.5px] font-semibold">{instagramAuthors(post)}</p>
         </div>
         <Dots className="h-5 w-5" />
       </header>
@@ -249,7 +258,7 @@ function InstagramReel({ post, desktop = false }: { post: PreviewPost; desktop?:
       <div className="absolute bottom-4 left-3 right-16 space-y-2 [text-shadow:0_1px_3px_rgba(0,0,0,.6)]">
         <div className="flex items-center gap-2">
           <Avatar post={post} size={30} />
-          <span className="truncate text-[13.5px] font-semibold">{post.handle}</span>
+          <span className="truncate text-[13.5px] font-semibold">{instagramAuthors(post)}</span>
           <span className="rounded-lg border border-white/80 px-2.5 py-0.5 text-[12.5px] font-semibold">Suivre</span>
         </div>
         <p className="text-[13.5px] leading-snug">

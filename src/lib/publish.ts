@@ -1,3 +1,4 @@
+import { parseInstagramCollaborators } from "@/lib/social/instagram-collaborators";
 import { parseTiktokOptions } from "@/lib/social/tiktok-direct-post";
 import { refreshReussites } from "@/lib/reussites/engine";
 import { prisma } from "@/lib/prisma";
@@ -205,8 +206,18 @@ function buildPublishInput(post: PostForPublishing, target: TargetForPublishing,
       : {}),
     // TikTok (Direct Post, 30/09/2026) : choix de la section TikTok de
     // Publier, revérifiés par social/tiktok.ts au moment de l'envoi.
-    ...(target.network === "TIKTOK" ? tiktokInputFor(post, target) : {})
+    ...(target.network === "TIKTOK" ? tiktokInputFor(post, target) : {}),
+    // Instagram (01/10/2026) : collaborateurs, relus et nettoyés ici.
+    ...(target.network === "INSTAGRAM" ? instagramInputFor(target) : {})
   };
+}
+
+/** Collaborateurs Instagram enregistrés sur la cible (3 au plus, jamais le compte qui publie). */
+function instagramInputFor(target: TargetForPublishing): Pick<PublishInput, "instagram"> {
+  const raw = (target.metadata as { instagram?: { collaborators?: unknown } } | null)?.instagram?.collaborators;
+  const own = (target.connection as { handle?: string | null } | null)?.handle ?? null;
+  const collaborators = parseInstagramCollaborators(raw, own);
+  return collaborators.length ? { instagram: { collaborators } } : {};
 }
 
 /** Choix TikTok et durée de la vidéo (mesurée à l'envoi du fichier, sinon dans Publier). */

@@ -341,19 +341,32 @@ function Workspace({ media, fileName, logoUrl, onClose, onSave }: VideoEditorPro
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setStage({ w: el.clientWidth, h: el.clientHeight }));
+    // Stabilité (01/10/2026) : la scène est mesurée sur un cadre sans barre de
+    // défilement (voir la scène plus bas) et les écarts de moins de 2 px sont
+    // ignorés : la taille ne fait plus d'aller-retour (vidéo 16:9 qui
+    // « tremblait » : une barre de défilement apparaissait, réduisait la
+    // scène, l'aperçu rétrécissait, la barre disparaissait, et ainsi de suite).
+    const measure = () =>
+      setStage((prev) => {
+        const w = Math.floor(el.clientWidth);
+        const h = Math.floor(el.clientHeight);
+        return Math.abs(prev.w - w) < 2 && Math.abs(prev.h - h) < 2 ? prev : { w, h };
+      });
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setStage({ w: el.clientWidth, h: el.clientHeight });
+    measure();
     return () => ro.disconnect();
   }, []);
 
   const whole = tool === "crop";
   const contentW = whole ? base.w : out.width;
   const contentH = whole ? base.h : out.height;
-  const fit = Math.min((stage.w - 24) / contentW, (stage.h - 24) / contentH);
+  const fit = Math.min((stage.w - 32) / contentW, (stage.h - 32) / contentH);
   const dispScale = Math.max(0.02, fit * zoomView);
-  const dispW = Math.max(40, Math.round(contentW * dispScale));
-  const dispH = Math.max(40, Math.round(contentH * dispScale));
+  const dispW = Math.max(40, Math.floor(contentW * dispScale));
+  const dispH = Math.max(40, Math.floor(contentH * dispScale));
+  // Défilement seulement quand l'aperçu zoomé dépasse la scène.
+  const stageScroll = dispW + 24 > stage.w || dispH + 24 > stage.h;
   const dpr = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
   const pxW = Math.max(2, Math.round(Math.min(contentW, dispW * dpr)));
   const pxH = Math.max(2, Math.round((pxW * contentH) / contentW));
@@ -800,8 +813,15 @@ function Workspace({ media, fileName, logoUrl, onClose, onSave }: VideoEditorPro
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Scène */}
-          <div ref={stageRef} className="relative min-h-[220px] flex-1 overflow-auto bg-black/20">
-            <div className="flex min-h-full min-w-full items-center justify-center p-3" style={{ width: Math.max(stage.w, dispW + 24), height: Math.max(stage.h, dispH + 24) }}>
+          {/* Scène mesurée sur le cadre extérieur, qui n'a jamais de barre de
+              défilement : la barre (aperçu zoomé) vit dans le calque intérieur
+              et ne peut donc plus changer la taille mesurée (01/10/2026). */}
+          <div ref={stageRef} className="relative min-h-[220px] flex-1 overflow-hidden bg-black/20">
+            <div className={clsx("absolute inset-0", stageScroll ? "overflow-auto" : "overflow-hidden")}>
+            <div
+              className="flex min-h-full min-w-full items-center justify-center p-3"
+              style={stageScroll ? { width: Math.max(stage.w, dispW + 24), height: Math.max(stage.h, dispH + 24) } : { width: "100%", height: "100%" }}
+            >
               <div className="relative shrink-0 shadow-2xl" style={{ width: dispW, height: dispH }}>
                 <canvas ref={glCanvasRef} className="absolute inset-0 h-full w-full bg-black" aria-label="Aperçu de la vidéo modifiée" />
                 <canvas ref={layersRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
@@ -819,6 +839,7 @@ function Workspace({ media, fileName, logoUrl, onClose, onSave }: VideoEditorPro
                   )}
                 </div>
               </div>
+            </div>
             </div>
             {renderError && (
               <p role="alert" className="absolute inset-x-4 top-4 rounded-xl bg-red-500/15 p-3 text-center text-sm text-red-200">

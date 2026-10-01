@@ -23,7 +23,7 @@ import { CsvImportDialog } from "@/components/posts/csv-import-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
-import { NetworkDot } from "@/components/ui/network-badge";
+import { NetworkBadge } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
 import { IconCalendar, IconChevron, IconList, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
@@ -310,14 +310,17 @@ function PublicationRow({ post }: { post: ApiPost }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-medium text-white">{title}</p>
-            <Badge tone={meta.tone}>{meta.label}</Badge>
+            <Badge tone={meta.tone} strong>
+              {meta.label}
+            </Badge>
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span>{post.status === "PUBLISHED" ? "Publiée le" : post.status === "SCHEDULED" ? "Prévue le" : "Modifiée le"} {formatDate(post.status === "DRAFT" ? new Date(post.updatedAt) : date)}</span>
             {networks.length > 0 && (
-              <span className="flex items-center gap-1" aria-label={`Réseaux : ${networks.map((n) => NETWORK_META[n].label).join(", ")}`}>
+              // Logo et nom du réseau (01/10/2026), à la place des pastilles de couleur.
+              <span className="flex flex-wrap items-center gap-1">
                 {networks.map((n) => (
-                  <NetworkDot key={n} network={n} />
+                  <NetworkBadge key={n} network={n} size="sm" />
                 ))}
               </span>
             )}

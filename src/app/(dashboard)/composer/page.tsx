@@ -33,6 +33,9 @@ import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/compos
 import { InfoTip } from "@/components/ui/info-tip";
 import type { PickedLocation } from "@/components/composer/location-picker";
 import { PinterestOptions, DEFAULT_PINTEREST_OPTIONS, type PinterestComposerOptions } from "@/components/composer/pinterest-options";
+import { InstagramOptions, DEFAULT_INSTAGRAM_OPTIONS, type InstagramComposerOptions } from "@/components/composer/instagram-options";
+import { useConfirm } from "@/components/dashboard/confirm";
+import { IcPencil } from "@/components/video-editor/editor-icons";
 import { TiktokConsent, TiktokOptions, type TiktokSectionStatus } from "@/components/composer/tiktok-options";
 import { DEFAULT_TIKTOK_OPTIONS, type TiktokPostOptions } from "@/lib/social/tiktok-direct-post";
 import { Toggle } from "@/components/ui/toggle";
@@ -283,6 +286,7 @@ function ComposerPageInner() {
   const { activeBrand } = useBrand();
   const router = useRouter();
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const { celebrateMilestone } = useMilestoneCelebration();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
@@ -368,6 +372,8 @@ function ComposerPageInner() {
   const [youtubeOptionsOpen, setYoutubeOptionsOpen] = useState(false);
   // Pinterest : tableau et lien de l'épingle (voir pinterest-options.tsx).
   const [pinterestOptions, setPinterestOptions] = useState<PinterestComposerOptions>(DEFAULT_PINTEREST_OPTIONS);
+  // Collaborateurs Instagram (01/10/2026, voir instagram-options.tsx).
+  const [instagramOptions, setInstagramOptions] = useState<InstagramComposerOptions>(DEFAULT_INSTAGRAM_OPTIONS);
   // TikTok (règles Direct Post, 30/09/2026) : choix de la section TikTok,
   // jamais gardés d'une publication à l'autre (la confidentialité se choisit
   // à chaque fois), et ce qui bloque l'envoi (voir tiktok-options.tsx).
@@ -881,6 +887,18 @@ function ComposerPageInner() {
     setPreviewAspectClass("aspect-square");
   }
 
+  // Confirmation avant de retirer un média (01/10/2026) : une vidéo montée
+  // dans l'éditeur, par exemple, serait perdue d'un clic.
+  async function confirmRemoveAsset(a: UploadedAsset) {
+    const ok = await confirmDialog({
+      title: a.type === "VIDEO" ? "Supprimer cette vidéo de la publication ?" : "Supprimer cette image de la publication ?",
+      message: "Le fichier sera retiré de la publication en cours. Vos modifications faites dans l'éditeur vidéo seront perdues.",
+      confirmLabel: "Supprimer",
+      danger: true
+    });
+    if (ok) removeAsset(a.id);
+  }
+
   function toggleNetwork(n: Network) {
     setSelectedNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
     setSelectedConnectionByNetwork((prev) => {
@@ -982,14 +1000,9 @@ function ComposerPageInner() {
 
   async function onGenerateAll() {
     setGeneratingAll(true);
-    const tasks: Promise<void>[] = [onGenerateOne("title"), onGenerateOne("description")];
-    for (const n of selectedNetworks) {
-      if (overrides[n]?.open) {
-        tasks.push(onGenerateOne("title", n));
-        tasks.push(onGenerateOne("description", n));
-      }
-    }
-    await Promise.all(tasks);
+    // L'IA écrit le titre et la description (étapes 2 et 3) ; les textes
+    // adaptés par réseau (étape 4) restent écrits à la main (01/10/2026).
+    await Promise.all([onGenerateOne("title"), onGenerateOne("description")]);
     setGeneratingAll(false);
   }
 
@@ -1242,8 +1255,14 @@ function ComposerPageInner() {
           // + lieu (Instagram, Facebook, YouTube — voir LocationPicker).
           // + Pinterest : tableau et lien de l'épingle.
           metadata:
-            network === "YOUTUBE" || network === "PINTEREST" || network === "TIKTOK" || (aiContentOverrides[network] ?? aiContentAll) || (location && LOCATION_NETWORKS.has(network))
+            network === "YOUTUBE" ||
+            network === "PINTEREST" ||
+            network === "TIKTOK" ||
+            (network === "INSTAGRAM" && instagramOptions.collaborators.length > 0) ||
+            (aiContentOverrides[network] ?? aiContentAll) ||
+            (location && LOCATION_NETWORKS.has(network))
               ? {
+                  ...(network === "INSTAGRAM" && instagramOptions.collaborators.length > 0 ? { instagram: { collaborators: instagramOptions.collaborators } } : {}),
                   ...(network === "TIKTOK" ? { tiktok: tiktokOptions } : {}),
                   ...(network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : {}),
                   ...(network === "PINTEREST"
@@ -1332,6 +1351,7 @@ function ComposerPageInner() {
     overrides,
     youtubeOptions,
     pinterestOptions,
+    instagramOptions,
     tiktokOptions,
     tiktokBlocked,
     aiContentAll,
@@ -1546,58 +1566,49 @@ function ComposerPageInner() {
             )}
 
             {assets.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {assets.map((a) => (
-                  <div key={a.id} className="group relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                  // Carte du média (01/10/2026) : contour plus marqué, actions
+                  // sous l'aperçu (plus rien par-dessus l'image), espacées.
+                  <div key={a.id} className="nb-media-card flex flex-col overflow-hidden rounded-xl border bg-black/40">
                     {a.type === "VIDEO" ? (
-                      <video src={a.previewUrl} poster={a.thumbnailUrl} className="h-28 w-full object-cover" muted />
+                      <video src={a.previewUrl} poster={a.thumbnailUrl} preload="metadata" playsInline className="h-40 w-full bg-black object-cover" muted />
                     ) : (
-                      <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-28 w-full object-cover" />
+                      <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-40 w-full bg-black object-cover" />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => removeAsset(a.id)}
-                      aria-label={`Retirer ${a.filename}`}
-                      title="Retirer ce fichier"
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white transition duration-150 hover:scale-110 hover:bg-red-500/90"
-                    >
-                      ✕
-                    </button>
-                    <p className="truncate px-2 pt-1 text-[11px] text-slate-400" title={a.filename}>
+                    <p className="truncate border-t border-white/10 px-2.5 pt-2 text-[11px] text-slate-400" title={a.filename}>
                       {a.filename}
                     </p>
-                    {/* Toujours visibles (24/09/2026) : avant, la croix n'apparaissait
-                        qu'au survol — introuvable sur téléphone — et il fallait
-                        redéposer un fichier pour remplacer celui-ci. */}
-                    {a.type === "VIDEO" && (
-                      <div className="px-2 pt-1">
+                    <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-2">
+                      {a.type === "VIDEO" && (
                         <button
                           type="button"
                           onClick={() => setEditingVideo(a)}
                           disabled={uploading}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-aurora-400/40 bg-aurora-400/10 px-2 py-1 text-[11px] font-medium text-aurora-200 transition hover:border-aurora-400/70 hover:text-white disabled:opacity-50"
+                          className="flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
                         >
-                          <IconSparkle className="h-3.5 w-3.5" /> Modifier la vidéo
+                          <IcPencil className="h-3.5 w-3.5" /> Modifier la vidéo
+                        </button>
+                      )}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => inputRef.current?.click()}
+                          disabled={uploading}
+                          className="whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
+                        >
+                          Remplacer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void confirmRemoveAsset(a)}
+                          disabled={uploading}
+                          aria-label={`Supprimer ${a.filename}`}
+                          className="whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
+                        >
+                          Supprimer
                         </button>
                       </div>
-                    )}
-                    <div className="flex gap-1 px-2 pb-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => inputRef.current?.click()}
-                        disabled={uploading}
-                        className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
-                      >
-                        Remplacer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeAsset(a.id)}
-                        disabled={uploading}
-                        className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
-                      >
-                        Supprimer
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -1637,9 +1648,6 @@ function ComposerPageInner() {
                           qui renvoie un brief → « Générer » sur le brief. */}
                       {aiStatus?.enabled && <IconSparkle className={clsx("h-4 w-4 text-aurora-300", thumbLoading && "animate-pulse")} />}
                       {thumbLoading ? (aiStatus?.enabled ? "Analyse..." : "Extraction...") : "Générer des miniatures"}
-                    </Button>
-                    <Button variant="outline" onClick={() => thumbFileInputRef.current?.click()} disabled={thumbUploading}>
-                      {thumbUploading ? "Envoi..." : "Depuis mon ordinateur"}
                     </Button>
                     <input
                       ref={thumbFileInputRef}
@@ -1691,8 +1699,9 @@ function ComposerPageInner() {
                     </button>
                   </div>
                 )}
-                {thumbOptions.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
+                {/* Miniatures proposées + case « Votre image » (01/10/2026 : remplace
+                    le bouton « Depuis mon ordinateur », cliquer ou déposer une image). */}
+                <div className="grid grid-cols-3 gap-2">
                     {thumbOptions.map((url) => (
                       <button
                         key={url}
@@ -1706,8 +1715,23 @@ function ComposerPageInner() {
                         <img loading="lazy" decoding="async" src={url} alt="Miniature" className="aspect-video w-full object-cover" />
                       </button>
                     ))}
-                  </div>
-                )}
+                    <button
+                      type="button"
+                      onClick={() => thumbFileInputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+                        if (file) void onThumbFileChosen(file);
+                      }}
+                      disabled={thumbUploading}
+                      title="Choisir ou déposer une image de votre ordinateur"
+                      className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-white/15 text-[11px] text-slate-400 transition hover:border-aurora-400/50 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <IconUpload className="h-4 w-4" />
+                      {thumbUploading ? "Envoi…" : "Votre image"}
+                    </button>
+                </div>
                 {videoAsset.thumbnailUrl && selectedNetworks.includes("YOUTUBE") && (
                   <p className="mt-2 text-[11px] text-slate-500">
                     La miniature choisie est envoyée à YouTube avec la vidéo (JPEG ou PNG de 2 Mo au plus ; chaîne vérifiée par téléphone requise par YouTube).
@@ -1982,16 +2006,6 @@ function ComposerPageInner() {
                               placeholder={`Titre spécifique à ${NETWORK_META[n].label} (optionnel)`}
                               className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
-                            {aiStatus?.enabled && (
-                              <button
-                                onClick={() => onGenerateOne("title", n)}
-                                disabled={generatingFields.has(fieldKey("title", n))}
-                                title={generatingFields.has(fieldKey("title", n)) ? "Génération en cours..." : "Générer avec l'IA"}
-                                className="text-aurora-300 transition disabled:cursor-wait disabled:opacity-50"
-                              >
-                                <IconSparkle className={clsx("h-4 w-4", generatingFields.has(fieldKey("title", n)) && "animate-pulse")} />
-                              </button>
-                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <textarea
@@ -2001,16 +2015,6 @@ function ComposerPageInner() {
                               placeholder={`Texte spécifique à ${NETWORK_META[n].label} (optionnel, max ${NETWORK_META[n].maxCaption} caractères)`}
                               className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
                             />
-                            {aiStatus?.enabled && (
-                              <button
-                                onClick={() => onGenerateOne("description", n)}
-                                disabled={generatingFields.has(fieldKey("description", n))}
-                                title={generatingFields.has(fieldKey("description", n)) ? "Génération en cours..." : "Générer avec l'IA"}
-                                className="text-aurora-300 transition disabled:cursor-wait disabled:opacity-50"
-                              >
-                                <IconSparkle className={clsx("h-4 w-4", generatingFields.has(fieldKey("description", n)) && "animate-pulse")} />
-                              </button>
-                            )}
                           </div>
                         </div>
                       )}
@@ -2058,6 +2062,8 @@ function ComposerPageInner() {
                           onPreview={() => setPreviewNetwork("TIKTOK")}
                         />
                       )}
+
+                      {n === "INSTAGRAM" && <InstagramOptions value={instagramOptions} onChange={setInstagramOptions} />}
 
                       {n === "PINTEREST" && (
                         <PinterestOptions
@@ -2210,6 +2216,7 @@ function ComposerPageInner() {
           <ComposerPreview
             network={effectivePreviewNetwork}
             accountFor={previewAccountFor}
+            instagramCollaborators={instagramOptions.collaborators}
             selectedNetworks={selectedNetworks}
             onPickNetwork={setPreviewNetwork}
             asset={previewAsset}

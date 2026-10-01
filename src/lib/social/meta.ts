@@ -642,19 +642,32 @@ export const instagramClient: SocialClient = {
       params.image_url = input.mediaUrls[0];
     }
 
-    // Lieu (location_id = Page Facebook du lieu). S'il est REFUSÉ par
-    // Instagram (page sans adresse, identifiant invalide…), on recrée le
-    // conteneur sans le lieu. Jamais sur un délai dépassé ou une erreur
-    // serveur : le conteneur a peut-être été créé.
+    // Lieu (location_id = Page Facebook du lieu) et collaborateurs (01/10/2026,
+    // liste JSON de 3 noms au plus). S'ils sont REFUSÉS par Instagram (page
+    // sans adresse, compte collaborateur introuvable ou privé…), on recrée le
+    // conteneur sans eux, collaborateurs d'abord puis lieu : la publication
+    // part quand même. Jamais sur un délai dépassé ou une erreur serveur : le
+    // conteneur a peut-être été créé.
     if (input.location?.id) params.location_id = input.location.id;
-    let container: { id: string };
-    try {
-      container = await graph("INSTAGRAM", `/${account}/media`, token, { method: "POST", params, schema: createdSchema });
-    } catch (err) {
-      if (!params.location_id || !(err instanceof SocialApiError) || !err.isRequestRejected) throw err;
-      console.error(`[instagram] lieu ${input.location?.id} refusé, publication sans lieu :`, (err as Error).message);
-      delete params.location_id;
-      container = await graph("INSTAGRAM", `/${account}/media`, token, { method: "POST", params, schema: createdSchema });
+    const collaborators = input.instagram?.collaborators ?? [];
+    if (collaborators.length) params.collaborators = JSON.stringify(collaborators.slice(0, 3));
+    let container: { id: string } | null = null;
+    for (;;) {
+      try {
+        container = await graph("INSTAGRAM", `/${account}/media`, token, { method: "POST", params, schema: createdSchema });
+        break;
+      } catch (err) {
+        if (!(err instanceof SocialApiError) || !err.isRequestRejected) throw err;
+        if (params.collaborators) {
+          console.error(`[instagram] collaborateurs ${params.collaborators} refusés, publication sans eux :`, (err as Error).message);
+          delete params.collaborators;
+        } else if (params.location_id) {
+          console.error(`[instagram] lieu ${input.location?.id} refusé, publication sans lieu :`, (err as Error).message);
+          delete params.location_id;
+        } else {
+          throw err;
+        }
+      }
     }
 
     // Étape 2 : attendre le traitement (vidéos surtout) puis publier.

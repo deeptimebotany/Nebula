@@ -2125,3 +2125,15 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Carte du média importé dans Publier (01/10/2026) : contour plus marqué
+   que les autres cadres, dans les deux modes. */
+.nb-media-card {
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+[data-mode="light"] .nb-media-card {
+  border-color: #b4bac4;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}

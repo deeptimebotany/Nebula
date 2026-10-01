@@ -292,7 +292,10 @@ function AccountsPageInner() {
                       ? { level: "expired" as const, daysLeft: 0 }
                       : c.autoRenew
                         ? { level: "ok" as const, daysLeft: Infinity }
-                        : tokenStatus(c.tokenExpiresAt);
+                        : // Jeton sans date d'expiration (Page Facebook : le jeton
+                          // de Page n'expire jamais) : vert s'il est connecté
+                          // (01/10/2026 ; avant : gris « inconnu »).
+                          tokenStatus(c.tokenExpiresAt) ?? (c.status === "CONNECTED" ? { level: "ok" as const, daysLeft: Infinity } : null);
                   const expanded = expandedId === c.id;
                   return (
                     <li key={c.id} className="rounded-lg bg-white/[0.02]">
@@ -381,9 +384,14 @@ function AccountsPageInner() {
                 })}
               </ul>
 
-              <p className="mt-3 border-t border-white/[0.06] pt-3 text-xs text-slate-500">
-                {provider.networks.map((n) => NETWORK_META[n].requiresAudit).filter(Boolean)[0]}
-              </p>
+              {/* Prérequis côté développeur (validation par le réseau) : rappel
+                  pour le propriétaire du site seulement, jamais pour les clients. */}
+              {me?.isOwner && provider.networks.some((n) => NETWORK_META[n].requiresAudit) && (
+                <p className="mt-3 border-t border-white/[0.06] pt-3 text-xs text-slate-500">
+                  <span className="font-medium text-slate-400">Note propriétaire : </span>
+                  {provider.networks.map((n) => NETWORK_META[n].requiresAudit).filter(Boolean)[0]}
+                </p>
+              )}
             </GlassCard>
           );
         })}

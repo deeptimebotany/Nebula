@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Faux réseaux : l'identifiant du compte décide du comportement.
-const fake = vi.hoisted(() => ({ publish: 0, resume: 0, byAccount: {} as Record<string, number> }));
+const fake = vi.hoisted(() => ({ publish: 0, resume: 0, byAccount: {} as Record<string, number>, inputs: {} as Record<string, unknown> }));
 vi.mock("@/lib/social", async () => {
   const base = await import("@/lib/social/base");
   const client = (network: string) => ({
@@ -10,8 +10,9 @@ vi.mock("@/lib/social", async () => {
     exchangeCodeForToken: async () => {
       throw new Error("non utilisé");
     },
-    async publishPost(connection: { externalAccountId: string }) {
+    async publishPost(connection: { externalAccountId: string }, input: unknown) {
       fake.publish++;
+      fake.inputs[connection.externalAccountId] = input;
       fake.byAccount[connection.externalAccountId] = (fake.byAccount[connection.externalAccountId] ?? 0) + 1;
       const kind = connection.externalAccountId.split(":")[0];
       if (kind === "slow") await new Promise((r) => setTimeout(r, 300));
@@ -55,6 +56,24 @@ describe.skipIf(!hasDatabase)("publication fiable (lot 2)", () => {
     fake.publish = 0;
     fake.resume = 0;
     fake.byAccount = {};
+    fake.inputs = {};
+  });
+
+  it("collaborateurs Instagram (01/10/2026) : relus, nettoyés, 3 au plus, jamais le compte qui publie ; ignorés ailleurs", async () => {
+    const { user, brand } = await makeBrand();
+    const post = await prisma.post.create({ data: { brandId: brand.id, createdById: user.id, caption: "Collab", status: "SCHEDULED", scheduledAt: new Date(Date.now() - 1000) } });
+    const metadata = { instagram: { collaborators: ["@Cafe.Nova", "moi", "nom invalide", "b.b", "c_c", "d"] } };
+    const ig = await prisma.socialConnection.create({
+      data: { brandId: brand.id, network: "INSTAGRAM", externalAccountId: `ok:ig:${post.id}`, displayName: "Moi", handle: "@Moi", accessToken: "tok", status: "CONNECTED" }
+    });
+    const fb = await prisma.socialConnection.create({
+      data: { brandId: brand.id, network: "FACEBOOK", externalAccountId: `ok:fb:${post.id}`, displayName: "Page", accessToken: "tok", status: "CONNECTED" }
+    });
+    await prisma.postTarget.create({ data: { postId: post.id, connectionId: ig.id, network: "INSTAGRAM", status: "SCHEDULED", metadata } });
+    await prisma.postTarget.create({ data: { postId: post.id, connectionId: fb.id, network: "FACEBOOK", status: "SCHEDULED", metadata } });
+    await publishPost(post.id);
+    expect((fake.inputs[ig.externalAccountId] as { instagram?: unknown }).instagram).toEqual({ collaborators: ["cafe.nova", "b.b", "c_c"] });
+    expect(fake.inputs[fb.externalAccountId]).not.toHaveProperty("instagram");
   });
 
   it("trois passages du cron en même temps : une seule publication", async () => {

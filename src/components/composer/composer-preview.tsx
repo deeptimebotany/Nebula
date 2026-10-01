@@ -50,6 +50,8 @@ interface ComposerPreviewProps {
   gridLoading: boolean;
   /** Aperçu collé en haut de la colonne : le cadre tient dans la hauteur de la fenêtre. */
   sticky?: boolean;
+  /** Collaborateurs Instagram choisis dans Publier (01/10/2026). */
+  instagramCollaborators?: string[];
 }
 
 function aspectFor(w: number, h: number): string {
@@ -115,7 +117,8 @@ export function ComposerPreview({
   onToggleInstagramGrid,
   instagramGridTiles,
   gridLoading,
-  sticky = false
+  sticky = false,
+  instagramCollaborators
 }: ComposerPreviewProps) {
   const offeredNetworks = useAvailableNetworks();
   const [device, setDevice] = useState<PreviewDevice>("mobile");
@@ -149,7 +152,8 @@ export function ComposerPreview({
     title,
     caption,
     shape: shapeOf(aspectClass),
-    onMediaShape: (w, h) => onAspectClass(aspectFor(w, h))
+    onMediaShape: (w, h) => onAspectClass(aspectFor(w, h)),
+    ...(network === "INSTAGRAM" && instagramCollaborators?.length ? { coAuthors: instagramCollaborators } : {})
   };
 
   // Plein écran : fermeture avec Échap, défilement de la page bloqué.
