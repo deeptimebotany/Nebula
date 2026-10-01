@@ -59,6 +59,7 @@ const Share = ({ className }: P) => S(<path d="M14 5.5 21 12l-7 6.5V15c-5 0-8.5 
 const ShareOut = ({ className }: P) => S(<><path d="M14 5 20 11l-6 6" /><path d="M20 11H10a6 6 0 0 0-6 6v2" /></>, className);
 const ThumbUp = ({ className, fill }: P & { fill?: boolean }) => S(<><path d="M7.5 10.5v10h-3v-10h3Z" /><path d="M7.5 10.5 11.5 3c1.7 0 2.7 1.2 2.4 2.9l-.7 3.6h5.4c1.3 0 2.2 1.2 1.9 2.4l-1.6 6.4a2.2 2.2 0 0 1-2.1 1.7H7.5" /></>, className, fill);
 const ThumbDown = ({ className }: P) => S(<g transform="rotate(180 12 12)"><path d="M7.5 10.5v10h-3v-10h3Z" /><path d="M7.5 10.5 11.5 3c1.7 0 2.7 1.2 2.4 2.9l-.7 3.6h5.4c1.3 0 2.2 1.2 1.9 2.4l-1.6 6.4a2.2 2.2 0 0 1-2.1 1.7H7.5" /></g>, className);
+const Expand = ({ className }: P) => S(<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />, className);
 const Music = ({ className }: P) => S(<><path d="M9 18V5l11-2v13" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></>, className);
 const Globe = ({ className }: P) => S(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" /></>, className);
 const Home = ({ className }: P) => S(<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-4.8v-6H9.3v6H4.5a1 1 0 0 1-1-1v-9.5Z" />, className);
@@ -207,7 +208,9 @@ const PLACEHOLDER_CAPTION = "Votre légende apparaîtra ici au fil de la saisie�
 // ============================================================================
 
 function InstagramFeedPost({ post, width }: { post: PreviewPost; width?: number }) {
-  const ratio = post.shape === "landscape" ? "aspect-[1.91/1]" : post.shape === "square" ? "aspect-square" : "aspect-[4/5]";
+  // Vidéo en paysage : affichée en 16:9 dans le fil ; image en paysage : 1,91:1 au plus.
+  const landscape = post.asset?.type === "VIDEO" ? "aspect-video" : "aspect-[1.91/1]";
+  const ratio = post.shape === "landscape" ? landscape : post.shape === "square" ? "aspect-square" : "aspect-[4/5]";
   return (
     <article className="bg-black text-[14px] text-[#f5f5f5]" style={width ? { width } : undefined}>
       <header className="flex items-center gap-2.5 px-3 py-2.5">
@@ -270,8 +273,17 @@ function InstagramReel({ post, desktop = false }: { post: PreviewPost; desktop?:
   );
 }
 
+/**
+ * Vidéo verticale : écran Reels plein écran. Vidéo en paysage ou carrée
+ * (01/10/2026) : publication du fil à son format, comme Instagram l'affiche
+ * (avant : toujours l'écran Reels, la vidéo 16:9 y était rognée en vertical).
+ */
+function isInstagramReel(post: PreviewPost): boolean {
+  return post.asset?.type === "VIDEO" && post.shape === "portrait";
+}
+
 function InstagramMobile({ post }: { post: PreviewPost }) {
-  const isReel = post.asset?.type === "VIDEO";
+  const isReel = isInstagramReel(post);
   return (
     <div className="flex h-full flex-col bg-black">
       {isReel ? (
@@ -297,7 +309,7 @@ function InstagramMobile({ post }: { post: PreviewPost }) {
 }
 
 function InstagramDesktop({ post }: { post: PreviewPost }) {
-  const isReel = post.asset?.type === "VIDEO";
+  const isReel = isInstagramReel(post);
   const nav: [ReactNode, string][] = [
     [<Home key="h" className="h-6 w-6" />, "Accueil"],
     [<Search key="s" className="h-6 w-6" />, "Recherche"],
@@ -465,10 +477,22 @@ function TikTokActions({ post, big }: { post: PreviewPost; big?: boolean }) {
 }
 
 function TikTokMobile({ post }: { post: PreviewPost }) {
+  const vertical = post.shape === "portrait" || !post.asset;
   return (
     <div className="flex h-full flex-col bg-black text-white">
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
+        {vertical ? (
+          <Media post={post} className="absolute inset-0 h-full w-full" />
+        ) : (
+          // Vidéo en paysage ou carrée (01/10/2026) : TikTok l'affiche à son
+          // format, centrée sur fond noir, avec le bouton « Plein écran ».
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <Media post={post} className={clsx("w-full", post.shape === "square" ? "aspect-square" : "aspect-video")} />
+            <span className="relative z-[2] flex items-center gap-1.5 rounded-md bg-white/20 px-3 py-1.5 text-[12.5px] font-semibold">
+              <Expand className="h-3.5 w-3.5" /> Plein écran
+            </span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
         <div className="absolute left-0 right-0 top-0 flex items-center justify-center gap-5 pt-3 text-[16px] font-semibold [text-shadow:0_1px_3px_rgba(0,0,0,.5)]">
           <span className="text-white/60">Abonnements</span>
@@ -518,8 +542,13 @@ function TikTokDesktop({ post }: { post: PreviewPost }) {
         </ul>
       </aside>
       <main className="flex min-w-0 flex-1 items-center justify-center gap-4 py-5">
-        <div className="relative h-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "9/16" }}>
-          <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
+        {/* Lecteur au format de la vidéo (01/10/2026) : TikTok sur ordinateur
+            affiche une vidéo en paysage dans un lecteur horizontal. */}
+        <div
+          className={clsx("relative overflow-hidden rounded-2xl bg-black", post.shape === "landscape" ? "w-full max-w-[680px]" : "h-full")}
+          style={{ aspectRatio: post.shape === "landscape" ? "16/9" : post.shape === "square" ? "1/1" : "9/16" }}
+        >
+          <Media post={post} className="absolute inset-0 h-full w-full" />
           <div className="absolute inset-x-0 bottom-0 space-y-1.5 bg-gradient-to-t from-black/70 to-transparent p-4 pt-16">
             <p className="text-[15px] font-semibold">{post.accountName}</p>
             <p className="text-[14px] leading-snug"><Caption text={post.caption || PLACEHOLDER_CAPTION} limit={100} tagClass="font-semibold" moreLabel="plus" /></p>

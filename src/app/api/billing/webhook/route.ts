@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripe, isBillingEnabled } from "@/lib/billing/stripe";
+import { invoiceSubscriptionId, subscriptionPeriodEnd } from "@/lib/billing/stripe-compat";
 import { trackGrowth } from "@/lib/growth";
 import { rewardOnFirstPayment, flushBonusMonths } from "@/lib/billing/rewards";
 import type Stripe from "stripe";
@@ -49,7 +50,8 @@ export async function POST(req: NextRequest) {
         : sub.items.data[0]?.price?.recurring?.interval === "month"
           ? "month"
           : (sub.metadata?.interval as string | undefined) || "month";
-    const periodEndTimestamp = (sub as unknown as { current_period_end?: number }).current_period_end;
+    // Ancien et nouvel emplacement (API Stripe 2025-03-31 et après), voir stripe-compat.ts.
+    const periodEndTimestamp = subscriptionPeriodEnd(sub);
     // Pause plutôt qu'annulation (lot G2.c) : Stripe expose pause_collection
     // tant que la pause court ; resumes_at absent = pas de pause.
     const pause = (sub as unknown as { pause_collection?: { behavior?: string; resumes_at?: number | null } | null }).pause_collection;
@@ -210,7 +212,7 @@ export async function POST(req: NextRequest) {
       // Compteur de factures mensuelles payées (rappel annuel à la 3e, lot
       // G2.c). L'utilisateur est retrouvé par l'abonnement Stripe.
       const invoice = event.data.object as Stripe.Invoice;
-      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      const subId = invoiceSubscriptionId(invoice);
       if (subId && (invoice.amount_paid ?? 0) > 0) {
         const row = await prisma.subscription.findFirst({ where: { stripeSubscriptionId: subId }, select: { userId: true, interval: true } });
         if (row && row.interval === "month") {
