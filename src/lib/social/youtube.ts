@@ -22,6 +22,7 @@ import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z 
 import { adoptConcurrentRefresh } from "./tokens";
 import { isoDurationSeconds } from "@/lib/audit/sources/youtube";
 import { envValue } from "@/lib/env-value";
+import { YOUTUBE_REPLY_SCOPE } from "./comment-reply-support";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -47,7 +48,17 @@ const NO_CHANNEL_MESSAGE = "Ce compte Google n'a pas de chaîne YouTube : créez
 // Doc : https://developers.google.com/youtube/v3/docs (channels, playlistItems,
 //       videos, commentThreads) et https://developers.google.com/youtube/analytics/reference/reports
 // Réponses types : tests/contracts/fixtures/youtube.
-const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: soft(z.number()), refresh_token: opt(z.string().min(1)) });
+const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: soft(z.number()), refresh_token: opt(z.string().min(1)), scope: textSchema });
+
+/**
+ * Répondre aux commentaires YouTube depuis Nebula (01/10/2026) : exige le
+ * droit youtube.force-ssl, qui demande une nouvelle vérification Google
+ * (nouvel écran de consentement). Demandé seulement si YOUTUBE_COMMENT_REPLY
+ * vaut « true » ; les chaînes déjà connectées se reconnectent ensuite.
+ */
+export function youtubeCommentReplyEnabled(): boolean {
+  return /^(1|true|oui|yes)$/i.test(envValue("YOUTUBE_COMMENT_REPLY"));
+}
 const thumbnailsSchema = soft(
   z.object({ default: soft(z.object({ url: z.string() })), medium: soft(z.object({ url: z.string() })), high: soft(z.object({ url: z.string() })) })
 );
@@ -197,7 +208,8 @@ export const youtubeClient: SocialClient = {
       [
         "https://www.googleapis.com/auth/youtube.upload",
         "https://www.googleapis.com/auth/youtube.readonly",
-        "https://www.googleapis.com/auth/yt-analytics.readonly"
+        "https://www.googleapis.com/auth/yt-analytics.readonly",
+        ...(youtubeCommentReplyEnabled() ? [`https://www.googleapis.com/auth/${YOUTUBE_REPLY_SCOPE}`] : [])
       ].join(" ")
     );
     url.searchParams.set("state", state);
@@ -237,7 +249,9 @@ export const youtubeClient: SocialClient = {
       externalAccountId: me.id,
       displayName: me.snippet.title,
       avatarUrl: me.snippet.thumbnails?.default?.url,
-      scopes: "youtube.upload,youtube.readonly"
+      // Droits réellement accordés (Google les renvoie) : youtube.force-ssl
+      // seulement si demandé et accepté (réponse aux commentaires).
+      scopes: ["youtube.upload", "youtube.readonly", ...((token.scope ?? "").includes(YOUTUBE_REPLY_SCOPE) ? [YOUTUBE_REPLY_SCOPE] : [])].join(",")
     } satisfies OAuthTokenResult;
   },
 
@@ -360,6 +374,20 @@ export const youtubeClient: SocialClient = {
    * renvoie une erreur : on l'ignore et on continue avec les autres plutôt
    * que de faire échouer tout le rafraîchissement.
    */
+  // Réponse à un commentaire (page Commentaires) : comments.insert avec
+  // snippet.parentId (droit youtube.force-ssl, voir youtubeCommentReplyEnabled).
+  // 50 unités de quota par réponse.
+  async replyToComment(connection: ConnectionLike, comment: { externalId: string }, text: string) {
+    await freshYoutubeToken(connection);
+    const created = await fetchJson("YOUTUBE", `${API_BASE}/comments?part=snippet`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${connection.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ snippet: { parentId: comment.externalId, textOriginal: text.trim() } }),
+      schema: z.object({ id: idSchema })
+    });
+    return { externalId: created.id };
+  },
+
   async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
     await freshYoutubeToken(connection);
     const videos = await fetchRecentVideos(connection, 15);

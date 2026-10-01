@@ -55,10 +55,15 @@ function TargetRow({ t }: { t: TargetMetrics }) {
         <NetworkTile network={t.network} size={20} />
         <span className="text-sm font-medium text-white">{meta.label}</span>
         <span className="min-w-0 truncate text-xs text-slate-500">{t.account.handle ? `@${t.account.handle.replace(/^@/, "")}` : t.account.name}</span>
-        {t.url && t.status === "PUBLISHED" && (
-          <a href={t.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-aurora-300 hover:underline">
-            Voir en ligne ↗
-          </a>
+        {t.removedAt ? (
+          <span className="ml-auto text-xs text-slate-400">Retirée de {meta.label} depuis Nebula</span>
+        ) : (
+          t.url &&
+          t.status === "PUBLISHED" && (
+            <a href={t.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-aurora-300 hover:underline">
+              Voir en ligne ↗
+            </a>
+          )
         )}
       </div>
       {t.status !== "PUBLISHED" ? (

@@ -259,6 +259,22 @@ export interface SocialClient {
    * lib/social/reconcile.ts (lot 6). Optionnel.
    */
   listRecentPosts?(connection: ConnectionLike): Promise<RecentPost[]>;
+  /**
+   * Supprime une publication déjà en ligne (case « Supprimer aussi sur … »
+   * de la fiche d'une publication, 01/10/2026). Optionnel : TikTok et
+   * YouTube ne donnent pas ce droit à Nebula, et Instagram/Threads le
+   * réservent aux comptes connectés avec la permission dédiée (voir
+   * social/remote-delete-support.ts). Une publication déjà absente du
+   * réseau est traitée par l'appelant comme supprimée (remote-delete.ts).
+   */
+  deletePost?(connection: ConnectionLike, externalPostId: string): Promise<void>;
+  /**
+   * Répond à un commentaire reçu (page Commentaires, 01/10/2026), sous le
+   * nom du compte. `comment` : identifiants enregistrés à la synchro
+   * (EngagementItem). Optionnel : seulement les réseaux dont Nebula lit les
+   * commentaires et qui le permettent (voir social/comment-reply-support.ts).
+   */
+  replyToComment?(connection: ConnectionLike, comment: { externalId: string; postExternalId?: string | null }, text: string): Promise<{ externalId?: string }>;
 }
 
 /**

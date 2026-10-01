@@ -11,6 +11,7 @@
 //      la même heure (± 20 minutes) — cas de Facebook Reels, dont
 //      l'identifiant de vidéo diffère de celui de la publication.
 import { prisma } from "@/lib/prisma";
+import { removedFromNetworkAt } from "@/lib/social/remote-delete-support";
 import type { Network } from "@/lib/types";
 
 export interface MetricValues {
@@ -27,6 +28,8 @@ export interface TargetMetrics {
   status: string;
   account: { id: string; name: string; handle: string | null };
   url: string | null;
+  /** Retirée du réseau depuis Nebula (« Supprimer aussi sur … », 01/10/2026). */
+  removedAt: string | null;
   publishedAt: string | null;
   error: string | null;
   metrics: (MetricValues & { capturedAt: string; previous: MetricValues | null; previousAt: string | null }) | null;
@@ -85,6 +88,7 @@ export async function postMetricsFor(postId: string, userId: string): Promise<Po
           publishedAt: true,
           errorMessage: true,
           connectionId: true,
+          metadata: true,
           connection: { select: { id: true, displayName: true, handle: true, lastMetricsSyncedAt: true } }
         }
       }
@@ -102,6 +106,7 @@ export async function postMetricsFor(postId: string, userId: string): Promise<Po
       publishedAt: Date | null;
       errorMessage: string | null;
       connectionId: string;
+      metadata: unknown;
       connection: { id: string; displayName: string; handle: string | null; lastMetricsSyncedAt: Date | null };
     }[];
   } | null;
@@ -131,7 +136,9 @@ export async function postMetricsFor(postId: string, userId: string): Promise<Po
       network: t.network as Network,
       status: t.status,
       account: { id: t.connection.id, name: t.connection.displayName, handle: t.connection.handle },
-      url: t.externalUrl ?? row?.permalink ?? null,
+      // Retirée du réseau : plus de lien vers une page qui n'existe plus.
+      url: removedFromNetworkAt(t.metadata) ? null : (t.externalUrl ?? row?.permalink ?? null),
+      removedAt: removedFromNetworkAt(t.metadata),
       publishedAt: t.publishedAt ? t.publishedAt.toISOString() : null,
       error: t.errorMessage,
       lastSyncedAt: t.connection.lastMetricsSyncedAt ? t.connection.lastMetricsSyncedAt.toISOString() : null,

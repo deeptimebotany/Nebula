@@ -93,7 +93,7 @@ function restHeaders(token: string, json = true): Record<string, string> {
  * et absence de réponse classée. Renvoie la réponse OK (en-têtes utiles :
  * x-restli-id) ; lève une SocialApiError sinon.
  */
-async function rest(path: string, token: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<Response> {
+async function rest(path: string, token: string, init: { method?: "GET" | "POST" | "DELETE"; body?: unknown } = {}): Promise<Response> {
   const method = init.method ?? "GET";
   const res = await sendRequest("LINKEDIN", `${REST}${path}`, {
     method,
@@ -296,6 +296,13 @@ export const linkedinClient: SocialClient = {
       return finishLinkedInVideo(connection, checkpoint.video, input);
     }
     throw new SocialApiError("LINKEDIN", "Reprise de publication inconnue.");
+  },
+
+  // « Supprimer aussi sur LinkedIn » : DELETE /rest/posts/{urn}
+  // (w_member_social). LinkedIn répond 204, même pour un post déjà supprimé.
+  async deletePost(connection: ConnectionLike, externalPostId: string) {
+    checkExpiry(connection);
+    await rest(`/posts/${encodeURIComponent(externalPostId)}`, connection.accessToken, { method: "DELETE" });
   },
 
   async postComment(connection: ConnectionLike, externalPostId: string, comment: string) {

@@ -13,7 +13,6 @@ import { useAiStatus } from "@/components/use-ai-status";
 import { useBrand } from "@/components/brand-context";
 import { DEFAULT_TIMEZONE, timeZoneLabel } from "@/lib/timezone";
 import { useToast } from "@/components/dashboard/toast";
-import { useConfirm } from "@/components/dashboard/confirm";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { RetentionInsightView, RetentionQuotaLine, type InsightData } from "@/components/retention/insight-view";
 import { useBootstrap } from "@/components/bootstrap-provider";
@@ -23,6 +22,8 @@ import { errorAdvice } from "@/lib/social/error-advice";
 import { PostStats } from "@/components/posts/post-stats";
 import { clsx } from "@/lib/clsx";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
+import { DeletePostDialog } from "@/components/posts/delete-post-dialog";
+import { removedFromNetworkAt, type RemoteDeleteSupport } from "@/lib/social/remote-delete-support";
 
 interface MediaAsset {
   id: string;
@@ -48,6 +49,10 @@ interface Target {
   thumbnailStatus?: string | null;
   connection: { displayName: string };
   insights: Insight[];
+  /** Réglages du réseau ; removedFromNetworkAt après « Supprimer aussi sur … ». */
+  metadata?: unknown;
+  /** Publication en ligne : ce que Nebula peut faire pour la retirer du réseau (01/10/2026). */
+  remoteDelete?: RemoteDeleteSupport | null;
 }
 
 // Sort de la miniature choisie dans Publier (PostTarget.thumbnailStatus).
@@ -108,7 +113,6 @@ export default function PostDetailPage() {
   const toast = useToast();
   const upgrade = useUpgradeModal();
   const { data: me, patch: patchMe } = useBootstrap();
-  const confirmDialog = useConfirm();
   const { celebrateMilestone } = useMilestoneCelebration();
 
   const [post, setPost] = useState<Post | null>(null);
@@ -125,6 +129,7 @@ export default function PostDetailPage() {
   const [copiedTargetId, setCopiedTargetId] = useState<string | null>(null);
   const [sharedTargetIds, setSharedTargetIds] = useState<string[]>([]);
   const [sharing, setSharing] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/posts/${params.id}`);
@@ -196,17 +201,10 @@ export default function PostDetailPage() {
     load();
   }
 
-  async function remove() {
-    const ok = await confirmDialog({
-      title: "Supprimer cette publication ?",
-      message: "Cette action est définitive : le post, son historique et sa discussion seront supprimés.",
-      confirmLabel: "Supprimer",
-      danger: true
-    });
-    if (!ok) return;
-    await fetch(`/api/posts/${params.id}`, { method: "DELETE" });
-    toast.success("Publication supprimée.");
-    router.push("/calendar");
+  // Suppression (01/10/2026) : fenêtre avec une case « Supprimer aussi sur … »
+  // par réseau où la publication est en ligne (voir DeletePostDialog).
+  function remove() {
+    setDeleting(true);
   }
 
   async function analyzeRetention(targetId: string, force = false) {
@@ -338,6 +336,19 @@ export default function PostDetailPage() {
               {busy === "duplicate" ? "Duplication..." : "Dupliquer"}
             </Button>
             <Button variant="danger" onClick={remove}>Supprimer</Button>
+            {deleting && (
+              <DeletePostDialog
+                postId={post.id}
+                targets={post.targets}
+                onClose={() => setDeleting(false)}
+                onChanged={load}
+                onDeleted={(message) => {
+                  setDeleting(false);
+                  toast.success(message);
+                  router.push("/calendar");
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -393,9 +404,13 @@ export default function PostDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400">
-                        {t.status === "RETRY_WAIT" && t.errorCategory === "VERIFY" ? "Vérification en cours" : (STATUS_LABEL[t.status] ?? t.status)}
+                        {removedFromNetworkAt(t.metadata)
+                          ? `Retirée de ${NETWORK_META[t.network]?.label ?? t.network} depuis Nebula`
+                          : t.status === "RETRY_WAIT" && t.errorCategory === "VERIFY"
+                            ? "Vérification en cours"
+                            : (STATUS_LABEL[t.status] ?? t.status)}
                       </span>
-                      {t.externalUrl && (
+                      {t.externalUrl && !removedFromNetworkAt(t.metadata) && (
                         <>
                           <a href={t.externalUrl} target="_blank" rel="noreferrer" className="text-xs text-aurora-300 underline">
                             Voir en ligne

@@ -99,7 +99,13 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
         {activeBrand && (
           <div className="hidden min-w-0 flex-1 items-center gap-1.5 md:flex">
             <span className="mr-1 hidden shrink-0 text-[11px] font-medium uppercase tracking-wider text-slate-500 xl:inline [.nebula-assistant-docked_&]:hidden">{activeBrand.name}</span>
-            <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1" aria-label="Comptes connectés">
+            {/* Beaucoup de comptes : la bande défile ; focusable pour la faire défiler au clavier (01/10/2026). */}
+            <div
+              role="group"
+              tabIndex={0}
+              className="flex min-w-0 items-center gap-1.5 overflow-x-auto rounded-full py-1 outline-none focus-visible:ring-2 focus-visible:ring-aurora-400/60"
+              aria-label="Comptes connectés"
+            >
               {connections.map((c) => (
                 <span
                   key={c.id}

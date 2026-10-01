@@ -28,6 +28,8 @@ import { IconAvatar, IconMessage, IconRefresh, IconSparkle } from "@/components/
 import { NETWORK_META, type Network } from "@/lib/types";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
+import { CommentReplyBox } from "@/components/comments/comment-reply-box";
+import type { CommentReplySupport } from "@/lib/social/comment-reply-support";
 
 interface CommentRow {
   id: string;
@@ -52,6 +54,8 @@ interface ConnectionInfo {
   handle: string | null;
   lastSyncedAt: string | null;
   supportsEngagement: boolean;
+  /** Répondre depuis Nebula (01/10/2026) : possible, ou pourquoi pas. */
+  reply?: CommentReplySupport;
 }
 
 type ReadFilter = "all" | "unread";
@@ -190,12 +194,9 @@ function CommentsPageInner() {
     );
   }
 
-  function askAssistant(it: CommentRow) {
-    const network = NETWORK_META[it.network]?.label ?? it.network;
-    assistant.ask(`Aide-moi à répondre à ce commentaire reçu sur ${network} (propose 2 tons : chaleureux et sobre) :\n« ${(it.text ?? "").slice(0, 600)} »`, {
-      submit: true,
-      contextKey: "comments"
-    });
+  // Réponse envoyée depuis Nebula : commentaire lu et « Vous avez répondu ».
+  function onReplied(id: string, repliedAt: string) {
+    setItems((prev) => (prev ? prev.map((it) => (it.id === id ? { ...it, read: true, ownerRepliedAt: it.ownerRepliedAt ?? repliedAt } : it)) : prev));
   }
 
   const loading = connections === null || items === null;
@@ -207,7 +208,7 @@ function CommentsPageInner() {
         <EmptyState
           icon={<IconMessage className="h-5 w-5" />}
           title="Aucun compte connecté"
-          description="Connectez un compte Instagram, Facebook ou YouTube pour voir ici les commentaires reçus."
+          description="Connectez un compte Instagram, Facebook, YouTube, Threads ou Bluesky pour voir ici les commentaires reçus et y répondre."
           action={<ButtonLink href="/accounts">Connecter un compte</ButtonLink>}
         />
       </div>
@@ -221,8 +222,8 @@ function CommentsPageInner() {
         title="Commentaires"
         description={
           <>
-            Les commentaires reçus sur vos publications, tous comptes confondus — à lire, marquer comme traités et, au besoin, faire relire par
-            l&apos;assistant. Les chiffres (likes, partages) sont dans <span className="text-slate-300">Engagements</span>.
+            Les commentaires reçus sur vos publications, tous comptes confondus : lisez-les et répondez directement d&apos;ici, la réponse
+            part sur le réseau au nom du compte. Les chiffres (likes, partages) sont dans <span className="text-slate-300">Engagements</span>.
           </>
         }
         actions={
@@ -340,7 +341,7 @@ function CommentsPageInner() {
               </div>
               <div className="space-y-2 border-l border-white/[0.06] pl-3">
                 {g.rows.map((it) => (
-                  <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onAsk={assistant.enabled ? askAssistant : undefined} compact />
+                  <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onReplied={onReplied} aiEnabled={assistant.enabled} compact />
                 ))}
               </div>
             </section>
@@ -349,7 +350,7 @@ function CommentsPageInner() {
       ) : (
         <div className="space-y-2">
           {filtered.map((it) => (
-            <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onAsk={assistant.enabled ? askAssistant : undefined} />
+            <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onReplied={onReplied} aiEnabled={assistant.enabled} />
           ))}
         </div>
       )}
@@ -361,16 +362,29 @@ function CommentCard({
   item,
   connection,
   onRead,
-  onAsk,
+  onReplied,
+  aiEnabled,
   compact
 }: {
   item: CommentRow;
   connection?: ConnectionInfo;
   onRead: (id: string) => void;
-  onAsk?: (item: CommentRow) => void;
+  onReplied: (id: string, repliedAt: string) => void;
+  aiEnabled: boolean;
   compact?: boolean;
 }) {
   const networkLabel = NETWORK_META[item.network]?.label ?? item.network;
+  const toast = useToast();
+  // Champ de réponse : fermé, ouvert vide, ou ouvert avec une proposition de l'IA.
+  const [replying, setReplying] = useState<null | "write" | "suggest">(null);
+  const [sentText, setSentText] = useState<string | null>(null);
+  const support: CommentReplySupport = connection?.reply ?? { mode: "manual", how: "Répondez directement sur le réseau." };
+  const viaApi = support.mode === "api";
+  const link = item.permalink || item.postPermalink;
+  const openReply = (mode: "write" | "suggest") => {
+    if (!item.read) onRead(item.id);
+    setReplying(mode);
+  };
   return (
     <GlassCard
       className={clsx("flex items-start gap-3", compact && "py-3", !item.read && "border-aurora-400/30 bg-aurora-400/[0.04]")}
@@ -386,7 +400,7 @@ function CommentCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <p className="truncate text-sm font-medium text-white">{item.authorName || "Utilisateur"}</p>
-          {!item.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-400" aria-label="Non lu" />}
+          {!item.read && <span role="img" className="h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-400" aria-label="Non lu" />}
           {!compact && connection && (
             <span className="flex items-center gap-1 text-[11px] text-slate-500">
               <NetworkBadge network={item.network} size="sm" />
@@ -402,35 +416,62 @@ function CommentCard({
         {item.text && <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-slate-300">{item.text}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-3">
           {item.ownerRepliedAt && (
-            <span className="inline-flex items-center rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300" title="Réponse de votre compte repérée à la dernière actualisation">
+            <span className="inline-flex items-center rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300" title="Réponse de votre compte, envoyée depuis Nebula ou repérée à la dernière actualisation">
               Vous avez répondu
             </span>
           )}
-          {(item.permalink || item.postPermalink) && (
-            <a
-              href={item.permalink || item.postPermalink || "#"}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs text-aurora-300 hover:underline"
-            >
-              Répondre sur {networkLabel} ↗
-            </a>
-          )}
-          {onAsk && item.text && (
+          {replying === null && (viaApi || aiEnabled) && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onAsk(item);
+                openReply("write");
+              }}
+              className="inline-flex items-center gap-1 text-xs font-medium text-aurora-300 transition hover:text-white"
+            >
+              <IconMessage className="h-3.5 w-3.5" /> {viaApi ? "Répondre" : "Préparer une réponse"}
+            </button>
+          )}
+          {replying === null && aiEnabled && item.text && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openReply("suggest");
               }}
               className="inline-flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-              title="Demander une proposition de réponse à l'assistant"
+              title="L'IA prépare une réponse dans le champ ; vous la relisez avant de l'envoyer"
             >
               <IconSparkle className="h-3.5 w-3.5 text-aurora-300" /> Proposer une réponse
             </button>
           )}
+          {link && (
+            <a href={link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-slate-400 hover:text-white hover:underline">
+              {viaApi ? `Ouvrir sur ${networkLabel}` : `Répondre sur ${networkLabel}`} ↗
+            </a>
+          )}
         </div>
+        {sentText && (
+          <div className="mt-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2">
+            <p className="text-[11px] font-medium text-emerald-300">Votre réponse, publiée sur {networkLabel}</p>
+            <p className="mt-0.5 whitespace-pre-line text-sm text-slate-200">{sentText}</p>
+          </div>
+        )}
+        {replying && (
+          <CommentReplyBox
+            item={item}
+            support={support}
+            aiEnabled={aiEnabled}
+            suggestOnOpen={replying === "suggest"}
+            onClose={() => setReplying(null)}
+            onSent={({ repliedAt, text }) => {
+              setReplying(null);
+              setSentText(text);
+              onReplied(item.id, repliedAt);
+              toast.success(`Réponse publiée sur ${networkLabel}.`);
+            }}
+          />
+        )}
       </div>
     </GlassCard>
   );

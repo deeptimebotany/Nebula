@@ -23,6 +23,7 @@ import { countSchema, graphList, idSchema, opt, soft, textSchema, toDate, z } fr
 import { metaGraphVersion } from "./versions";
 import { envValue } from "@/lib/env-value";
 import { oauthRedirectUri } from "@/lib/network-availability";
+import { INSTAGRAM_DELETE_SCOPE } from "./remote-delete-support";
 
 // --- Contrats des réponses (lot 7, voir contract.ts) -------------------------
 // Doc : https://developers.facebook.com/docs/instagram-platform/content-publishing
@@ -191,7 +192,7 @@ export const META_PAGES_SCOPES = [
   "pages_show_list", // liste des Pages (/me/accounts)
   "pages_read_engagement", // publications, abonnés, réactions de la Page
   "pages_manage_posts", // publier sur la Page (/feed, /photos, /videos)
-  "pages_manage_engagement", // premier commentaire publié par la Page
+  "pages_manage_engagement", // premier commentaire et réponses aux commentaires, au nom de la Page
   "pages_read_user_content", // commentaires des abonnés (Commentaires, Engagements)
   "read_insights", // vues de la Page (/insights page_media_view)
   "business_management" // Pages et comptes Instagram rattachés à un portefeuille business
@@ -200,11 +201,32 @@ export const META_PAGES_SCOPES = [
 export const META_INSTAGRAM_SCOPES = [
   "instagram_basic", // profil, abonnés, liste des médias
   "instagram_content_publish", // publier (conteneurs, /media_publish)
-  "instagram_manage_comments", // lire les commentaires, premier commentaire
+  "instagram_manage_comments", // lire les commentaires, premier commentaire, répondre depuis Commentaires
   "instagram_manage_insights" // vues, portée, partages, enregistrements (/insights)
 ] as const;
 
 export const META_OAUTH_SCOPES: readonly string[] = [...META_INSTAGRAM_SCOPES, ...META_PAGES_SCOPES];
+
+/**
+ * Suppression Instagram depuis Nebula (« Supprimer aussi sur Instagram »,
+ * 01/10/2026) : Meta exige une permission en plus, instagram_manage_contents
+ * (connexion Facebook). Elle n'est demandée que si META_INSTAGRAM_DELETE
+ * vaut « true » : il faut d'abord l'ajouter dans le portail Meta (cas
+ * d'utilisation Instagram) — une permission demandée mais absente du
+ * portail fait échouer TOUTE la connexion. Les comptes déjà connectés se
+ * reconnectent ensuite pour l'obtenir.
+ */
+export function instagramDeleteEnabled(): boolean {
+  return /^(1|true|oui|yes)$/i.test(envValue("META_INSTAGRAM_DELETE"));
+}
+
+/** Permissions demandées à la connexion : la liste fixe, plus la suppression Instagram si activée. */
+export function metaOAuthScopes(): string[] {
+  return [...META_OAUTH_SCOPES, ...(instagramDeleteEnabled() ? [INSTAGRAM_DELETE_SCOPE] : [])];
+}
+
+/** Réponse de Meta à une suppression ({"success": true}). */
+const deletedSchema = z.object({ success: opt(z.boolean()) });
 
 /**
  * Adresse de retour de la connexion Meta, UNE seule pour Instagram et
@@ -221,7 +243,7 @@ export function metaRedirectUri(): string {
 function getMetaAuthUrl(state: string): string {
   const appId = requireEnv("META_APP_ID");
   const redirectUri = metaRedirectUri();
-  const scopes = META_OAUTH_SCOPES.join(",");
+  const scopes = metaOAuthScopes().join(",");
   const url = new URL(`https://www.facebook.com/${metaGraphVersion()}/dialog/oauth`);
   url.searchParams.set("client_id", appId);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -316,7 +338,7 @@ export async function exchangeMetaCode(code: string): Promise<{
       displayName: igAccount.username,
       handle: `@${igAccount.username}`,
       avatarUrl: igAccount.profile_picture_url,
-      scopes: [...META_INSTAGRAM_SCOPES, "pages_show_list"].join(","),
+      scopes: [...META_INSTAGRAM_SCOPES, ...(instagramDeleteEnabled() ? [INSTAGRAM_DELETE_SCOPE] : []), "pages_show_list"].join(","),
       authUserId: me?.id
     });
   }
@@ -681,6 +703,13 @@ export const instagramClient: SocialClient = {
     throw new SocialApiError("INSTAGRAM", "Reprise de publication inconnue.");
   },
 
+  // « Supprimer aussi sur Instagram » : permission instagram_manage_contents
+  // requise (voir instagramDeleteEnabled et remote-delete-support.ts).
+  async deletePost(connection: ConnectionLike, externalPostId: string) {
+    const res = await graph("INSTAGRAM", `/${encodeURIComponent(externalPostId)}`, connection.accessToken, { method: "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("INSTAGRAM", "Instagram a refusé la suppression.", 400);
+  },
+
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {
     const token = connection.accessToken;
     const account = connection.externalAccountId;
@@ -715,6 +744,17 @@ export const instagramClient: SocialClient = {
 
   async postComment(connection, externalPostId, comment) {
     await graph("INSTAGRAM", `/${externalPostId}/comments`, connection.accessToken, { method: "POST", params: { message: comment } });
+  },
+
+  // Réponse à un commentaire (page Commentaires) : POST /{commentaire}/replies,
+  // permission instagram_manage_comments (déjà demandée).
+  async replyToComment(connection, comment, text) {
+    const reply = await graph("INSTAGRAM", `/${encodeURIComponent(comment.externalId)}/replies`, connection.accessToken, {
+      method: "POST",
+      params: { message: text.trim() },
+      schema: createdSchema
+    });
+    return { externalId: reply.id };
   },
 
   fetchEngagement: fetchInstagramEngagement,
@@ -778,6 +818,14 @@ export const facebookClient: SocialClient = {
     return { externalPostId: id, externalUrl: `https://www.facebook.com/${id}` };
   },
 
+  // « Supprimer aussi sur Facebook » : DELETE /{id} avec le jeton de la Page
+  // (publication, photo ou vidéo — permission pages_manage_posts).
+  async deletePost(connection, externalPostId) {
+    const token = await ensureFacebookPageToken(connection);
+    const res = await graph("FACEBOOK", `/${encodeURIComponent(externalPostId)}`, token, { method: "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("FACEBOOK", "Facebook a refusé la suppression.", 400);
+  },
+
   async fetchAnalytics(connection) {
     const token = await ensureFacebookPageToken(connection);
     const page = await graph("FACEBOOK", `/${connection.externalAccountId}`, token, {
@@ -803,6 +851,18 @@ export const facebookClient: SocialClient = {
   async postComment(connection, externalPostId, comment) {
     const token = await ensureFacebookPageToken(connection);
     await graph("FACEBOOK", `/${externalPostId}/comments`, token, { method: "POST", params: { message: comment } });
+  },
+
+  // Réponse à un commentaire (page Commentaires) : POST /{commentaire}/comments
+  // au nom de la Page (pages_manage_engagement, déjà demandée).
+  async replyToComment(connection, comment, text) {
+    const token = await ensureFacebookPageToken(connection);
+    const reply = await graph("FACEBOOK", `/${encodeURIComponent(comment.externalId)}/comments`, token, {
+      method: "POST",
+      params: { message: text.trim() },
+      schema: createdSchema
+    });
+    return { externalId: reply.id };
   },
 
   fetchEngagement: fetchFacebookEngagement,

@@ -21,6 +21,7 @@ import {
   SocialApiError,
   fetchJson,
   pollUntil,
+  sameHandle,
   waitBudgetMs,
   type PublishCheckpoint,
   type PublishOutcome,
@@ -68,7 +69,10 @@ const threadSchema = z.object({
   thumbnail_url: textSchema
 });
 const replySchema = z.object({ id: idSchema, text: textSchema, username: textSchema, timestamp: textSchema, permalink: textSchema });
-const SCOPES = ["threads_basic", "threads_content_publish", "threads_manage_insights", "threads_manage_replies", "threads_read_replies"];
+// threads_delete (01/10/2026) : « Supprimer aussi sur Threads » depuis la
+// fiche d'une publication (100 suppressions par 24 h et par compte).
+const SCOPES = ["threads_basic", "threads_content_publish", "threads_manage_insights", "threads_manage_replies", "threads_read_replies", "threads_delete"];
+const deletedSchema = z.object({ success: opt(z.boolean()) });
 const MAX_CAROUSEL = 20;
 
 function requireEnv(name: string): string {
@@ -82,7 +86,7 @@ const redirectUri = () => oauthRedirectUri("threads", "THREADS_REDIRECT_URI");
 async function graph<T = unknown>(
   path: string,
   token: string,
-  init: { method?: "GET" | "POST"; params?: Record<string, string | undefined>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
+  init: { method?: "GET" | "POST" | "DELETE"; params?: Record<string, string | undefined>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
 ): Promise<T> {
   const url = new URL(path.startsWith("http") ? path : `${API}${path}`);
   for (const [k, v] of Object.entries(init.params ?? {})) if (v !== undefined) url.searchParams.set(k, v);
@@ -112,6 +116,22 @@ async function freshToken(connection: ConnectionLike): Promise<string> {
     // Rafraîchissement refusé (jeton de moins de 24 h, par exemple) : l'actuel reste valable.
     return connection.accessToken;
   }
+}
+
+/** Publie une réponse texte sous `replyToId` (publication ou réponse reçue) ; renvoie son identifiant. */
+async function publishReply(connection: ConnectionLike, replyToId: string, text: string): Promise<string> {
+  const token = await freshToken(connection);
+  const userId = connection.externalAccountId;
+  const container = await graph(`/${userId}/threads`, token, {
+    method: "POST",
+    params: { media_type: "TEXT", text: text.trim(), reply_to_id: replyToId },
+    schema: createdSchema
+  });
+  if (!(await containerReady(container.id, token, 20_000))) {
+    throw new SocialApiError("THREADS", "Threads met trop de temps à préparer la réponse.");
+  }
+  const published = await graph(`/${userId}/threads_publish`, token, { method: "POST", params: { creation_id: container.id }, schema: createdSchema });
+  return published.id;
 }
 
 /**
@@ -264,19 +284,21 @@ export const threadsClient: SocialClient = {
     throw new SocialApiError("THREADS", "Reprise de publication inconnue.");
   },
 
+  async deletePost(connection: ConnectionLike, externalPostId: string) {
+    const token = await freshToken(connection);
+    const res = await graph(`/${encodeURIComponent(externalPostId)}`, token, { method: "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("THREADS", "Threads a refusé la suppression.", 400);
+  },
+
   // Premier commentaire = réponse publiée sous le post.
   async postComment(connection: ConnectionLike, externalPostId: string, comment: string) {
-    const token = await freshToken(connection);
-    const userId = connection.externalAccountId;
-    const container = await graph(`/${userId}/threads`, token, {
-      method: "POST",
-      params: { media_type: "TEXT", text: comment.trim(), reply_to_id: externalPostId },
-      schema: createdSchema
-    });
-    if (!(await containerReady(container.id, token, 20_000))) {
-      throw new SocialApiError("THREADS", "Threads met trop de temps à préparer la réponse.");
-    }
-    await graph(`/${userId}/threads_publish`, token, { method: "POST", params: { creation_id: container.id } });
+    await publishReply(connection, externalPostId, comment);
+  },
+
+  // Réponse à un commentaire (page Commentaires) : même mécanisme, sous la
+  // réponse reçue (threads_manage_replies).
+  async replyToComment(connection: ConnectionLike, comment: { externalId: string }, text: string) {
+    return { externalId: await publishReply(connection, comment.externalId, text) };
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {
@@ -375,6 +397,8 @@ export const threadsClient: SocialClient = {
         schema: graphList(replySchema)
       }).catch(() => ({ data: [] as z.output<typeof replySchema>[] }));
       for (const r of replies.data) {
+        // Réponses du compte lui-même : pas des commentaires reçus.
+        if (connection.handle && sameHandle(r.username, connection.handle)) continue;
         items.push({
           type: "COMMENT",
           externalId: r.id,

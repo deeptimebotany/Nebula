@@ -5,6 +5,8 @@ import { ownedBy } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
+import { commentReplySupport } from "@/lib/social/comment-reply-support";
+import { youtubeCommentReplyEnabled } from "@/lib/social/youtube";
 
 // Boîte de réception des COMMENTAIRES (page /comments) : les commentaires
 // déjà synchronisés (voir /api/engagement/sync) soit pour UN compte
@@ -34,6 +36,14 @@ export async function GET(req: NextRequest) {
     take: connectionId ? 100 : 300
   });
 
+  // Rôle de la personne sur chaque marque : un « lecteur » ne répond pas.
+  const roles = new Map(
+    (await prisma.membership.findMany({ where: { userId, brandId: { in: Array.from(new Set(connections.map((c) => c.brandId))) } }, select: { brandId: true, role: true } })).map(
+      (m: { brandId: string; role: string }) => [m.brandId, m.role]
+    )
+  );
+  const ytReply = youtubeCommentReplyEnabled();
+
   return NextResponse.json({
     connections: connections.map((c) => ({
       id: c.id,
@@ -41,7 +51,12 @@ export async function GET(req: NextRequest) {
       displayName: c.displayName,
       handle: c.handle,
       lastSyncedAt: c.lastEngagementSyncedAt,
-      supportsEngagement: Boolean(getSocialClient(c.network as Network).fetchEngagement)
+      supportsEngagement: Boolean(getSocialClient(c.network as Network).fetchEngagement),
+      // Répondre depuis Nebula (01/10/2026) : possible, ou pourquoi pas.
+      reply:
+        roles.get(c.brandId) === "VIEWER"
+          ? { mode: "manual", how: "Votre rôle sur cette marque permet de lire les commentaires, pas d'y répondre." }
+          : commentReplySupport(c.network, c, { youtubeReplyEnabled: ytReply })
     })),
     items
   });

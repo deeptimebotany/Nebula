@@ -362,6 +362,51 @@ export const blueskyClient: SocialClient = {
     return { externalPostId: created.uri, externalUrl: postUrl(handle, did, created.uri) };
   },
 
+  // « Supprimer aussi sur Bluesky » : com.atproto.repo.deleteRecord sur
+  // l'enregistrement at://<did>/app.bsky.feed.post/<rkey> du compte.
+  async deletePost(connection: BlueskyConnection, externalPostId: string) {
+    const match = /^at:\/\/([^/]+)\/app\.bsky\.feed\.post\/([^/]+)$/.exec(externalPostId);
+    if (!match) throw new SocialApiError("BLUESKY", "Identifiant de publication Bluesky illisible.", 400);
+    const [, repo, rkey] = match;
+    if (repo !== connection.externalAccountId) throw new SocialApiError("BLUESKY", "Cette publication n'appartient pas à ce compte Bluesky.", 403);
+    const token = await accessTokenFor(connection);
+    await xrpc(pdsOf(connection), "com.atproto.repo.deleteRecord", { token, body: { repo, collection: "app.bsky.feed.post", rkey } });
+  },
+
+  // Réponse à un commentaire (page Commentaires) : parent = le commentaire,
+  // racine = la racine de son fil (la publication du compte).
+  async replyToComment(connection: BlueskyConnection, comment: { externalId: string; postExternalId?: string | null }, text: string) {
+    const token = await accessTokenFor(connection);
+    const ref = z.object({ uri: z.string().min(1), cid: z.string().min(1) });
+    const { posts } = await xrpc(APPVIEW, "app.bsky.feed.getPosts", {
+      query: { uris: [comment.externalId] },
+      schema: z.object({
+        posts: z.array(z.object({ uri: z.string().min(1), cid: z.string().min(1), record: soft(z.object({ reply: soft(z.object({ root: ref }).passthrough()) }).passthrough()) }))
+      })
+    });
+    const parent = posts[0];
+    if (!parent) throw new SocialApiError("BLUESKY", "Commentaire introuvable : il a peut-être été supprimé.", 404);
+    const root = parent.record?.reply?.root ?? { uri: parent.uri, cid: parent.cid };
+    const facets = await buildFacets(text);
+    const created = await xrpc(pdsOf(connection), "com.atproto.repo.createRecord", {
+      token,
+      body: {
+        repo: connection.externalAccountId,
+        collection: "app.bsky.feed.post",
+        record: {
+          $type: "app.bsky.feed.post",
+          text: text.trim(),
+          createdAt: new Date().toISOString(),
+          langs: ["fr"],
+          reply: { root: { uri: root.uri, cid: root.cid }, parent: { uri: parent.uri, cid: parent.cid } },
+          ...(facets.length ? { facets } : {})
+        }
+      },
+      schema: z.object({ uri: z.string().min(1), cid: z.string().min(1) })
+    });
+    return { externalId: created.uri };
+  },
+
   async postComment(connection: BlueskyConnection, externalPostId: string, comment: string) {
     const token = await accessTokenFor(connection);
     const { posts } = await xrpc(APPVIEW, "app.bsky.feed.getPosts", {

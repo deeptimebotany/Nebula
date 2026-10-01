@@ -83,7 +83,7 @@ const userAccountSchema = z.object({
 async function api<T = unknown>(
   path: string,
   token: string,
-  init: { method?: "GET" | "POST" | "PATCH"; body?: unknown; query?: Record<string, string>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
+  init: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; query?: Record<string, string>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
 ): Promise<T> {
   const url = new URL(`${API}${path}`);
   for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v);
@@ -308,6 +308,12 @@ export const pinterestClient: SocialClient = {
       return finishPinterestVideo(token, checkpoint.mediaId, checkpoint.boardId, input);
     }
     throw new SocialApiError("PINTEREST", "Reprise de publication inconnue.");
+  },
+
+  // « Supprimer aussi sur Pinterest » : DELETE /v5/pins/{id} (pins:write), réponse 204.
+  async deletePost(connection: ConnectionLike, externalPostId: string) {
+    const token = await freshToken(connection);
+    await api(`/pins/${encodeURIComponent(externalPostId)}`, token, { method: "DELETE" });
   },
 
   async fetchAnalytics(connection: ConnectionLike): Promise<AnalyticsResult> {

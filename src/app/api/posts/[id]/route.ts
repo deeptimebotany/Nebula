@@ -9,6 +9,10 @@ import { deleteBrandMediaFile } from "@/lib/media-files";
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/trial-expiry";
 import { tiktokOptionsProblem } from "@/lib/social/tiktok-direct-post";
+import { z } from "zod";
+import { deleteTargetsOnNetworks } from "@/lib/posts/remote-delete";
+import { instagramDeleteEnabled } from "@/lib/social/meta";
+import { isOnlineTarget, remoteDeleteSupport } from "@/lib/social/remote-delete-support";
 
 /**
  * Marque ou comptes en veille (lot E4) : ni « Publier maintenant » ni
@@ -60,14 +64,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       targets: {
         include: {
           // Jamais la connexion complète : elle contient les jetons OAuth.
-          connection: { select: PUBLIC_CONNECTION_SELECT },
+          // Les permissions (scopes) servent seulement à calculer ce que la
+          // case « Supprimer aussi sur … » permet, puis sont retirées.
+          connection: { select: { ...PUBLIC_CONNECTION_SELECT, scopes: true } },
           insights: { orderBy: { createdAt: "desc" }, take: 1 }
         }
       }
     }
   });
   if (!post) return notFound();
-  return NextResponse.json({ post });
+  const igDelete = instagramDeleteEnabled();
+  const targets = post.targets.map((t: (typeof post.targets)[number]) => {
+    const { scopes: _scopes, ...connection } = t.connection;
+    return {
+      ...t,
+      connection,
+      // Publication en ligne : suppression possible depuis Nebula, ou marche à suivre (01/10/2026).
+      remoteDelete: isOnlineTarget(t) ? remoteDeleteSupport(t, t.connection, { instagramDeleteEnabled: igDelete }) : null
+    };
+  });
+  return NextResponse.json({ post: { ...post, targets } });
 }
 
 // POST /api/posts/[id] { action: "publish-now" | "cancel" | "duplicate" | "retry-now" | "stop-retries" }
@@ -241,7 +257,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/posts/[id] { alsoDeleteOn?: string[] } — supprime la
+// publication de Nebula. `alsoDeleteOn` (01/10/2026) : identifiants des
+// cibles à retirer AUSSI des réseaux (case « Supprimer aussi sur … »). Si
+// un réseau échoue, rien n'est supprimé dans Nebula : la réponse détaille
+// chaque réseau ({ deleted: false, results }) pour réessayer ou le faire à
+// la main ; ce qui a déjà été retiré reste noté (voir remote-delete.ts).
+const deleteBodySchema = z.object({ alsoDeleteOn: z.array(z.string().min(1).max(64)).max(20).optional() });
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
@@ -249,8 +273,24 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const own = await findOwnPost(userId, params.id);
   if (!own) return notFound();
 
+  // Sans corps (ancienne fiche, API) : suppression dans Nebula seulement.
+  const raw = await req.text().catch(() => "");
+  let body: unknown = {};
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+  }
+  const parsed = deleteBodySchema.safeParse(body ?? {});
+  if (!parsed.success) return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+
+  const results = await deleteTargetsOnNetworks(own.id, parsed.data.alsoDeleteOn ?? []);
+  if (results.some((r) => !r.ok)) {
+    return NextResponse.json({ ok: false, deleted: false, results });
+  }
+
   // Suppression + nettoyage des fichiers orphelins (voir src/lib/posts/delete-post.ts).
   await deletePostAndOrphanMedia(own.id);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deleted: true, results });
 }
