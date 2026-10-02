@@ -7,6 +7,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
+import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
 
 // Index des réseaux (brief growth, lot G5.d) : pris en charge aujourd'hui,
 // et à venir avec leur liste d'attente.
@@ -20,11 +21,15 @@ export default function ReseauxIndexPage() {
 
       <section aria-labelledby="supportes">
         <h2 id="supportes" className="mb-4 font-display text-2xl font-semibold text-white">Pris en charge aujourd&apos;hui</h2>
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           {LAUNCHED_NETWORKS.map((n) => (
             <li key={n}>
               <GlassCard hover={false} className="h-full text-center">
-                <p className="font-display text-lg font-semibold" style={{ color: NETWORK_META[n].color }}>
+                <p className="flex items-center justify-center gap-2 font-display text-lg font-semibold text-white">
+                  {/* Logo à la couleur du réseau ; le nom reste lisible en clair comme en sombre. */}
+                  <span className="network-ink" style={networkInkStyle(n)}>
+                    <NetworkLogo network={n} className="h-5 w-5" />
+                  </span>
                   {NETWORK_META[n].label}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">Publication, programmation, statistiques</p>

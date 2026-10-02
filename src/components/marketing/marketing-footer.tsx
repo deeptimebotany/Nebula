@@ -99,7 +99,7 @@ export function MarketingFooter() {
 
         <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.06] pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {year} {SITE_NAME}. Publication via les API officielles de Meta, TikTok et YouTube.
+            © {year} {SITE_NAME}. Publication via les API officielles de chaque réseau.
           </p>
           <Link href="/contact" className="transition hover:text-slate-300 hover:underline">
             Nous écrire

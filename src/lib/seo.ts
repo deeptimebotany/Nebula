@@ -17,6 +17,7 @@
 import type { Metadata } from "next";
 import { SITE_DESCRIPTION, SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { networksSentence } from "@/lib/types";
 
 /** Longueur maximale d'une description (au-delà, Google la coupe). */
 export const META_DESCRIPTION_MAX = 155;
@@ -132,7 +133,7 @@ export function softwareApplicationLd(): Json {
     browserRequirements: "Navigateur récent (Chrome, Firefox, Safari, Edge)",
     inLanguage: "fr-FR",
     featureList: [
-      "Programmation et publication sur Instagram, TikTok, YouTube, Facebook et Bluesky",
+      `Programmation et publication sur ${networksSentence()}`,
       "Statistiques unifiées de tous les comptes",
       "Rapports clients et calendrier partagé",
       "Assistant IA : titres, légendes, miniatures, idées de vidéos",

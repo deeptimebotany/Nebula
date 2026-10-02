@@ -15,7 +15,9 @@ const DONATE_URL = process.env.NEXT_PUBLIC_DONATE_URL;
 
 // Encadré « Bientôt disponible » : ce que les abonnements et les soutiens
 // permettront de financer. (30/09/2026 : « Palier IA avancé (Gemini) » est
-// fait — Nebula utilise l'API payante — et a quitté la liste.)
+// fait — Nebula utilise l'API payante — et a quitté la liste. 02/10/2026 :
+// sous-titres automatiques, site plus rapide, serveurs plus puissants et
+// espace vidéo retirés pour alléger la page.)
 const SOON_GROUPS: { title: string; items: { title: string; text: string }[] }[] = [
   {
     title: "Nouvelles fonctionnalités",
@@ -27,28 +29,12 @@ const SOON_GROUPS: { title: string; items: { title: string; text: string }[] }[]
       {
         title: "Hashtag Tracker",
         text: "Suivre la tendance d'un hashtag en temps réel (façon Metricool) suppose d'interroger l'API de recherche X, elle-même payante — voir juste au-dessus. Reviendra en même temps que la connexion X."
-      },
-      {
-        title: "Sous-titres automatiques des vidéos",
-        text: "L'IA écoute vos vidéos et génère leurs sous-titres, prêts à publier. Chaque minute de vidéo analysée a un coût côté fournisseur."
       }
     ]
   },
   {
-    title: "Vitesse et fiabilité",
+    title: "Fiabilité",
     items: [
-      {
-        title: "Un site plus rapide partout dans le monde",
-        text: "Avec Cloudflare Pro : pages mises en cache au plus près de chaque visiteur, images optimisées automatiquement et protection contre les attaques."
-      },
-      {
-        title: "Des serveurs plus puissants",
-        text: "Un hébergement Vercel Pro, une base de données payante et un cache en mémoire : des pages qui s'affichent instantanément, même avec beaucoup d'utilisateurs en même temps."
-      },
-      {
-        title: "Plus d'espace pour vos vidéos",
-        text: "Un stockage agrandi pour envoyer des vidéos plus lourdes."
-      },
       {
         title: "Moins de bugs",
         text: "Un outil de surveillance des erreurs (comme Sentry) : chaque erreur est signalée automatiquement et corrigée avant que vous ne tombiez dessus."

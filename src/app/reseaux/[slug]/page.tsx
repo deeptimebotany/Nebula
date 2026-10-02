@@ -11,7 +11,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META, networksSentence } from "@/lib/types";
 
 // Page d'attente d'un réseau à venir (brief growth, lot G5.d).
 // Pages pré-générées (lot 11) : une adresse hors de la liste répond 404
@@ -27,7 +27,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   if (!n) return {};
   return pageMetadata({
     title: `Programmer des publications ${n.label} (bientôt)`,
-    description: `${n.label} arrive dans Nebula. Inscrivez-vous pour être prévenu, et commencez dès aujourd'hui sur Instagram, TikTok, YouTube, Facebook et Bluesky.`,
+    description: `${n.label} arrive dans Nebula. Inscrivez-vous pour être prévenu, et commencez dès aujourd'hui sur ${networksSentence()}.`,
     path: `/reseaux/${n.slug}`
   });
 }

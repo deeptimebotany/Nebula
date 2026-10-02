@@ -46,7 +46,7 @@ export const DEMO_TITRE_YOUTUBE: DemoCase<string[]> = {
  */
 export const DEMO_LEGENDES_CASE = "Ouverture de notre nouvelle boutique à Lyon ce week-end";
 
-export const DEMO_LEGENDES_BY_NETWORK: Record<"INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "FACEBOOK" | "BLUESKY", { title: string; description: string }> = {
+export const DEMO_LEGENDES_BY_NETWORK: Record<"INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "FACEBOOK" | "BLUESKY" | "PINTEREST", { title: string; description: string }> = {
   INSTAGRAM: {
     title: "Notre boutique ouvre à Lyon ce week-end",
     description:
@@ -65,6 +65,10 @@ export const DEMO_LEGENDES_BY_NETWORK: Record<"INSTAGRAM" | "TIKTOK" | "YOUTUBE"
     title: "Ouverture de notre boutique à Lyon ce week-end",
     description:
       "Grande nouvelle : notre nouvelle boutique ouvre ses portes à Lyon ce samedi ! 🎉\n\nToute l'équipe vous accueille samedi et dimanche, de 10 h à 19 h, avec une petite surprise pour les 50 premiers visiteurs.\n\nPartagez avec vos amis lyonnais et dites-nous en commentaire si vous passez nous voir !"
+  },
+  PINTEREST: {
+    title: "Nouvelle boutique à Lyon : ouverture ce week-end",
+    description: "Notre nouvelle boutique ouvre à Lyon ce samedi et ce dimanche, de 10 h à 19 h. Découvrez les nouveautés en avant-première et une petite surprise pour les 50 premiers visiteurs. Idées déco, coin café et vitrine de la saison à retrouver sur place. #lyon #boutique #ouverture #deco"
   },
   BLUESKY: {
     title: "Ouverture à Lyon ce samedi",

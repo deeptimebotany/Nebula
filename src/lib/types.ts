@@ -26,7 +26,19 @@ export type Network = (typeof NETWORKS)[number];
  * par la plateforme et ses clés configurées en production — pas avant, pour
  * ne rien promettre qui ne marche pas encore.
  */
-export const LAUNCHED_NETWORKS: readonly Network[] = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "BLUESKY"];
+// Pinterest : application validée (accès « Standard ») et clés sur Vercel,
+// ouvert le 02/10/2026.
+export const LAUNCHED_NETWORKS: readonly Network[] = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "BLUESKY", "PINTEREST"];
+
+/** Réseaux ouverts reliés par la page d'autorisation officielle (OAuth) : tous sauf Bluesky (mot de passe d'application). */
+export const OAUTH_LAUNCHED_NETWORKS: readonly Network[] = LAUNCHED_NETWORKS.filter((n) => n !== "BLUESKY");
+
+/** « Instagram, Facebook, TikTok, YouTube, Bluesky et Pinterest » — jamais une liste écrite à la main. */
+export function networksSentence(list: readonly Network[] = LAUNCHED_NETWORKS, last: "et" | "ou" = "et"): string {
+  const labels = list.map((n) => NETWORK_META[n].label);
+  return labels.length <= 1 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${last} ${labels[labels.length - 1]}`;
+}
+
 
 export const ROLES = ["OWNER", "EDITOR", "VIEWER"] as const;
 export type Role = (typeof ROLES)[number];
@@ -72,6 +84,8 @@ export interface NetworkMeta {
   color: string;
   /** Même teinte, assombrie pour rester lisible en texte sur fond clair (mode clair, ≥ 4,5:1). */
   ink: string;
+  /** Teinte éclaircie pour le texte sur fond sombre, quand la couleur de marque n'y atteint pas 4,5:1 (Pinterest). */
+  inkDark?: string;
   glow: string;
   supportsVideo: boolean;
   supportsImage: boolean;
@@ -163,6 +177,7 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     label: "Pinterest",
     color: "#E60023",
     ink: "#B8001C",
+    inkDark: "#FF3B52",
     glow: "rgba(230,0,35,0.45)",
     supportsVideo: true,
     supportsImage: true,

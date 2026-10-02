@@ -7,6 +7,18 @@
 // PINTEREST_APP_SECRET, puis demander l'accès « Standard ». Avec l'accès
 // d'essai, les épingles créées ne sont visibles que par leur auteur.
 //
+// Mode « sandbox » (02/10/2026, pour la vidéo de démonstration demandée par
+// Pinterest avant l'accès « Standard ») : PINTEREST_SANDBOX="1" sur Vercel.
+// Avec l'accès d'essai, Pinterest n'accepte la création d'épingles que dans
+// son bac à sable : tous les appels (y compris l'échange du code OAuth)
+// partent alors vers api-sandbox.pinterest.com, avec un jeton propre au bac
+// à sable (un jeton de production n'y marche pas, et inversement : après la
+// validation, retirer la variable et reconnecter le compte). La page
+// d'autorisation reste www.pinterest.com. Dans le bac à sable : pas
+// d'épingle vidéo, et les tableaux de production n'existent pas (un tableau
+// « Nebula » y est créé au besoin) ; les épingles ne sont visibles que par
+// leur auteur.
+//
 // Jetons : accès 30 jours + jeton de rafraîchissement ~1 an, renouvelés
 // automatiquement quand l'accès approche de l'expiration (freshToken).
 // Publication : image, carrousel (2 à 5 images) ou vidéo, dans le tableau
@@ -39,7 +51,17 @@ import { adoptConcurrentRefresh } from "./tokens";
 import { envValue } from "@/lib/env-value";
 
 const AUTH_URL = "https://www.pinterest.com/oauth/";
-const API = "https://api.pinterest.com/v5";
+const API_PRODUCTION = "https://api.pinterest.com/v5";
+const API_SANDBOX = "https://api-sandbox.pinterest.com/v5";
+
+/** Bac à sable de Pinterest (accès d'essai, vidéo de démonstration). */
+export function isPinterestSandbox(): boolean {
+  return envValue("PINTEREST_SANDBOX") === "1";
+}
+
+const apiBase = () => (isPinterestSandbox() ? API_SANDBOX : API_PRODUCTION);
+/** Nom du tableau créé dans le bac à sable s'il n'y en a aucun. */
+export const SANDBOX_BOARD_NAME = "Nebula";
 const SCOPES = ["user_accounts:read", "boards:read", "boards:write", "pins:read", "pins:write"];
 
 function requireEnv(name: string): string {
@@ -85,7 +107,7 @@ async function api<T = unknown>(
   token: string,
   init: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; query?: Record<string, string>; schema?: ZodType<T, ZodTypeDef, unknown> } = {}
 ): Promise<T> {
-  const url = new URL(`${API}${path}`);
+  const url = new URL(`${apiBase()}${path}`);
   for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v);
   return fetchJson("PINTEREST", url.toString(), {
     method: init.method ?? "GET",
@@ -104,7 +126,7 @@ async function freshToken(connection: ConnectionLike): Promise<string> {
   const usedRefreshToken = connection.refreshToken;
   let token: TokenResponse;
   try {
-    token = await fetchJson("PINTEREST", `${API}/oauth/token`, {
+    token = await fetchJson("PINTEREST", `${apiBase()}/oauth/token`, {
       method: "POST",
       headers: { Authorization: basicAuth(), "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: usedRefreshToken }),
@@ -158,6 +180,16 @@ export async function listPinterestBoards(connection: ConnectionLike): Promise<P
     boards.push(...res.items.map((b) => ({ id: b.id, name: b.name, privacy: b.privacy })));
     if (!res.bookmark) break;
     bookmark = res.bookmark;
+  }
+  // Bac à sable : les tableaux de production n'y existent pas et on ne peut
+  // pas en créer depuis Pinterest.com : un tableau « Nebula » est créé.
+  if (boards.length === 0 && isPinterestSandbox()) {
+    const created = await api("/boards", token, {
+      method: "POST",
+      body: { name: SANDBOX_BOARD_NAME, description: "Tableau de test créé par Nebula (bac à sable Pinterest).", privacy: "PUBLIC" },
+      schema: z.object({ id: idSchema, name: z.string(), privacy: textSchema })
+    });
+    boards.push({ id: created.id, name: created.name, privacy: created.privacy });
   }
   return boards;
 }
@@ -250,7 +282,7 @@ export const pinterestClient: SocialClient = {
   },
 
   async exchangeCodeForToken(code) {
-    const token = await fetchJson("PINTEREST", `${API}/oauth/token`, {
+    const token = await fetchJson("PINTEREST", `${apiBase()}/oauth/token`, {
       method: "POST",
       headers: { Authorization: basicAuth(), "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri() }),
@@ -286,6 +318,9 @@ export const pinterestClient: SocialClient = {
 
     const first = input.mediaUrls[0];
     if (isVideoUrl(first, input.mediaType)) {
+      if (isPinterestSandbox()) {
+        throw new SocialApiError("PINTEREST", "Pinterest en mode test (bac à sable) : les épingles vidéo n'y sont pas possibles. Publiez une image pour la démonstration.", 400);
+      }
       const mediaId = await uploadVideo(token, first);
       return finishPinterestVideo(token, mediaId, boardId, input);
     }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
+import { networksSentence } from "@/lib/types";
 import { SEO_DISCOVER } from "@/lib/seo-pages";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { FaqSection } from "@/components/marketing/faq-section";
@@ -47,7 +48,7 @@ const EXAMPLE: PublicKitData = {
 const FAQ = [
   { q: "Les chiffres peuvent-ils être modifiés ?", a: "Non. Les abonnés, les vues et l'engagement sont relevés par Nebula auprès des API officielles des réseaux, et le kit indique la date du dernier relevé. Vous choisissez les comptes et les publications affichés, et vous écrivez votre présentation et vos offres : c'est ce qui rend le kit crédible pour une marque." },
   { q: "C'est gratuit ?", a: "Vous préparez votre kit gratuitement et voyez l'aperçu avec vos vrais chiffres. Le publier (lien à partager, PDF, image de partage) fait partie des paliers Pro et Agence." },
-  { q: "Quels réseaux sont pris en charge ?", a: "YouTube, Instagram, Facebook, TikTok et Bluesky, dès que le compte est connecté à Nebula. Chaque compte peut être masqué du kit d'un clic." },
+  { q: "Quels réseaux sont pris en charge ?", a: `${networksSentence()}, dès que le compte est connecté à Nebula. Chaque compte peut être masqué du kit d'un clic.` },
   { q: "Comment l'envoyer à une marque ?", a: "Par son lien (nebulahub.space/kit/votre-marque), qui s'affiche avec une image de partage dans un e-mail ou une messagerie, ou en PDF. Vous voyez combien de fois il a été ouvert." }
 ];
 

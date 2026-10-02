@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { MEDIA_SOURCE_LABELS, type MediaSourceId } from "@/lib/media-sources";
+import { SourceIcon } from "@/components/media-import/source-icon";
 import type { UploadedAssetResult } from "@/lib/upload-client";
 import { preloadDropbox, preloadGoogleDrive, pickFromDropbox, pickFromGoogleDrive } from "./browser-pickers";
 import dynamic from "next/dynamic";
@@ -26,56 +28,10 @@ interface Sources {
   canva: { connected: boolean } | null;
 }
 
-type SourceId = "gdrive" | "dropbox" | "onedrive" | "unsplash" | "canva";
+type SourceId = MediaSourceId;
 
-const LABELS: Record<SourceId, string> = {
-  gdrive: "Google Drive",
-  dropbox: "Dropbox",
-  onedrive: "OneDrive",
-  unsplash: "Unsplash",
-  canva: "Canva"
-};
+const LABELS = MEDIA_SOURCE_LABELS;
 
-// Glyphes simplifiés au trait (pas les logos officiels), comme les réseaux.
-function SourceIcon({ id }: { id: SourceId }) {
-  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className: "h-4 w-4", "aria-hidden": true };
-  switch (id) {
-    case "gdrive":
-      return (
-        <svg {...common}>
-          <path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z" />
-          <path d="M8.5 3.5 15 14.5M15.5 3.5 9 14.5M2.5 14h19" />
-        </svg>
-      );
-    case "dropbox":
-      return (
-        <svg {...common}>
-          <path d="m7 3.5-4.5 3 4.5 3 5-3zM17 3.5l4.5 3-4.5 3-5-3zM2.5 12.5l4.5 3 5-3-5-3zM21.5 12.5l-4.5 3-5-3 5-3zM7 17l5 3.5 5-3.5" />
-        </svg>
-      );
-    case "onedrive":
-      return (
-        <svg {...common}>
-          <path d="M7 18.5h11a3.5 3.5 0 0 0 .5-7A5.5 5.5 0 0 0 8 9.6 4.5 4.5 0 0 0 7 18.5Z" />
-        </svg>
-      );
-    case "unsplash":
-      return (
-        <svg {...common}>
-          <rect x="3.5" y="5.5" width="17" height="14" rx="2.5" />
-          <circle cx="12" cy="12.5" r="3.5" />
-          <path d="M8.5 5.5 10 3.5h4l1.5 2" />
-        </svg>
-      );
-    case "canva":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M15.5 9.5a4 4 0 1 0 0 5" />
-        </svg>
-      );
-  }
-}
 
 export function MediaImportBar({
   brandId,

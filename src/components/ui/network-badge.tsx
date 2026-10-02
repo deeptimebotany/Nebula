@@ -29,7 +29,7 @@ export function NetworkLogo({ network, className = "h-5 w-5" }: { network: Netwo
  */
 export function networkInkStyle(network: Network): CSSProperties {
   const meta = NETWORK_META[network];
-  return { "--nb": meta.color, "--nb-ink": meta.ink } as CSSProperties;
+  return { "--nb": meta.inkDark ?? meta.color, "--nb-ink": meta.ink } as CSSProperties;
 }
 
 // Pastille de réseau (refonte du 24/09/2026, « badges qui font brouillon ») :

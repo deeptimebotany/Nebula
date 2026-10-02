@@ -3,7 +3,9 @@
 // chacune n'apparaît que si ses clés sont renseignées (voir .env.example).
 // Côté serveur uniquement : ce fichier lit process.env.
 
-export type MediaSourceId = "gdrive" | "dropbox" | "onedrive" | "unsplash" | "canva";
+import { MEDIA_SOURCE_ORDER, type MediaSourceId } from "@/lib/media-sources";
+
+export type { MediaSourceId };
 
 export interface PublicMediaSources {
   /** Google Picker : clé d'API (restreinte au domaine), client OAuth, numéro de projet. */
@@ -42,4 +44,20 @@ export function integrationRedirectUri(provider: "canva" | "onedrive"): string {
 /** Nom d'application pour les liens de crédit Unsplash (utm_source exigé par leurs règles). */
 export function unsplashAppName(): string {
   return process.env.UNSPLASH_APP_NAME || "nebula";
+}
+
+/**
+ * Sources ouvertes (clés renseignées), dans l'ordre d'affichage. Lu au build
+ * par la page d'accueil (pré-générée) : ajouter une clé sur Vercel puis
+ * redéployer fait apparaître la source sur l'accueil, jamais avant.
+ */
+export function configuredMediaSources(): MediaSourceId[] {
+  const on: Record<MediaSourceId, boolean> = {
+    gdrive: Boolean(gdriveConfig()),
+    dropbox: Boolean(dropboxConfig()),
+    onedrive: isOneDriveConfigured(),
+    unsplash: isUnsplashConfigured(),
+    canva: isCanvaConfigured()
+  };
+  return MEDIA_SOURCE_ORDER.filter((id) => on[id]);
 }

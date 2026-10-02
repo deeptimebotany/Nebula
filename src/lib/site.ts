@@ -6,11 +6,12 @@
 // Ce fichier ne doit importer aucun composant ni rien de "use client" :
 // sitemap.ts et robots.ts l'importent et Next.js exige qu'ils restent
 // autonomes.
+import { networksSentence } from "@/lib/types";
+
 export const SITE_NAME = "Nebula";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://nebulahub.space";
 export const SITE_TAGLINE = "Planifiez, publiez et analysez vos réseaux sociaux";
-export const SITE_DESCRIPTION =
-  "Nebula centralise Instagram, TikTok, YouTube, Facebook et Bluesky : planification, publication multi-réseaux, analytics unifiées et rapports clients, dans un seul espace.";
+export const SITE_DESCRIPTION = `Nebula réunit ${networksSentence()} : programmation, statistiques et rapports clients, dans un seul espace.`;
 export const SITE_LOCALE = "fr_FR";
 // Couleur de fond de l'application (voir --app-bg dans globals.css) — sert
 // de theme-color au navigateur et de fond aux images de partage.

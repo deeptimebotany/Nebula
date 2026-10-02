@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { networksSentence } from "@/lib/types";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
@@ -181,8 +182,8 @@ const MORE = [
 ];
 
 const STEPS = [
-  { title: "Connectez vos comptes", desc: "Instagram, TikTok, YouTube, Facebook, Bluesky : la connexion officielle de chaque réseau, en quelques clics." },
-  { title: "Programmez vos publications", desc: "Un média, un texte, les comptes et la date. Nebula publie à l'heure prévue et vous prévient en cas de souci." },
+  { title: "Connectez vos comptes", desc: `${networksSentence()} : la connexion officielle de chaque réseau, en quelques clics.` },
+  { title: "Programmez vos publications", desc: "Un média importé en un clic, un texte, les comptes et la date. Nebula publie à l'heure prévue et vous prévient en cas de souci." },
   { title: "Suivez et partagez", desc: "Statistiques réunies, meilleures heures, rapports clients envoyés automatiquement." }
 ];
 

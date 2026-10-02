@@ -52,6 +52,8 @@ const nextConfig = {
       // Bluesky est disponible depuis le 25/09/2026 : sa page de liste
       // d'attente n'existe plus.
       { source: "/reseaux/bluesky", destination: "/reseaux", permanent: true },
+      // Pinterest aussi, depuis le 02/10/2026.
+      { source: "/reseaux/pinterest", destination: "/reseaux", permanent: true },
       // La page Succès est devenue Réussites (25/09/2026) : les easter eggs
       // y sont toujours, sous les accomplissements.
       { source: "/succes", destination: "/reussites", permanent: true },

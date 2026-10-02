@@ -157,3 +157,44 @@ describe("Pinterest", () => {
     expect(await pinterestClient.exchangeCodeForToken("CODE")).toMatchObject({ externalAccountId: "549755885175", displayName: "Café Nebula", handle: "@cafenebula" });
   });
 });
+
+// Bac à sable (02/10/2026) : vidéo de démonstration pour l'accès « Standard ».
+describe("Pinterest — bac à sable (PINTEREST_SANDBOX=1)", () => {
+  const SB = "api-sandbox.pinterest.com/v5";
+  beforeEach(() => {
+    process.env.PINTEREST_SANDBOX = "1";
+  });
+  afterEach(() => {
+    delete process.env.PINTEREST_SANDBOX;
+  });
+
+  it("connexion : la page d'autorisation reste pinterest.com, le code est échangé dans le bac à sable", async () => {
+    expect(new URL(pinterestClient.getAuthUrl("etat")).host).toBe("www.pinterest.com");
+    const net = installNetwork([
+      { method: "POST", url: `${SB}/oauth/token`, fixture: "pinterest/oauth-token" },
+      { url: `${SB}/user_account`, fixture: "pinterest/user-account" }
+    ]);
+    expect(await pinterestClient.exchangeCodeForToken("CODE")).toMatchObject({ handle: "@cafenebula" });
+    expect(net.sent.map((r) => r.url.host)).toEqual(["api-sandbox.pinterest.com", "api-sandbox.pinterest.com"]);
+  });
+
+  it("aucun tableau dans le bac à sable : un tableau « Nebula » est créé, puis l'épingle image y est publiée", async () => {
+    const net = installNetwork([
+      { url: `${SB}/boards`, raw: JSON.stringify({ items: [], bookmark: null }) },
+      { method: "POST", url: `${SB}/boards`, raw: JSON.stringify({ id: "1111", name: "Nebula", privacy: "PUBLIC" }) },
+      { method: "POST", url: `${SB}/pins`, fixture: "pinterest/pin-created" }
+    ]);
+    const out = await pinterestClient.publishPost(pin(), post({ mediaUrls: ["https://cdn.nebula.test/menu.jpg"] }));
+    expect(out).toMatchObject({ externalPostId: "813744226420795884" });
+    const createBoard = net.sent.find((r) => r.method === "POST" && r.url.pathname.endsWith("/boards"));
+    expect(createBoard?.json).toMatchObject({ name: "Nebula", privacy: "PUBLIC" });
+    expect(net.sent.find((r) => r.url.pathname.endsWith("/pins"))?.json).toMatchObject({ board_id: "1111", media_source: { source_type: "image_url" } });
+  });
+
+  it("épingle vidéo : refusée avec une explication (le bac à sable ne les accepte pas), rien n'est envoyé", async () => {
+    const net = installNetwork([]);
+    const err = (await pinterestClient.publishPost(pin(), post({ mediaUrls: ["https://cdn.nebula.test/v.mp4"], mediaType: "VIDEO", pinterest: { boardId: "1111" } })).catch((e) => e)) as SocialApiError;
+    expect(err.message).toMatch(/épingles vidéo n'y sont pas possibles/);
+    expect(net.sent).toHaveLength(0);
+  });
+});

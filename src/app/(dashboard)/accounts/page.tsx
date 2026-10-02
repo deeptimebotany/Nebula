@@ -10,7 +10,7 @@ import { useBrand } from "@/components/brand-context";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge, NetworkTile } from "@/components/ui/network-badge";
-import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
+import { NETWORK_META, NETWORKS, networksSentence, type Network } from "@/lib/types";
 import { PROVIDERS } from "@/lib/providers";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
@@ -178,7 +178,7 @@ function AccountsPageInner() {
     <div className="space-y-6">
       <PageHeader
         title="Comptes connectés"
-        description="Reliez autant de comptes Facebook, Instagram, TikTok, YouTube ou Bluesky que vous gérez — chaque connexion utilise l'API officielle de la plateforme."
+        description={`Reliez autant de comptes ${networksSentence(undefined, "ou")} que vous gérez — chaque connexion utilise l'API officielle de la plateforme.`}
         actions={
           planInfo && (
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">

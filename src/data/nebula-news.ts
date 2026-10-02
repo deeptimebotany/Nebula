@@ -14,6 +14,14 @@ export interface NebulaNewsItem {
 
 export const NEBULA_NEWS: NebulaNewsItem[] = [
   {
+    id: "2026-10-pinterest",
+    date: "2026-10-02T20:00:00Z",
+    title: "Nouveau réseau : Pinterest",
+    body: "Connectez votre compte Pinterest, choisissez un tableau et publiez vos épingles (images et vidéos) en même temps que sur vos autres réseaux. Leurs statistiques arrivent avec les autres.",
+    href: "/accounts",
+    actionLabel: "Connecter Pinterest"
+  },
+  {
     id: "2026-09-reussites",
     date: "2026-09-24T12:00:00Z",
     title: "Nouveau : vos Réussites",

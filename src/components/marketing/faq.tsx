@@ -14,7 +14,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Comment mes comptes sont-ils connectés ?",
-    a: "Par la connexion officielle de chaque plateforme (Meta pour Instagram et Facebook, TikTok, Google pour YouTube). Vous autorisez Nebula depuis la page du réseau lui-même : votre mot de passe Instagram, TikTok ou Google n'est jamais saisi dans Nebula. Vous pouvez révoquer l'accès à tout moment, depuis Nebula ou depuis le réseau."
+    a: "Par la connexion officielle de chaque plateforme (Meta pour Instagram et Facebook, TikTok, Google pour YouTube, Pinterest). Vous autorisez Nebula depuis la page du réseau lui-même : votre mot de passe n'est jamais saisi dans Nebula. Bluesky, lui, se relie par un mot de passe d'application que vous pouvez supprimer à tout moment. Vous pouvez révoquer l'accès à tout moment, depuis Nebula ou depuis le réseau."
   },
   {
     q: "Mes clients doivent-ils créer un compte pour voir leurs rapports ?",

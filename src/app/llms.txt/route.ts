@@ -2,6 +2,8 @@ import { AI_MONTHLY, PLAN_LIMITS, RETENTION_PACK, brandsText, formatEuroCents } 
 import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros as eurosCents, founderRegularPrice } from "@/lib/founders-offer";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
+import { configuredMediaSources } from "@/lib/integrations/config";
+import { MEDIA_SOURCE_LABELS } from "@/lib/media-sources";
 import { COMPETITORS, UPCOMING_NETWORKS } from "@/data/competitors";
 import { TRIAL_DAYS } from "@/lib/trial";
 
@@ -32,6 +34,7 @@ export function GET() {
     "",
     `- Pris en charge : ${networks} (publication via les API officielles).`,
     `- À venir (listes d'attente) : ${UPCOMING_NETWORKS.map((n) => n.label).join(", ")} — ${SITE_URL}/reseaux`,
+    `- Import des photos et vidéos dans Publier : depuis l'ordinateur ou le téléphone${configuredMediaSources().map((id) => `, ${MEDIA_SOURCE_LABELS[id]}`).join("")}.`,
     "",
     "## Tarifs",
     "",

@@ -4,6 +4,7 @@ import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL, formatSiren } from
 import { pageMetadata } from "@/lib/seo";
 import { SEO_LEGAL } from "@/lib/seo-pages";
 import { RETENTION_PACK, formatEuroCents } from "@/lib/plans";
+import { OAUTH_LAUNCHED_NETWORKS, networksSentence } from "@/lib/types";
 import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
 
 // Page publique combinée (aucune authentification requise) : mentions
@@ -28,7 +29,7 @@ const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
   { name: "Vercel Inc.", role: "Hébergement du site et exécution du service", where: "États-Unis / Union européenne" },
   { name: "Neon Inc.", role: "Base de données (PostgreSQL)", where: "Selon la région choisie à la création" },
   { name: "Vercel Blob", role: "Stockage des médias importés (images, vidéos)", where: "États-Unis / Union européenne" },
-  { name: "Meta Platforms, TikTok, Google (YouTube)", role: "Publication et lecture des statistiques, uniquement sur les comptes que vous connectez ; lecture des données publiques des comptes indiqués dans l'audit de présence", where: "Selon la plateforme" },
+  { name: "Meta Platforms, TikTok, Google (YouTube), Pinterest, Bluesky Social", role: "Publication et lecture des statistiques, uniquement sur les comptes que vous connectez ; lecture des données publiques des comptes indiqués dans l'audit de présence", where: "Selon la plateforme" },
   { name: "Stripe", role: "Paiement des abonnements (Nebula ne voit jamais votre numéro de carte)", where: "Union européenne / États-Unis" },
   { name: "Resend", role: "Envoi des emails transactionnels (réinitialisation de mot de passe, rapports)", where: "États-Unis" },
   { name: "Cloudflare (Turnstile)", role: "Protection anti-robot des formulaires publics", where: "Réseau mondial" },
@@ -138,7 +139,7 @@ export default function LegalPage() {
           />
         </dl>
         <p className="text-xs text-slate-500">
-          Les noms Instagram, Facebook, TikTok et YouTube appartiennent à leurs propriétaires respectifs. {SITE_NAME}{" "}
+          Les noms {networksSentence()} appartiennent à leurs propriétaires respectifs. {SITE_NAME}{" "}
           est un service indépendant qui utilise leurs interfaces de programmation officielles ; il n&apos;est ni
           affilié ni certifié par ces plateformes.
         </p>
@@ -151,8 +152,8 @@ export default function LegalPage() {
         <Section title="1. Objet">
           <p>
             Les présentes conditions régissent l&apos;utilisation de {SITE_NAME} (le « Service »), un outil de
-            gestion, planification et publication de contenu sur des réseaux sociaux tiers (Instagram, Facebook,
-            TikTok, YouTube), d&apos;analyse de statistiques et de partage de rapports. En créant un compte, vous
+            gestion, planification et publication de contenu sur des réseaux sociaux tiers ({networksSentence()}),
+            d&apos;analyse de statistiques et de partage de rapports. En créant un compte, vous
             acceptez ces conditions et la politique de confidentialité ci-dessous.
           </p>
         </Section>
@@ -184,7 +185,7 @@ export default function LegalPage() {
 
         <Section title="4. Connexion à des plateformes tierces">
           <p>
-            Lorsque vous connectez un compte Instagram, Facebook, TikTok ou YouTube, vous autorisez {SITE_NAME} à
+            Lorsque vous connectez un compte {networksSentence(OAUTH_LAUNCHED_NETWORKS, "ou")}, vous autorisez {SITE_NAME} à
             accéder à ce compte dans les limites des permissions accordées lors de l&apos;autorisation officielle
             (OAuth), uniquement pour exécuter les actions que vous demandez (publication, lecture de statistiques,
             lecture des commentaires). Tant que vous utilisez {SITE_NAME}, les statistiques de vos comptes connectés

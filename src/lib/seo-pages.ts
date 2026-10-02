@@ -9,6 +9,8 @@
 // générer (sans compte : démo, sans IA).
 import { PLAN_LIMITS, brandsText } from "@/lib/plans";
 import { TRIAL_DAYS } from "@/lib/trial";
+import { networksSentence } from "@/lib/types";
+import { UPCOMING_NETWORKS } from "@/data/competitors";
 
 const PRO_FROM = PLAN_LIMITS.PRO.tiers[0];
 const AGENCY_FROM = PLAN_LIMITS.AGENCY.tiers[0];
@@ -30,7 +32,7 @@ export const SEO_HOME: SeoPage = {
   path: "/",
   title: "Nebula — Planifier et publier sur vos réseaux sociaux",
   description:
-    "Programmez vos publications Instagram, TikTok, YouTube, Facebook et Bluesky, suivez vos statistiques et vos clients au même endroit. Gratuit au départ.",
+    `Programmez vos publications ${networksSentence()}, suivez vos statistiques au même endroit. Gratuit au départ.`,
   eyebrow: "Réseaux sociaux"
 };
 
@@ -185,7 +187,7 @@ export const SEO_ALTERNATIVES: SeoPage = {
 export const SEO_NETWORKS: SeoPage = {
   path: "/reseaux",
   title: "Réseaux pris en charge et à venir",
-  description: "Nebula publie sur Instagram, TikTok, YouTube, Facebook et Bluesky. Threads, LinkedIn et Pinterest arrivent : inscrivez-vous pour être prévenu.",
+  description: `Nebula publie sur ${networksSentence()}. ${UPCOMING_NETWORKS.map((n) => n.label).join(" et ")} arrivent : inscrivez-vous pour être prévenu.`,
   eyebrow: "Réseaux"
 };
 

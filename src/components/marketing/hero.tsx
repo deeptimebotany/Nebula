@@ -5,10 +5,13 @@
 // démonstration, données fictives), en clair ou en sombre selon le mode.
 import { ButtonLink } from "@/components/ui/button";
 import { ProductShot, ShotCaption } from "@/components/marketing/product-shot";
-import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORK_META, networksSentence } from "@/lib/types";
 import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
 import { IconCard, IconCheck, IconLock, IconTrophy } from "@/components/dashboard/icons";
 import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
+import { configuredMediaSources } from "@/lib/integrations/config";
+import { MEDIA_SOURCE_KIND, MEDIA_SOURCE_LABELS } from "@/lib/media-sources";
+import { SourceIcon } from "@/components/media-import/source-icon";
 
 const REASSURANCE = [
   { icon: IconCard, text: "Gratuit pour commencer, sans carte bancaire" },
@@ -42,7 +45,7 @@ export function Hero() {
           </h1>
 
           <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-            Nebula programme vos publications sur Instagram, TikTok, YouTube, Facebook et Bluesky, rassemble vos statistiques
+            Nebula programme vos publications sur {networksSentence()}, rassemble vos statistiques
             et prépare les rapports de vos clients. Et chaque publication vous fait progresser : missions de la semaine,
             rangs et récompenses pour garder le rythme.
           </p>
@@ -97,7 +100,41 @@ export function Hero() {
             ))}
           </ul>
         </div>
+
+        {/* Import direct des médias (02/10/2026) : seulement les sources
+            réellement ouvertes (clés renseignées sur Vercel, lues au build). */}
+        <MediaSourcesStrip />
       </div>
     </section>
+  );
+}
+
+/** « Importez vos photos et vidéos directement depuis » : ordinateur ou téléphone, puis les sources ouvertes. */
+function MediaSourcesStrip() {
+  const sources = configuredMediaSources();
+  const banks = sources.filter((id) => MEDIA_SOURCE_KIND[id] === "banque d'images libres");
+  const clouds = sources.filter((id) => MEDIA_SOURCE_KIND[id] === "stockage cloud");
+  const kinds = [clouds.length ? "votre stockage cloud" : null, banks.length ? "une banque d'images libres" : null, sources.includes("canva") ? "vos designs Canva" : null].filter(Boolean) as string[];
+  return (
+    <div className="mt-12 text-center" id="import-medias">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Importez vos photos et vidéos directement depuis</p>
+      <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-4" aria-label="Sources d'import de photos et vidéos">
+        <li className="flex items-center gap-2 text-sm font-medium text-slate-300">
+          <SourceIcon id="device" className="h-5 w-5 text-aurora-300" />
+          Votre ordinateur ou téléphone
+        </li>
+        {sources.map((id) => (
+          <li key={id} className="flex items-center gap-2 text-sm font-medium text-slate-300">
+            <SourceIcon id={id} className="h-5 w-5 text-aurora-300" />
+            {MEDIA_SOURCE_LABELS[id]}
+          </li>
+        ))}
+      </ul>
+      <p className="mx-auto mt-4 max-w-xl text-sm text-slate-400">
+        {kinds.length
+          ? `Choisissez un fichier dans ${kinds.length > 1 ? `${kinds.slice(0, -1).join(", ")} ou ${kinds[kinds.length - 1]}` : kinds[0]} : il arrive dans Publier sans passer par votre ordinateur.`
+          : "Glissez votre photo ou votre vidéo dans Publier : elle est prête à partir sur tous vos réseaux."}
+      </p>
+    </div>
   );
 }

@@ -8,6 +8,40 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-02-pinterest-bac-a-sable",
+    date: "2026-10-02",
+    title: "Pinterest : mode bac à sable pour la vidéo de démonstration",
+    category: "Publication",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "Avec l'accès d'essai de Pinterest, la publication d'une épingle échouait. En mode bac à sable, la connexion Pinterest et la publication d'une épingle image fonctionnent de bout en bout (épingle visible par son auteur), ce qui permet d'enregistrer la vidéo demandée par Pinterest pour l'accès « Standard ».",
+    change:
+      "`PINTEREST_SANDBOX=\"1\"` : appels vers api-sandbox.pinterest.com (échange du code, jetons, tableaux, épingles), tableau « Nebula » créé s'il n'y en a aucun, épingle vidéo refusée avec une explication. Tests de contrat du bac à sable.",
+    readme: 64,
+    migrations: []
+  },
+  {
+    id: "2026-10-02-pinterest-import-soutenir",
+    date: "2026-10-02",
+    title: "Pinterest ouvert et import direct des médias sur l'accueil",
+    category: "Site public",
+    links: [
+      { href: "/#import-medias", label: "Accueil : réseaux et import" },
+      { href: "/reseaux", label: "Réseaux" },
+      { href: "/outils/publier", label: "Outil Publier" },
+      { href: "/support", label: "Soutenir Nebula" }
+    ],
+    result:
+      "Pinterest apparaît parmi les connexions officielles (accueil, Réseaux, comparatifs, Sécurité, conditions, outil gratuit) et se connecte dans l'application. Sous les réseaux, l'accueil montre d'où importer photos et vidéos : ordinateur ou téléphone, Google Drive, Dropbox, OneDrive, Canva, Unsplash (seulement les sources réellement ouvertes). La page « Soutenir Nebula » ne liste plus les sous-titres automatiques, le site plus rapide, les serveurs plus puissants ni l'espace vidéo.",
+    change:
+      "Pinterest ajouté à `LAUNCHED_NETWORKS` (liste d'attente retirée, redirection de /reseaux/pinterest, exemple de démonstration, nouveauté dans les notifications) ; listes de réseaux écrites par `networksSentence()`. Bandeau d'import lu dans `configuredMediaSources()` (clés renseignées), glyphes partagés avec Publier (`src/components/media-import/source-icon.tsx`). Quatre éléments retirés de /support.",
+    readme: 63,
+    migrations: []
+  },
+  {
     id: "2026-10-02-accueil-nouveaux-prix",
     date: "2026-10-02",
     title: "Accueil et référencement aux nouveaux prix",

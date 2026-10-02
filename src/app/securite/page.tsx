@@ -4,6 +4,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { IconCheck, IconDownload, IconLock, IconShield, IconUsers } from "@/components/dashboard/icons";
 import { SITE_NAME } from "@/lib/site";
+import { OAUTH_LAUNCHED_NETWORKS, networksSentence } from "@/lib/types";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { SEO_SECURITY } from "@/lib/seo-pages";
@@ -18,7 +19,7 @@ const PILLARS = [
   {
     icon: IconLock,
     title: "Vos mots de passe de réseaux sociaux ne passent jamais par Nebula",
-    body: "La connexion d'un compte Instagram, Facebook, TikTok ou YouTube se fait sur la page d'autorisation officielle de la plateforme (OAuth). Nebula reçoit uniquement un jeton d'accès limité aux permissions que vous accordez — jamais votre identifiant ni votre mot de passe."
+    body: `La connexion d'un compte ${networksSentence(OAUTH_LAUNCHED_NETWORKS, "ou")} se fait sur la page d'autorisation officielle de la plateforme (OAuth). Nebula reçoit uniquement un jeton d'accès limité aux permissions que vous accordez — jamais votre identifiant ni votre mot de passe. Bluesky se relie par un mot de passe d'application, que vous pouvez supprimer à tout moment.`
     // src/app/api/connections/[provider]/start + callback, état OAuth signé.
   },
   {
