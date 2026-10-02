@@ -31,15 +31,15 @@ describe("palier Essai (lot E1)", () => {
     expect(PLAN_LIMITS.AGENCY.aiMonthly).toEqual({ retention: 50, image: 60, studio: 120, assistant: 400 });
     expect(PLAN_LIMITS.TRIAL.tiers.map((t) => t.maxBrands)).toEqual([2]);
   });
-  it("recharges Rétention : +20 pour 3,99 €, Pro et Agence seulement", () => {
-    expect(RETENTION_PACK).toMatchObject({ credits: 20, priceCents: 399, currency: "eur" });
+  it("recharges Rétention : +20 pour 5,99 €, Pro et Agence seulement", () => {
+    expect(RETENTION_PACK).toMatchObject({ credits: 20, priceCents: 599, currency: "eur" });
     expect(PLANS.filter((p) => PLAN_LIMITS[p].retentionPacks)).toEqual(["PRO", "AGENCY"]);
   });
   it("les textes des paliers suivent les quotas du mois", () => {
     expect(PLAN_LIMITS.PRO.features.join(" ")).toContain(`${AI_MONTHLY.PRO.retention} analyses par mois`);
     expect(PLAN_LIMITS.AGENCY.features.join(" ")).toContain(`Miniatures IA : ${AI_MONTHLY.AGENCY.image} par mois`);
     expect(PLAN_LIMITS.TRIAL.features.join(" ")).toContain(`${AI_MONTHLY.TRIAL.retention} analyses Rétention`);
-    expect(PLAN_LIMITS.PRO.features.join(" ")).toContain("3,99 €");
+    expect(PLAN_LIMITS.PRO.features.join(" ")).toContain("5,99 €");
   });
   it("l'essai a les fonctions de Pro, sans celles d'Agence", () => {
     const t = PLAN_LIMITS.TRIAL;

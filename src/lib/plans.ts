@@ -6,9 +6,13 @@
 // L'abonnement est rattaché au COMPTE (à l'utilisateur), pas à une marque en
 // particulier : un seul abonnement gouverne combien de marques au total vous
 // pouvez créer avec votre compte Nebula. Pour les paliers payants, vous
-// choisissez combien de marques vous voulez pouvoir gérer (3/5/10 en Pro,
+// choisissez combien de marques vous voulez pouvoir gérer (1/5/10 en Pro,
 // 15/25/50 en Agence) — le prix augmente avec ce nombre, exactement comme
 // une grille "jusqu'à X marques" classique, mais à des tarifs plus bas.
+// Grille du 02/10/2026 (avant l'ouverture) : Pro 12 / 19 / 29 €, Agence
+// 39 / 59 / 99 € par mois, 2 mois offerts à l'année. Pro 1 marque garde le
+// prix d'entrée sous Metricool (5 marques à 20 €) tout en restant rentable
+// avec les quotas d'IA ; offres fondateurs : src/lib/billing/founders.ts.
 // Les quotas de comptes connectés et de publications/mois s'appliquent,
 // eux, individuellement à CHAQUE marque.
 
@@ -69,9 +73,12 @@ export const AI_MONTHLY: Record<Plan, AiMonthlyLimits> = {
  * Les analyses achetées s'ajoutent au quota du mois, sont utilisées APRÈS
  * lui et n'expirent pas. Prix Stripe : variable STRIPE_PRICE_RETENTION_PACK.
  */
-export const RETENTION_PACK = { credits: 20, priceCents: 399, currency: "eur", stripePriceEnvVar: "STRIPE_PRICE_RETENTION_PACK" } as const;
+// 5,99 € depuis le 02/10/2026 (avant l'ouverture ; 3,99 € auparavant) : le
+// modèle de la Rétention double de prix le 01/01/2027 (src/lib/ai/pricing.ts),
+// 20 analyses coûteront alors ≈ 2,10 € en moyenne.
+export const RETENTION_PACK = { credits: 20, priceCents: 599, currency: "eur", stripePriceEnvVar: "STRIPE_PRICE_RETENTION_PACK" } as const;
 
-/** « 3,99 € » */
+/** « 5,99 € » */
 export function formatEuroCents(cents: number): string {
   return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 }
@@ -258,12 +265,12 @@ export const PLAN_LIMITS = {
     massPublishEnabled: false,
     maxBioLinks: 15,
     tiers: [
-      { maxBrands: 3, priceMonthly: 9, priceYearly: 90, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_3_MONTHLY", year: "STRIPE_PRICE_PRO_3_YEARLY" } },
-      { maxBrands: 5, priceMonthly: 15, priceYearly: 150, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_5_MONTHLY", year: "STRIPE_PRICE_PRO_5_YEARLY" } },
-      { maxBrands: 10, priceMonthly: 25, priceYearly: 250, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_10_MONTHLY", year: "STRIPE_PRICE_PRO_10_YEARLY" } }
+      { maxBrands: 1, priceMonthly: 12, priceYearly: 120, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_1_MONTHLY", year: "STRIPE_PRICE_PRO_1_YEARLY" } },
+      { maxBrands: 5, priceMonthly: 19, priceYearly: 190, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_5_MONTHLY", year: "STRIPE_PRICE_PRO_5_YEARLY" } },
+      { maxBrands: 10, priceMonthly: 29, priceYearly: 290, stripePriceEnvVars: { month: "STRIPE_PRICE_PRO_10_MONTHLY", year: "STRIPE_PRICE_PRO_10_YEARLY" } }
     ],
     features: [
-      "3, 5 ou 10 marques au choix",
+      "1, 5 ou 10 marques au choix",
       "Jusqu'à 8 comptes connectés par marque (plusieurs comptes par réseau)",
       "100 publications programmées par mois et par marque",
       "Publications envoyées plus rapidement",
@@ -308,9 +315,9 @@ export const PLAN_LIMITS = {
     massPublishEnabled: true,
     maxBioLinks: 9999,
     tiers: [
-      { maxBrands: 15, priceMonthly: 29, priceYearly: 290, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_15_MONTHLY", year: "STRIPE_PRICE_AGENCY_15_YEARLY" } },
-      { maxBrands: 25, priceMonthly: 45, priceYearly: 450, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_25_MONTHLY", year: "STRIPE_PRICE_AGENCY_25_YEARLY" } },
-      { maxBrands: 50, priceMonthly: 75, priceYearly: 750, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_50_MONTHLY", year: "STRIPE_PRICE_AGENCY_50_YEARLY" } }
+      { maxBrands: 15, priceMonthly: 39, priceYearly: 390, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_15_MONTHLY", year: "STRIPE_PRICE_AGENCY_15_YEARLY" } },
+      { maxBrands: 25, priceMonthly: 59, priceYearly: 590, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_25_MONTHLY", year: "STRIPE_PRICE_AGENCY_25_YEARLY" } },
+      { maxBrands: 50, priceMonthly: 99, priceYearly: 990, stripePriceEnvVars: { month: "STRIPE_PRICE_AGENCY_50_MONTHLY", year: "STRIPE_PRICE_AGENCY_50_YEARLY" } }
     ],
     features: [
       "15, 25 ou 50 marques au choix",
@@ -403,9 +410,31 @@ export function findTier(plan: Plan, maxBrands: number): BrandTier | undefined {
   return PLAN_LIMITS[plan].tiers.find((t) => t.maxBrands === maxBrands);
 }
 
-/** Mois offerts par la facturation annuelle d'un palier (ex. 90 € / an pour
- *  9 € / mois → 2 mois offerts). Calculé, jamais écrit en dur dans l'UI. */
+/** Mois offerts par la facturation annuelle d'un palier (ex. 120 € / an pour
+ *  12 € / mois → 2 mois offerts). Calculé, jamais écrit en dur dans l'UI. */
 export function annualFreeMonths(tier: BrandTier): number {
   if (!tier.priceMonthly) return 0;
   return Math.max(0, Math.round(12 - tier.priceYearly / tier.priceMonthly));
+}
+
+/** Palier payant le plus haut d'un plan (ex. Pro 10 marques). */
+export function topTier(plan: Plan): BrandTier {
+  const tiers = PLAN_LIMITS[plan].tiers;
+  return tiers[tiers.length - 1];
+}
+
+/** « 1, 5 ou 10 » : les nombres de marques proposés par un plan. */
+export function brandChoicesLabel(plan: Plan): string {
+  const n = PLAN_LIMITS[plan].tiers.map((t) => t.maxBrands);
+  return n.length === 1 ? String(n[0]) : `${n.slice(0, -1).join(", ")} ou ${n[n.length - 1]}`;
+}
+
+/** « 1 marque », « 5 marques ». */
+export function brandsText(n: number): string {
+  return `${n} marque${n > 1 ? "s" : ""}`;
+}
+
+/** « 1 marque », « jusqu'à 5 marques » (libellé d'un palier). */
+export function upToBrandsText(n: number): string {
+  return n > 1 ? `jusqu'à ${n} marques` : "1 marque";
 }

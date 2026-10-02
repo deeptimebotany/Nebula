@@ -4,7 +4,8 @@
 // et un seul style à maintenir. Les réponses reprennent le fonctionnement
 // RÉEL du produit (quotas de plans.ts, OAuth, pages partagées par lien,
 // export des données) — rien n'est promis qui n'existe pas.
-import { AI_MONTHLY, PLAN_LIMITS } from "@/lib/plans";
+import { AI_MONTHLY, PLAN_LIMITS, brandChoicesLabel } from "@/lib/plans";
+import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -21,7 +22,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Puis-je gérer plusieurs marques ou plusieurs comptes par réseau ?",
-    a: "Oui. Chaque marque a ses propres comptes connectés, son calendrier et ses statistiques. Le palier Pro permet 3, 5 ou 10 marques, le palier Agence 15, 25 ou 50 — le prix dépend du nombre choisi. Une marque peut avoir plusieurs comptes sur un même réseau (par exemple deux comptes Instagram)."
+    a: `Oui. Chaque marque a ses propres comptes connectés, son calendrier et ses statistiques. Le palier Pro permet ${brandChoicesLabel("PRO")} marques (dès ${PLAN_LIMITS.PRO.tiers[0].priceMonthly} € par mois), le palier Agence ${brandChoicesLabel("AGENCY")} (dès ${PLAN_LIMITS.AGENCY.tiers[0].priceMonthly} €) : le prix dépend du nombre choisi. Une marque peut avoir plusieurs comptes sur un même réseau (par exemple deux comptes Instagram).`
   },
   {
     q: "Que se passe-t-il si je dépasse mon quota de publications ?",
@@ -32,8 +33,12 @@ const FAQ: { q: string; a: string }[] = [
     a: `Non. L'IA (titres, légendes, chat, analyse de rétention, miniatures) est une aide optionnelle des paliers Pro et Agence, avec des quotas par mois (en Pro : ${AI_MONTHLY.PRO.retention} analyses Rétention, ${AI_MONTHLY.PRO.image} miniatures). Sans elle, toutes les fonctions de planification, de publication et d'analyse fonctionnent normalement.`
   },
   {
+    q: "Y a-t-il une offre de lancement ?",
+    a: `Oui, en places limitées. « Fondateur » : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} €, pour les ${FOUNDER_MONTHLY.places} premiers abonnés. « Fondateur Premium » : ${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, sans renouvellement (${FOUNDER_PREMIUM.places} places). Les deux donnent le badge « Fondateur » à vie.`
+  },
+  {
     q: "Puis-je résilier ou récupérer mes données ?",
-    a: "Oui. L'abonnement se gère et se résilie depuis votre espace, à tout moment. Vos données (publications, comptes, statistiques) peuvent être exportées depuis les Paramètres, et votre compte supprimé en un clic."
+    a: "Oui. L'abonnement se renouvelle automatiquement et se gère ou se résilie depuis votre espace, à tout moment. Vos données (publications, comptes, statistiques) peuvent être exportées depuis les Paramètres, et votre compte supprimé en un clic."
   }
 ];
 

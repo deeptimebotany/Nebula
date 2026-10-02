@@ -24,7 +24,7 @@ import { prisma } from "@/lib/prisma";
 import { emailIdempotencyKey, sendEmail, escapeHtml } from "@/lib/email";
 import { emailLayout, emailPlainText, type EmailLayoutInput } from "@/lib/emails/layout";
 import { LIFECYCLE_KEYS, SERVICE_KEYS, type LifecycleKey } from "@/lib/emails/lifecycle-keys";
-import { PLAN_LIMITS, annualFreeMonths } from "@/lib/plans";
+import { PLAN_LIMITS, annualFreeMonths, brandChoicesLabel } from "@/lib/plans";
 import { TRIAL_DAYS, isTrialActive } from "@/lib/trial";
 import { computeTrialSummary } from "@/lib/billing/trial-summary";
 import { getUserPlan } from "@/lib/billing/plan";
@@ -234,7 +234,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
                   `Votre essai se termine le ${ctx.trialEndsAt ? ctx.trialEndsAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" }) : "bientôt"}. En Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n'est supprimé. <a href="${base}/billing/garder" style="color:#6a2fe0">Choisissez la marque qui reste active</a>.`
                 ]
               : []),
-            `Pour garder tout cela : Pro à ${pro.priceMonthly} €/mois (jusqu'à ${pro.maxBrands} marques), sans engagement, résiliable ou mis en pause à tout moment. Sinon, vous repassez en Gratuit sans rien perdre.`
+            `Pour garder tout cela : Pro dès ${pro.priceMonthly} €/mois (${brandChoicesLabel("PRO")} marques au choix), sans engagement, résiliable ou mis en pause à tout moment. Sinon, vous repassez en Gratuit sans rien perdre.`
           ],
           cta: multiBrand ? { label: "Choisir ce que je garde", url: `${base}/billing/garder` } : { label: "Garder Pro", url: `${base}/billing` },
           signature: sig
@@ -285,7 +285,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
           title: `${TRIAL_DAYS} jours d'essai offerts`,
           paragraphs: [
             `Bonne nouvelle, ${name} : votre compte Nebula passe en essai pendant ${TRIAL_DAYS} jours, sans rien faire et sans carte bancaire.`,
-            `Ce que ça débloque : jusqu'à ${pro.maxBrands} marques, rapports clients automatiques, calendrier partagé, assistant IA, analyse de rétention, ${PLAN_LIMITS.PRO.maxBioLinks} liens sur la page bio. À la fin, vous repassez en Gratuit sans rien perdre.`
+            `Ce que ça débloque : jusqu'à ${PLAN_LIMITS.TRIAL.tiers[0].maxBrands} marques, rapports clients automatiques, calendrier partagé, assistant IA, analyse de rétention, ${PLAN_LIMITS.PRO.maxBioLinks} liens sur la page bio. À la fin, vous repassez en Gratuit sans rien perdre.`
           ],
           cta: { label: "Découvrir les fonctions Pro", url: `${base}/dashboard` },
           signature: sig

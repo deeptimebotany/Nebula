@@ -51,7 +51,7 @@ export async function GET() {
   if (!rate.ok) return NextResponse.json({ error: "Trop de cartes générées : réessayez dans quelques minutes." }, { status: 429 });
 
   const [user, reussites, unlocks, posts] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true, founderSince: true } }),
     userReussitesDb.findUnique({ where: { id: userId }, select: { creatorXp: true, creatorLevel: true, showcase: true } }),
     achievementUnlockDb.findMany({ where: { userId }, select: { key: true } }),
     publishedPosts(userId)
@@ -112,6 +112,15 @@ export async function GET() {
             <div style={{ display: "flex", fontSize: 28, color: "#a1a1aa", marginTop: 8 }}>
               {num(level.xp)} XP · rang {level.rank} sur {RANKS.length}
             </div>
+            {/* Badge « Fondateur » (offres fondateurs, gardé à vie). */}
+            {user.founderSince && (
+              <div style={{ display: "flex", marginTop: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 18px", borderRadius: 999, border: "2px solid rgba(160,102,255,0.7)", background: "rgba(160,102,255,0.16)", fontSize: 24, letterSpacing: 3, color: "#e4d4ff" }}>
+                  <span style={{ display: "flex", width: 10, height: 10, borderRadius: 999, background: "#c9a6ff" }} />
+                  FONDATEUR
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

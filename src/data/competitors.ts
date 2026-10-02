@@ -11,7 +11,7 @@
 // d'économies (client) : aucun import de Prisma ou de "use client" ici.
 // Les prix de Nebula, eux, viennent EXCLUSIVEMENT de src/lib/plans.ts.
 
-import { PLAN_LIMITS, type Plan } from "@/lib/plans";
+import { PLAN_LIMITS, upToBrandsText, type Plan } from "@/lib/plans";
 
 export type Currency = "EUR" | "USD";
 
@@ -91,7 +91,8 @@ export interface NebulaEstimate {
 }
 
 /** Palier Nebula le moins cher qui couvre `brands` marques et `accounts`
- * comptes (répartis sur les marques) — les utilisateurs sont illimités. */
+ * comptes (répartis sur les marques). Un compte Nebula = un utilisateur
+ * (pas encore de comptes d'équipe) : le calculateur compare pour 1. */
 export function nebulaEstimate({ brands, accounts }: CostInput): NebulaEstimate {
   const perBrand = Math.ceil(Math.max(1, accounts) / Math.max(1, brands));
   const order: Plan[] = ["FREE", "PRO", "AGENCY"];
@@ -105,7 +106,7 @@ export function nebulaEstimate({ brands, accounts }: CostInput): NebulaEstimate 
       maxBrands: tier.maxBrands,
       monthlyAnnual: tier.priceYearly / 12,
       monthlyMonthly: tier.priceMonthly,
-      how: plan === "FREE" ? "Palier Gratuit : 1 marque, jusqu'à 4 comptes." : `${limits.label} jusqu'à ${tier.maxBrands} marques (${limits.maxConnections >= 9999 ? "comptes illimités" : `${limits.maxConnections} comptes par marque`}), utilisateurs illimités.`
+      how: plan === "FREE" ? "Palier Gratuit : 1 marque, jusqu'à 4 comptes." : `${limits.label} ${upToBrandsText(tier.maxBrands)} (${limits.maxConnections >= 9999 ? "comptes illimités" : `${limits.maxConnections} comptes par marque`}).`
     };
   }
   const top = PLAN_LIMITS.AGENCY.tiers[PLAN_LIMITS.AGENCY.tiers.length - 1];

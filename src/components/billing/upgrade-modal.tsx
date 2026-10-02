@@ -21,6 +21,12 @@
 // (48 h) ; tant qu'elle est valide, la modale et Facturation affichent
 // « -50 % sur votre premier mois » avec un compte à rebours. Une seule fois
 // par compte, jamais pour un compte payant, mensuel uniquement.
+// Offre « Fondateur » (02/10/2026) : tant qu'il reste des places et que le
+// compte n'a jamais payé, le prix affiché pour Pro 1 marque est 10 € pendant
+// 3 mois, et le paiement demande le coupon (le serveur vérifie tout).
+// Plusieurs marques (second_brand, dormant_brand) : le palier proposé est le
+// premier qui couvre les marques du compte ; un compte déjà payant voit un
+// simple avis « Choisir plus de marques ».
 // Événements : upgrade_modal_shown / upgrade_modal_clicked (avec reason).
 // Ce n'est pas un toast : Mode focus respecté.
 
@@ -28,7 +34,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { VerifyResendButton } from "@/components/email-verify/verify-resend-button";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandChoicesLabel, upToBrandsText } from "@/lib/plans";
+import { FOUNDER_MONTHLY, isFounderMonthlyTier, placesText, type FoundersResponse } from "@/lib/founders-offer";
 import { ProductShot } from "@/components/marketing/product-shot";
 import { trackGrowthEvent } from "@/lib/growth-client";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
@@ -117,7 +124,7 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
   },
   second_brand: {
     title: "Gérez plusieurs marques",
-    lines: [`Pro permet jusqu'à ${PLAN_LIMITS.PRO.tiers[0].maxBrands} marques, chacune avec ses comptes, son calendrier et ses statistiques.`, "Vos marques supplémentaires restent visibles en lecture seule : rien n'est perdu."],
+    lines: [`Pro existe en ${brandChoicesLabel("PRO")} marques, chacune avec ses comptes, son calendrier et ses statistiques.`, "Vos marques supplémentaires restent visibles en lecture seule : rien n'est perdu."],
     visual: "dashboard"
   },
   retention: {
@@ -212,6 +219,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   // Refus « quota du mois » de Rétention en Pro / Agence : proposer une recharge.
   const [packOffer, setPackOffer] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [founders, setFounders] = useState<FoundersResponse | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const open = useCallback(
@@ -222,6 +230,13 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
       trackGrowthEvent("upgrade_modal_shown", { reason: r });
       // Offre de bienvenue : le serveur décide (essai terminé, jamais
       // payant, coupon configuré) et renvoie la date d'expiration.
+      // Offre « Fondateur » : places restantes et droit du compte.
+      if (me && !me.paid && !NOTICE_ONLY.has(r)) {
+        fetch("/api/billing/founders", { cache: "no-store" })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((d: FoundersResponse | null) => setFounders(d))
+          .catch(() => undefined);
+      }
       if (me && !me.paid && !me.onTrial && !NOTICE_ONLY.has(r)) {
         fetch("/api/billing/offer", { method: "POST" })
           .then((res) => (res.ok ? res.json() : null))
@@ -265,7 +280,11 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   // Le compte à rebours de l'offre ne tourne que modale ouverte : fermée,
   // elle ne réveille plus la page chaque seconde (audit performance, lot 4).
   const countdown = useCountdown(reason ? me?.offerExpiresAt ?? null : null);
-  const proTier = PLAN_LIMITS.PRO.tiers[0];
+  // Palier proposé : le premier qui couvre les marques du compte (une de
+  // plus pour « créer une marque »).
+  const neededBrands = reason === "second_brand" ? (me?.brandsOwned ?? 1) + 1 : reason === "dormant_brand" ? me?.brandsOwned ?? 1 : 1;
+  const proTier = PLAN_LIMITS.PRO.tiers.find((t) => t.maxBrands >= neededBrands) ?? PLAN_LIMITS.PRO.tiers[PLAN_LIMITS.PRO.tiers.length - 1];
+  const founderOffer = Boolean(founders?.me?.monthlyEligible && founders.monthly.left > 0 && isFounderMonthlyTier("PRO", proTier.maxBrands, "month"));
 
   async function goPro() {
     if (!reason) return;
@@ -280,7 +299,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "PRO", interval: "month", maxBrands: proTier.maxBrands, reason })
+        body: JSON.stringify({ plan: "PRO", interval: "month", maxBrands: proTier.maxBrands, reason, founder: founderOffer })
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.url) {
@@ -302,7 +321,9 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   // Avis sans offre : adresse à confirmer, ou limite du jour d'un compte
   // déjà payant (Agence : rien au-dessus ; Pro : lien vers Facturation).
   const paidLimit = (reason === "ai_daily_limit" || reason === "ai_monthly_limit") && Boolean(me?.paid || me?.comp);
-  const noticeOnly = Boolean(reason && (NOTICE_ONLY.has(reason) || paidLimit));
+  // Déjà payant (ou accès offert) et limite de marques : pas d'offre Pro, un avis.
+  const paidBrandLimit = reason === "second_brand" && Boolean(me?.paid || me?.comp);
+  const noticeOnly = Boolean(reason && (NOTICE_ONLY.has(reason) || paidLimit || paidBrandLimit));
   const nextPlan = me ? PLAN_LIMITS[me.plan].upgradeTo : null;
   const paidSecondLine = reason === "ai_monthly_limit"
     ? nextPlan
@@ -311,7 +332,11 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
     : nextPlan
       ? `Besoin de plus ? Le palier ${PLAN_LIMITS[nextPlan].label} en permet davantage chaque jour.`
       : "Merci de votre fidélité : le compteur repart à minuit.";
-  const lines: [string, string] = def ? [detail ?? def.lines[0], paidLimit ? (packOffer ? "Les analyses achetées servent une fois le quota du mois utilisé, et n'expirent pas." : paidSecondLine) : def.lines[1]] : ["", ""];
+  const lines: [string, string] = !def
+    ? ["", ""]
+    : paidBrandLimit && me
+      ? [`Votre palier ${PLAN_LIMITS[me.plan].label} (${upToBrandsText(me.maxBrands)}) est complet : rien n'est perdu, vos marques restent là.`, `Choisissez un palier avec plus de marques (${brandChoicesLabel("PRO")} en Pro, jusqu'à ${PLAN_LIMITS.AGENCY.tiers[PLAN_LIMITS.AGENCY.tiers.length - 1].maxBrands} en Agence) : le changement est immédiat.`]
+      : [detail ?? def.lines[0], paidLimit ? (packOffer ? "Les analyses achetées servent une fois le quota du mois utilisé, et n'expirent pas." : paidSecondLine) : def.lines[1]];
   // Vraie capture de l'écran concerné (compte de démonstration, voir scripts/demo/).
   const shot = def?.visual === "composer" ? "publier" : def?.visual === "report" ? "rapports" : "tableau-de-bord";
 
@@ -357,6 +382,17 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                       </>
                     ) : packOffer ? (
                       <RetentionPackButton variant="glow" />
+                    ) : paidBrandLimit ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          close();
+                          router.push("/billing#paliers");
+                        }}
+                        className="btn-glow inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white"
+                      >
+                        Choisir plus de marques
+                      </button>
                     ) : nextPlan && reason !== "age_unconfirmed" ? (
                       <button
                         type="button"
@@ -376,8 +412,19 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                 ) : (
                 <>
                 <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Pro · jusqu&apos;à {proTier.maxBrands} marques</p>
-                  {countdown ? (
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Pro · {upToBrandsText(proTier.maxBrands)}</p>
+                  {founderOffer && founders ? (
+                    <>
+                      <p className="mt-1 text-2xl font-semibold text-white">
+                        {FOUNDER_MONTHLY.priceMonthly} €{" "}
+                        <span className="text-sm font-normal text-slate-500 line-through">{proTier.priceMonthly} €</span>
+                        <span className="text-sm font-normal text-slate-400"> / mois pendant {FOUNDER_MONTHLY.months} mois, puis {proTier.priceMonthly}{"\u00a0"}€/mois</span>
+                      </p>
+                      <p className="mt-1 text-xs text-aurora-200">
+                        Offre Fondateur · {placesText(founders.monthly.left)} · badge «{"\u00a0"}Fondateur{"\u00a0"}» à vie
+                      </p>
+                    </>
+                  ) : countdown ? (
                     <>
                       <p className="mt-1 text-2xl font-semibold text-white">
                         {(proTier.priceMonthly / 2).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €{" "}

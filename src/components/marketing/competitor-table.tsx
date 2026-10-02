@@ -17,7 +17,7 @@ export function CompetitorTable({ competitor }: { competitor: Competitor }) {
     { label: "Prix d'entrée (par mois, annuel)", them: competitor.entryMonthly === null ? "non publié" : `${formatPrice(competitor.entryMonthly, competitor.currency)}${competitor.currency === "USD" ? ` (≈ ${formatEur(toEur(competitor.entryMonthly, competitor.currency) ?? 0)})` : ""}`, us: `${formatEur(tier0.priceYearly / 12, 2)} (${tier0.priceMonthly} € en mensuel)` },
     { label: "3 marques, 8 comptes, 1 utilisateur", them: refEur === null ? "non publié" : `≈ ${formatEur(refEur)} / mois`, us: `${formatEur(nebulaRef.monthlyAnnual, 2)} / mois` },
     { label: "Plan gratuit", them: competitor.freePlan ?? "Non (essai limité)", us: `Oui : ${PLAN_LIMITS.FREE.features[0]}, ${PLAN_LIMITS.FREE.features[1].toLowerCase()}, ${PLAN_LIMITS.FREE.features[2].toLowerCase()}` },
-    { label: "Utilisateurs", them: /utilisateur/i.test(competitor.entryLabel) ? "Facturés en plus" : "Selon le palier", us: "Illimités, sans supplément" },
+    { label: "Utilisateurs", them: /utilisateur/i.test(competitor.entryLabel) ? "Facturés en plus" : "Selon le palier", us: "1 par compte" },
     { label: "Réseaux", them: competitor.networks.join(", "), us: nebulaNetworks },
     ...(Object.keys(FEATURE_LABELS) as (keyof typeof FEATURE_LABELS)[]).map((k) => ({
       label: FEATURE_LABELS[k],

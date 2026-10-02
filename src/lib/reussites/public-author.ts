@@ -1,7 +1,8 @@
 // Auteur d'un message de la Communauté tel qu'envoyé au navigateur : nom,
 // rang de créateur, anneau d'avatar gagné, vitrine (3 badges choisis) et
-// mention « Mentor » (étoile Communauté ★5) — jamais le reste des
-// préférences du compte.
+// mention « Mentor » (étoile Communauté ★5) et badge « Fondateur » (offres
+// fondateurs du 02/10/2026, à vie) — jamais le reste des préférences du
+// compte, ni le type d'offre prise.
 import { rankAt, ringFromCosmetics, type RingStyle } from "./catalog";
 import { MENTOR_STAR, showcaseBadge, type ShowcaseBadge } from "./skills";
 
@@ -13,7 +14,8 @@ export const AUTHOR_SELECT = {
   creatorLevel: true,
   enabledCosmetics: true,
   showcase: true,
-  achievementUnlocks: { where: { key: MENTOR_STAR }, select: { key: true } }
+  achievementUnlocks: { where: { key: MENTOR_STAR }, select: { key: true } },
+  founderSince: true
 } as unknown as { id: true; name: true };
 
 export interface PublicAuthor {
@@ -25,6 +27,8 @@ export interface PublicAuthor {
   ring: RingStyle | null;
   showcase: Pick<ShowcaseBadge, "key" | "emoji" | "label">[];
   mentor: boolean;
+  /** Badge « Fondateur » : a pris une offre fondateur (gardé à vie). */
+  founder: boolean;
 }
 
 export function publicAuthor(raw: unknown): PublicAuthor | null {
@@ -37,6 +41,7 @@ export function publicAuthor(raw: unknown): PublicAuthor | null {
     enabledCosmetics?: string[] | null;
     showcase?: string[] | null;
     achievementUnlocks?: { key: string }[] | null;
+    founderSince?: Date | string | null;
   };
   const lvl = rankAt(a.creatorXp ?? 0, a.creatorLevel ?? 1);
   const showcase = (a.showcase ?? [])
@@ -51,6 +56,7 @@ export function publicAuthor(raw: unknown): PublicAuthor | null {
     title: lvl.title,
     ring: ringFromCosmetics(a.enabledCosmetics ?? []),
     showcase,
-    mentor: Boolean(a.achievementUnlocks?.length)
+    mentor: Boolean(a.achievementUnlocks?.length),
+    founder: Boolean(a.founderSince)
   };
 }

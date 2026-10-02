@@ -13,7 +13,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { IconGift } from "@/components/dashboard/icons";
 import { useConfirm } from "@/components/dashboard/confirm";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandsText } from "@/lib/plans";
 import type { PartnerGrantRow } from "@/lib/billing/partners";
 
 const STATUS: Record<PartnerGrantRow["status"], { label: string; tone: BadgeTone }> = {
@@ -92,7 +92,7 @@ export function PartnersAdmin() {
           <Select label="Marques" value={maxBrands} onChange={(e) => setMaxBrands(Number(e.target.value))}>
             {PLAN_LIMITS[plan].tiers.map((t) => (
               <option key={t.maxBrands} value={t.maxBrands}>
-                {t.maxBrands} marques
+                {brandsText(t.maxBrands)}
               </option>
             ))}
           </Select>
@@ -144,7 +144,7 @@ export function PartnersAdmin() {
                       {g.userName && <span className="block text-xs text-slate-500">{g.userName}</span>}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-300">
-                      {PLAN_LIMITS[g.plan as "PRO" | "AGENCY"]?.label ?? g.plan} · {g.maxBrands} marques
+                      {PLAN_LIMITS[g.plan as "PRO" | "AGENCY"]?.label ?? g.plan} · {brandsText(g.maxBrands)}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-300">{g.months ? `${g.months} mois` : "Sans limite"}</td>
                     <td className="py-2.5 pr-3">

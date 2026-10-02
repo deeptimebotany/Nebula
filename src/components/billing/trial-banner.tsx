@@ -113,7 +113,8 @@ export function TrialBanner() {
     return (
       <div className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-center text-xs text-amber-100 sm:px-6">
         <UpgradeGem className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        Accès {PLAN_LIMITS[me.plan].label} offert{me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""} ·{" "}
+        {me.founder?.premiumUntil ? `Fondateur Premium : ${PLAN_LIMITS[me.plan].label}` : `Accès ${PLAN_LIMITS[me.plan].label} offert`}
+        {me.comp.until ? ` jusqu'au ${new Date(me.comp.until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""} ·{" "}
         <Link href="/billing" className="font-medium underline-offset-2 hover:underline">
           Détails
         </Link>

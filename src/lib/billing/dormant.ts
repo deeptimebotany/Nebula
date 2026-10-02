@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const DORMANT_SYNC_MESSAGE = "Marque en veille depuis la fin de votre essai : la synchronisation reprend dès le passage en Pro. Tout est conservé.";
+export const DORMANT_SYNC_MESSAGE = "Marque en veille en Gratuit : la synchronisation reprend dès le passage en Pro. Tout est conservé.";
 
 /** Retire les comptes en veille, ou dont la marque est en veille. */
 export async function withoutDormant<T extends { id: string; brandId: string; dormantAt?: Date | null }>(connections: T[]): Promise<T[]> {

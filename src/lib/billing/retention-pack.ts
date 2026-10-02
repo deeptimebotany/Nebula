@@ -1,4 +1,5 @@
-// Recharges Rétention (30/09/2026) : « +20 analyses Rétention pour 3,99 € »,
+// Recharges Rétention (30/09/2026) : « +20 analyses Rétention pour 5,99 € »
+// (prix et nombre dans RETENTION_PACK, src/lib/plans.ts),
 // paiement unique Stripe, réservé à Pro et Agence (plans.ts, RETENTION_PACK).
 //
 //   - Achat : /api/billing/retention-pack ouvre Stripe Checkout (mode

@@ -7,7 +7,7 @@ import { TrackView } from "@/components/marketing/track-view";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { COMPETITORS, formatEur, formatPrice, formatVerifiedAt, toEur } from "@/data/competitors";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandsText } from "@/lib/plans";
 
 // Index des pages « alternative à » (brief growth, lot G5.a).
 export const metadata = pageMetadata(SEO_ALTERNATIVES);
@@ -17,7 +17,7 @@ export default function AlternativesIndexPage() {
   return (
     <PublicShell width="max-w-5xl">
       <TrackView name="landing_view" meta={{ landing: "alternatives" }} />
-      <PublicPageHeading eyebrow="Comparatifs" title="Nebula face aux autres planificateurs" desc={<>Prix relevés sur le site de chaque éditeur, fonctions comparées point par point, et ce que Nebula ne fait pas encore. Nebula : en euros, dès {tier0.priceMonthly} € par mois pour {tier0.maxBrands} marques.</>} />
+      <PublicPageHeading eyebrow="Comparatifs" title="Nebula face aux autres planificateurs" desc={<>Prix relevés sur le site de chaque éditeur, fonctions comparées point par point, et ce que Nebula ne fait pas encore. Nebula : en euros, dès {tier0.priceMonthly} € par mois pour {brandsText(tier0.maxBrands)}.</>} />
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {COMPETITORS.map((c) => {

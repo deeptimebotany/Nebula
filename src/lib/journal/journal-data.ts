@@ -8,6 +8,58 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-02-accueil-nouveaux-prix",
+    date: "2026-10-02",
+    title: "Accueil et référencement aux nouveaux prix",
+    category: "Site public",
+    links: [
+      { href: "/#faq", label: "FAQ de l'accueil" },
+      { href: "/tarifs", label: "Tarifs" },
+      { href: "/admin/partenaires", label: "Partenaires" }
+    ],
+    result:
+      "La FAQ de l'accueil annonce la nouvelle grille (Pro 1, 5 ou 10 marques dès 12 €, Agence 15, 25 ou 50 dès 39 €), l'offre de lancement Fondateur et le renouvellement automatique. La description Google des Tarifs dit « Pro dès 12 € par mois pour 1 marque ». Toutes les pages du plan du site ont été relues : plus aucun ancien prix.",
+    change:
+      "FAQ de l'accueil (`src/components/marketing/faq.tsx`) et description SEO (`src/lib/seo-pages.ts`) lues dans `plans.ts` et `founders-offer.ts`, libellés au singulier dans /admin/partenaires. Nouveau test : aucune grille de marques ni prix « Pro dès … » écrit en dur hors de `plans.ts`.",
+    readme: 62,
+    migrations: []
+  },
+  {
+    id: "2026-10-02-recharge-retention-5-99",
+    date: "2026-10-02",
+    title: "Recharge Rétention à 5,99 €",
+    category: "Compte et facturation",
+    links: [
+      { href: "/billing", label: "Facturation" },
+      { href: "/retention", label: "Rétention IA" },
+      { href: "/tarifs", label: "Tarifs" }
+    ],
+    result:
+      "La recharge de 20 analyses Rétention coûte 5,99 € au lieu de 3,99 €, partout où elle est proposée (Facturation, Rétention, Tarifs, conditions). Avant l'ouverture, donc sans hausse à annoncer : le modèle qui regarde les vidéos double de prix le 1er janvier 2027, et à 3,99 € il ne serait resté qu'environ 0,75 € par recharge.",
+    change:
+      "Montant de `RETENTION_PACK` dans `src/lib/plans.ts` (seule source du prix), tests ajustés. Côté Stripe : nouveau prix ponctuel de 5,99 € dans `STRIPE_PRICE_RETENTION_PACK`.",
+    readme: 61,
+    migrations: []
+  },
+  {
+    id: "2026-10-02-nouvelle-grille-et-fondateurs",
+    date: "2026-10-02",
+    title: "Nouvelle grille de prix et offres fondateurs",
+    category: "Compte et facturation",
+    links: [
+      { href: "/tarifs", label: "Tarifs" },
+      { href: "/billing", label: "Facturation" },
+      { href: "/community", label: "Communauté" },
+      { href: "/legal", label: "Conditions" }
+    ],
+    result:
+      "Nouvelle grille avant l'ouverture : Pro 1, 5 ou 10 marques à 12, 19 ou 29 € par mois, Agence 15, 25 ou 50 marques à 39, 59 ou 99 € (2 mois offerts à l'année), Gratuit inchangé ; Nebula reste le moins cher sur le scénario de référence des comparatifs, et plus aucune promesse d'« utilisateurs illimités ». Offres de lancement : « Fondateur » (Pro 1 marque à 10 € pendant 3 mois puis 12 €, prélevé automatiquement, 100 premiers abonnés) et « Fondateur Premium » (100 € une fois, Pro 1 marque pendant 1 an, 100 places, sans renouvellement : rappels à J-30 et J-7, puis « Quel forfait vous faut-il ? »). Badge « Fondateur » à vie dans la Communauté et sur la carte de créateur. Places restantes affichées en direct sur les Tarifs.",
+    change:
+      "Prix dans `src/lib/plans.ts`, offres dans `src/lib/founders-offer.ts` et `src/lib/billing/founders.ts` : coupon Stripe « 2 € pendant 3 mois » plafonné à 100 utilisations (créé tout seul), paiement unique Premium accordé par le webhook via l'accès offert (une fois par session, remboursement géré), rappels et fin d'année par le cron. Un abonné Pro 1 marque avec deux marques garde la seconde en lecture seule, avec la marche à suivre. Conditions (article 6) et FAQ des tarifs complétées.",
+    readme: 60,
+    migrations: ["20261012090000_founder_offers"]
+  },
+  {
     id: "2026-10-02-veille-des-api",
     date: "2026-10-02",
     title: "Veille des API : prévenu avant les changements",

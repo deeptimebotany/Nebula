@@ -7,10 +7,11 @@
 //
 // Ce qui a changé par rapport à l'ancienne version : le prix affiché n'est
 // plus un simple « à partir de » ambigu — chaque plan payant montre ses
-// paliers de nombre de marques (3/5/10, 15/25/50) et le prix se met à jour
+// paliers de nombre de marques (1/5/10, 15/25/50) et le prix se met à jour
 // quand on en choisit un ; plus de « marques illimitées » (le plan Agence
 // est plafonné à 50) ; les fonctionnalités listées viennent de plans.ts,
-// sans reformulation qui exagérerait ce qui est inclus.
+// sans reformulation qui exagérerait ce qui est inclus. Sous la grille, les
+// offres de lancement « Fondateur » (02/10/2026, founder-offers-public.tsx).
 
 import { useState } from "react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { PAID_PLANS as PAID_PLAN_IDS, PLAN_LIMITS, type Plan, type BillingInterval } from "@/lib/plans";
 import { clsx } from "@/lib/clsx";
 import { IconLock, IconSparkle } from "@/components/dashboard/icons";
+import { FounderOffersPublic } from "@/components/marketing/founder-offers-public";
 
 const PAID_PLANS: Plan[] = [...PAID_PLAN_IDS];
 
@@ -87,6 +89,9 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
             </button>
           ))}
         </div>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          {tier.maxBrands > 1 ? `Jusqu'à ${tier.maxBrands} marques` : "1 marque"}, {plan.maxConnections >= 9999 ? "comptes illimités" : `${plan.maxConnections} comptes par marque`}
+        </p>
       </div>
 
       <ul className="mt-5 flex-1 space-y-2 text-sm text-slate-300">
@@ -186,6 +191,8 @@ export function PricingSection({ showComparisonLink = true, showHeading = true }
           </RevealItem>
         ))}
       </RevealGroup>
+
+      <FounderOffersPublic />
 
       <Reveal>
         {showComparisonLink && (

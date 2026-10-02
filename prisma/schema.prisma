@@ -293,6 +293,23 @@ model User {
   compUntil     DateTime?
   compNote      String?
   partnerGrants PartnerGrant[]
+  // Offres fondateurs (02/10/2026, src/lib/billing/founders.ts) :
+  //   - « Fondateur » : Pro 1 marque à 10 € pendant 3 mois (coupon Stripe),
+  //     100 premiers abonnés → founderKind « MONTHLY » ;
+  //   - « Fondateur Premium » : 100 € une fois, Pro 1 marque pendant 1 an
+  //     (accès offert compPlan / compUntil), 100 places, sans renouvellement
+  //     → founderKind « PREMIUM ».
+  // founderSince : badge « Fondateur » à vie (Communauté, carte de créateur).
+  founderKind             String?
+  founderSince            DateTime?
+  founderPremiumAt        DateTime?
+  founderPremiumUntil     DateTime?
+  founderPremiumSessionId String?   @unique
+  founderPremiumPaymentId String?   @unique
+  // Fin de l'année Premium appliquée (limites du Gratuit si rien d'autre),
+  // puis réponse à la question « quel forfait vous faut-il ? ».
+  founderPremiumEndedAt   DateTime?
+  founderEndNoticeAt      DateTime?
   // Âge (30/09/2026) : Nebula est réservé aux 18 ans et plus (conditions de
   // l'API Gemini, CGU article 3). Posé par la case de l'inscription, ou par
   // la confirmation demandée une fois aux comptes existants et aux comptes
@@ -302,6 +319,10 @@ model User {
   // unique), utilisées après le quota du mois, sans date d'expiration.
   retentionCredits Int                @default(0)
   aiCreditPurchases AiCreditPurchase[]
+
+  // Places des offres fondateurs (comptées à chaque affichage des tarifs).
+  @@index([founderKind])
+  @@index([founderPremiumAt])
 }
 
 // Accès offerts par le propriétaire (voir /admin/partenaires et

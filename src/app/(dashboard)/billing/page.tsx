@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { clsx } from "@/lib/clsx";
-import { PAID_PLANS, PLAN_LIMITS, annualFreeMonths, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
+import { PAID_PLANS, PLAN_LIMITS, annualFreeMonths, upToBrandsText, type Plan, type BillingInterval, type BrandTier } from "@/lib/plans";
 import { TRIAL_DENIED_MESSAGE } from "@/lib/billing/trial-copy";
 import { BeforeLeavingModal } from "@/components/billing/before-leaving-modal";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
@@ -18,6 +18,9 @@ import { useBrand } from "@/components/brand-context";
 import type { BrandUsage } from "@/lib/billing/usage";
 import { useUsage } from "@/lib/data/hooks";
 import { AiQuotaCard } from "@/components/billing/ai-quota-card";
+import { FounderMonthlyChoice, FounderPremiumCard, founderMonthlyApplies, useFounders } from "@/components/billing/founder-offers";
+import { FounderBadge } from "@/components/reussites/founder-badge";
+import { FOUNDER_MONTHLY } from "@/lib/founders-offer";
 
 interface PlanResponse {
   plan: Plan;
@@ -139,6 +142,10 @@ function BillingPageInner() {
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get("checkout");
   const rechargeStatus = searchParams.get("recharge");
+  const founderStatus = searchParams.get("founder");
+  // Offres fondateurs (02/10/2026) : places restantes et droits du compte.
+  const { founders } = useFounders();
+  const [useFounder, setUseFounder] = useState(true);
   // Le message technique « Stripe non configuré » ne concerne que le
   // propriétaire du site ; un client voit une phrase neutre (Lot 4).
   const { data: me, patch: patchMe } = useBootstrap();
@@ -168,7 +175,7 @@ function BillingPageInner() {
     const res = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, interval, maxBrands: tier.maxBrands })
+      body: JSON.stringify({ plan, interval, maxBrands: tier.maxBrands, founder: useFounder && founderMonthlyApplies(founders, plan, tier.maxBrands, interval) })
     });
     const json = await res.json();
     setLoadingTier(null);
@@ -191,6 +198,15 @@ function BillingPageInner() {
         <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
           <p className="text-sm text-emerald-300">
             Paiement confirmé — votre palier sera mis à jour dès que Stripe aura notifié Nebula (quelques secondes).
+          </p>
+        </GlassCard>
+      )}
+
+      {founderStatus === "success" && (
+        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
+          <p className="text-sm text-emerald-300">
+            Merci, Fondateur ! Votre paiement est confirmé : Pro s&apos;active dès que Stripe aura notifié Nebula (quelques secondes). Une notification et un
+            e-mail vous le confirment.
           </p>
         </GlassCard>
       )}
@@ -221,7 +237,21 @@ function BillingPageInner() {
         </GlassCard>
       )}
 
-      {me?.comp && (
+      {me?.comp && me.founder?.premiumUntil && (
+        <GlassCard className="border-aurora-400/30 bg-aurora-400/[0.05]">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-aurora-200">
+            <UpgradeGem className="h-3.5 w-3.5" /> Fondateur Premium
+          </p>
+          <p className="mt-1 text-sm text-slate-200">
+            {PLAN_LIMITS[me.plan].label} {upToBrandsText(data?.maxBrands ?? 1)} jusqu&apos;au{" "}
+            {new Date(me.founder.premiumUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}, payé en une fois : merci de
+            soutenir Nebula ! Rien ne sera prélevé ensuite. Pour continuer sans interruption, vous pouvez déjà choisir Pro 1 marque ci-dessous : le premier
+            prélèvement n&apos;aura lieu qu&apos;à la fin de votre année.
+          </p>
+        </GlassCard>
+      )}
+
+      {me?.comp && !me.founder?.premiumUntil && (
         <GlassCard className="border-amber-400/25 bg-amber-400/[0.05]">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-200">
             <UpgradeGem className="h-3.5 w-3.5" /> Accès offert
@@ -293,7 +323,7 @@ function BillingPageInner() {
       {me && me.dormantBrands > 0 && !me.paid && !me.comp && (
         <GlassCard className="border-slate-400/20 bg-white/[0.02]">
           <p className="text-sm text-slate-200">
-            {me.dormantBrands} marque{me.dormantBrands > 1 ? "s" : ""} en veille depuis la fin de votre essai : tout est conservé, rien ne se publie ni ne se synchronise. Passez en Pro pour tout réactiver d&apos;un coup.
+            {me.dormantBrands} marque{me.dormantBrands > 1 ? "s" : ""} en veille en Gratuit : tout est conservé, rien ne se publie ni ne se synchronise. Passez en Pro pour tout réactiver d&apos;un coup.
           </p>
           <Link href="/billing/garder" className="mt-2 inline-block text-sm font-medium text-aurora-300 underline-offset-2 hover:underline">
             Changer de marque active
@@ -336,10 +366,16 @@ function BillingPageInner() {
                 {data.limits.label}
                 {PLAN_LIMITS[data.plan].purchasable && (
                   <span className="ml-2 text-sm font-normal text-slate-400">
-                    · jusqu&apos;à {data.maxBrands} marques · facturation {data.interval === "year" ? "annuelle" : "mensuelle"}
+                    · {upToBrandsText(data.maxBrands)}
+                    {me?.paid ? ` · facturation ${data.interval === "year" ? "annuelle" : "mensuelle"}` : ""}
                   </span>
                 )}
               </p>
+              {me?.founder?.since && (
+                <p className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <FounderBadge /> depuis le {new Date(me.founder.since).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap gap-6 text-sm">
               <div>
@@ -361,7 +397,7 @@ function BillingPageInner() {
                 </p>
               </div>
             </div>
-            {(PLAN_LIMITS[data.plan].purchasable || me?.pausedUntil) && (
+            {(me?.paid || me?.pausedUntil) && (
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={openPortal}>
                   Gérer mon abonnement
@@ -443,7 +479,11 @@ function BillingPageInner() {
           const tier = p.tiers.find((t) => t.maxBrands === selectedTier[planId]) ?? p.tiers[0];
           const price = interval === "year" ? tier.priceYearly : tier.priceMonthly;
           const perMonthEquivalent = interval === "year" ? Math.round((tier.priceYearly / 12) * 10) / 10 : null;
-          const isCurrent = data?.plan === planId && data?.interval === interval && data?.maxBrands === tier.maxBrands;
+          // Seulement un vrai abonnement : un accès offert ou une année
+          // Fondateur Premium peut prendre la suite sur le même palier.
+          const isCurrent = Boolean(me?.paid) && data?.plan === planId && data?.interval === interval && data?.maxBrands === tier.maxBrands;
+          const founderHere = founderMonthlyApplies(founders, planId, tier.maxBrands, interval);
+          const continuesPremium = Boolean(me?.founder?.premiumUntil) && !me?.paid && planId === "PRO" && tier.maxBrands === 1;
           const key = `${planId}-${tier.maxBrands}`;
 
           return (
@@ -469,7 +509,7 @@ function BillingPageInner() {
                         onChange={() => setSelectedTier((prev) => ({ ...prev, [planId]: t.maxBrands }))}
                         className="accent-aurora-500"
                       />
-                      jusqu&apos;à {t.maxBrands} marques
+                      {upToBrandsText(t.maxBrands)}
                     </span>
                     <span className="font-medium text-white">
                       {interval === "year" ? t.priceYearly : t.priceMonthly}€
@@ -478,10 +518,19 @@ function BillingPageInner() {
                 ))}
               </div>
 
-              <p className="mt-3">
-                <span className="font-display text-3xl text-white">{price}€</span>
-                <span className="text-sm text-slate-400"> / {interval === "year" ? "an" : "mois"}</span>
-              </p>
+              {founderHere && useFounder ? (
+                <p className="mt-3">
+                  <span className="font-display text-3xl text-white">{FOUNDER_MONTHLY.priceMonthly}€</span>{" "}
+                  <span className="text-sm text-slate-500 line-through">{price}€</span>
+                  <span className="text-sm text-slate-400"> / mois pendant {FOUNDER_MONTHLY.months} mois</span>
+                </p>
+              ) : (
+                <p className="mt-3">
+                  <span className="font-display text-3xl text-white">{price}€</span>
+                  <span className="text-sm text-slate-400"> / {interval === "year" ? "an" : "mois"}</span>
+                </p>
+              )}
+              {founderHere && founders && <FounderMonthlyChoice founders={founders} checked={useFounder} onChange={setUseFounder} />}
               {perMonthEquivalent !== null && (
                 <p className="mt-0.5 text-sm font-medium text-emerald-300">
                   soit {perMonthEquivalent}€/mois <span className="text-emerald-400">— moins cher qu&apos;en mensuel</span>
@@ -500,12 +549,22 @@ function BillingPageInner() {
                 disabled={isCurrent || loadingTier === key}
                 onClick={() => subscribe(planId, tier)}
               >
-                {isCurrent ? "Palier actuel" : loadingTier === key ? "Redirection..." : `Passer à ${p.label}`}
+                {isCurrent
+                  ? "Palier actuel"
+                  : loadingTier === key
+                    ? "Redirection..."
+                    : continuesPremium && me?.founder?.premiumUntil
+                      ? `Prendre la suite (1er prélèvement le ${new Date(me.founder.premiumUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })})`
+                      : founderHere && useFounder
+                        ? "Devenir Fondateur"
+                        : `Passer à ${p.label}`}
               </Button>
             </GlassCard>
           );
         })}
       </div>
+
+      {founders && (founders.me?.premiumEligible || founders.me?.premiumUntil) && <FounderPremiumCard founders={founders} />}
     </div>
   );
 }

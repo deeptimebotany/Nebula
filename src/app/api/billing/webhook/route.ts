@@ -11,6 +11,13 @@ import { isPaidPlanId } from "@/lib/plans";
 import { getUserPlan } from "@/lib/billing/plan";
 import { applyFreeLimits, reactivateAfterUpgrade } from "@/lib/billing/free-limits";
 import { grantRetentionPack, revokeRefundedPack } from "@/lib/billing/retention-pack";
+import { FOUNDER_PREMIUM_KIND, grantFounderPremium, markMonthlyFounder, revokeRefundedFounderPremium } from "@/lib/billing/founders";
+
+/** Paiement unique : recharge Rétention ou année « Fondateur Premium ». */
+async function grantOneTimePayment(session: Stripe.Checkout.Session) {
+  if (session.metadata?.kind === FOUNDER_PREMIUM_KIND) await grantFounderPremium(session);
+  else await grantRetentionPack(session);
+}
 
 // POST /api/billing/webhook — reçoit les événements Stripe (paiement
 // confirmé, abonnement modifié/annulé) et met à jour la table Subscription
@@ -89,6 +96,8 @@ export async function POST(req: NextRequest) {
     });
 
     await markFirstPayment(resolvedUserId, sub);
+    // Offre « Fondateur » (10 € pendant 3 mois) : badge posé une fois l'abonnement actif.
+    await markMonthlyFounder(resolvedUserId, sub).catch((err) => console.error("[webhook] fondateur :", (err as Error).message));
     await syncFreeLimits(resolvedUserId, sub.status);
   }
 
@@ -172,9 +181,10 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      // Recharge Rétention (paiement unique, 30/09/2026) : créditée une seule fois.
+      // Paiement unique : recharge Rétention (30/09/2026) ou « Fondateur
+      // Premium » (02/10/2026), chacun accordé une seule fois.
       if (session.mode === "payment") {
-        await grantRetentionPack(session);
+        await grantOneTimePayment(session);
         break;
       }
       const userId = session.client_reference_id || (session.metadata?.userId as string | undefined);
@@ -186,12 +196,14 @@ export async function POST(req: NextRequest) {
     }
     case "checkout.session.async_payment_succeeded": {
       // Moyen de paiement différé (virement…) encaissé après coup.
-      await grantRetentionPack(event.data.object as Stripe.Checkout.Session);
+      await grantOneTimePayment(event.data.object as Stripe.Checkout.Session);
       break;
     }
     case "charge.refunded": {
       // Recharge remboursée : analyses retirées du solde (jamais sous zéro).
+      // Fondateur Premium remboursé en entier : accès et place retirés.
       await revokeRefundedPack(event.data.object as Stripe.Charge);
+      await revokeRefundedFounderPremium(event.data.object as Stripe.Charge);
       break;
     }
     case "customer.subscription.updated":
@@ -227,7 +239,9 @@ export async function POST(req: NextRequest) {
 
   // Abonnement créé, modifié ou terminé : les pages bio publiques (thème
   // premium, nombre de liens) sont recalculées à la prochaine visite.
-  if (event.type.startsWith("customer.subscription.") || (event.type === "checkout.session.completed" && (event.data.object as Stripe.Checkout.Session).mode !== "payment")) {
+  const completed = event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded" ? (event.data.object as Stripe.Checkout.Session) : null;
+  const changesPlan = Boolean(completed && (completed.mode !== "payment" || completed.metadata?.kind === FOUNDER_PREMIUM_KIND));
+  if (event.type.startsWith("customer.subscription.") || changesPlan || event.type === "charge.refunded") {
     invalidateAllLinkPages();
     // Media kits : leur publication dépend du palier.
     invalidateAllMediaKits();

@@ -109,7 +109,7 @@ function checkout(id: string, userId: string, paid = true): Stripe.Checkout.Sess
     payment_status: paid ? "paid" : "unpaid",
     client_reference_id: userId,
     metadata: { userId, kind: "retention_pack", credits: "20" },
-    amount_total: 399,
+    amount_total: 599,
     currency: "eur",
     payment_intent: `pi_${id}`
   } as unknown as Stripe.Checkout.Session;
@@ -226,7 +226,7 @@ describe.skipIf(!hasDatabase)("Rétention IA : l'IA regarde la vidéo, Nebula ca
     expect(refused.status).toBe(429);
     const body = await refused.json();
     expect(body).toMatchObject({ reason: "ai_monthly_limit", retentionPack: true });
-    expect(body.error).toMatch(/vos 15 analyses Rétention de ce mois-ci : le compteur repart le 1er .+ Vous pouvez ajouter 20 analyses pour 3,99 €/);
+    expect(body.error).toMatch(/vos 15 analyses Rétention de ce mois-ci : le compteur repart le 1er .+ Vous pouvez ajouter 20 analyses pour 5,99 €/);
     expect(await retentionCount()).toBe(15);
   });
 
@@ -322,16 +322,16 @@ describe.skipIf(!hasDatabase)("quotas du mois, âge et recharges", () => {
     expect(await grantRetentionPack(checkout("cs_1", user.id))).toBe("granted");
     expect(await grantRetentionPack(checkout("cs_1", user.id))).toBe("already");
     expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).retentionCredits).toBe(20);
-    expect(await prisma.aiCreditPurchase.findFirst()).toMatchObject({ credits: 20, amountCents: 399, currency: "eur", stripePaymentIntentId: "pi_cs_1" });
+    expect(await prisma.aiCreditPurchase.findFirst()).toMatchObject({ credits: 20, amountCents: 599, currency: "eur", stripePaymentIntentId: "pi_cs_1" });
     expect(await prisma.notification.count({ where: { userId: user.id } })).toBe(1);
 
     // 15 analyses déjà utilisées, puis remboursement de moitié, puis total.
     await prisma.user.update({ where: { id: user.id }, data: { retentionCredits: 5 } });
-    const charge = (refunded: number) => ({ payment_intent: "pi_cs_1", amount: 399, amount_refunded: refunded }) as unknown as Stripe.Charge;
-    expect(await revokeRefundedPack(charge(200))).toBe(10);
+    const charge = (refunded: number) => ({ payment_intent: "pi_cs_1", amount: 599, amount_refunded: refunded }) as unknown as Stripe.Charge;
+    expect(await revokeRefundedPack(charge(300))).toBe(10);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).retentionCredits).toBe(0);
-    expect(await revokeRefundedPack(charge(399))).toBe(10);
-    expect(await revokeRefundedPack(charge(399))).toBe(0); // événement rejoué
+    expect(await revokeRefundedPack(charge(599))).toBe(10);
+    expect(await revokeRefundedPack(charge(599))).toBe(0); // événement rejoué
     expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).retentionCredits).toBe(0);
     expect((await prisma.aiCreditPurchase.findFirstOrThrow()).refundedAt).not.toBeNull();
   });

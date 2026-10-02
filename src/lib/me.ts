@@ -70,7 +70,14 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         activeBrandChangedAt: true,
         tourCompletedAt: true,
         tourStep: true,
-        uiSoundsEnabled: true
+        uiSoundsEnabled: true,
+        founderKind: true,
+        founderSince: true,
+        founderPremiumAt: true,
+        founderPremiumUntil: true,
+        founderPremiumSessionId: true,
+        founderPremiumEndedAt: true,
+        founderEndNoticeAt: true
       }
     }),
     getUserPlan(userId),
@@ -144,7 +151,9 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     trialDaysLeft: planInfo.onTrial ? trialDaysLeft(user.trialEndsAt) : 0,
     // La modale de fin d'essai ne concerne que les comptes qui ONT eu un
     // essai, dont il est fini, non payants, et qui ne l'ont pas encore vue.
-    trialEndedNoticeDue: Boolean(user.trialEndsAt) && !planInfo.onTrial && !planInfo.paid && !user.trialEndedNoticeAt,
+    // Jamais pendant un accès offert, ni pour un Fondateur Premium (sa fin
+    // d'année a sa propre question, FounderEndModal).
+    trialEndedNoticeDue: Boolean(user.trialEndsAt) && !planInfo.onTrial && !planInfo.paid && !planInfo.comp && !user.founderPremiumSessionId && !user.trialEndedNoticeAt,
     paid: planInfo.paid,
     pausedUntil: planInfo.pausedUntil ? planInfo.pausedUntil.toISOString() : null,
     comp: planInfo.comp ? { until: planInfo.comp.until ? planInfo.comp.until.toISOString() : null } : null,
@@ -165,7 +174,14 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     dormantBrands,
     reschedulable,
     tour: { completed: Boolean(user.tourCompletedAt), step: user.tourStep ?? 0 },
-    uiSounds: user.uiSoundsEnabled ?? true
+    uiSounds: user.uiSoundsEnabled ?? true,
+    founder: {
+      kind: user.founderKind === "MONTHLY" || user.founderKind === "PREMIUM" ? user.founderKind : null,
+      since: user.founderSince ? user.founderSince.toISOString() : null,
+      premiumUntil: user.founderPremiumAt && user.founderPremiumUntil ? user.founderPremiumUntil.toISOString() : null,
+      // « Quel forfait vous faut-il ? » : année Premium finie, sans abonnement, question pas encore répondue.
+      endPending: Boolean(user.founderPremiumEndedAt) && !user.founderEndNoticeAt && !planInfo.paid
+    }
   };
   return body;
 }

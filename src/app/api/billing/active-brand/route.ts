@@ -42,6 +42,9 @@ export async function GET() {
       keptConnectionIds: keptConnections,
       changeableAt,
       freeLimits: { maxBrands: free.tiers[0].maxBrands, maxConnections: free.maxConnections },
+      // Palier actuel (ex. Pro 1 marque avec 2 marques : la marque choisie publie, les autres sont en lecture seule).
+      planLabel: info.limits.label,
+      maxBrands: info.maxBrands,
       brands: brands.map((b) => ({
         id: b.id,
         name: b.name,

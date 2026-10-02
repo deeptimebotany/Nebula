@@ -7,7 +7,7 @@
 // visé en tête ; description de 155 caractères au plus, qui dit ce que la
 // page apporte et, pour les outils IA, qu'il faut un compte gratuit pour
 // générer (sans compte : démo, sans IA).
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandsText } from "@/lib/plans";
 import { TRIAL_DAYS } from "@/lib/trial";
 
 const PRO_FROM = PLAN_LIMITS.PRO.tiers[0];
@@ -37,7 +37,7 @@ export const SEO_HOME: SeoPage = {
 export const SEO_PRICING: SeoPage = {
   path: "/tarifs",
   title: `Tarifs : gratuit, Pro dès ${PRO_FROM.priceMonthly} €/mois, Agence dès ${AGENCY_FROM.priceMonthly} €`,
-  description: `Gratuit pour commencer, Pro dès ${PRO_FROM.priceMonthly} € par mois pour ${PRO_FROM.maxBrands} marques, Agence dès ${AGENCY_FROM.priceMonthly} € pour ${AGENCY_FROM.maxBrands} marques. ${TRIAL_DAYS} jours d'essai offerts, sans carte bancaire.`,
+  description: `Gratuit pour commencer, Pro dès ${PRO_FROM.priceMonthly} € par mois pour ${brandsText(PRO_FROM.maxBrands)}, Agence dès ${AGENCY_FROM.priceMonthly} € pour ${brandsText(AGENCY_FROM.maxBrands)}. ${TRIAL_DAYS} jours d'essai offerts, sans carte bancaire.`,
   eyebrow: "Tarifs",
   imageTitle: "Des tarifs simples, en euros",
   imageSubtitle: `Gratuit pour commencer · Pro dès ${PRO_FROM.priceMonthly} €/mois · Agence dès ${AGENCY_FROM.priceMonthly} €/mois`

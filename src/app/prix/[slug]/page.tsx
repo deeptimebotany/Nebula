@@ -10,7 +10,7 @@ import { TrackView } from "@/components/marketing/track-view";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { COMPETITOR_SLUGS, FX_NOTE, formatEur, formatPrice, formatVerifiedAt, getCompetitor, nebulaEstimate, REFERENCE_SCENARIO, toEur } from "@/data/competitors";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandsText } from "@/lib/plans";
 import { TRIAL_DAYS } from "@/lib/trial";
 
 // Page « {X} : tarifs {année} expliqués » (brief growth, lot G5.a) — le
@@ -64,7 +64,7 @@ export default function PrixPage({ params }: { params: { slug: string } }) {
           ])
         ]}
       />
-      <PublicPageHeading eyebrow="Tarifs expliqués" title={`${c.name} : tarifs ${year} expliqués`} desc={<>{c.tagline} Voici sa grille officielle résumée, ce qu&apos;elle n&apos;inclut pas, et ce que coûte réellement une configuration courante — face à Nebula, {tier0.priceMonthly} € par mois pour {tier0.maxBrands} marques.</>} />
+      <PublicPageHeading eyebrow="Tarifs expliqués" title={`${c.name} : tarifs ${year} expliqués`} desc={<>{c.tagline} Voici sa grille officielle résumée, ce qu&apos;elle n&apos;inclut pas, et ce que coûte réellement une configuration courante — face à Nebula, dès {tier0.priceMonthly} € par mois pour {brandsText(tier0.maxBrands)}.</>} />
 
       <section aria-labelledby="grille">
         <h2 id="grille" className="mb-4 font-display text-2xl font-semibold text-white">La grille officielle, résumée</h2>

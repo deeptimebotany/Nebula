@@ -11,7 +11,7 @@ import { TrackView } from "@/components/marketing/track-view";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { COMPETITOR_SLUGS, UPCOMING_NETWORKS, formatEur, formatVerifiedAt, getCompetitor, nebulaEstimate, REFERENCE_SCENARIO, toEur } from "@/data/competitors";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, brandChoicesLabel, brandsText, topTier } from "@/lib/plans";
 import { TRIAL_DAYS } from "@/lib/trial";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 
@@ -47,7 +47,7 @@ export default function AlternativePage({ params }: { params: { slug: string } }
 
   const faq = [
     { q: `Nebula remplace-t-il ${c.name} ?`, a: `Pour programmer et publier sur ${nebulaNetworks.join(", ")}, suivre vos statistiques et envoyer des rapports à vos clients : oui. ${c.name} couvre d'autres réseaux (${c.networks.filter((n) => !nebulaNetworks.some((m) => n.toLowerCase().startsWith(m.toLowerCase()))).slice(0, 4).join(", ") || "voir le tableau"}) que Nebula ne prend pas encore en charge — les listes d'attente par réseau vous préviennent dès l'ouverture.` },
-    { q: "Combien coûte Nebula ?", a: `Le palier Gratuit permet de commencer sans carte bancaire (${PLAN_LIMITS.FREE.features[0]}, ${PLAN_LIMITS.FREE.features[1].toLowerCase()}). Le palier Pro coûte ${tier0.priceMonthly} € par mois pour ${tier0.maxBrands} marques (${formatEur(tier0.priceYearly)} par an, soit deux mois offerts), utilisateurs illimités. Tout nouveau compte reçoit ${TRIAL_DAYS} jours d'essai.` },
+    { q: "Combien coûte Nebula ?", a: `Le palier Gratuit permet de commencer sans carte bancaire (${PLAN_LIMITS.FREE.features[0]}, ${PLAN_LIMITS.FREE.features[1].toLowerCase()}). Le palier Pro coûte ${tier0.priceMonthly} € par mois pour ${brandsText(tier0.maxBrands)} (${formatEur(tier0.priceYearly)} par an, soit deux mois offerts), jusqu'à ${topTier("PRO").priceMonthly} € pour ${brandsText(topTier("PRO").maxBrands)} (${brandChoicesLabel("PRO")} marques au choix). Tout nouveau compte reçoit ${TRIAL_DAYS} jours d'essai.` },
     { q: `Comment passer de ${c.name} à Nebula sans tout ressaisir ?`, a: "Exportez vos publications en CSV depuis votre outil actuel, puis importez-les dans Nebula (page Publications → Importer) : elles sont créées en brouillon avec leur date et leur texte, à vérifier avant programmation. Votre page Linktree s'importe aussi en collant son adresse." },
     { q: "Les prix indiqués sont-ils à jour ?", a: `Ils ont été relevés le ${formatVerifiedAt(c.verifiedAt)} sur le site de l'éditeur et peuvent évoluer. Vérifiez toujours la grille officielle avant de décider ; les prix de Nebula sont ceux de la page Tarifs.` }
   ];

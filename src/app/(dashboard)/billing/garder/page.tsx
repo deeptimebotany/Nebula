@@ -47,6 +47,8 @@ interface ChoiceResponse {
   keptConnectionIds: string[];
   changeableAt: string | null;
   freeLimits: { maxBrands: number; maxConnections: number };
+  planLabel?: string;
+  maxBrands?: number;
   brands: ChoiceBrand[];
 }
 
@@ -146,7 +148,9 @@ export default function KeepChoicePage() {
       <PageHeader
         title="Choisir ce que je garde"
         description={
-          data.paid
+          data.paid && data.maxBrands !== undefined && data.brands.length > data.maxBrands
+            ? `Votre palier ${data.planLabel ?? "actuel"} permet ${data.maxBrands} marque${data.maxBrands > 1 ? "s" : ""} : la marque choisie ici publie, les autres restent visibles en lecture seule. Rien n'est supprimé ; un palier avec plus de marques les réactive.`
+            : data.paid
             ? "Vous êtes sur un palier payant : toutes vos marques sont actives. Ce choix ne servira que si vous repassez en Gratuit."
             : data.onTrial && data.trialEndsAt
               ? `Votre essai se termine le ${fr(data.trialEndsAt)}. En Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n'est supprimé.`

@@ -4,6 +4,7 @@ import { SITE_CONTACT_EMAIL, SITE_LEGAL, SITE_NAME, SITE_URL, formatSiren } from
 import { pageMetadata } from "@/lib/seo";
 import { SEO_LEGAL } from "@/lib/seo-pages";
 import { RETENTION_PACK, formatEuroCents } from "@/lib/plans";
+import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
 
 // Page publique combinée (aucune authentification requise) : mentions
 // légales, conditions d'utilisation et politique de confidentialité sur une
@@ -214,9 +215,20 @@ export default function LegalPage() {
           <p>
             Le palier Gratuit est limité (nombre de marques, de comptes connectés et de publications par mois,
             indiqué sur la page Tarifs). Les paliers Pro et Agence sont des abonnements mensuels ou annuels facturés
-            via Stripe ; le prix dépend du nombre de marques choisi. Vous pouvez changer de palier ou résilier à tout
-            moment depuis la page Facturation ; la résiliation prend effet à la fin de la période déjà payée, sans
-            remboursement au prorata sauf obligation légale contraire.
+            via Stripe et renouvelés automatiquement à chaque échéance ; le prix dépend du nombre de marques choisi.
+            Vous pouvez changer de palier ou résilier à tout moment depuis la page Facturation ; la résiliation prend
+            effet à la fin de la période déjà payée, sans remboursement au prorata sauf obligation légale contraire.
+          </p>
+          <p>
+            Offres de lancement. « Fondateur » : pour les {FOUNDER_MONTHLY.places} premiers abonnés, Pro 1 marque à{" "}
+            {FOUNDER_MONTHLY.priceMonthly} € par mois pendant {FOUNDER_MONTHLY.months} mois, puis au prix normal ({founderRegularPrice()} € par
+            mois à ce jour), renouvelé automatiquement comme tout abonnement ; un premier abonnement mensuel par compte.
+            « Fondateur Premium » : {euros(FOUNDER_PREMIUM.priceCents)} en paiement unique pour Pro 1 marque pendant{" "}
+            {FOUNDER_PREMIUM.months} mois à compter du paiement, {FOUNDER_PREMIUM.places} places, une par compte, sans renouvellement
+            automatique : à la fin, le compte repasse au palier Gratuit sauf si vous choisissez un forfait. Le service
+            étant fourni immédiatement, vous demandez l&apos;accès immédiat et renoncez expressément à votre droit de
+            rétractation de 14 jours au moment de l&apos;achat (article L221-28 du Code de la consommation). Les deux offres
+            donnent un badge « Fondateur » affiché dans la Communauté et sur la carte de créateur, sans autre avantage.
           </p>
           <p>
             Quotas de l&apos;IA : chaque palier inclut un nombre d&apos;analyses Rétention, de miniatures, de générations du

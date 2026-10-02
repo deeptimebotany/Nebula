@@ -84,6 +84,11 @@ export interface MeResponse {
   tour: { completed: boolean; step: number };
   /** Sons de l'interface (Paramètres → Apparence & Succès). */
   uiSounds: boolean;
+  /**
+   * Offres fondateurs (02/10/2026) : badge « Fondateur » (since), année
+   * Premium en cours (premiumUntil) et question de fin d'année à poser.
+   */
+  founder: { kind: "MONTHLY" | "PREMIUM" | null; since: string | null; premiumUntil: string | null; endPending: boolean };
 }
 
 export type AiQuotaKind = "text" | "image" | "studio" | "assistant" | "retention";

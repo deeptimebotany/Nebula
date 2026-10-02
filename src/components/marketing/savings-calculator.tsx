@@ -1,8 +1,9 @@
 "use client";
 
 // Calculateur d'économies public (brief growth, lot G5.b), dérivé du
-// simulateur de la page Facturation : nombre de marques, de comptes et
-// d'utilisateurs → coût mensuel et annuel chez trois concurrents au choix
+// simulateur de la page Facturation : nombre de marques et de comptes
+// (pour un utilisateur : Nebula n'a pas encore de comptes d'équipe) → coût
+// mensuel et annuel chez trois concurrents au choix
 // (données src/data/competitors.ts) contre Nebula (src/lib/plans.ts). Les
 // chiffres sont des estimations à partir des grilles publiques, en
 // facturation annuelle, converties en euros quand l'éditeur affiche des
@@ -14,8 +15,7 @@ import { clsx } from "@/lib/clsx";
 
 const FIELDS: { key: keyof CostInput; label: string; min: number; max: number }[] = [
   { key: "brands", label: "Marques (clients, projets)", min: 1, max: 50 },
-  { key: "accounts", label: "Comptes connectés au total", min: 1, max: 80 },
-  { key: "users", label: "Utilisateurs", min: 1, max: 10 }
+  { key: "accounts", label: "Comptes connectés au total", min: 1, max: 80 }
 ];
 
 export function SavingsCalculator({ defaultCompetitors = ["hootsuite", "metricool", "buffer"], title = "Combien Nebula vous ferait-il économiser ?", compact = false, className }: { defaultCompetitors?: string[]; title?: string; compact?: boolean; className?: string }) {
@@ -46,9 +46,9 @@ export function SavingsCalculator({ defaultCompetitors = ["hootsuite", "metricoo
   return (
     <div className={clsx("rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6", className)}>
       <h2 className="font-display text-lg font-semibold text-white sm:text-xl">{title}</h2>
-      <p className="mt-1 text-xs text-slate-400">Estimation à partir des grilles publiques (facturation annuelle), pour la configuration que vous indiquez.</p>
+      <p className="mt-1 text-xs text-slate-400">Estimation à partir des grilles publiques (facturation annuelle), pour la configuration que vous indiquez et un utilisateur.</p>
 
-      <div className={clsx("mt-4 grid gap-4", compact ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-3")}>
+      <div className={clsx("mt-4 grid gap-4", "grid-cols-1 sm:grid-cols-2")}>
         {FIELDS.map((f) => (
           <div key={f.key}>
             <label htmlFor={`sc-${f.key}`} className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
@@ -109,7 +109,7 @@ export function SavingsCalculator({ defaultCompetitors = ["hootsuite", "metricoo
       <Savings rows={rows} nebulaMonthly={nebula.monthlyAnnual} />
 
       <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-        Prix constatés le {formatVerifiedAt(verifiedAt)} sur le site de chaque éditeur, susceptibles d&apos;évoluer. {usesUsd ? FX_NOTE + " " : ""}Nebula : facturation annuelle (dix mois au prix de douze), utilisateurs illimités, prix tels qu&apos;affichés sur la page Tarifs.
+        Prix constatés le {formatVerifiedAt(verifiedAt)} sur le site de chaque éditeur, susceptibles d&apos;évoluer. {usesUsd ? FX_NOTE + " " : ""}Nebula : facturation annuelle (dix mois au prix de douze), un utilisateur par compte, prix tels qu&apos;affichés sur la page Tarifs.
       </p>
     </div>
   );

@@ -95,7 +95,7 @@ describe("journal des mises à jour", () => {
     const days = journalByDay(JOURNAL_ENTRIES);
     expect(days[0].date).toBe(JOURNAL_UPDATED_AT);
     expect(days.reduce((n, d) => n + d.entries.length, 0)).toBe(JOURNAL_ENTRIES.length);
-    const md = journalMarkdown(JOURNAL_ENTRIES.slice(0, 1), "https://nebulahub.space/");
+    const md = journalMarkdown(JOURNAL_ENTRIES.filter((e) => e.id === "2026-10-02-veille-des-api"), "https://nebulahub.space/");
     expect(md).toContain("[Veille des API](https://nebulahub.space/admin/api)");
     expect(md).toContain("Résultat : ");
   });

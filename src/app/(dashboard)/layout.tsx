@@ -8,6 +8,7 @@ import { AiAssistantProvider } from "@/components/dashboard/ai-assistant-context
 import { ProfilePanelLazy } from "@/components/dashboard/profile-panel-lazy";
 import { UpgradeModalProvider } from "@/components/billing/upgrade-modal";
 import { TrialEndedNotice } from "@/components/billing/trial-banner";
+import { FounderEndModal } from "@/components/billing/founder-end-modal";
 import { BrandProvider } from "@/components/brand-context";
 import { ToastProvider } from "@/components/dashboard/toast";
 import { ConfirmProvider } from "@/components/dashboard/confirm";
@@ -106,6 +107,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     ouvert depuis la Communauté ou le menu du compte. */}
                 <ProfilePanelLazy />
                 <TrialEndedNotice />
+                <FounderEndModal />
               </UpgradeModalProvider>
               <CommandPalette isOwner={isOwner} />
               <TestModeBar mode={ownerMode} />

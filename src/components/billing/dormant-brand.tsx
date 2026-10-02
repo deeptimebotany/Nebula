@@ -110,7 +110,7 @@ export function DormantBrandBanner() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2">
         <p className="min-w-0 flex-1">
           <span className="mr-1.5 rounded-full border border-slate-400/30 px-1.5 text-[9px] font-semibold uppercase leading-4 tracking-wide text-slate-300">En veille</span>
-          Marque en veille depuis la fin de votre essai. Tout est conservé.
+          Marque en veille en Gratuit. Tout est conservé.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={() => upgrade.open("dormant_brand")} className="inline-flex items-center gap-1 font-medium text-aurora-200 underline-offset-2 hover:underline">

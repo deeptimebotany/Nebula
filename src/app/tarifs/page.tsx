@@ -4,6 +4,7 @@ import { PricingComparison } from "@/components/marketing/pricing-comparison";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { AI_MONTHLY, PLAN_LIMITS, RETENTION_PACK, formatEuroCents } from "@/lib/plans";
+import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
 import { SavingsCalculator } from "@/components/marketing/savings-calculator";
 import { ExitIntentModal } from "@/components/marketing/exit-intent";
 import { COMPETITORS } from "@/data/competitors";
@@ -27,7 +28,19 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Que se passe-t-il si j'ai plus de marques que mon nouveau palier n'en autorise ?",
-    a: `Rien n'est supprimé. Vous ne pouvez simplement plus en créer de nouvelles tant que vous dépassez la limite, et l'application vous le signale clairement.`
+    a: "Rien n'est supprimé. Les marques en trop restent visibles en lecture seule (elles ne publient plus) et vous choisissez celle qui reste active, dans Facturation → « Choisir ce que je garde ». Vous ne pouvez pas en créer de nouvelles tant que vous dépassez la limite ; un palier avec plus de marques les réactive aussitôt."
+  },
+  {
+    q: "L'abonnement se renouvelle-t-il automatiquement ?",
+    a: "Oui : Pro et Agence sont prélevés automatiquement chaque mois (ou chaque année) par Stripe, sans engagement. Vous pouvez résilier ou mettre en pause à tout moment depuis Facturation. Seule exception : Fondateur Premium, payé une fois, ne se renouvelle jamais tout seul."
+  },
+  {
+    q: "Qu'est-ce que l'offre Fondateur ?",
+    a: `Pour les ${FOUNDER_MONTHLY.places} premiers abonnés : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} € par mois, prélevé automatiquement et sans engagement. Elle se choisit dans Facturation, pour un premier abonnement mensuel, et donne le badge « Fondateur » à vie (Communauté, carte de créateur).`
+  },
+  {
+    q: "Et Fondateur Premium ?",
+    a: `${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, pour soutenir Nebula dès son lancement (${FOUNDER_PREMIUM.places} places, une par compte, sans abonnement en cours). Rien n'est prélevé ensuite : un mois puis une semaine avant la fin, Nebula vous prévient et vous demande quel forfait il vous faut ; sans réponse, vous repassez au palier Gratuit sans rien perdre. Badge « Fondateur » à vie.`
   },
   {
     q: "L'abonnement annuel est-il vraiment moins cher ?",

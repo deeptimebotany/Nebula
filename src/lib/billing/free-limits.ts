@@ -36,13 +36,14 @@ export const DORMANT_PUBLISH_GRACE_DAYS = 7;
 /** Fenêtre d'activité pour le choix par défaut de la marque active. */
 export const ACTIVITY_WINDOW_DAYS = 14;
 
-export type FreeLimitsReason = "trial_end" | "cancel" | "pause" | "unpaid" | "swap";
+/** founder_end : fin de l'année « Fondateur Premium » (ou remboursement), voir founders.ts. */
+export type FreeLimitsReason = "trial_end" | "cancel" | "pause" | "unpaid" | "swap" | "founder_end";
 
 const DAY = 86_400_000;
 const ACTIVE_POST_STATUSES = ["PUBLISHED", "PARTIAL", "SCHEDULED", "PUBLISHING"];
 
 export const DORMANT_BRAND_MESSAGE =
-  "Cette marque est en veille depuis la fin de votre essai : tout est conservé, mais elle ne publie plus. Passez en Pro pour la réactiver, ou faites-en votre marque active.";
+  "Cette marque est en veille en Gratuit : tout est conservé, mais elle ne publie plus. Passez en Pro pour la réactiver, ou faites-en votre marque active.";
 export const DORMANT_CONNECTION_MESSAGE =
   "Un des comptes choisis est en veille : en Gratuit, seuls les comptes gardés sur votre marque active publient. Passez en Pro pour le réactiver.";
 

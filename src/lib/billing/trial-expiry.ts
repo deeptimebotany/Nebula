@@ -14,6 +14,7 @@
 // les anciens sont concernés.
 import { prisma } from "@/lib/prisma";
 import { getUserPlan } from "@/lib/billing/plan";
+import { upToBrandsText } from "@/lib/plans";
 import { trialEndDate } from "@/lib/trial";
 import { trackGrowth } from "@/lib/growth";
 import { applyFreeLimits, DORMANT_BRAND_MESSAGE } from "@/lib/billing/free-limits";
@@ -85,7 +86,12 @@ export async function assertBrandWritable(brandId: string): Promise<{ ok: true }
     return {
       ok: false,
       reason: "second_brand",
-      message: `Cette marque est en lecture seule : votre palier ${info.limits.label} permet ${info.maxBrands} marque${info.maxBrands > 1 ? "s" : ""}. Passez en Pro pour publier à nouveau depuis celle-ci.`
+      // Payant ou accès offert avec trop de marques (ex. fin d'essai à 2
+      // marques → Pro 1 marque) : choisir la marque active, ou plus de marques.
+      message:
+        info.paid || info.comp
+          ? `Cette marque est en lecture seule : votre palier ${info.limits.label} (${upToBrandsText(info.maxBrands)}) est complet. Choisissez la marque qui publie dans Facturation → « Choisir ce que je garde », ou passez à un palier avec plus de marques.`
+          : `Cette marque est en lecture seule : votre palier ${info.limits.label} permet ${info.maxBrands} marque${info.maxBrands > 1 ? "s" : ""}. Passez en Pro pour publier à nouveau depuis celle-ci.`
     };
   }
   return { ok: true };
