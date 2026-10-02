@@ -8,11 +8,13 @@ import { NETWORK_META, type Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
 import { dormantSyncResponse, isBrandDormant, withoutDormant } from "@/lib/billing/dormant";
+import { saveAnalyticsSnapshot } from "@/lib/social/metrics-store";
+import { refreshReussites } from "@/lib/reussites/engine";
 
 // Interroge les vraies API de chaque réseau connecté pour rafraîchir les
 // stats (abonnés, portée, impressions...) et enregistre un instantané.
-// À appeler manuellement (bouton "Actualiser") ou via un cron (toutes les
-// heures par ex.) une fois les comptes réellement connectés.
+// Bouton « Actualiser » ; une fois par jour, la synchro automatique fait la
+// même chose (src/lib/social/auto-sync.ts, Réussites v3).
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -41,20 +43,7 @@ export async function POST(req: NextRequest) {
     try {
       const client = getSocialClient(connection.network as Network);
       const analytics = await client.fetchAnalytics(connection);
-      await prisma.analyticsSnapshot.create({
-        data: {
-          connectionId: connection.id,
-          network: connection.network,
-          followers: analytics.followers,
-          followersDelta: analytics.followersDelta,
-          engagementRate: analytics.engagementRate,
-          impressions: analytics.impressions,
-          reach: analytics.reach,
-          postsCount: analytics.postsCount,
-          raw: analytics.raw ? JSON.stringify(analytics.raw) : null
-        }
-      });
-      await prisma.socialConnection.update({ where: { id: connection.id }, data: { lastSyncedAt: new Date(), lastError: null } });
+      await saveAnalyticsSnapshot(connection, analytics);
       await onSyncSuccess(connection);
       results.push({ connectionId: connection.id, ok: true });
     } catch (err) {
@@ -72,6 +61,8 @@ export async function POST(req: NextRequest) {
   // Cadres de la page bio débloqués par les abonnés cumulés (voir
   // src/lib/easter-eggs/audience.ts).
   await checkAudienceMilestones((session.user as { id: string }).id);
+  // Réussites v3 : croissance réelle mesurée sur le nouveau relevé.
+  if (results.some((r) => r.ok)) await refreshReussites((session.user as { id: string }).id);
 
   return NextResponse.json({ results });
 }

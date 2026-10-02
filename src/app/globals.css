@@ -1892,21 +1892,28 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   100% { box-shadow: 0 0 0 0 rgb(var(--c-aurora-400) / 0); }
 }
 
-/* Réussites v2 (26/09/2026) : pastilles de rang, emblèmes, coffre de la
-   semaine. Couleurs doublées d'un emblème différent par rang (jamais la
+/* Réussites v2 (26/09/2026) : pastilles de rang, insignes, coffre de la
+   semaine. Couleurs doublées d'un insigne différent par rang (jamais la
    couleur seule) ; animations coupées si l'appareil demande moins
    d'animations. */
 .rank-chip { border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.04); color: #e2e8f0; }
-.rank-chip-etincelle { border-color: rgba(242, 207, 107, 0.4); background: rgba(242, 207, 107, 0.1); color: #f7e2a6; }
-.rank-chip-comete { border-color: rgba(122, 149, 255, 0.45); background: rgba(122, 149, 255, 0.12); color: #c9d3ff; }
-.rank-chip-etoile { border-color: rgba(174, 188, 255, 0.5); background: rgba(174, 188, 255, 0.12); color: #e4e9ff; }
-.rank-chip-constellation { border-color: rgba(187, 143, 255, 0.5); background: rgba(160, 102, 255, 0.14); color: #dcc8ff; }
-.rank-chip-nebuleuse { border-color: rgba(240, 98, 208, 0.5); background: rgba(240, 98, 208, 0.14); color: #f9c4ec; }
-[data-mode="light"] .rank-chip-etincelle { border-color: rgba(161, 98, 7, 0.35); background: rgba(242, 207, 107, 0.18); color: #7a4a05; }
-[data-mode="light"] .rank-chip-comete { border-color: rgba(59, 83, 200, 0.35); background: rgba(122, 149, 255, 0.14); color: #2f3f9e; }
-[data-mode="light"] .rank-chip-etoile { border-color: rgba(59, 83, 200, 0.3); background: rgba(174, 188, 255, 0.2); color: #29357f; }
-[data-mode="light"] .rank-chip-constellation { border-color: rgba(106, 47, 224, 0.35); background: rgba(160, 102, 255, 0.14); color: #5a24c4; }
-[data-mode="light"] .rank-chip-nebuleuse { border-color: rgba(176, 30, 140, 0.35); background: rgba(240, 98, 208, 0.14); color: #8e1470; }
+/* Réussites v3 (02/10/2026) : 8 rangs de créateur, insignes sobres. */
+.rank-chip-lancement { border-color: rgba(139, 149, 167, 0.45); background: rgba(139, 149, 167, 0.12); color: #d6dbe3; }
+.rank-chip-emergent { border-color: rgba(79, 179, 200, 0.45); background: rgba(79, 179, 200, 0.12); color: #bfe9f2; }
+.rank-chip-regulier { border-color: rgba(79, 156, 240, 0.45); background: rgba(79, 156, 240, 0.12); color: #c3dcfb; }
+.rank-chip-confirme { border-color: rgba(122, 149, 255, 0.45); background: rgba(122, 149, 255, 0.12); color: #c9d3ff; }
+.rank-chip-etabli { border-color: rgba(160, 102, 255, 0.5); background: rgba(160, 102, 255, 0.14); color: #dcc8ff; }
+.rank-chip-influent { border-color: rgba(208, 107, 240, 0.5); background: rgba(208, 107, 240, 0.14); color: #f0cdfb; }
+.rank-chip-reference { border-color: rgba(226, 176, 74, 0.5); background: rgba(226, 176, 74, 0.13); color: #f6dfa8; }
+.rank-chip-icone { border-color: rgba(240, 98, 208, 0.55); background: linear-gradient(90deg, rgba(95, 224, 240, 0.14), rgba(160, 102, 255, 0.16), rgba(240, 98, 208, 0.16)); color: #f9d3f0; }
+[data-mode="light"] .rank-chip-lancement { border-color: rgba(71, 85, 105, 0.35); background: rgba(139, 149, 167, 0.16); color: #334155; }
+[data-mode="light"] .rank-chip-emergent { border-color: rgba(14, 116, 144, 0.35); background: rgba(79, 179, 200, 0.14); color: #0e5f73; }
+[data-mode="light"] .rank-chip-regulier { border-color: rgba(29, 78, 216, 0.3); background: rgba(79, 156, 240, 0.14); color: #1d4ed8; }
+[data-mode="light"] .rank-chip-confirme { border-color: rgba(59, 83, 200, 0.35); background: rgba(122, 149, 255, 0.14); color: #2f3f9e; }
+[data-mode="light"] .rank-chip-etabli { border-color: rgba(106, 47, 224, 0.35); background: rgba(160, 102, 255, 0.14); color: #5a24c4; }
+[data-mode="light"] .rank-chip-influent { border-color: rgba(147, 51, 180, 0.35); background: rgba(208, 107, 240, 0.14); color: #7e22a6; }
+[data-mode="light"] .rank-chip-reference { border-color: rgba(161, 98, 7, 0.35); background: rgba(226, 176, 74, 0.18); color: #7a4a05; }
+[data-mode="light"] .rank-chip-icone { border-color: rgba(176, 30, 140, 0.35); background: linear-gradient(90deg, rgba(95, 224, 240, 0.16), rgba(160, 102, 255, 0.16), rgba(240, 98, 208, 0.16)); color: #8e1470; }
 
 @keyframes nb-rank-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes nb-rank-spin { to { transform: rotate(360deg); } }

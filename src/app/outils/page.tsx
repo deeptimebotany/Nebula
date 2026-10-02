@@ -2,7 +2,8 @@ import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconSparkle, IconSend, IconChart, IconAvatar, IconHash, IconYouTube, IconClock, IconSearch } from "@/components/dashboard/icons";
+import { IconSparkle } from "@/components/dashboard/icons";
+import { TOOL_CATALOG } from "@/components/tools/tool-catalog";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { SEO_TOOLS, SEO_TOOLS_HUB } from "@/lib/seo-pages";
@@ -29,54 +30,10 @@ const HUB_LD = [
   }
 ];
 
-// Le générateur de publications (30/09/2026 : légendes, titres et miniatures
-// réunis, comme la page Publier) prend toute la largeur, en tête.
-const TOOLS: { href: string; icon: (p: { className?: string }) => JSX.Element; title: string; desc: string; featured?: boolean }[] = [
-  {
-    href: "/outils/publier",
-    icon: IconSend,
-    title: "Générateur de publications",
-    desc: "Comme la page Publier de Nebula, en un seul outil : votre vidéo et sa miniature, le titre et la description écrits par l'IA pour le réseau visé, et l'aperçu fidèle de la publication.",
-    featured: true
-  },
-  {
-    href: "/outils/audit",
-    icon: IconSearch,
-    title: "Audit de présence en ligne",
-    desc: "Collez vos liens (YouTube, Instagram, TikTok, site) : un score sur 100, ce qui freine votre présence et quoi faire en premier."
-  },
-  {
-    href: "/outils/bio-instagram",
-    icon: IconAvatar,
-    title: "Générateur de bio Instagram",
-    desc: "Votre activité, un ton, un appel à l'action : cinq bios de 150 caractères maximum, prêtes à coller."
-  },
-  {
-    href: "/outils/hashtags",
-    icon: IconHash,
-    title: "Générateur de hashtags",
-    desc: "Trois groupes — larges, moyens, de niche — pour votre thématique et le réseau visé, à copier en un clic."
-  },
-  {
-    href: "/outils/titre-youtube",
-    icon: IconYouTube,
-    title: "Testeur de titre YouTube",
-    desc: "Un score sur cinq critères en direct, puis trois reformulations plus accrocheuses proposées par l'IA."
-  },
-  {
-    href: "/outils/taux-engagement",
-    icon: IconChart,
-    title: "Calculateur de taux d'engagement",
-    desc: "Abonnés, j'aime, commentaires, partages : votre taux et son ordre de grandeur par réseau. Sans IA, sans compte."
-  },
-  {
-    href: "/outils/meilleur-moment",
-    icon: IconClock,
-    title: "Meilleur moment pour publier",
-    desc: "Les créneaux qui fonctionnent le mieux en moyenne, par réseau et par jour, ajustés à votre fuseau horaire."
-  }
-];
-
+// Liste des outils partagée avec le menu « Outils » de l'application
+// (02/10/2026) : src/components/tools/tool-catalog.ts. Le générateur de
+// publications (légendes, titres et miniatures réunis) prend toute la
+// largeur, en tête.
 export default function OutilsHubPage() {
   return (
     <main id="contenu" className="relative overflow-hidden">
@@ -101,8 +58,8 @@ export default function OutilsHubPage() {
 
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-16">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {TOOLS.map((tool) => (
-            <Link key={tool.href} href={tool.href} className={tool.featured ? "sm:col-span-2" : undefined}>
+          {TOOL_CATALOG.map((tool) => (
+            <Link key={tool.publicHref} href={tool.publicHref} className={tool.featured ? "sm:col-span-2" : undefined}>
               <GlassCard className="h-full transition hover:border-aurora-400/30">
                 <tool.icon className="h-6 w-6 text-aurora-300" />
                 <h2 className="mt-3 font-display text-lg font-medium text-white">{tool.title}</h2>
@@ -119,8 +76,9 @@ export default function OutilsHubPage() {
           <h2 className="font-display text-xl font-semibold text-white">Envie d&apos;aller plus loin ?</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
             Créez un espace Nebula gratuit pour connecter vos réseaux, planifier vos publications et suivre vos
-            statistiques. L&apos;assistant IA intégré (titres, légendes, miniatures depuis vos vidéos) fait partie des
-            paliers Pro et Agence.
+            statistiques. Ces outils y sont aussi, dans le menu « Outils », remplis avec vos vrais chiffres : votre
+            taux d&apos;engagement se calcule tout seul. L&apos;assistant IA intégré (titres, légendes, miniatures depuis
+            vos vidéos) fait partie des paliers Pro et Agence.
           </p>
           <ButtonLink href="/register" className="mt-5 px-6 py-3 text-base">
             Créer mon espace gratuitement

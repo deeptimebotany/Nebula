@@ -56,6 +56,17 @@ export function utcToWallClock(date: Date, tz: string): WallClock {
   return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour") % 24, minute: get("minute") };
 }
 
+/**
+ * Heure entière `hour` du fuseau `fromTz`, exprimée dans le fuseau `toTz` à la
+ * date `at` (outil public « Meilleur moment pour publier »). Avant (02/10/2026),
+ * l'outil lisait l'heure avec un format « fr-FR » qui rend « 14 h » : Number()
+ * donnait NaN et la page affichait « NaN h ».
+ */
+export function shiftWallHour(hour: number, fromTz: string, toTz: string, at: Date = new Date()): number {
+  const diff = utcToWallClock(at, toTz).hour - utcToWallClock(at, fromTz).hour;
+  return (((hour + diff) % 24) + 24) % 24;
+}
+
 /** Décalage (ms) entre l'heure murale du fuseau et l'UTC à l'instant `ts` : mur = utc + offset. */
 function offsetAt(ts: number, tz: string): number {
   const w = utcToWallClock(new Date(ts), tz);

@@ -125,12 +125,12 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
 
   it("rang en attente : XP suffisants mais pas les compétences ; entré dès que la condition est remplie", async () => {
     const { user } = await setup();
-    // 1 000 XP (Étoile I demande 900 XP et 2 compétences au niveau 2), palier 6 atteint.
+    // 1 000 XP (Régulier I demande 900 XP et 2 compétences au niveau 2), palier 6 atteint.
     await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 1000, celebratedAt: new Date() } });
     await userReussitesDb.update({ where: { id: user.id }, data: { creatorLevel: 6, creatorXp: 1000 } });
     const r = await evaluateReussites(user.id, { force: true });
-    expect(r!.level).toMatchObject({ level: 6, name: "Comète III", pct: 100 });
-    expect(r!.level.pending).toMatchObject({ step: 7, name: "Étoile I", condition: "2 compétences au niveau 2" });
+    expect(r!.level).toMatchObject({ level: 6, name: "Émergent III", pct: 100 });
+    expect(r!.level.pending).toMatchObject({ step: 7, name: "Régulier I", condition: "2 compétences au niveau 2" });
     expect(await prisma.notification.count({ where: { userId: user.id, dedupeKey: "rank-pending:7" } })).toBe(1);
     expect((await unlocked(user.id)).has("rank-7")).toBe(false);
 
@@ -139,7 +139,7 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
       await achievementUnlockDb.create({ data: { userId: user.id, key, xp: 0, celebratedAt: new Date() } });
     }
     const again = await evaluateReussites(user.id, { force: true });
-    expect(again!.level).toMatchObject({ level: 7, name: "Étoile I", pending: null });
+    expect(again!.level).toMatchObject({ level: 7, name: "Régulier I", pending: null });
     expect((await userReussitesDb.findUnique({ where: { id: user.id }, select: { creatorLevel: true } }))?.creatorLevel).toBe(7);
   });
 
@@ -152,7 +152,7 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
     await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 1000, celebratedAt: new Date() } });
     await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY), creatorXp: 1000, creatorLevel: 5 } });
     const r = await evaluateReussites(user.id, { force: true });
-    expect(r!.level.name).toBe("Étoile I");
+    expect(r!.level.name).toBe("Régulier I");
     expect(r!.level.pending).toBeNull();
     const keys = await unlocked(user.id);
     expect(keys.has(MIGRATION_KEY)).toBe(true);

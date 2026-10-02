@@ -6,24 +6,30 @@ import { CHEST_TABLE, MISSIONS, chestItemFromRoll, findMission, habitTargetFor, 
 import { shieldToGrant, shieldsToUse, streakOf } from "@/lib/reussites/streak";
 
 describe("rangs à paliers", () => {
-  it("5 rangs × 3 paliers, seuils croissants", () => {
-    expect(STEPS).toHaveLength(15);
+  // Réussites v3 (02/10/2026) : 8 rangs de créateur × 3 paliers, sans noms
+  // d'astres. Les 15 premiers paliers gardent les seuils de la v2.
+  it("8 rangs × 3 paliers, seuils croissants, noms de parcours de créateur", () => {
+    expect(STEPS).toHaveLength(24);
     for (let i = 1; i < STEPS.length; i++) expect(STEPS[i].minXp).toBeGreaterThan(STEPS[i - 1].minXp);
-    expect(STEPS.map((s) => s.name).slice(0, 4)).toEqual(["Étincelle I", "Étincelle II", "Étincelle III", "Comète I"]);
+    expect(Array.from(new Set(STEPS.map((s) => s.rankName)))).toEqual(["Lancement", "Émergent", "Régulier", "Confirmé", "Établi", "Influent", "Référence", "Icône"]);
+    expect(STEPS.map((s) => s.name).slice(0, 4)).toEqual(["Lancement I", "Lancement II", "Lancement III", "Émergent I"]);
+    expect(STEPS[23].name).toBe("Icône III");
+    for (const s of STEPS) expect(s.name).not.toMatch(/Étincelle|Comète|Étoile|Constellation|Nébuleuse/);
   });
 
   it("rang, palier et progression dans le palier", () => {
-    expect(rankFor(0)).toMatchObject({ level: 1, name: "Étincelle I", rank: 1, tier: 1, pct: 0, nextName: "Étincelle II" });
-    expect(rankFor(520)).toMatchObject({ level: 5, name: "Comète II", rankId: "comete", levelXp: 450, nextXp: 650, pct: 35 });
-    expect(rankFor(9000)).toMatchObject({ level: 15, name: "Nébuleuse III", nextXp: null, pct: 100 });
+    expect(rankFor(0)).toMatchObject({ level: 1, name: "Lancement I", rank: 1, tier: 1, pct: 0, nextName: "Lancement II" });
+    expect(rankFor(520)).toMatchObject({ level: 5, name: "Émergent II", rankId: "emergent", levelXp: 450, nextXp: 650, pct: 35 });
+    expect(rankFor(9000)).toMatchObject({ level: 15, name: "Établi III", nextXp: 10000, nextName: "Influent I" });
+    expect(rankFor(45000)).toMatchObject({ level: 24, name: "Icône III", nextXp: null, pct: 100 });
     expect(rankFor(-5).xp).toBe(0);
   });
 
   it("mêmes XP que les anciens niveaux aux récompenses : personne ne perd rien", () => {
-    // Ancien niveau 3 (300), 7 (3 000), 8 (5 000) = Comète I, Constellation II, Nébuleuse I.
-    expect(rankFor(300).name).toBe("Comète I");
-    expect(rankFor(3000).name).toBe("Constellation II");
-    expect(rankFor(5000).name).toBe("Nébuleuse I");
+    // Ancien niveau 3 (300), 7 (3 000), 8 (5 000) = Émergent I, Confirmé II, Établi I.
+    expect(rankFor(300).name).toBe("Émergent I");
+    expect(rankFor(3000).name).toBe("Confirmé II");
+    expect(rankFor(5000).name).toBe("Établi I");
     // Les récompenses restent accordées par l'ancienne clé ET par le nouveau palier.
     const byKey = (k: string) => REWARDS.find((r) => r.key === k)!.grantedBy;
     expect(byKey("ach:ring-argent")).toEqual(expect.arrayContaining([levelKey(5), rankKey(7)]));
@@ -77,20 +83,20 @@ describe("choix des missions de la semaine", () => {
     expect(b.choices).not.toContain(a.progressKey);
   });
 
-  it("Habitude : alterne les formulations, objectif adapté", () => {
-    const even = pickWeeklyMissions({ ...base, weekIndex: 2960, ctx: full });
-    const odd = pickWeeklyMissions({ ...base, weekIndex: 2961, ctx: full });
-    expect(even).toMatchObject({ habitKey: "habit-posts", habitTarget: 3 });
-    expect(odd).toMatchObject({ habitKey: "habit-days", habitTarget: 3 });
+  it("Habitude : des jours de publication dès 2, « avant mercredi » une semaine sur deux pour 1", () => {
+    // Réussites v3 : la régularité, pas le volume.
+    for (const weekIndex of [2960, 2961]) expect(pickWeeklyMissions({ ...base, weekIndex, ctx: full })).toMatchObject({ habitKey: "habit-days", habitTarget: 3 });
+    expect(pickWeeklyMissions({ ...base, habitTarget: 7, ctx: full })).toMatchObject({ habitKey: "habit-days", habitTarget: 5 });
     expect(pickWeeklyMissions({ ...base, habitTarget: 1, weekIndex: 2961, ctx: full })).toMatchObject({ habitKey: "habit-early", habitTarget: 1 });
+    expect(pickWeeklyMissions({ ...base, habitTarget: 1, weekIndex: 2960, ctx: full })).toMatchObject({ habitKey: "habit-posts", habitTarget: 1 });
   });
 
   it("semaine commencée tard (première visite un jeudi) : Habitude toujours faisable", () => {
     // Jeudi : 4 jours restants.
     expect(pickWeeklyMissions({ ...base, habitTarget: 1, weekIndex: 2961, daysLeft: 4, ctx: full })).toMatchObject({ habitKey: "habit-posts", habitTarget: 1 });
     expect(pickWeeklyMissions({ ...base, habitTarget: 6, weekIndex: 2961, daysLeft: 3, ctx: full })).toMatchObject({ habitKey: "habit-days", habitTarget: 3 });
-    // Dimanche : un seul jour, au plus 2 publications comptées.
-    expect(pickWeeklyMissions({ ...base, habitTarget: 6, weekIndex: 2960, daysLeft: 1, ctx: full })).toMatchObject({ habitKey: "habit-posts", habitTarget: 2 });
+    // Dimanche : une seule publication (jamais « 5 publications d'un coup »).
+    expect(pickWeeklyMissions({ ...base, habitTarget: 6, weekIndex: 2960, daysLeft: 1, ctx: full })).toMatchObject({ habitKey: "habit-posts", habitTarget: 1 });
   });
 
   it("chaque mission a un lien d'action interne et un titre", () => {

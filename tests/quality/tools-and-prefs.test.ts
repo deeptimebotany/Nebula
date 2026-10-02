@@ -77,10 +77,12 @@ describe("générateur de publications (légendes + miniatures réunis, 30/09/20
   });
 
   it("une seule carte dans le hub, plus aucun lien vers les anciens outils", () => {
-    for (const file of ["src/app/outils/page.tsx", "src/components/marketing/marketing-footer.tsx", "src/app/sitemap.ts", "src/app/llms.txt/route.ts"]) {
+    for (const file of ["src/app/outils/page.tsx", "src/components/tools/tool-catalog.ts", "src/components/marketing/marketing-footer.tsx", "src/app/sitemap.ts", "src/app/llms.txt/route.ts"]) {
       expect(read(file), file).not.toMatch(/outils\/(legendes|miniatures)/);
     }
-    expect(read("src/app/outils/page.tsx").match(/href: "\/outils\/publier"/g)).toHaveLength(1);
+    // 02/10/2026 : la liste du hub vit dans le catalogue partagé avec l'application.
+    expect(read("src/app/outils/page.tsx")).toMatch(/TOOL_CATALOG\.map/);
+    expect(read("src/components/tools/tool-catalog.ts").match(/publicHref: "\/outils\/publier"/g)).toHaveLength(1);
   });
 });
 

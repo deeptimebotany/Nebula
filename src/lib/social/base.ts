@@ -191,6 +191,10 @@ export interface PostMetricInput {
   comments?: number | null;
   shares?: number | null;
   saves?: number | null;
+  /** YouTube : part moyenne regardée, en % (YouTube Analytics ; Réussites v3). */
+  avgViewPct?: number | null;
+  /** YouTube : durée de la vidéo en secondes. */
+  durationSeconds?: number | null;
 }
 
 /** Publication récente d'un compte, telle que le réseau la décrit (lot 6). */

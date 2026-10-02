@@ -7,7 +7,7 @@
 //    retirable à tout moment : retirer son accord retire ses vidéos ;
 //  - 7 jours, 3 vidéos à la fois ; au-delà, la vidéo attend la première
 //    place libre (file d'attente) ;
-//  - gagnée au rang Constellation I ou dans le coffre (5 %) : un « ticket »
+//  - gagnée au rang Confirmé I (et Influent I, Référence I, Icône I) ou dans le coffre (5 %) : un « ticket »
 //    (ReussiteItem « feature ») à utiliser sur la vidéo de son choix ;
 //  - le propriétaire du site peut mettre une vidéo à la une (source
 //    « admin ») ou en retirer une (droit de retrait) ;
@@ -78,10 +78,14 @@ export async function featureTickets(userId: string): Promise<number> {
   return Math.max(0, rows.reduce((n, r) => n + r.qty, 0));
 }
 
-/** Ticket du rang Constellation I (une seule fois, idempotent). */
-export async function grantRankTicket(userId: string): Promise<boolean> {
+/**
+ * Ticket d'un palier de rang (une seule fois par palier, idempotent) :
+ * Confirmé I (palier 10, ancien « Constellation I » : même raison
+ * « rank:10 » en base), puis Influent I, Référence I et Icône I (v3).
+ */
+export async function grantRankTicket(userId: string, step = 10): Promise<boolean> {
   try {
-    await reussiteItemDb.create({ data: { userId, item: "feature", qty: 1, reason: "rank:10" } });
+    await reussiteItemDb.create({ data: { userId, item: "feature", qty: 1, reason: `rank:${step}` } });
     return true;
   } catch {
     return false;

@@ -14,27 +14,32 @@
 // Les clés (accomplissements, récompenses) sont stockées en base : ne
 // jamais les renommer. Ajouter un palier = ajouter une entrée.
 
-export type ReussiteCategory = "publication" | "regularite" | "croissance" | "communaute" | "bio";
+export type ReussiteCategory = "publication" | "regularite" | "qualite" | "croissance" | "communaute" | "bio";
 
 export const CATEGORIES: { id: ReussiteCategory; label: string; emoji: string }[] = [
   { id: "publication", label: "Publication", emoji: "🚀" },
   { id: "regularite", label: "Régularité", emoji: "🔥" },
+  // Réussites v3 (02/10/2026) : la qualité avant la quantité.
+  { id: "qualite", label: "Qualité", emoji: "🎯" },
   { id: "croissance", label: "Croissance", emoji: "📈" },
   { id: "communaute", label: "Communauté", emoji: "💬" },
   { id: "bio", label: "Page bio", emoji: "🔗" }
 ];
 
-// --- Rangs (Réussites v2, 26/09/2026) --------------------------------------
+// --- Rangs (Réussites v3, 02/10/2026) --------------------------------------
 //
-// 5 rangs de 3 paliers (15 paliers) : une victoire toutes les une à deux
-// semaines au début, puis plus espacées. Remplacent les 8 niveaux du
-// 25/09/2026 avec les mêmes XP : Comète I = 300 XP (ancien niveau 3),
-// Constellation II = 3 000 (ancien 7), Nébuleuse I = 5 000 (ancien 8).
-// Les clés « level-N » déjà en base restent valables pour les récompenses.
-// Lot B : condition de variété (compétences) pour entrer dans les rangs
-// Étoile, Constellation et Nébuleuse — voir skills.ts → gatedRank.
+// 8 rangs de 3 paliers (24 paliers), nommés comme un parcours de créateur
+// (décision de Lucas : plus de noms d'astres, jugés enfantins). Les 15
+// premiers paliers gardent exactement les XP de la v2 : un palier enregistré
+// (User.creatorLevel 1 à 15) garde son sens, seul son nom change (ancien
+// « Constellation I » = « Confirmé I », palier 10). Les rangs Influent,
+// Référence et Icône s'ajoutent au-dessus.
+// Historique : 8 niveaux (25/09/2026), puis 5 rangs d'astres (v2, 26/09) ;
+// les clés « level-N » et « rank-N » déjà en base restent valables.
+// Condition pour entrer dans un rang : compétences variées (lot B) et, depuis
+// la v3, des records de qualité — voir skills.ts → gatedRank.
 
-export type RankId = "etincelle" | "comete" | "etoile" | "constellation" | "nebuleuse";
+export type RankId = "lancement" | "emergent" | "regulier" | "confirme" | "etabli" | "influent" | "reference" | "icone";
 
 export interface RankDef {
   rank: number;
@@ -46,32 +51,41 @@ export interface RankDef {
 }
 
 export const RANKS: RankDef[] = [
-  { rank: 1, id: "etincelle", name: "Étincelle", tagline: "Tout commence par une étincelle : chaque publication vous fait avancer.", tiers: [0, 60, 150] },
-  { rank: 2, id: "comete", name: "Comète", tagline: "Vous publiez régulièrement : votre trajectoire se dessine.", tiers: [300, 450, 650] },
-  { rank: 3, id: "etoile", name: "Étoile", tagline: "Votre régularité paie : on commence à vous remarquer.", tiers: [900, 1250, 1700] },
-  { rank: 4, id: "constellation", name: "Constellation", tagline: "Vos formats, votre rythme et votre audience forment un tout.", tiers: [2300, 3000, 3800] },
-  { rank: 5, id: "nebuleuse", name: "Nébuleuse", tagline: "Le sommet de Nebula : vous inspirez les autres créateurs.", tiers: [5000, 6500, 8500] }
+  { rank: 1, id: "lancement", name: "Lancement", tagline: "Vos premières publications : tout se met en place.", tiers: [0, 60, 150] },
+  { rank: 2, id: "emergent", name: "Émergent", tagline: "Vous publiez régulièrement : votre ligne se dessine.", tiers: [300, 450, 650] },
+  { rank: 3, id: "regulier", name: "Régulier", tagline: "Votre rythme tient dans la durée : votre audience sait quand vous retrouver.", tiers: [900, 1250, 1700] },
+  { rank: 4, id: "confirme", name: "Confirmé", tagline: "Vos formats, votre rythme et vos résultats se tiennent.", tiers: [2300, 3000, 3800] },
+  { rank: 5, id: "etabli", name: "Établi", tagline: "Vos contenus retiennent leur public et votre audience grandit pour de vrai.", tiers: [5000, 6500, 8500] },
+  { rank: 6, id: "influent", name: "Influent", tagline: "Vos résultats parlent d'eux-mêmes : on attend vos prochaines publications.", tiers: [10000, 12500, 15000] },
+  { rank: 7, id: "reference", name: "Référence", tagline: "Les autres créateurs s'inspirent de votre travail et de vos conseils.", tiers: [18000, 21500, 25000] },
+  { rank: 8, id: "icone", name: "Icône", tagline: "Le sommet de Nebula : constance, qualité et entraide, sur la durée.", tiers: [29000, 34000, 40000] }
 ];
 
 const ROMAN = ["I", "II", "III"];
 
 /** Récompenses de palier (texte) ; les clés correspondantes sont dans REWARDS. */
 const STEP_REWARDS: Record<number, string> = {
-  4: "Emblème Comète et fond « Première lumière »",
-  7: "Emblème Étoile et anneau d'avatar argent",
-  10: "Emblème Constellation et une vidéo à la une 7 jours",
+  4: "Insigne Émergent et fond « Première lumière »",
+  7: "Insigne Régulier et anneau d'avatar argent",
+  10: "Insigne Confirmé et une vidéo à la une 7 jours",
   11: "Cadre de page bio « Astre »",
-  13: "Emblème Nébuleuse et anneau stellaire animé"
+  13: "Insigne Établi et anneau stellaire animé",
+  16: "Insigne Influent et une vidéo à la une 7 jours",
+  19: "Insigne Référence et une vidéo à la une 7 jours",
+  22: "Insigne Icône et une vidéo à la une 7 jours"
 };
 
+/** Paliers qui donnent un ticket « vidéo à la une » (une fois chacun). */
+export const FEATURE_TICKET_STEPS = [10, 16, 19, 22];
+
 export interface StepDef {
-  /** Palier 1 à 15 (stocké dans User.creatorLevel). */
+  /** Palier 1 à 24 (stocké dans User.creatorLevel). */
   step: number;
   rank: number;
   tier: number;
   rankId: RankId;
   rankName: string;
-  /** « Comète II ». */
+  /** « Confirmé II ». */
   name: string;
   minXp: number;
   tagline: string;
@@ -97,14 +111,14 @@ export const MAX_STEP = STEPS.length;
 export const MAX_LEVEL = MAX_STEP;
 
 export interface LevelProgress {
-  /** Palier 1 à 15. */
+  /** Palier 1 à 24. */
   level: number;
-  /** Rang 1 à 5 et palier dans le rang (1 à 3). */
+  /** Rang 1 à 8 et palier dans le rang (1 à 3). */
   rank: number;
   tier: number;
   rankId: RankId;
   rankName: string;
-  /** « Comète II ». */
+  /** « Confirmé II ». */
   name: string;
   xp: number;
   /** XP du début du palier actuel. */
@@ -118,18 +132,18 @@ export interface LevelProgress {
   tagline: string;
   /** Titre dans la Communauté : le rang s'affiche désormais dans la pastille (voir LevelPill). */
   title: string | null;
-  /** XP suffisants pour le palier suivant, mais pas la variété des compétences (lot B). */
+  /** XP suffisants pour le palier suivant, mais pas la condition du rang (compétences, records de qualité). */
   pending: PendingRank | null;
 }
 
 /** « Rang en attente » : ce qui manque pour entrer dans le rang suivant. */
 export interface PendingRank {
   step: number;
-  /** « Étoile I ». */
+  /** « Régulier I ». */
   name: string;
-  /** « 2 compétences au niveau 2 ». */
+  /** « 2 compétences au niveau 2 » (et « 1 record de qualité » à partir de Confirmé). */
   condition: string;
-  /** « 1 compétence de plus au niveau 2 », puis les compétences les plus proches. */
+  /** « 1 compétence de plus au niveau 2 », les compétences les plus proches, les records manquants. */
   missing: string[];
 }
 
@@ -221,7 +235,18 @@ export type MetricId =
   | "bioClicks"
   | "starFragments"
   | "launchSteps"
-  | "toolsExplored";
+  | "toolsExplored"
+  // Réussites v3 (02/10/2026) : mesures de qualité (voir quality.ts).
+  | "bestViewsRatio"
+  | "postsAboveMedianEngagement"
+  | "postsAboveHighEngagement"
+  | "videosRetention50"
+  | "bestRetentionPct"
+  | "bestGrowthPct30d"
+  | "growthMonthsStreak"
+  | "bestSavesShares"
+  | "bestFeedbackReceived"
+  | "helpfulAdvice";
 
 export interface TierDef {
   /** Clé stable stockée en base (AchievementUnlock.key). */
@@ -297,11 +322,11 @@ export const SERIES: SeriesDef[] = [
     metric: "publishedPosts",
     unit: "publications",
     tiers: [
-      { key: "posts-10", target: 10, xp: 60, description: "Publier 10 publications", reward: "ach:bg-premiere-lumiere" },
-      { key: "posts-50", target: 50, xp: 100, description: "Publier 50 publications" },
-      { key: "posts-100", target: 100, xp: 150, description: "Publier 100 publications", reward: "ach:ring-or" },
-      { key: "posts-250", target: 250, xp: 200, description: "Publier 250 publications" },
-      { key: "posts-500", target: 500, xp: 250, description: "Publier 500 publications" }
+      { key: "posts-10", target: 10, xp: 20, description: "Publier 10 publications", reward: "ach:bg-premiere-lumiere" },
+      { key: "posts-50", target: 50, xp: 30, description: "Publier 50 publications" },
+      { key: "posts-100", target: 100, xp: 40, description: "Publier 100 publications", reward: "ach:ring-or" },
+      { key: "posts-250", target: 250, xp: 50, description: "Publier 250 publications" },
+      { key: "posts-500", target: 500, xp: 60, description: "Publier 500 publications" }
     ]
   },
   {
@@ -312,9 +337,9 @@ export const SERIES: SeriesDef[] = [
     metric: "publishedVideos",
     unit: "vidéos",
     tiers: [
-      { key: "videos-5", target: 5, xp: 60, description: "Publier 5 vidéos" },
-      { key: "videos-25", target: 25, xp: 100, description: "Publier 25 vidéos", reward: "ach:bg-constellation" },
-      { key: "videos-100", target: 100, xp: 180, description: "Publier 100 vidéos" }
+      { key: "videos-5", target: 5, xp: 20, description: "Publier 5 vidéos" },
+      { key: "videos-25", target: 25, xp: 30, description: "Publier 25 vidéos", reward: "ach:bg-constellation" },
+      { key: "videos-100", target: 100, xp: 50, description: "Publier 100 vidéos" }
     ]
   },
   {
@@ -325,8 +350,8 @@ export const SERIES: SeriesDef[] = [
     metric: "publishedPhotos",
     unit: "photos ou carrousels",
     tiers: [
-      { key: "photos-5", target: 5, xp: 60, description: "Publier 5 photos ou carrousels" },
-      { key: "photos-25", target: 25, xp: 100, description: "Publier 25 photos ou carrousels" }
+      { key: "photos-5", target: 5, xp: 20, description: "Publier 5 photos ou carrousels" },
+      { key: "photos-25", target: 25, xp: 30, description: "Publier 25 photos ou carrousels" }
     ]
   },
   {
@@ -372,7 +397,7 @@ export const SERIES: SeriesDef[] = [
     name: "Mois complet",
     metric: "bestMonthPosts",
     unit: "publications",
-    tiers: [{ key: "full-month", target: 12, xp: 120, description: "Mettre en ligne 12 publications dans un même mois" }]
+    tiers: [{ key: "full-month", target: 12, xp: 40, description: "Mettre en ligne 12 publications dans un même mois" }]
   },
   {
     id: "challenges",
@@ -470,6 +495,118 @@ export const SERIES: SeriesDef[] = [
     tiers: [{ key: "viral", target: 10_000, xp: 150, description: "Une publication vue 10 000 fois" }]
   },
 
+  // Qualité (Réussites v3, 02/10/2026) : ce que l'audience fait vraiment de
+  // vos publications, mesuré par les réseaux (API officielles) et relevé par
+  // Nebula. Publication en ligne depuis 7 jours au moins : les chiffres se
+  // sont stabilisés, et publier puis supprimer ne rapporte rien. Calcul :
+  // quality.ts. Comptent aussi pour les rangs (QUALITY_KEYS).
+  {
+    id: "record-vues",
+    category: "qualite",
+    emoji: "📊",
+    name: "Record de vues",
+    metric: "bestViewsRatio",
+    unit: "× votre médiane",
+    note: "Vues d'une publication comparées à la médiane de vos 10 publications précédentes sur le même compte.",
+    tiers: [
+      { key: "record-views-2", target: 2, xp: 80, description: "Une publication à 2 fois votre médiane de vues" },
+      { key: "record-views-5", target: 5, xp: 150, description: "Une publication à 5 fois votre médiane de vues" },
+      { key: "record-views-10", target: 10, xp: 250, description: "Une publication à 10 fois votre médiane de vues" }
+    ]
+  },
+  {
+    id: "engagement-repere",
+    category: "qualite",
+    emoji: "💬",
+    name: "Au-dessus du repère",
+    metric: "postsAboveMedianEngagement",
+    unit: "publications",
+    note: "Taux d'engagement par abonné au-dessus du repère médian du réseau (Instagram 1,5 %, TikTok 4,5 %, YouTube 3 %, Facebook 0,5 %).",
+    tiers: [
+      { key: "engagement-median-5", target: 5, xp: 100, description: "5 publications au-dessus du repère médian de leur réseau" },
+      { key: "engagement-median-25", target: 25, xp: 200, description: "25 publications au-dessus du repère médian de leur réseau" }
+    ]
+  },
+  {
+    id: "engagement-eleve",
+    category: "qualite",
+    emoji: "⚡",
+    name: "Engagement remarquable",
+    metric: "postsAboveHighEngagement",
+    unit: "publications",
+    note: "Taux d'engagement par abonné au-dessus du repère élevé du réseau (Instagram 4 %, TikTok 9 %, YouTube 6 %, Facebook 1,5 %).",
+    tiers: [
+      { key: "engagement-high-1", target: 1, xp: 120, description: "Une publication au-dessus du repère élevé de son réseau" },
+      { key: "engagement-high-10", target: 10, xp: 250, description: "10 publications au-dessus du repère élevé de leur réseau" }
+    ]
+  },
+  {
+    id: "retention",
+    category: "qualite",
+    emoji: "⏱️",
+    name: "Rétention",
+    metric: "videosRetention50",
+    unit: "vidéos",
+    note: "Vidéos YouTube de plus de 3 minutes, vues 100 fois au moins : part moyenne regardée, selon YouTube Analytics.",
+    tiers: [
+      { key: "retention-50", target: 1, xp: 120, description: "Une vidéo regardée à 50 % en moyenne" },
+      { key: "retention-50-x5", target: 5, xp: 250, description: "5 vidéos regardées à 50 % en moyenne" }
+    ]
+  },
+  {
+    id: "retention-record",
+    category: "qualite",
+    emoji: "🎬",
+    name: "Vidéo qui retient",
+    metric: "bestRetentionPct",
+    unit: "% regardés en moyenne",
+    note: "Votre meilleure vidéo YouTube de plus de 3 minutes, vue 100 fois au moins.",
+    tiers: [
+      { key: "retention-60", target: 60, xp: 200, description: "Une vidéo regardée à 60 % en moyenne" },
+      { key: "retention-70", target: 70, xp: 300, description: "Une vidéo regardée à 70 % en moyenne" }
+    ]
+  },
+  {
+    id: "croissance-reelle",
+    category: "qualite",
+    emoji: "🌱",
+    name: "Croissance réelle",
+    metric: "bestGrowthPct30d",
+    unit: "% en 30 jours",
+    note: "Abonnés gagnés en 30 jours sur un compte, désabonnements déduits (20 au moins), d'après les relevés de Nebula.",
+    tiers: [
+      { key: "growth-5", target: 5, xp: 80, description: "+5 % d'abonnés en 30 jours sur un compte" },
+      { key: "growth-15", target: 15, xp: 150, description: "+15 % d'abonnés en 30 jours sur un compte" },
+      { key: "growth-30", target: 30, xp: 250, description: "+30 % d'abonnés en 30 jours sur un compte" }
+    ]
+  },
+  {
+    id: "croissance-continue",
+    category: "qualite",
+    emoji: "📆",
+    name: "Croissance continue",
+    metric: "growthMonthsStreak",
+    unit: "mois d'affilée",
+    note: "Mois où un compte finit avec au moins 1 % d'abonnés de plus qu'au début, à la suite.",
+    tiers: [
+      { key: "growth-months-3", target: 3, xp: 150, description: "3 mois de croissance d'affilée sur un compte" },
+      { key: "growth-months-6", target: 6, xp: 250, description: "6 mois de croissance d'affilée sur un compte" }
+    ]
+  },
+  {
+    id: "contenu-utile",
+    category: "qualite",
+    emoji: "🔖",
+    name: "Contenu utile",
+    metric: "bestSavesShares",
+    unit: "partages et enregistrements",
+    note: "Partages et enregistrements d'une publication : ce que l'audience garde ou transmet.",
+    tiers: [
+      { key: "saves-100", target: 100, xp: 120, description: "Une publication partagée ou enregistrée 100 fois" },
+      { key: "saves-1000", target: 1000, xp: 250, description: "Une publication partagée ou enregistrée 1 000 fois" }
+    ]
+  },
+
   // Communauté (8)
   {
     id: "first-thread",
@@ -487,7 +624,7 @@ export const SERIES: SeriesDef[] = [
     name: "Voix de la communauté",
     metric: "forumRepliedThreads",
     unit: "sujets",
-    note: "Réponses d'au moins 20 caractères, aux sujets des autres.",
+    note: "Réponses d'au moins 20 caractères, aux sujets et demandes d'avis des autres.",
     tiers: [
       { key: "voice-10", target: 10, xp: 60, description: "Répondre à 10 sujets du forum" },
       { key: "voice-50", target: 50, xp: 150, description: "Répondre à 50 sujets du forum" }
@@ -516,6 +653,32 @@ export const SERIES: SeriesDef[] = [
       { key: "ambassador-10", target: 10, xp: 150, description: "Faire abonner 10 personnes avec votre lien", linkedEgg: "ambassador-silver", rewardText: "Badge « Ambassadeur argent » (profil)" },
       { key: "ambassador-25", target: 25, xp: 250, description: "Faire abonner 25 personnes avec votre lien", linkedEgg: "ambassador-gold", rewardText: "Badge « Ambassadeur or » (profil)" },
       { key: "ambassador-50", target: 50, xp: 400, description: "Faire abonner 50 personnes avec votre lien", linkedEgg: "ambassador-legend", rewardText: "Badge « Ambassadeur légendaire » (profil)" }
+    ]
+  },
+
+  {
+    // Réussites v3 : retours argumentés reçus sur une demande d'avis.
+    id: "avis-recus",
+    category: "communaute",
+    emoji: "🗳️",
+    name: "Avis de la communauté",
+    metric: "bestFeedbackReceived",
+    unit: "créateurs",
+    note: "Avis d'au moins 20 caractères laissés par des créateurs différents sur une de vos demandes d'avis.",
+    tiers: [{ key: "feedback-received-5", target: 5, xp: 100, description: "5 créateurs ont laissé un avis argumenté sur une de vos demandes" }]
+  },
+  {
+    // Réussites v3 : avis jugés utiles par la personne aidée.
+    id: "avis-utiles",
+    category: "communaute",
+    emoji: "🤝",
+    name: "Avis utiles",
+    metric: "helpfulAdvice",
+    unit: "avis utiles",
+    note: "Demandes d'avis dont l'auteur a marqué votre avis « Cet avis m'a aidé » (une fois par demande).",
+    tiers: [
+      { key: "helpful-5", target: 5, xp: 120, description: "Vos avis ont aidé 5 fois un créateur" },
+      { key: "helpful-25", target: 25, xp: 250, description: "Vos avis ont aidé 25 fois un créateur" }
     ]
   },
 
@@ -557,6 +720,32 @@ export const ALL_TIERS: FlatTier[] = SERIES.flatMap((s) =>
 );
 
 export const TOTAL_ACCOMPLISHMENTS = ALL_TIERS.length;
+
+/**
+ * Records de qualité (Réussites v3) : paliers qui prouvent un vrai résultat,
+ * pas du volume. Ils comptent pour entrer dans les rangs à partir de
+ * Confirmé (skills.ts → RANK_CONDITIONS) et se partagent en carte.
+ */
+export const QUALITY_KEYS: string[] = [
+  ...SERIES.filter((x) => x.category === "qualite" || x.id === "avis-recus" || x.id === "avis-utiles").flatMap((x) => x.tiers.map((t) => t.key)),
+  "coup-de-coeur",
+  "viral",
+  "envol",
+  "vertical"
+];
+
+/**
+ * Séries de records qui comptent des publications (« 5 publications
+ * au-dessus du repère ») : leur preuve est la meilleure de ces publications,
+ * présentée comme telle (« Meilleure : … ») sur la carte et dans l'album.
+ */
+export const COUNT_RECORD_SERIES = ["engagement-repere", "engagement-eleve", "retention"];
+
+/** Nombre de records de qualité gagnés. */
+export function qualityCount(unlocked: Iterable<string>): number {
+  const set = new Set(unlocked);
+  return QUALITY_KEYS.filter((k) => set.has(k)).length;
+}
 
 export function findTier(key: string): FlatTier | undefined {
   return ALL_TIERS.find((t) => t.key === key);
@@ -682,9 +871,9 @@ const WEEKLY_ROTATION: [string, string, string][] = [
 ];
 
 export const MONTHLY_CHALLENGES: ChallengeDef[] = [
-  { key: "month-12", kind: "MONTHLY", title: "12 publications", description: "Mettre en ligne 12 publications ce mois-ci", metric: "posts", target: 12, xp: 120 },
+  { key: "month-12", kind: "MONTHLY", title: "12 publications", description: "Mettre en ligne 12 publications ce mois-ci", metric: "posts", target: 12, xp: 60 },
   { key: "month-8-days", kind: "MONTHLY", title: "8 jours de publication", description: "Publier sur 8 jours différents ce mois-ci", metric: "distinctDays", target: 8, xp: 120 },
-  { key: "month-4-videos", kind: "MONTHLY", title: "4 vidéos", description: "Mettre en ligne 4 vidéos ce mois-ci", metric: "videos", target: 4, xp: 120 },
+  { key: "month-4-videos", kind: "MONTHLY", title: "4 vidéos", description: "Mettre en ligne 4 vidéos ce mois-ci", metric: "videos", target: 4, xp: 60 },
   { key: "month-3-networks", kind: "MONTHLY", title: "3 réseaux", description: "Publier sur 3 réseaux différents ce mois-ci", metric: "distinctNetworks", target: 3, xp: 120 }
 ];
 

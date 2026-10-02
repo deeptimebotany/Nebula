@@ -102,7 +102,7 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "anneau-argent-avatar",
     label: "Anneau argent (avatar)",
-    description: "Un anneau argenté autour de votre pastille et de votre photo. Gagné au niveau 5 « Confirmé ».",
+    description: "Un anneau argenté autour de votre pastille et de votre photo. Gagné au rang de créateur Régulier.",
     category: "profil",
     requiresEgg: "ach:ring-argent"
   },
@@ -116,7 +116,7 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "anneau-stellaire-avatar",
     label: "Anneau stellaire (avatar, animé)",
-    description: "Un anneau aux couleurs de la nébuleuse qui tourne lentement. Gagné au niveau 8 « Légende ».",
+    description: "Un anneau aux couleurs de la nébuleuse qui tourne lentement. Gagné au rang de créateur Établi.",
     category: "profil",
     requiresEgg: "ach:ring-stellaire"
   },

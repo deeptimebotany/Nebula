@@ -142,6 +142,15 @@ const KIND_STYLE: Record<string, { tone: string; icon: React.ReactNode }> = {
       </>
     )
   },
+  feedback: {
+    tone: "bg-cyan-400/15 text-cyan-300",
+    icon: (
+      <>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <path d="M8 9h8M8 13h5" />
+      </>
+    )
+  },
   news: {
     tone: "bg-aurora-400/15 text-aurora-300",
     icon: (

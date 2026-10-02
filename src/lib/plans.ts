@@ -119,6 +119,9 @@ export interface PlanLimits {
   // envoyer aux sponsors, chiffres relevés par Nebula. En Gratuit : aperçu
   // dans l'application, publication réservée aux paliers payants.
   mediaKitEnabled: boolean;
+  // Avis de la communauté (02/10/2026) : demandes d'avis par semaine
+  // glissante ; null = sans limite pratique (10 par jour, anti-spam).
+  feedbackPerWeek: number | null;
 
   // --- Capacités (lot E1 : plus aucune comparaison de noms de paliers) ---
   /** Achetable par Stripe (Pro, Agence). */
@@ -186,6 +189,7 @@ export const PLAN_LIMITS = {
     reportsEnabled: false,
     calendarShareEnabled: false,
     mediaKitEnabled: false,
+    feedbackPerWeek: 2,
     purchasable: false,
     upgradeTo: "PRO",
     aiDaily: { text: 10 },
@@ -227,6 +231,7 @@ export const PLAN_LIMITS = {
     reportsEnabled: true,
     calendarShareEnabled: true,
     mediaKitEnabled: true,
+    feedbackPerWeek: null,
     purchasable: false,
     upgradeTo: "PRO",
     aiDaily: { text: 20 },
@@ -276,6 +281,7 @@ export const PLAN_LIMITS = {
     reportsEnabled: true,
     calendarShareEnabled: true,
     mediaKitEnabled: true,
+    feedbackPerWeek: null,
     purchasable: true,
     upgradeTo: "AGENCY",
     aiDaily: { text: 60 },
@@ -328,6 +334,7 @@ export const PLAN_LIMITS = {
     reportsEnabled: true,
     calendarShareEnabled: true,
     mediaKitEnabled: true,
+    feedbackPerWeek: null,
     purchasable: true,
     upgradeTo: null,
     aiDaily: { text: 150 },

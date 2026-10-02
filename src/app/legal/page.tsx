@@ -19,7 +19,7 @@ import { RETENTION_PACK, formatEuroCents } from "@/lib/plans";
 // manquait, la page l'indiquerait honnêtement plutôt que d'inventer. Ceci
 // n'est pas un avis juridique.
 
-const LAST_UPDATED = "30 septembre 2026";
+const LAST_UPDATED = "2 octobre 2026";
 
 export const metadata = pageMetadata(SEO_LEGAL);
 
@@ -186,7 +186,9 @@ export default function LegalPage() {
             Lorsque vous connectez un compte Instagram, Facebook, TikTok ou YouTube, vous autorisez {SITE_NAME} à
             accéder à ce compte dans les limites des permissions accordées lors de l&apos;autorisation officielle
             (OAuth), uniquement pour exécuter les actions que vous demandez (publication, lecture de statistiques,
-            lecture des commentaires). Votre usage de ces réseaux reste soumis à leurs propres conditions. Vous pouvez
+            lecture des commentaires). Tant que vous utilisez {SITE_NAME}, les statistiques de vos comptes connectés
+            sont aussi relevées automatiquement une fois par jour (abonnés, vues, j&apos;aime, rétention des vidéos
+            YouTube) ; ce relevé s&apos;arrête si personne n&apos;a ouvert la marque depuis 30 jours. Votre usage de ces réseaux reste soumis à leurs propres conditions. Vous pouvez
             révoquer cet accès à tout moment depuis la page « Comptes » de {SITE_NAME} ou depuis les paramètres du
             réseau concerné.
           </p>
@@ -201,8 +203,10 @@ export default function LegalPage() {
             suspension du compte.
           </p>
           <p>
-            Dans l&apos;espace Communauté, chaque membre peut signaler un sujet, une réponse ou un lien partagé ; l&apos;équipe
-            de {SITE_NAME} lit les signalements et peut retirer tout contenu contraire aux présentes conditions.
+            Dans l&apos;espace Communauté, chaque membre peut signaler un sujet, une réponse, un lien partagé, une demande
+            d&apos;avis ou un avis ; l&apos;équipe de {SITE_NAME} lit les signalements et peut retirer tout contenu contraire
+            aux présentes conditions. En publiant une demande d&apos;avis, vous confirmez avoir le droit de montrer les images
+            et titres soumis aux autres membres.
           </p>
         </Section>
 
@@ -313,7 +317,9 @@ export default function LegalPage() {
             publication (images, vidéos, textes), vos préférences d&apos;affichage, et — lorsque vous connectez un
             compte de réseau social — un jeton d&apos;accès permettant à {SITE_NAME} d&apos;agir en votre nom sur ce
             compte dans la limite des permissions accordées, ainsi que les statistiques et commentaires que ces
-            plateformes renvoient. Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
+            plateformes renvoient (quand vous actualisez, et une fois par jour automatiquement tant que vous utilisez
+            le Service). Pour les Réussites : les records gagnés, avec les chiffres et le titre de la publication qui
+            les prouvent, et les avis de la Communauté que vous marquez « Cet avis m&apos;a aidé ». Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
             plus deux jours, pour limiter les tentatives abusives sur les formulaires publics. Votre choix concernant
             les statistiques anonymes, avec sa date.
           </p>
@@ -344,6 +350,12 @@ export default function LegalPage() {
             Signalements dans la Communauté : le contenu signalé, le motif choisi, vos précisions éventuelles et votre
             compte (pour qu&apos;un contenu ne soit signalé qu&apos;une fois par personne). Seule l&apos;équipe de{" "}
             {SITE_NAME} les voit ; la personne signalée ne sait pas qui l&apos;a signalée.
+          </p>
+          <p>
+            Demandes d&apos;avis dans la Communauté : les miniatures ou titres que vous soumettez, votre question, le
+            réseau visé, et votre nom de membre, visibles par les membres connectés ; les votes (une préférence par
+            personne, dont le détail n&apos;est jamais montré : seuls les totaux le sont) et les avis écrits, signés du nom
+            de leur auteur. Les métadonnées des images (position, appareil) sont retirées à l&apos;envoi.
           </p>
           <p>
             Audit de présence en ligne (outil gratuit, sans compte) : les comptes et le site que vous indiquez, les
@@ -441,7 +453,9 @@ export default function LegalPage() {
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
             contact sont supprimés 12 mois après leur réception. Les adresses de la liste « Prévenez-moi du lancement » sont
             supprimées 6 mois après l&apos;e-mail d&apos;annonce. Les signalements de la Communauté sont supprimés avec
-            le contenu signalé ou avec votre compte. Les statistiques de groupe anonymes ne sont pas des
+            le contenu signalé ou avec votre compte. Les demandes d&apos;avis, leurs images, votes et avis écrits sont
+            supprimés 30 jours après la fin de la demande (72 h après sa publication), ou plus tôt si vous la
+            supprimez ou supprimez votre compte. Les statistiques de groupe anonymes ne sont pas des
             données personnelles et peuvent être conservées sans limite.
           </p>
         </Section>

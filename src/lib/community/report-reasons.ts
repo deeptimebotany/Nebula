@@ -1,7 +1,8 @@
 // Motifs de signalement de la Communauté (30/09/2026). Constantes sans
 // dépendance : lues par l'interface (content-actions.tsx) et par le serveur
 // (moderation.ts, route /api/community/reports).
-export const REPORT_TARGET_TYPES = ["THREAD", "REPLY", "VIDEO"] as const;
+// FEEDBACK / FEEDBACK_COMMENT : demandes d'avis et leurs commentaires (02/10/2026).
+export const REPORT_TARGET_TYPES = ["THREAD", "REPLY", "VIDEO", "FEEDBACK", "FEEDBACK_COMMENT"] as const;
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];
 
 export const REPORT_REASONS = [

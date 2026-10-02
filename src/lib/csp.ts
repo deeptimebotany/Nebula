@@ -47,6 +47,8 @@ export const APP_PREFIXES = [
   "/reussites",
   "/studio",
   "/automatisations",
+  // 02/10/2026 : outils dans l'application (menu « Outils »).
+  "/tools",
   "/admin",
   "/dev-preview"
 ] as const;

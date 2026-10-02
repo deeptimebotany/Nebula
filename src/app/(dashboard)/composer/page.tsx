@@ -45,7 +45,8 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge, NetworkLogo, NetworkTargetChip, NetworkTile } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink } from "@/components/dashboard/icons";
+import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink, IconUsers } from "@/components/dashboard/icons";
+import { FeedbackRequestDialog, type FeedbackPrefill } from "@/components/community/feedback/feedback-request-dialog";
 import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { uploadMediaFile, type UploadedAssetResult } from "@/lib/upload-client";
@@ -288,6 +289,8 @@ function ComposerPageInner() {
   const toast = useToast();
   const confirmDialog = useConfirm();
   const { celebrateMilestone } = useMilestoneCelebration();
+  // Avis de la communauté (02/10/2026) : titre ou miniatures soumis aux autres créateurs.
+  const [feedbackPrefill, setFeedbackPrefill] = useState<FeedbackPrefill | null>(null);
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get("duplicate");
   // Brouillon venu d'un outil gratuit (« Programmer cette publication avec
@@ -1732,6 +1735,20 @@ function ComposerPageInner() {
                       {thumbUploading ? "Envoi…" : "Votre image"}
                     </button>
                 </div>
+                {thumbOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const chosen = videoAsset.thumbnailUrl && thumbOptions.includes(videoAsset.thumbnailUrl) ? [videoAsset.thumbnailUrl] : [];
+                      const urls = [...chosen, ...thumbOptions.filter((u) => !chosen.includes(u))].slice(0, 3);
+                      setFeedbackPrefill({ kind: "THUMBNAIL", imageUrls: urls, network: selectedNetworks.includes("YOUTUBE") ? "YOUTUBE" : selectedNetworks.length === 1 ? selectedNetworks[0] : null });
+                    }}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-aurora-300 transition hover:text-white"
+                  >
+                    <IconUsers className="h-3.5 w-3.5" />
+                    Hésitation ? Demander l&apos;avis de la communauté
+                  </button>
+                )}
                 {videoAsset.thumbnailUrl && selectedNetworks.includes("YOUTUBE") && (
                   <p className="mt-2 text-[11px] text-slate-500">
                     La miniature choisie est envoyée à YouTube avec la vidéo (JPEG ou PNG de 2 Mo au plus ; chaîne vérifiée par téléphone requise par YouTube).
@@ -1769,6 +1786,15 @@ function ComposerPageInner() {
                   className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
                 >
                   <IconEmoji className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFeedbackPrefill({ kind: "TITLE", titles: title.trim() ? [title.trim()] : [], network: selectedNetworks.length === 1 ? selectedNetworks[0] : null })}
+                  title="Demander l'avis de la communauté sur plusieurs versions du titre"
+                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
+                >
+                  <IconUsers className="h-3.5 w-3.5" />
+                  Avis
                 </button>
                 {aiStatus?.enabled && (
                   <button
@@ -2212,7 +2238,11 @@ function ComposerPageInner() {
         <div className="min-w-0 space-y-5">
           <PublishCard mode={mode} onModeChange={setMode} scheduleDate={scheduleDate} onScheduleDateChange={setScheduleDate} timezone={timezone} shortcutLabel={shortcutLabel} />
 
-          <div className="nb-thin-scroll lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          {/* Place de la barre de défilement toujours réservée (02/10/2026) : sans
+              elle, la barre apparaissait quand l'aperçu dépassait, la colonne
+              rétrécissait, l'aperçu rapetissait, la barre disparaissait… et
+              l'aperçu tremblait en boucle à certaines tailles de fenêtre. */}
+          <div className="nb-thin-scroll lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
           <ComposerPreview
             network={effectivePreviewNetwork}
             accountFor={previewAccountFor}
@@ -2245,6 +2275,16 @@ function ComposerPageInner() {
         onSubmit={onSubmit}
         blockedReason={tiktokBlocked}
         footnote={selectedNetworks.includes("TIKTOK") ? <TiktokConsent options={tiktokOptions} className="mt-2 border-t border-white/[0.06] pt-2" /> : null}
+      />
+
+      <FeedbackRequestDialog
+        open={feedbackPrefill !== null}
+        prefill={feedbackPrefill ?? undefined}
+        onClose={() => setFeedbackPrefill(null)}
+        onCreated={() => {
+          setFeedbackPrefill(null);
+          toast.success("Demande d'avis publiée dans la Communauté (onglet Avis) : le résultat arrive dans vos notifications d'ici 72\u00a0h.");
+        }}
       />
 
       {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et

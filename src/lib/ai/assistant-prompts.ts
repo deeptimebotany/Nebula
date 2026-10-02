@@ -12,6 +12,19 @@
 // un client de réécrire le prompt.
 
 import type { AssistantContextKey } from "./assistant-contexts";
+import { NAV_GROUPS } from "@/components/dashboard/navigation";
+import { engagementPresets, type ToolContextDTO } from "@/lib/tools/app-context-shared";
+import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/engagement-rate";
+
+/**
+ * Plan du menu latéral (02/10/2026), lu dans la source unique de la
+ * navigation : l'assistant donne le bon chemin (« Outils → Calculateur de
+ * taux d'engagement ») sans qu'on le tienne à jour à la main.
+ */
+export const APP_MAP =
+  "Menu latéral de Nebula : " +
+  NAV_GROUPS.map((g) => (g.label ? `${g.label} → ` : "") + g.items.map((i) => (i.href === "/tools" ? `${i.label} (${i.description})` : i.label)).join(", ")).join(" ; ") +
+  ". Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
 
 /** Socle commun, volontairement court : le ton, la langue, les garde-fous.
  *  Tout ce qui est spécifique à un onglet est dans son module. */
@@ -20,7 +33,8 @@ export const ASSISTANT_SYSTEM_BASE = [
   "Réponds en français, avec le vouvoiement, de façon concrète et concise : va droit au but, privilégie les listes courtes et les étapes numérotées quand il s'agit d'une marche à suivre.",
   "Formate en markdown léger uniquement : titres « ## », gras « **…** », listes « - » ou « 1. ». Pas de tableaux, pas de code sauf demande explicite.",
   "Appuie-toi UNIQUEMENT sur les données fournies dans le contexte pour tout chiffre ou fait concernant l'utilisateur ; n'invente jamais de statistiques. Si une information manque, dis-le et explique où la trouver dans Nebula.",
-  "Si la question sort du cadre (réseaux sociaux, création de contenu, usage de Nebula), réponds brièvement puis ramène vers ce que tu peux faire ici."
+  "Si la question sort du cadre (réseaux sociaux, création de contenu, usage de Nebula), réponds brièvement puis ramène vers ce que tu peux faire ici.",
+  APP_MAP
 ].join("\n");
 
 export interface ContextPromptModule {
@@ -38,6 +52,9 @@ export interface ContextPromptModule {
     /** Métriques d'engagement des dernières publications synchronisées
      *  (page Engagements : vues, likes, commentaires, partages, enreg.). */
     postMetrics?: boolean;
+    /** Chiffres des outils (02/10/2026) : taux d'engagement de chaque compte
+     *  sur 30 jours, créneau personnel, fuseau — les mêmes que la page. */
+    toolData?: boolean;
   };
   /** Plafond de réponse : plus haut pour les réponses structurées longues
    *  (miniatures), plus bas pour les questions d'usage. */
@@ -160,6 +177,41 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
     needs: {},
     maxOutputTokens: 500
   },
+  tools: {
+    instruction: `Contexte : l'utilisateur est sur la page Outils (calculateur de taux d'engagement, meilleur moment pour publier, générateurs de bio Instagram et de hashtags, testeur de titre YouTube, audit de présence). Priorité : l'orienter vers le bon outil (chemin : Outils → nom de l'outil) et interpréter les chiffres fournis. ${HOWTO_HINT}`,
+    needs: { stats: true, toolData: true },
+    maxOutputTokens: 800
+  },
+  "tool-engagement": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Calculateur de taux d'engagement, rempli avec ses vrais chiffres. Le taux est calculé par publication : (j'aime + commentaires + partages) ÷ nombre de publications ÷ abonnés × 100. Le taux de chaque compte et les repères de chaque réseau sont fournis ci-dessous : ne calcule pas d'autres taux et ne compare qu'à ces repères. Priorité : dire réseau par réseau si le taux est bon, expliquer pourquoi à partir des publications fournies, puis 2 ou 3 actions concrètes. ${HOWTO_HINT}`,
+    needs: { toolData: true, postMetrics: true },
+    maxOutputTokens: 900
+  },
+  "tool-best-time": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Meilleur moment pour publier. Le créneau personnel calculé par Nebula à partir de ses relevés et le fuseau de la marque sont fournis : ils priment sur les moyennes générales (Instagram en semaine 9 h, 12 h, 18 h ; TikTok du mardi au jeudi 7 h, 12 h, 19 h, 22 h ; YouTube du jeudi au samedi 15 h, 18 h ; Facebook du mardi au jeudi 9 h, 13 h, heure de Paris). Priorité : des heures concrètes dans le fuseau de la marque ; sans créneau personnel, proposer un test simple (2 publications le matin, 2 le soir, sur un même réseau, comparées 48 h après). ${HOWTO_HINT}`,
+    needs: { toolData: true, recentPosts: true },
+    maxOutputTokens: 900
+  },
+  "tool-bio": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Générateur de bio Instagram. Une bio Instagram fait 150 caractères au plus, sauts de ligne compris : vérifie la longueur de chaque proposition et indique-la. Priorité : des bios prêtes à coller, qui disent ce que fait la personne, pour qui, avec un appel à l'action vers le lien de la bio (sa Page bio Nebula si elle existe). ${HOWTO_HINT}`,
+    needs: { bioPage: true },
+    maxOutputTokens: 800
+  },
+  "tool-hashtags": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Générateur de hashtags. Propose trois groupes (larges, moyens, de niche) adaptés au réseau : Instagram 5 à 10 hashtags, TikTok et YouTube 3 à 5, Facebook 1 ou 2. Rappelle de vérifier qu'un hashtag n'est pas détourné avant de l'utiliser ; n'invente aucun chiffre de popularité. ${HOWTO_HINT}`,
+    needs: { recentPosts: true },
+    maxOutputTokens: 800
+  },
+  "tool-title": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Testeur de titre YouTube. Le score de Nebula repose sur 5 critères : 40 à 60 caractères, un chiffre, un mot fort (erreur, secret, enfin, sans, méthode…), une question ou une promesse (« comment… », « pourquoi… »), pas tout en majuscules. Propose des titres qui respectent ces critères sans clickbait, avec la longueur de chacun. ${HOWTO_HINT}`,
+    needs: { recentPosts: true, postMetrics: true },
+    maxOutputTokens: 900
+  },
+  "tool-audit": {
+    instruction: `Contexte : l'utilisateur est sur Outils → Audit de présence en ligne : un score sur 100 sur cinq axes (profil, régularité, engagement, contenu, cohérence), à partir des seules données publiques ; Instagram n'est lisible que pour les comptes professionnels, TikTok ne montre que l'existence du profil. Priorité : aider à lire le rapport et à choisir les 3 corrections les plus utiles. ${HOWTO_HINT}`,
+    needs: { stats: true, bioPage: true },
+    maxOutputTokens: 900
+  },
   generic: {
     instruction: `Contexte : page de l'application sans contexte particulier. Aide à l'usage de Nebula et conseils réseaux sociaux. ${HOWTO_HINT}`,
     needs: { recentPosts: true },
@@ -179,6 +231,8 @@ export interface BrandContextData {
   postContext: string;
   /** Lignes « - Titre (YouTube) : 1 200 vues, 80 likes… », vide si pas synchronisé. */
   postMetricsLines?: string[];
+  /** Chiffres des outils, déjà formatés (toolContextLines). */
+  toolLines?: string[];
 }
 
 /** Assemble l'instruction système complète pour une clé de contexte, en
@@ -201,6 +255,9 @@ export function buildSystemInstruction(key: AssistantContextKey, data: BrandCont
       "Engagements des dernières publications (dernière actualisation) :",
       data.postMetricsLines?.length ? data.postMetricsLines.join("\n") : "(rien de synchronisé — l'utilisateur peut cliquer « Actualiser » sur la page Engagements)"
     );
+  }
+  if (mod.needs.toolData) {
+    parts.push("Chiffres des outils (calculés par Nebula, les mêmes que sur la page) :", data.toolLines?.length ? data.toolLines.join("\n") : "(aucun compte connecté avec des chiffres relevés)");
   }
   if (data.postContext) parts.push(data.postContext);
 
@@ -261,4 +318,27 @@ export function trimHistory<T extends { role: "user" | "model"; text: string }>(
     const max = isLast ? LAST_MESSAGE_MAX_CHARS : HISTORY_MAX_CHARS_PER_MESSAGE;
     return m.text.length > max ? { ...m, text: m.text.slice(0, max) + " […]" } : m;
   });
+}
+
+/**
+ * Chiffres des outils pour l'assistant (02/10/2026) : une ligne par compte
+ * (taux d'engagement sur 30 jours et repères du réseau), le créneau
+ * personnel par réseau et le fuseau de la marque — calculés comme la page.
+ */
+export function toolContextLines(ctx: ToolContextDTO): string[] {
+  const lines = [`- Fuseau de la marque : ${ctx.brand.timezone}`];
+  for (const p of engagementPresets(ctx.accounts)) {
+    const r = engagementRate(p, p.network);
+    const b = ENGAGEMENT_BENCHMARKS[p.network];
+    if (!r) continue;
+    lines.push(`- ${p.label} : taux d'engagement ${frNumber(r.rate)} % par publication (${p.detail}, ${p.followers} abonnés) — ${r.verdict} ; repères ${p.network} : bas ${frNumber(b.low)} %, médian ${frNumber(b.median)} %, élevé ${frNumber(b.high)} %`);
+  }
+  for (const t of ctx.bestTimes) {
+    lines.push(
+      t.hasEnoughData && t.bestHour !== null
+        ? `- Créneau personnel ${t.network} : ${t.bestHour} h (${t.sampleSize} relevés)`
+        : `- Créneau personnel ${t.network} : pas encore assez de relevés (${t.sampleSize} sur ${ctx.minSnapshots})`
+    );
+  }
+  return lines;
 }

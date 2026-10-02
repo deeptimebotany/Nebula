@@ -27,6 +27,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useBootstrap } from "@/components/bootstrap-provider";
+import { VerifyResendButton } from "@/components/email-verify/verify-resend-button";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { ProductShot } from "@/components/marketing/product-shot";
 import { trackGrowthEvent } from "@/lib/growth-client";
@@ -211,7 +212,6 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   // Refus « quota du mois » de Rétention en Pro / Agence : proposer une recharge.
   const [packOffer, setPackOffer] = useState(false);
   const [starting, setStarting] = useState(false);
-  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const open = useCallback(
@@ -219,7 +219,6 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
       setReason(r);
       setDetail(message?.trim() || null);
       setPackOffer(retentionPack);
-      setResend("idle");
       trackGrowthEvent("upgrade_modal_shown", { reason: r });
       // Offre de bienvenue : le serveur décide (essai terminé, jamais
       // payant, coupon configuré) et renvoie la date d'expiration.
@@ -249,17 +248,6 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
     [open]
   );
 
-  async function resendLink() {
-    setResend("sending");
-    try {
-      const res = await fetch("/api/auth/verify-email/resend", { method: "POST" });
-      const d = await res.json().catch(() => ({}));
-      setResend(res.ok ? "sent" : "error");
-      if (res.ok && d.alreadyVerified) close();
-    } catch {
-      setResend("error");
-    }
-  }
 
   useEffect(() => {
     if (!reason) return;
@@ -365,17 +353,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                   <div className="mt-6 flex flex-wrap items-center gap-3">
                     {reason === "email_unverified" ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={resendLink}
-                          disabled={resend === "sending" || resend === "sent"}
-                          className={clsx("btn-glow inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white", (resend === "sending" || resend === "sent") && "opacity-60")}
-                        >
-                          {resend === "sending" ? "Envoi…" : resend === "sent" ? "Lien envoyé" : "Renvoyer le lien"}
-                        </button>
-                        <p className="w-full text-xs text-slate-400" aria-live="polite">
-                          {resend === "sent" ? `Lien envoyé à ${me?.user.email ?? "votre adresse"} : ouvrez-le, puis relancez la génération.` : resend === "error" ? "Envoi impossible pour le moment : réessayez dans quelques minutes." : ""}
-                        </p>
+                        <VerifyResendButton email={me?.user.email} afterSend="relancez la génération." onVerified={close} />
                       </>
                     ) : packOffer ? (
                       <RetentionPackButton variant="glow" />

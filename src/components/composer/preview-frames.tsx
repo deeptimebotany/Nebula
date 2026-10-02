@@ -19,18 +19,35 @@ export function ScaledFrame({ width, height, reservedHeight, maxScale = 1, child
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => {
-      setAvailable(el.clientWidth);
+    // Garde-fou contre le tremblement (02/10/2026) : si la largeur
+    // disponible fait A → B → A en moins d'une seconde, elle dépend de la
+    // taille de l'aperçu lui-même (barre de défilement qui apparaît et
+    // disparaît). On garde alors la plus petite des deux, jusqu'au prochain
+    // vrai redimensionnement de la fenêtre.
+    let history: { w: number; t: number }[] = [];
+    let cap: number | null = null;
+    const measure = () => {
+      const w = el.clientWidth;
+      const t = performance.now();
+      history = [...history.filter((h) => t - h.t < 1000), { w, t }].slice(-4);
+      const last = history.slice(-3).map((h) => h.w);
+      if (last.length === 3 && last[0] === last[2] && last[0] !== last[1]) cap = Math.min(last[0], last[1]);
+      setAvailable(cap !== null ? Math.min(w, cap) : w);
       setViewportH(window.innerHeight);
     };
-    update();
-    window.addEventListener("resize", update);
-    if (typeof ResizeObserver === "undefined") return () => window.removeEventListener("resize", update);
-    const ro = new ResizeObserver(update);
+    const onWindowResize = () => {
+      cap = null;
+      history = [];
+      measure();
+    };
+    measure();
+    window.addEventListener("resize", onWindowResize);
+    if (typeof ResizeObserver === "undefined") return () => window.removeEventListener("resize", onWindowResize);
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => {
       ro.disconnect();
-      window.removeEventListener("resize", update);
+      window.removeEventListener("resize", onWindowResize);
     };
   }, []);
   // Hauteur : jamais moins de 360 px, même sur un petit écran.

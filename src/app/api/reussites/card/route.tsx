@@ -5,8 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { achievementUnlockDb, userReussitesDb } from "@/lib/prisma-extra";
 import { prisma } from "@/lib/prisma";
-import { RANK_COLORS } from "@/components/reussites/rank-emblem";
-import { rankAt } from "@/lib/reussites/catalog";
+import { RANK_COLORS, rankEmblemParts } from "@/components/reussites/rank-emblem";
+import { RANKS, qualityCount, rankAt } from "@/lib/reussites/catalog";
 import { publishedPosts } from "@/lib/reussites/posts";
 import { ALL_STARS, SKILLS, findStar, showcaseBadge, skillLevels, type ShowcaseBadge } from "@/lib/reussites/skills";
 import { streakSnapshot } from "@/lib/reussites/weekly";
@@ -18,7 +18,8 @@ export const maxDuration = 30;
 
 // GET /api/reussites/card — carte de créateur (Réussites v2, lot B) : une
 // image PNG générée pour le compte connecté (rang, constellation, série,
-// vitrine), à télécharger ou partager. Aucune page publique : l'image
+// vitrine ; v3 : insigne du rang et nombre de records de qualité), à
+// télécharger ou partager. Aucune page publique : l'image
 // n'existe que pour celui qui la demande (choix de Lucas, 27/09/2026).
 // Rendu par next/og (police intégrée, aucun service externe, aucun coût).
 const W = 1080;
@@ -101,16 +102,15 @@ export async function GET() {
               background: "rgba(255,255,255,0.04)"
             }}
           >
-            <svg width="104" height="104" viewBox="0 0 64 64">
-              <path d="M32 6 L36 28 L58 32 L36 36 L32 58 L28 36 L6 32 L28 28 Z" fill={rankColor} />
-              <circle cx="32" cy="32" r="5" fill="#ffffff" />
+            <svg width="112" height="112" viewBox="0 0 64 64">
+              {rankEmblemParts(level.rankId, { ink: "#ffffff", gradId: "card-rank" })}
             </svg>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 66, letterSpacing: -1 }}>{name}</div>
             <div style={{ display: "flex", fontSize: 44, color: rankColor, marginTop: 6 }}>{level.name}</div>
             <div style={{ display: "flex", fontSize: 28, color: "#a1a1aa", marginTop: 8 }}>
-              {num(level.xp)} XP · rang {level.rank} sur 5
+              {num(level.xp)} XP · rang {level.rank} sur {RANKS.length}
             </div>
           </div>
         </div>
@@ -138,7 +138,8 @@ export async function GET() {
         <div style={{ display: "flex", gap: 20, marginTop: 28 }}>
           {[
             { label: "Série en cours", value: `${streak.current} sem.` },
-            { label: "Meilleure série", value: `${streak.best} sem.` },
+            // Réussites v3 : les vrais résultats, pas le volume.
+            { label: "Records de qualité", value: String(qualityCount(keys)) },
             { label: "Compétences niv. 3+", value: String(Object.values(levels).filter((l) => l >= 3).length) }
           ].map((s) => (
             <div key={s.label} style={{ display: "flex", flexDirection: "column", flex: 1, padding: "22px 26px", borderRadius: 24, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)" }}>

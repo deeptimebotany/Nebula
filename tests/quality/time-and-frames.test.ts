@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { localInputToUtc, timeZoneLabel, utcToLocalInput } from "@/lib/timezone";
+import { localInputToUtc, shiftWallHour, timeZoneLabel, utcToLocalInput } from "@/lib/timezone";
 import { isPastSchedule } from "@/lib/schedule-guard";
 import { BIO_FRAMES, bioCardSize, frameFitsTheme, resolveBioFrame } from "@/lib/bio-frames";
 
@@ -46,5 +46,17 @@ describe("cadres de la Page bio liés aux thèmes", () => {
     expect(bioCardSize("PRO", false)).toBe("pro");
     expect(bioCardSize("AGENCY", false)).toBe("agency");
     expect(bioCardSize("FREE", true)).toBe("legend");
+  });
+});
+
+describe("outil « Meilleur moment pour publier » : heures converties (jamais NaN)", () => {
+  it("convertit une heure de Paris vers d'autres fuseaux", () => {
+    const at = new Date("2026-10-02T12:00:00Z"); // Paris 14 h (heure d'été)
+    expect(shiftWallHour(18, "Europe/Paris", "Europe/Paris", at)).toBe(18);
+    expect(shiftWallHour(18, "Europe/Paris", "America/Montreal", at)).toBe(12);
+    expect(shiftWallHour(18, "Europe/Paris", "Pacific/Noumea", at)).toBe(3);
+    expect(shiftWallHour(7, "Europe/Paris", "America/Martinique", at)).toBe(1);
+    const winter = new Date("2026-12-02T12:00:00Z"); // Paris 13 h (heure d'hiver)
+    expect(shiftWallHour(18, "Europe/Paris", "Indian/Reunion", winter)).toBe(21);
   });
 });

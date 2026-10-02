@@ -36,6 +36,14 @@ export const ASSISTANT_CONTEXT_KEYS = [
   "billing",
   "settings",
   "support",
+  // Outils dans l'application (02/10/2026) : un contexte par outil.
+  "tools",
+  "tool-engagement",
+  "tool-best-time",
+  "tool-bio",
+  "tool-hashtags",
+  "tool-title",
+  "tool-audit",
   "generic"
 ] as const;
 
@@ -330,6 +338,94 @@ export const ASSISTANT_CONTEXTS: Record<AssistantContextKey, AssistantContextDef
       "Comment signaler un bug ou une idée ?"
     ]
   },
+  tools: {
+    label: "Outils",
+    welcome: "Vous êtes dans les outils. Je vous dis lequel utiliser pour votre question, et je lis les résultats avec vous.",
+    suggestions: [
+      "Quel outil utiliser pour gagner des abonnés ?",
+      "Mon taux d'engagement est-il bon ?",
+      "À quelle heure devrais-je publier cette semaine ?",
+      "Aide-moi à améliorer ma bio Instagram",
+      "Propose-moi des hashtags pour ma prochaine vidéo",
+      "Par quel outil commencer quand on débute ?"
+    ]
+  },
+  "tool-engagement": {
+    label: "Taux d'engagement",
+    welcome: "Vous calculez votre taux d'engagement. J'ai les chiffres de vos comptes sur 30 jours : je vous dis s'il est bon, réseau par réseau, et comment le faire monter.",
+    suggestions: [
+      "Mon taux d'engagement est-il bon ?",
+      "Sur quel réseau mon engagement est le plus fort ?",
+      "Comment faire monter mon taux d'engagement ce mois-ci ?",
+      "Pourquoi mon taux baisse quand mes abonnés augmentent ?",
+      "Quelle publication a tiré mon taux vers le haut ?",
+      "Taux par abonnés ou par vues : lequel suivre ?",
+      "Donne-moi 3 idées de publications qui font réagir",
+      "Quel taux viser pour intéresser des marques ?"
+    ]
+  },
+  "tool-best-time": {
+    label: "Meilleur moment",
+    welcome: "Vous cherchez le bon moment pour publier. Je compare votre créneau personnel aux moyennes et je vous propose un planning pour la semaine.",
+    suggestions: [
+      "À quelle heure publier cette semaine ?",
+      "Mon créneau personnel est-il fiable ?",
+      "Propose-moi un planning de publication sur 7 jours",
+      "Matin ou soir : qu'est-ce qui marche le mieux pour moi ?",
+      "Comment tester deux horaires sans me tromper ?",
+      "Faut-il publier le week-end ?",
+      "Combien de fois par semaine publier sur chaque réseau ?",
+      "Comment programmer une publication à la bonne heure ?"
+    ]
+  },
+  "tool-bio": {
+    label: "Bio Instagram",
+    welcome: "Vous travaillez votre bio Instagram. Je peux la réécrire, la raccourcir ou l'accorder à votre Page bio.",
+    suggestions: [
+      "Réécris ma bio en 150 caractères maximum",
+      "Quel appel à l'action mettre dans ma bio ?",
+      "Ma bio dit-elle clairement ce que je fais ?",
+      "Donne-moi 3 bios avec un ton plus professionnel",
+      "Quels mots-clés mettre pour être trouvé ?",
+      "Comment relier ma bio à ma Page bio Nebula ?"
+    ]
+  },
+  "tool-hashtags": {
+    label: "Hashtags",
+    welcome: "Vous préparez vos hashtags. Je les adapte à chaque réseau et à vos dernières publications.",
+    suggestions: [
+      "Propose des hashtags pour ma prochaine publication",
+      "Combien de hashtags mettre sur Instagram ?",
+      "Trouve des hashtags de niche pour mon thème",
+      "Les hashtags servent-ils encore sur TikTok ?",
+      "Comment savoir si un hashtag est trop concurrentiel ?",
+      "Adapte ces hashtags pour YouTube"
+    ]
+  },
+  "tool-title": {
+    label: "Titre YouTube",
+    welcome: "Vous testez vos titres YouTube. Je propose des variantes, j'explique le score et j'accorde le titre à la miniature.",
+    suggestions: [
+      "Propose 5 titres pour ma prochaine vidéo",
+      "Pourquoi mon titre a ce score ?",
+      "Comment écrire un titre accrocheur sans clickbait ?",
+      "Quelle miniature irait avec ce titre ?",
+      "Mes derniers titres ont-ils un point commun ?",
+      "Faut-il changer le titre d'une vidéo déjà publiée ?"
+    ]
+  },
+  "tool-audit": {
+    label: "Audit",
+    welcome: "Vous lancez un audit de présence. Je vous aide à lire le rapport et à choisir quoi corriger en premier.",
+    suggestions: [
+      "Explique-moi mon score d'audit",
+      "Que corriger en premier sur mes profils ?",
+      "Pourquoi mon compte Instagram n'est pas analysé ?",
+      "Comment rendre mes profils cohérents d'un réseau à l'autre ?",
+      "Que mettre sur ma Page bio pour améliorer l'audit ?",
+      "Tous les combien relancer un audit ?"
+    ]
+  },
   generic: {
     label: "Nebula",
     welcome: "Je suis l'assistant intégré de Nebula. Posez-moi une question sur l'application, vos publications ou vos statistiques.",
@@ -367,7 +463,15 @@ const PATH_RULES: { prefix: string; key: AssistantContextKey }[] = [
   { prefix: "/community", key: "community" },
   { prefix: "/billing", key: "billing" },
   { prefix: "/settings", key: "settings" },
-  { prefix: "/support", key: "support" }
+  { prefix: "/support", key: "support" },
+  // Outils (02/10/2026) : chaque outil avant la page « Outils » elle-même.
+  { prefix: "/tools/taux-engagement", key: "tool-engagement" },
+  { prefix: "/tools/meilleur-moment", key: "tool-best-time" },
+  { prefix: "/tools/bio-instagram", key: "tool-bio" },
+  { prefix: "/tools/hashtags", key: "tool-hashtags" },
+  { prefix: "/tools/titre-youtube", key: "tool-title" },
+  { prefix: "/tools/audit", key: "tool-audit" },
+  { prefix: "/tools", key: "tools" }
 ];
 
 export function resolveAssistantContext(pathname: string | null | undefined): AssistantContextKey {

@@ -5,78 +5,25 @@
 // de créateur), ses récompenses (où les utiliser, comment gagner les
 // autres) et sa carte de créateur, une image à télécharger ou partager.
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Modal } from "@/components/ui/modal";
+import { useState } from "react";
+import { ImageShareDialog } from "@/components/reussites/image-share-dialog";
 import type { ReussitesPageDTO, ShowcaseDTO } from "@/lib/reussites/types";
 import { clsx } from "@/lib/clsx";
 
 const CARD_URL = "/api/reussites/card";
 
 function CreatorCardDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [blob, setBlob] = useState<Blob | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    let url: string | null = null;
-    setError(null);
-    fetch(CARD_URL, { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Carte indisponible pour le moment.");
-        return res.blob();
-      })
-      .then((b) => {
-        if (!alive) return;
-        url = URL.createObjectURL(b);
-        setBlob(b);
-        setSrc(url);
-      })
-      .catch((e: Error) => alive && setError(e.message));
-    return () => {
-      alive = false;
-      if (url) URL.revokeObjectURL(url);
-      setSrc(null);
-      setBlob(null);
-    };
-  }, [open]);
-
-  const file = blob ? new File([blob], "carte-createur-nebula.png", { type: "image/png" }) : null;
-  const canShare = Boolean(file && typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] }));
-
   return (
-    <Modal open={open} onClose={onClose} title="Ma carte de créateur" maxWidthClassName="max-w-md">
-      <div className="space-y-3">
-        <p className="-mt-2 text-xs text-slate-400">Une image rien que pour vous : partagez-la où vous voulez (story, profil). Aucune page publique n&apos;est créée.</p>
-        {error ? (
-          <p className="rounded-xl border border-red-400/30 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300">{error}</p>
-        ) : src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt="Carte de créateur : rang, constellation, série et vitrine" className="w-full rounded-2xl border border-white/10" />
-        ) : (
-          <div className="aspect-[4/5] w-full animate-pulse rounded-2xl bg-white/[0.05]" aria-busy="true" />
-        )}
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={src ?? CARD_URL}
-            download="carte-createur-nebula.png"
-            className={clsx("flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-nebula-500 px-4 text-sm font-semibold text-white transition hover:bg-nebula-400", !src && "pointer-events-none opacity-60")}
-          >
-            Télécharger l&apos;image
-          </a>
-          {canShare && file && (
-            <button
-              type="button"
-              onClick={() => navigator.share({ files: [file], title: "Ma carte de créateur Nebula" }).catch(() => undefined)}
-              className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/[0.06]"
-            >
-              Partager
-            </button>
-          )}
-        </div>
-      </div>
-    </Modal>
+    <ImageShareDialog
+      open={open}
+      onClose={onClose}
+      url={CARD_URL}
+      title="Ma carte de créateur"
+      intro="Une image rien que pour vous : partagez-la où vous voulez (story, profil). Aucune page publique n'est créée."
+      alt="Carte de créateur : rang, constellation, série et vitrine"
+      filename="carte-createur-nebula.png"
+      shareTitle="Ma carte de créateur Nebula"
+    />
   );
 }
 
@@ -224,7 +171,7 @@ export function ShowcaseSection({
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300">Vos récompenses</p>
           {owned.length === 0 ? (
-            <p className="text-xs text-slate-400">Pas encore de récompense : la première arrive avec 10 publications ou le rang Comète.</p>
+            <p className="text-xs text-slate-400">Pas encore de récompense : la première arrive avec 10 publications ou le rang Émergent.</p>
           ) : (
             <ul className="space-y-1.5">
               {owned.map((r) => (

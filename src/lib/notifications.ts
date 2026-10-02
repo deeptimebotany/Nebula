@@ -17,6 +17,8 @@ export type NotificationKind =
   | "reminder"
   | "achievement"
   | "referral"
+  // Avis de la communauté (02/10/2026) : avis reçus, résultat à 72 h.
+  | "feedback"
   | "news";
 
 export type NotificationCategory = "pub" | "win" | "news";
@@ -29,6 +31,7 @@ const CATEGORY: Record<NotificationKind, NotificationCategory> = {
   reminder: "pub",
   achievement: "win",
   referral: "win",
+  feedback: "pub",
   news: "news"
 };
 

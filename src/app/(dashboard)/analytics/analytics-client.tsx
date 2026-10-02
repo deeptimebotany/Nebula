@@ -676,7 +676,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
                 <EmptyState
                   bare
                   title="Pas encore de synchronisation"
-                  description="Cliquez sur « Actualiser depuis les réseaux » pour récupérer vos vraies statistiques. Chaque synchronisation ajoute un point à la courbe : revenez régulièrement pour voir la tendance."
+                  description="Cliquez sur « Actualiser depuis les réseaux » pour récupérer vos vraies statistiques tout de suite. Ensuite, Nebula fait un relevé par jour tout seul : chaque relevé ajoute un point à la courbe."
                   action={
                     <Button onClick={onSync} disabled={syncing || connections.length === 0}>
                       {syncing ? "Synchronisation..." : "Actualiser depuis les réseaux"}

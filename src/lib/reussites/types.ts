@@ -5,6 +5,7 @@ import type { ReviewFocus } from "./review";
 import type { ShowcaseBadge, SkillId } from "./skills";
 import type { RarityTier } from "./rarity";
 import type { LaunchStep } from "./launch";
+import type { QualityEvidence } from "./evidence";
 
 export interface ChallengeDTO {
   key: string;
@@ -33,6 +34,10 @@ export interface TierDTO {
   reward: string | null;
   unlockedAt: string | null;
   rarity: RarityDTO | null;
+  /** Réussites v3 : record de qualité (compte pour les rangs, carte à partager). */
+  quality: boolean;
+  /** Preuve du record gagné (chiffres, publication, date du relevé). */
+  record: QualityEvidence | null;
 }
 
 export interface SeriesDTO {

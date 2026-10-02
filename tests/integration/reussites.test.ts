@@ -122,7 +122,7 @@ describe.skipIf(!hasDatabase)("Réussites v2 : missions, coffre, boucliers", () 
     await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 700, celebratedAt: new Date() } });
     await achievementUnlockDb.create({ data: { userId: user.id, key: "level-4", xp: 0, celebratedAt: new Date() } });
     const r = await evaluateReussites(user.id, { force: true });
-    expect(r!.level.name).toBe("Comète III");
+    expect(r!.level.name).toBe("Émergent III");
     const ranks = await achievementUnlockDb.findMany({ where: { userId: user.id, key: { startsWith: "rank-" } } });
     expect(ranks.map((x) => x.key).sort()).toEqual(["rank-2", "rank-3", "rank-4", "rank-5", "rank-6"]);
     expect(ranks.every((x) => x.celebratedAt)).toBe(true);

@@ -38,6 +38,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         email: true,
         avatarUrl: true,
         emailVerifiedAt: true,
+        emailVerifySentAt: true,
         ageConfirmedAt: true,
         passwordHash: true,
         themePreference: true,
@@ -114,7 +115,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     // Pas encore de photo en base : celle du compte Google/Apple de la
     // session, pour que « Mon profil » affiche la même que le sélecteur de
     // compte en haut à droite.
-    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, emailVerified: Boolean(user.emailVerifiedAt), hasPassword: Boolean(user.passwordHash) },
+    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, emailVerified: Boolean(user.emailVerifiedAt), hasPassword: Boolean(user.passwordHash), verifyEmailSentAt: user.emailVerifiedAt ? null : (user.emailVerifySentAt?.toISOString() ?? null) },
     plan: planInfo.plan,
     maxBrands: planInfo.maxBrands,
     brandsOwned,

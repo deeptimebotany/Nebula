@@ -23,6 +23,7 @@ import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { KitView } from "@/components/media-kit/kit-view";
+import { KitShareCardDialog } from "@/components/media-kit/kit-share-card";
 import { clsx } from "@/lib/clsx";
 import { formatCompact } from "@/lib/engagement-metrics";
 import { NETWORK_META } from "@/lib/types";
@@ -58,6 +59,8 @@ export default function MediaKitPage() {
   const [email, setEmail] = useState("");
   const [offers, setOffers] = useState<KitOffer[]>([]);
   const [choosePosts, setChoosePosts] = useState(false);
+  // Carte « mes chiffres » à partager (02/10/2026).
+  const [cardOpen, setCardOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -211,14 +214,20 @@ export default function MediaKitPage() {
                       : "Le publier (lien à partager, PDF, image de partage) fait partie des paliers Pro et Agence. Tout ce que vous réglez ici est gardé."}
                 </p>
               </div>
-              {dto.allowed ? (
-                <Toggle checked={settings.published} onChange={(v) => void togglePublished(v)} label="Publié" />
-              ) : (
-                <Button type="button" onClick={() => upgrade.open("media_kit")} className="shrink-0">
-                  Publier mon kit
-                  <span className="rounded-full bg-white/15 px-1.5 text-[10px] font-semibold">PRO</span>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => setCardOpen(true)}>
+                  <IconDownload className="h-4 w-4" />
+                  Carte à partager
                 </Button>
-              )}
+                {dto.allowed ? (
+                  <Toggle checked={settings.published} onChange={(v) => void togglePublished(v)} label="Publié" />
+                ) : (
+                  <Button type="button" onClick={() => upgrade.open("media_kit")} className="shrink-0">
+                    Publier mon kit
+                    <span className="rounded-full bg-white/15 px-1.5 text-[10px] font-semibold">PRO</span>
+                  </Button>
+                )}
+              </div>
             </div>
             {settings.published && (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -241,6 +250,9 @@ export default function MediaKitPage() {
               </div>
             )}
           </GlassCard>
+          {brandId && (
+            <KitShareCardDialog open={cardOpen} onClose={() => setCardOpen(false)} brandId={brandId} slug={dto.slug} published={settings.published && dto.allowed} />
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_minmax(0,1fr)] xl:items-start">
             {/* Réglages */}

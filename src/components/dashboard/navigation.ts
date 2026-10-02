@@ -27,8 +27,10 @@ import {
   IconHeart,
   IconGift,
   IconSparkle,
-  IconSend
+  IconSend,
+  IconWrench
 } from "./icons";
+import { TOOL_CATALOG } from "@/components/tools/tool-catalog";
 
 export type NavIcon = (props: { className?: string }) => JSX.Element;
 
@@ -72,7 +74,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/studio", label: "Studio IA", icon: IconSparkle, description: "Idées, accroches et scripts tirés de vos chiffres", keywords: ["idées", "script", "accroche", "hook", "ia", "inspiration", "vidéo"] },
       { href: "/publications", label: "Publications", icon: IconList, description: "Toutes vos publications, filtrables par statut et réseau", keywords: ["posts", "liste", "historique", "échecs"] },
       { href: "/calendar", label: "Calendrier", icon: IconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] },
-      { href: "/analytics", label: "Analytics", icon: IconChart, description: "Abonnés, portée, engagement", keywords: ["statistiques", "stats", "audience"] }
+      { href: "/analytics", label: "Analytics", icon: IconChart, description: "Abonnés, portée, engagement", keywords: ["statistiques", "stats", "audience"] },
+      // 02/10/2026 : les outils gratuits du site, préremplis avec la marque.
+      {
+        href: "/tools",
+        label: "Outils",
+        icon: IconWrench,
+        description: "Taux d'engagement, meilleur moment, hashtags, bio Instagram, titre YouTube, audit",
+        keywords: ["outils gratuits", "taux d'engagement", "engagement", "calculateur", "meilleur moment", "heure", "créneau", "hashtags", "bio instagram", "titre youtube", "audit", "score"]
+      }
     ]
   },
   {
@@ -138,6 +148,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), 
 /** Pages secondaires (sans entrée de menu) rattachées à une entrée parente pour le fil d'Ariane. */
 const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] = [
   { prefix: "/posts/", label: "Publication", parentHref: "/publications" },
+  ...TOOL_CATALOG.filter((t) => t.appHref.startsWith("/tools/")).map((t) => ({ prefix: t.appHref, label: t.title, parentHref: "/tools" })),
   { prefix: "/reussites/collection", label: "Collection des Easter eggs", parentHref: "/reussites" },
   { prefix: "/billing/garder", label: "Choisir ce que je garde", parentHref: "/billing" },
   { prefix: "/community/guides/", label: "Guide", parentHref: "/community" },

@@ -138,6 +138,8 @@ export interface AchievementUnlockRow {
   xp: number;
   unlockedAt: Date;
   celebratedAt: Date | null;
+  /** Preuve d'un record de qualité (Réussites v3), sinon null. */
+  detail?: unknown;
 }
 
 export interface ChallengeCompletionRow {

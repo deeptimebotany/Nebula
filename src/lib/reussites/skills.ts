@@ -9,11 +9,11 @@
 // Les étoiles sont enregistrées comme des accomplissements (AchievementUnlock,
 // clé « star-<compétence>-<n> ») : ne jamais renommer une clé.
 //
-// Condition de variété des rangs : pour entrer dans les rangs Étoile,
-// Constellation et Nébuleuse, il faut aussi plusieurs compétences au bon
-// niveau. Elle ne s'applique qu'aux passages à venir : un rang déjà atteint
-// n'est jamais retiré.
-import { MAX_STEP, STEPS, findTier, rankAt, rankFor, stepDef, type LevelProgress, type PendingRank } from "./catalog";
+// Conditions des rangs : pour entrer dans les rangs Régulier et au-delà, il
+// faut aussi plusieurs compétences au bon niveau et, dès Confirmé, des
+// records de qualité (v3). Elles ne s'appliquent qu'aux passages à venir :
+// un rang déjà atteint n'est jamais retiré.
+import { MAX_STEP, RANKS, STEPS, findTier, rankAt, rankFor, stepDef, type LevelProgress, type PendingRank } from "./catalog";
 
 export type SkillId = "regularite" | "formats" | "portee" | "communaute" | "strategie";
 
@@ -237,7 +237,7 @@ export const SKILLS: SkillDef[] = [
     },
     {
       name: "Coup de main",
-      description: "Répondre à 5 sujets d'autres créateurs dans la Communauté.",
+      description: "Répondre à 5 sujets ou demandes d'avis d'autres créateurs dans la Communauté.",
       requirements: [{ metric: "forumRepliedThreads", target: 5, unit: "sujets" }],
       note: "Réponses d'au moins 20 caractères.",
       href: "/community",
@@ -345,60 +345,78 @@ export function skillLevels(unlocked: Iterable<string>): Record<SkillId, number>
   return out;
 }
 
-// --- Condition de variété des rangs ---------------------------------------------------
+// --- Conditions des rangs -------------------------------------------------------------
 
-/** Pour entrer dans un rang : `skills` compétences au niveau `level` au moins. */
-export const RANK_CONDITIONS: Record<number, { skills: number; level: number }> = {
+/**
+ * Pour entrer dans un rang : `skills` compétences au niveau `level` au moins
+ * (variété, lot B) et, depuis la v3 (02/10/2026), `quality` records de
+ * qualité (QUALITY_KEYS : vues, engagement, rétention, croissance réelle,
+ * avis). Les XP seuls ne suffisent plus pour monter haut.
+ */
+export const RANK_CONDITIONS: Record<number, { skills: number; level: number; quality?: number }> = {
   3: { skills: 2, level: 2 },
-  4: { skills: 3, level: 3 },
-  5: { skills: 4, level: 4 }
+  4: { skills: 3, level: 3, quality: 1 },
+  5: { skills: 4, level: 4, quality: 3 },
+  6: { skills: 4, level: 4, quality: 6 },
+  7: { skills: 5, level: 4, quality: 10 },
+  8: { skills: 5, level: 5, quality: 15 }
 };
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
 
 export function rankConditionText(rank: number): string | null {
   const c = RANK_CONDITIONS[rank];
-  return c ? `${c.skills} compétences au niveau ${c.level}` : null;
+  if (!c) return null;
+  const skills = `${c.skills} compétences au niveau ${c.level}`;
+  return c.quality ? `${skills} et ${plural(c.quality, "record")} de qualité` : skills;
 }
 
-function conditionMet(rank: number, levels: Record<SkillId, number>): boolean {
+function conditionMet(rank: number, levels: Record<SkillId, number>, quality: number): boolean {
   const c = RANK_CONDITIONS[rank];
   if (!c) return true;
-  return Object.values(levels).filter((l) => l >= c.level).length >= c.skills;
+  return Object.values(levels).filter((l) => l >= c.level).length >= c.skills && quality >= (c.quality ?? 0);
 }
 
-/** Palier le plus haut que la variété des compétences permet d'atteindre. */
-export function maxStepAllowed(levels: Record<SkillId, number>): number {
-  if (!conditionMet(3, levels)) return 6;
-  if (!conditionMet(4, levels)) return 9;
-  if (!conditionMet(5, levels)) return 12;
+/** Palier le plus haut que les conditions des rangs permettent d'atteindre. */
+export function maxStepAllowed(levels: Record<SkillId, number>, quality = 0): number {
+  for (const r of RANKS) {
+    if (!conditionMet(r.rank, levels, quality)) return (r.rank - 1) * 3;
+  }
   return MAX_STEP;
 }
 
-/** Ce qui manque pour entrer dans un rang (compétences les plus proches d'abord). */
-export function missingForRank(rank: number, levels: Record<SkillId, number>): string[] {
+/** Ce qui manque pour entrer dans un rang (compétences les plus proches d'abord, puis records). */
+export function missingForRank(rank: number, levels: Record<SkillId, number>, quality = 0): string[] {
   const c = RANK_CONDITIONS[rank];
-  if (!c || conditionMet(rank, levels)) return [];
+  if (!c || conditionMet(rank, levels, quality)) return [];
+  const out: string[] = [];
   const ok = SKILLS.filter((s) => levels[s.id] >= c.level).length;
   const need = c.skills - ok;
-  const closest = SKILLS.filter((s) => levels[s.id] < c.level)
-    .sort((a, b) => levels[b.id] - levels[a.id])
-    .slice(0, need)
-    .map((s) => `${s.name} (${levels[s.id]}/${c.level})`);
-  return [`${need} compétence${need > 1 ? "s" : ""} de plus au niveau ${c.level}`, ...closest];
+  if (need > 0) {
+    const closest = SKILLS.filter((s) => levels[s.id] < c.level)
+      .sort((a, b) => levels[b.id] - levels[a.id])
+      .slice(0, need)
+      .map((s) => `${s.name} (${levels[s.id]}/${c.level})`);
+    out.push(`${need} compétence${need > 1 ? "s" : ""} de plus au niveau ${c.level}`, ...closest);
+  }
+  const needQuality = (c.quality ?? 0) - quality;
+  if (needQuality > 0) out.push(`${plural(needQuality, "record")} de qualité de plus (${quality}/${c.quality}), dans l'album « Qualité »`);
+  return out;
 }
 
 /**
- * Rang affiché et enregistré : celui des XP, retenu par la condition de
- * variété, mais jamais sous un palier déjà atteint (`floorStep`). Quand les
- * XP suffisent pour le palier suivant mais pas les compétences, `pending`
- * dit ce qui manque (« Rang en attente »).
+ * Rang affiché et enregistré : celui des XP, retenu par les conditions des
+ * rangs, mais jamais sous un palier déjà atteint (`floorStep`). Quand les XP
+ * suffisent pour le palier suivant mais pas la condition, `pending` dit ce
+ * qui manque (« Rang en attente »).
  */
-export function gatedRank(xp: number, levels: Record<SkillId, number>, floorStep = 1): LevelProgress {
+export function gatedRank(xp: number, levels: Record<SkillId, number>, floorStep = 1, quality = 0): LevelProgress {
   const byXp = rankFor(xp).level;
-  const step = Math.max(Math.min(floorStep, byXp), Math.min(byXp, maxStepAllowed(levels)));
+  const step = Math.max(Math.min(floorStep, byXp), Math.min(byXp, maxStepAllowed(levels, quality)));
   let pending: PendingRank | null = null;
   const next = STEPS.find((s) => s.step === step + 1);
   if (next && byXp > step) {
-    const missing = missingForRank(next.rank, levels);
+    const missing = missingForRank(next.rank, levels, quality);
     if (missing.length > 0) pending = { step: next.step, name: next.name, condition: rankConditionText(next.rank) ?? "", missing };
   }
   return rankAt(xp, step, pending);

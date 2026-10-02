@@ -25,7 +25,8 @@ import {
   IconClock,
   IconSearch,
   IconTrophy,
-  IconUsers
+  IconUsers,
+  IconWrench
 } from "@/components/dashboard/icons";
 import { JsonLd } from "@/components/seo/json-ld";
 import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
@@ -151,8 +152,8 @@ const REUSSITES = [
   },
   {
     icon: IconSparkle,
-    title: "5 rangs, d'Étincelle à Nébuleuse",
-    desc: "Chaque vraie publication vous fait monter. Les rangs débloquent emblèmes, anneaux d'avatar, fonds et cadres pour votre page bio."
+    title: "8 rangs, de Lancement à Icône",
+    desc: "La régularité fait monter, les vrais résultats aussi : records de vues, rétention, croissance nette, avis utiles. Les rangs débloquent insignes, anneaux d'avatar, fonds et cadres pour votre page bio."
   },
   {
     icon: IconClock,
@@ -174,7 +175,9 @@ const MORE = [
   { icon: IconLayers, title: "Multi-marques", desc: "Passez d'une marque à l'autre sans vous déconnecter." },
   { icon: IconPlug, title: "API et webhooks", desc: "Branchez Nebula à n8n, Make ou Zapier (palier Agence)." },
   { icon: IconUsers, title: "Communauté", desc: "Un forum d'entraide, des guides et les vidéos partagées par d'autres créateurs." },
-  { icon: IconBioLink, title: "Liens de campagne", desc: "Des liens UTM prêts à coller, pour voir dans vos statistiques ce qui ramène du monde." }
+  { icon: IconBioLink, title: "Liens de campagne", desc: "Des liens UTM prêts à coller, pour voir dans vos statistiques ce qui ramène du monde." },
+  // 02/10/2026 : les outils gratuits du site, dans l'application et remplis avec le compte.
+  { icon: IconWrench, title: "Outils", desc: "Taux d'engagement, meilleur moment, hashtags, bio, titres et audit, remplis avec vos vrais chiffres." }
 ];
 
 const STEPS = [
@@ -331,7 +334,7 @@ export default function LandingPage() {
             <Reveal className="mt-20">
               <h3 className="text-center font-display text-xl font-semibold text-white">Et tout le reste, déjà inclus</h3>
             </Reveal>
-            <RevealGroup className="mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            <RevealGroup className="mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
               {MORE.map((f) => (
                 <RevealItem key={f.title}>
                   <div className="flex gap-3">

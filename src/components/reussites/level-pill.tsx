@@ -1,4 +1,4 @@
-// Pastille du rang de créateur (« Comète II » avec son emblème) :
+// Pastille du rang de créateur (« Confirmé II » avec son insigne) :
 // Communauté (à côté du prénom), « Mon profil ». Réussites v2 : remplace
 // « Niv. 4 » et les titres de la Communauté.
 import { clsx } from "@/lib/clsx";

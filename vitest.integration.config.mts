@@ -11,6 +11,8 @@ const integrationUrl = process.env.INTEGRATION_DATABASE_URL;
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  // Routes .tsx (images next/og, Réussites v3) : JSX moderne, sans `import React`.
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],

@@ -15,7 +15,7 @@
  * Tant que RESEND_API_KEY est absent, les emails ne partent pas : on le
  * signale clairement plutôt que d'échouer silencieusement.
  */
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { EMAIL_COLORS, emailButton, emailFrame, emailLink } from "@/lib/emails/brand";
 import { SocialApiError, fetchJson } from "@/lib/social/base";
 import { classifyProviderError } from "@/lib/social/errors";
@@ -51,6 +51,12 @@ export async function sendEmail(params: {
    * emailIdempotencyKey. Sans clé, chaque appel est un nouvel envoi.
    */
   idempotencyKey?: string;
+  /**
+   * Regrouper avec les e-mails de même objet dans une conversation Gmail.
+   * Par défaut non (01/10/2026) : chaque e-mail arrive à part, comme dans
+   * les autres applications (en-tête X-Entity-Ref-ID unique, lu par Gmail).
+   */
+  allowThreading?: boolean;
 }): Promise<{ ok: boolean; error?: string; retryable?: boolean }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -73,7 +79,12 @@ export async function sendEmail(params: {
         subject: params.subject,
         html: params.html,
         ...(params.text ? { text: params.text } : {}),
-        ...(params.replyTo ? { reply_to: params.replyTo } : {})
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+        // Avec une clé d'idempotence, identifiant stable : un nouvel essai
+        // envoie exactement le même contenu (Resend le reconnaît).
+        ...(params.allowThreading
+          ? {}
+          : { headers: { "X-Entity-Ref-ID": params.idempotencyKey ? createHash("sha256").update(params.idempotencyKey).digest("hex").slice(0, 32) : randomUUID() } })
       }),
       cache: "no-store",
       timeoutMs: 15_000,

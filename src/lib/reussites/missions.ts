@@ -75,7 +75,7 @@ export const MISSIONS: MissionDef[] = [
     target: 1,
     xp: 30,
     title: (n) => `Publier ${n} fois cette semaine`,
-    description: "Réglé sur votre rythme habituel, plus un petit pas. Au plus 2 publications comptées par jour.",
+    description: "Réglé sur votre rythme habituel. Au plus 2 publications comptées par jour.",
     skill: "Régularité",
     href: "/composer",
     action: "Publier"
@@ -87,7 +87,7 @@ export const MISSIONS: MissionDef[] = [
     target: 2,
     xp: 30,
     title: (n) => `Publier sur ${n} jours différents`,
-    description: "La régularité avant la quantité : étalez vos publications dans la semaine.",
+    description: "Réglé sur votre rythme habituel, plus un petit pas. La régularité avant la quantité : un seul jour compte, même avec plusieurs publications.",
     skill: "Régularité",
     href: "/calendar",
     action: "Ouvrir le calendrier"
@@ -137,7 +137,8 @@ export const MISSIONS: MissionDef[] = [
     slot: "progress",
     metric: "videos",
     target: 2,
-    xp: 60,
+    // Réussites v3 : le volume rapporte moins que la stratégie.
+    xp: 40,
     title: () => "Publier 2 vidéos",
     description: "Reels, Shorts, TikTok ou vidéos YouTube : la vidéo reste le format le plus vu.",
     skill: "Formats vidéo",
@@ -200,7 +201,7 @@ export const MISSIONS: MissionDef[] = [
     slot: "progress",
     metric: "photos",
     target: 2,
-    xp: 60,
+    xp: 40,
     title: () => "Publier 2 photos ou carrousels",
     description: "Les images se partagent et s'enregistrent : parfaites entre deux vidéos.",
     skill: "Formats vidéo",
@@ -380,17 +381,20 @@ export function pickWeeklyMissions(input: {
   const rand = seeded(`${input.userId}:${input.weekId}`);
   const ok = (m: MissionDef) => !m.eligible || m.eligible(input.ctx);
 
-  // Habitude : alterne d'une semaine à l'autre pour varier, et reste
-  // faisable quand la semaine commence tard (première visite un jeudi…) :
-  // « avant mercredi » seulement le lundi ou le mardi, au plus un jour de
-  // publication par jour restant, au plus 2 publications comptées par jour.
+  // Habitude (Réussites v3, 02/10/2026) : dès que l'objectif dépasse une
+  // publication, on compte des JOURS de publication, plus des publications :
+  // la régularité, pas le volume (publier 5 fois le dimanche ne rapporte
+  // rien de plus). Objectif d'une publication : « avant mercredi » une
+  // semaine sur deux (seulement le lundi ou le mardi). Toujours faisable quand
+  // la semaine commence tard : au plus un jour par jour restant, et le
+  // dimanche, une seule publication.
   const odd = Math.abs(input.weekIndex) % 2 === 1;
   const daysLeft = Math.max(1, Math.min(7, input.daysLeft ?? 7));
   const n = input.habitTarget;
-  let habitKey = n <= 1 ? (odd ? "habit-early" : "habit-posts") : odd ? "habit-days" : "habit-posts";
+  let habitKey = n <= 1 ? (odd ? "habit-early" : "habit-posts") : "habit-days";
   if (habitKey === "habit-early" && daysLeft < 6) habitKey = "habit-posts";
   if (habitKey === "habit-days" && daysLeft < 2) habitKey = "habit-posts";
-  const habitTarget = habitKey === "habit-early" ? 1 : habitKey === "habit-days" ? Math.min(n, 5, daysLeft) : Math.max(1, Math.min(n, 2 * daysLeft));
+  const habitTarget = habitKey === "habit-days" ? Math.min(n, 5, daysLeft) : 1;
 
   // Progression : 3 propositions, compétences variées.
   let pool = MISSIONS.filter((m) => m.slot === "progress" && ok(m));

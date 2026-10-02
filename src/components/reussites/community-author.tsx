@@ -1,6 +1,6 @@
 // Nom d'un membre dans la Communauté, avec son rang de créateur (Réussites),
 // sa vitrine (jusqu'à 3 badges choisis) et la mention « Mentor » (étoile
-// Communauté ★5) : « Lucas [Comète II] Mentor 🎬 📅 ».
+// Communauté ★5) : « Lucas [Confirmé II] Mentor 🎬 📅 ».
 import { LevelPill } from "./level-pill";
 
 export interface CommunityAuthorInfo {

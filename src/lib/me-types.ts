@@ -6,7 +6,16 @@ import type { Network } from "@/lib/types";
 export interface MeResponse {
   /** hasPassword : faux pour un compte ouvert avec Google / Apple / Facebook
    *  qui n'a jamais défini de mot de passe Nebula (Paramètres → Compte). */
-  user: { id: string; name: string; email: string; avatarUrl: string | null; emailVerified: boolean; hasPassword: boolean };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+    emailVerified: boolean;
+    hasPassword: boolean;
+    /** Dernier envoi du lien de confirmation (décompte du bouton « Renvoyer »). */
+    verifyEmailSentAt?: string | null;
+  };
   plan: Plan;
   maxBrands: number;
   brandsOwned: number;

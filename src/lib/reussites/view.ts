@@ -2,12 +2,14 @@
 import { challengeCompletionDb, achievementUnlockDb, userReussitesDb, weeklyMissionsDb, type AchievementUnlockRow } from "@/lib/prisma-extra";
 import {
   LEGACY_LEVEL_NAMES,
+  QUALITY_KEYS,
   RANKS,
   SERIES,
   REWARDS,
   findChallenge,
   findTier,
   monthLabel,
+  qualityCount,
   rewardKeysFromUnlocks,
   stepDef,
   tierRewardText,
@@ -20,6 +22,7 @@ import { rarityMap, type RarityTier } from "./rarity";
 import { COLLECTIVE_XP } from "./collective";
 import { SEASON_TARGET, SEASON_XP, seasonById, seasonOfMonth } from "./seasons";
 import { featureTickets, featuredOf } from "./featured";
+import { parseEvidence } from "./evidence";
 import { prisma } from "@/lib/prisma";
 import {
   ALL_STARS,
@@ -91,8 +94,21 @@ function focusMission(missions: MissionState[]): MissionState | null {
  * Étoile à viser : celle qui débloque un rang en attente, sinon la plus
  * avancée de toute la constellation.
  */
-function starAction(constellation: ConstellationDTO, pendingRank: { name: string; step: number } | null): NextActionDTO | null {
-  const needed = pendingRank ? (RANK_CONDITIONS[stepDef(pendingRank.step).rank]?.level ?? 0) : 0;
+function starAction(constellation: ConstellationDTO, pendingRank: { name: string; step: number } | null, quality = 0): NextActionDTO | null {
+  const cond = pendingRank ? RANK_CONDITIONS[stepDef(pendingRank.step).rank] : undefined;
+  const needed = cond?.level ?? 0;
+  const skillsOk = !cond || constellation.skills.filter((sk) => sk.level >= cond.level).length >= cond.skills;
+  // Rang en attente faute de records de qualité (v3) : ils viennent des
+  // résultats, pas d'une action à faire tout de suite — on montre où ils sont.
+  if (pendingRank && cond && skillsOk && quality < (cond.quality ?? 0)) {
+    const n = (cond.quality ?? 0) - quality;
+    return {
+      title: `${n} record${n > 1 ? "s" : ""} de qualité pour le rang ${pendingRank.name}`,
+      meta: "Ils viennent de vos résultats : vues au-dessus de votre médiane, engagement au-dessus du repère, rétention, croissance réelle, avis de la communauté.",
+      href: "/reussites?focus=record-vues",
+      action: "Voir les records"
+    };
+  }
   const candidates = constellation.skills
     .map((sk) => ({ sk, next: sk.stars.find((st) => !st.unlockedAt) }))
     .filter((x): x is { sk: ConstellationDTO["skills"][number]; next: ConstellationDTO["skills"][number]["stars"][number] } => Boolean(x.next))
@@ -165,7 +181,7 @@ function rewardHref(r: RewardDef): string {
   return r.kind === "frame" ? "/link-in-bio" : "/settings";
 }
 
-export function constellationDTO(metrics: SkillMetrics, unlockedAt: Map<string, Date>, rarity: RarityLookup = new Map()): ConstellationDTO {
+export function constellationDTO(metrics: SkillMetrics, unlockedAt: Map<string, Date>, rarity: RarityLookup = new Map(), quality = qualityCount(unlockedAt.keys())): ConstellationDTO {
   const levels = skillLevels(unlockedAt.keys());
   return {
     skills: SKILLS.map((sk) => ({
@@ -205,7 +221,7 @@ export function constellationDTO(metrics: SkillMetrics, unlockedAt: Map<string, 
         rank,
         name: RANKS[rank - 1].name,
         text: rankConditionText(rank) ?? "",
-        met: Object.values(levels).filter((l) => l >= c.level).length >= c.skills
+        met: Object.values(levels).filter((l) => l >= c.level).length >= c.skills && quality >= (c.quality ?? 0)
       };
     })
   };
@@ -223,6 +239,8 @@ export async function buildPage(userId: string): Promise<ReussitesPageDTO | null
   const r = await evaluateReussites(userId, { force: true });
   if (!r) return null;
   const unlockedAt = new Map<string, Date>(r.unlocks.map((u: AchievementUnlockRow) => [u.key, u.unlockedAt]));
+  const records = new Map(r.unlocks.map((u: AchievementUnlockRow) => [u.key, parseEvidence(u.detail)]));
+  const qualityKeys = new Set(QUALITY_KEYS);
   const metrics: Metrics = r.metrics;
   const rarity = await rarityMap().catch(() => new Map() as RarityLookup);
   // Séries qui ne se gagnent plus après coup (Explorateur) : absentes tant qu'elles ne sont pas gagnées.
@@ -243,7 +261,9 @@ export async function buildPage(userId: string): Promise<ReussitesPageDTO | null
       description: t.description,
       reward: tierRewardText(t),
       unlockedAt: unlockedAt.get(t.key)?.toISOString() ?? null,
-      rarity: rarityOf(rarity, t.key)
+      rarity: rarityOf(rarity, t.key),
+      quality: qualityKeys.has(t.key),
+      record: records.get(t.key) ?? null
     }))
   }));
   const unlockedCount = series.reduce((n, s) => n + s.tiers.filter((t) => t.unlockedAt).length, 0);
@@ -284,7 +304,7 @@ export async function buildPage(userId: string): Promise<ReussitesPageDTO | null
     },
     pendingChests: pending,
     streak: { current: r.streak.streak.current, best: r.streak.streak.best, shields: r.streak.shields, maxShields: MAX_SHIELDS },
-    nextAction: nextActionFor(state, pending, near, starAction(constellation, r.level.pending)),
+    nextAction: nextActionFor(state, pending, near, starAction(constellation, r.level.pending, qualityCount(unlockedAt.keys()))),
     month: { id: r.month.id, endsAt: r.month.end.toISOString(), label: monthLabel(r.month.id) },
     monthly: challengeDTO(r.monthly),
     near,
@@ -363,9 +383,11 @@ export async function buildSummary(userId: string): Promise<ReussitesSummaryDTO>
   const user = await userReussitesDb.findUnique({ where: { id: userId }, select: { creatorXp: true, creatorLevel: true, reussitesSeenAt: true } });
   // Sans nouvelle évaluation : palier enregistré, avec le « rang en attente »
   // éventuel (compétences d'après les étoiles déjà allumées).
-  const level =
-    evaluated?.level ??
-    gatedRank(user?.creatorXp ?? 0, skillLevels((await achievementUnlockDb.findMany({ where: { userId }, select: { key: true } })).map((u) => u.key)), user?.creatorLevel ?? 1);
+  let level = evaluated?.level ?? null;
+  if (!level) {
+    const keys = (await achievementUnlockDb.findMany({ where: { userId }, select: { key: true } })).map((u) => u.key);
+    level = gatedRank(user?.creatorXp ?? 0, skillLevels(keys), user?.creatorLevel ?? 1, qualityCount(keys));
+  }
   const state = evaluated ? evaluated.missions : ((await currentProgress(userId).catch(() => null))?.missions ?? null);
   const monthly = await challengeCompletionDb.findMany({ where: { userId, kind: "MONTHLY" }, orderBy: { completedAt: "desc" }, take: 24 });
   return {

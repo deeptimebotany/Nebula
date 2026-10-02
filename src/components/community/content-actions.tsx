@@ -16,13 +16,17 @@ import { REPORT_DETAILS_MAX, REPORT_REASONS, type ReportReason, type ReportTarge
 const WHAT: Record<ReportTargetType, { the: string; this: string; moderator: string }> = {
   THREAD: { the: "la discussion", this: "cette discussion", moderator: "Vous la retirez en tant que propriétaire de Nebula. " },
   REPLY: { the: "la réponse", this: "cette réponse", moderator: "Vous la retirez en tant que propriétaire de Nebula. " },
-  VIDEO: { the: "le lien partagé", this: "ce lien partagé", moderator: "Vous le retirez en tant que propriétaire de Nebula. " }
+  VIDEO: { the: "le lien partagé", this: "ce lien partagé", moderator: "Vous le retirez en tant que propriétaire de Nebula. " },
+  FEEDBACK: { the: "la demande d'avis", this: "cette demande d'avis", moderator: "Vous la retirez en tant que propriétaire de Nebula. " },
+  FEEDBACK_COMMENT: { the: "l'avis", this: "cet avis", moderator: "Vous le retirez en tant que propriétaire de Nebula. " }
 };
 
 const DELETE_URL: Record<ReportTargetType, (id: string, threadId?: string) => string> = {
   THREAD: (id) => `/api/community/threads/${id}`,
   REPLY: (id, threadId) => `/api/community/threads/${threadId}/replies/${id}`,
-  VIDEO: (id) => `/api/community/videos/${id}`
+  VIDEO: (id) => `/api/community/videos/${id}`,
+  FEEDBACK: (id) => `/api/community/feedback/${id}`,
+  FEEDBACK_COMMENT: (id, parentId) => `/api/community/feedback/${parentId}/comments/${id}`
 };
 
 export interface ContentActionsProps {
@@ -52,7 +56,7 @@ export function ContentActions({ type, id, threadId, mine, canModerate, reported
     const asModerator = !mine && canModerate;
     const ok = await confirm({
       title: `Supprimer ${WHAT[type].this} ?`,
-      message: `${asModerator ? WHAT[type].moderator : ""}${type === "THREAD" ? "Ses réponses seront supprimées aussi. " : ""}Action définitive.`,
+      message: `${asModerator ? WHAT[type].moderator : ""}${type === "THREAD" ? "Ses réponses seront supprimées aussi. " : type === "FEEDBACK" ? "Ses votes, avis et images seront supprimés aussi. " : ""}Action définitive.`,
       confirmLabel: "Supprimer",
       danger: true
     });
@@ -65,7 +69,9 @@ export function ContentActions({ type, id, threadId, mine, canModerate, reported
         toast.error(data.error ?? "Suppression impossible pour le moment.");
         return;
       }
-      toast.success(type === "THREAD" ? "Discussion supprimée." : type === "REPLY" ? "Réponse supprimée." : "Partage retiré.");
+      toast.success(
+        type === "THREAD" ? "Discussion supprimée." : type === "REPLY" ? "Réponse supprimée." : type === "FEEDBACK" ? "Demande d'avis supprimée." : type === "FEEDBACK_COMMENT" ? "Avis supprimé." : "Partage retiré."
+      );
       onDeleted?.();
     } finally {
       setDeleting(false);

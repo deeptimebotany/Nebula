@@ -1,3 +1,5 @@
+import { feedbackImagesOf } from "@/lib/community/feedback";
+import { deleteUploadedFile } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
@@ -55,12 +57,15 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
+  let feedbackImages: string[] = [];
   try {
     // Registre des essais (lot E3) : un compte qui a eu un essai garde sa
     // trace (empreinte de l'adresse seulement), pour que supprimer puis
     // recréer son compte ne redonne pas d'essai — y compris pour les comptes
     // créés avant ce registre.
     if (user.trialEndsAt) await recordTrialGrant(user.email).catch(() => undefined);
+    // Images des demandes d'avis (Communauté) : supprimées après le compte.
+    feedbackImages = await feedbackImagesOf(userId).catch(() => []);
     await prisma.$transaction([
       prisma.brand.deleteMany({ where: { id: { in: ownedMemberships.map((m: OwnedMembership) => m.brandId) } } }),
       prisma.user.delete({ where: { id: userId } })
@@ -75,5 +80,6 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
+  await Promise.all(feedbackImages.map((url) => deleteUploadedFile(url)));
   return NextResponse.json({ ok: true });
 }

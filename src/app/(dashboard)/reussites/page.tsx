@@ -53,7 +53,7 @@ import { CollectiveCard, LaunchCard, RarityMark, SeasonShelf } from "@/component
 import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 import type { ReviewFocus } from "@/lib/reussites/review";
-import { CATEGORIES, monthOfLabel, type ReussiteCategory } from "@/lib/reussites/catalog";
+import { CATEGORIES, COUNT_RECORD_SERIES, RANKS, monthOfLabel, type ReussiteCategory } from "@/lib/reussites/catalog";
 import { SLOT_LABEL } from "@/lib/reussites/missions";
 import { daysLeft, timeLeftLabel } from "@/lib/reussites/periods";
 import type { ChestDTO, MissionDTO, NearDTO, NextActionDTO, ProgressChoiceDTO, ReussitesPageDTO, SeriesDTO, SkillDTO, StarDTO, StreakDTO } from "@/lib/reussites/types";
@@ -67,6 +67,7 @@ const ConstellationSection = dynamic(() => import("@/components/reussites/conste
 const LessonDialog = dynamic(() => import("@/components/reussites/lesson-dialog").then((m) => m.LessonDialog));
 const ShowcaseSection = dynamic(() => import("@/components/reussites/showcase-section").then((m) => m.ShowcaseSection), { loading: () => <SkeletonCard lines={3} /> });
 const FeaturedPanel = dynamic(() => import("@/components/reussites/featured-panel").then((m) => m.FeaturedPanel));
+const ImageShareDialog = dynamic(() => import("@/components/reussites/image-share-dialog").then((m) => m.ImageShareDialog));
 
 type ReussitesTab = "missions" | "competences" | "recompenses";
 const TABS: { value: ReussitesTab; label: string }[] = [
@@ -422,12 +423,16 @@ function formatDay(iso: string): string {
 }
 
 function AccomplishmentCard({ s }: { s: SeriesDTO }) {
+  const [cardOpen, setCardOpen] = useState(false);
   const next = s.tiers.find((t) => !t.unlockedAt);
   const shown = next ?? s.tiers[s.tiers.length - 1];
   const unlocked = !next;
   const multi = s.tiers.length > 1;
   const title = multi ? `${s.name} · palier ${shown.rank}` : s.name;
   const doneCount = s.tiers.filter((t) => t.unlockedAt).length;
+  // Réussites v3 : meilleur record de qualité gagné dans la série, sa preuve
+  // et sa carte à partager.
+  const record = [...s.tiers].reverse().find((t) => t.quality && t.unlockedAt);
   return (
     <div id={`ach-${s.id}`} className={clsx("flex h-full scroll-mt-24 flex-col rounded-2xl border p-4", unlocked ? "border-amber-400/40 bg-amber-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
       <div className="flex items-start gap-3">
@@ -477,6 +482,27 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
             {shown.reward}
           </p>
         )}
+        {record && (
+          <div className="mt-2 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.05] px-2.5 py-2">
+            {record.record ? (
+              <>
+                <p className="text-[11px] font-medium text-emerald-200">
+                  {COUNT_RECORD_SERIES.includes(s.id) ? `Meilleure : ${record.record.headline.charAt(0).toLowerCase()}${record.record.headline.slice(1)}` : record.record.headline}
+                </p>
+                <p className="mt-0.5 text-[10.5px] leading-snug text-slate-400">
+                  {record.record.title ? `« ${record.record.title.length > 60 ? `${record.record.title.slice(0, 59)}…` : record.record.title} » · ` : ""}
+                  relevé le {formatDay(record.record.measuredAt)}
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] font-medium text-emerald-200">Record de qualité : compte pour les rangs</p>
+            )}
+            <button type="button" onClick={() => setCardOpen(true)} className="mt-1.5 text-[11px] font-semibold text-aurora-300 underline-offset-2 hover:underline">
+              Partager la carte du record
+            </button>
+            <RecordCardDialog open={cardOpen} onClose={() => setCardOpen(false)} tierKey={record.key} community={s.category === "communaute"} />
+          </div>
+        )}
         {s.note && !unlocked && <p className="mt-1.5 text-[10px] leading-snug text-slate-500">{s.note}</p>}
         <RarityMark rarity={shown.rarity} className="mt-1.5" />
       </div>
@@ -484,8 +510,24 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
   );
 }
 
+function RecordCardDialog({ open, onClose, tierKey, community }: { open: boolean; onClose: () => void; tierKey: string; community: boolean }) {
+  if (!open) return null;
+  return (
+    <ImageShareDialog
+      open={open}
+      onClose={onClose}
+      url={`/api/reussites/record-card?key=${encodeURIComponent(tierKey)}`}
+      title="Carte du record"
+      intro={`${community ? "Ce que la Communauté Nebula a dit de votre travail" : "Vos chiffres, relevés par Nebula sur l'API officielle du réseau"}, avec la date. Une image rien que pour vous : aucune page publique n'est créée.`}
+      alt="Carte du record de qualité : chiffres, publication, date du relevé et rang de créateur"
+      filename={`record-${tierKey}-nebula.png`}
+      shareTitle="Mon record sur Nebula"
+    />
+  );
+}
+
 // Objectifs « Pour bien démarrer » : les premiers pas, montrés en tête de
-// l'album tant qu'ils ne sont pas tous faits (rangs Étincelle et Comète I).
+// l'album tant qu'ils ne sont pas tous faits (rangs Lancement et Émergent I).
 const STARTER_SERIES = ["first-post", "bio-live", "first-thread", "posts", "envol"];
 
 /** Lit ?focus=… (dans une frontière Suspense, exigée par useSearchParams). */
@@ -754,7 +796,7 @@ export default function ReussitesPage() {
               </button>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-aurora-300">Rang {level.rank} sur 5</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-aurora-300">Rang {level.rank} sur {RANKS.length}</span>
                   <button type="button" onClick={() => setLevelsOpen(true)} className="font-display text-lg font-semibold text-white hover:underline hover:decoration-aurora-400/60 hover:underline-offset-4">
                     {level.name}
                   </button>
@@ -995,7 +1037,8 @@ export default function ReussitesPage() {
                   </div>
                   <p className="text-[11px] text-slate-500">
                     Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
-                    d&apos;audience viennent de vos comptes connectés (Analytics et Engagements).
+                    d&apos;audience viennent de vos comptes connectés (API officielles des réseaux, relevées chaque jour). Records de qualité : publications en ligne
+                    depuis 7 jours au moins, comparées à vos propres chiffres ; ils comptent pour les rangs à partir de Confirmé.
                   </p>
                 </>
               )}

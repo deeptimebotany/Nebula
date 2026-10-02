@@ -47,6 +47,10 @@ model User {
   weeklyMissions     WeeklyMissions[]
   reussiteItems      ReussiteItem[]
   featuredVideos     FeaturedVideo[]
+  // Avis de la communauté (02/10/2026).
+  feedbackRequests FeedbackRequest[]
+  feedbackVotes    FeedbackVote[]
+  feedbackComments FeedbackComment[]
   studioGenerations  StudioGeneration[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
@@ -168,6 +172,9 @@ model User {
   emailVerifiedAt           DateTime? @default(now())
   emailVerifyTokenHash      String?   @unique
   emailVerifyTokenExpiresAt DateTime?
+  // Dernier envoi du lien (01/10/2026) : délai d'une minute entre deux
+  // envois, décompte affiché sur le bouton « Renvoyer ».
+  emailVerifySentAt         DateTime?
   // Compteur de sessions : l'augmenter déconnecte immédiatement toutes les
   // sessions ouvertes de ce compte (voir le rappel jwt de src/lib/auth.ts).
   // Augmenté à la réinitialisation du mot de passe et quand un compte non
@@ -533,6 +540,10 @@ model SocialConnection {
   // Idem pour la page Engagements (métriques par publication : likes,
   // partages…) — voir /api/engagements/sync.
   lastMetricsSyncedAt DateTime?
+  // Réussites v3 (02/10/2026) : dernier passage de la synchro quotidienne
+  // automatique (statistiques + métriques par publication), qui sert aussi
+  // de verrou entre deux passages du cron (src/lib/social/auto-sync.ts).
+  autoSyncedAt      DateTime?
   // Identifiant de la PERSONNE qui a donné l'autorisation chez le réseau
   // (lot 2, fiabilité) : compte Facebook pour Instagram/Facebook, compte
   // Threads pour Threads. Sert aux rappels de Meta « application retirée » /
@@ -551,6 +562,7 @@ model SocialConnection {
 
   @@unique([brandId, network, externalAccountId])
   @@index([authUserId])
+  @@index([status, autoSyncedAt])
 }
 
 // Métriques d'ENGAGEMENT par publication (page /engagements) : likes,
@@ -577,6 +589,10 @@ model PostMetric {
   comments       Int?
   shares         Int?
   saves          Int?
+  // Réussites v3 (02/10/2026) : YouTube seulement. Part moyenne regardée
+  // (YouTube Analytics, averageViewPercentage) et durée de la vidéo.
+  avgViewPct      Float?
+  durationSeconds Int?
   prevViews      Int?
   prevLikes      Int?
   prevComments   Int?
@@ -945,7 +961,8 @@ model SharedVideo {
 
 // Vidéo à la une dans la Communauté (Réussites v2, lot C) : 7 jours, 3 à la
 // fois, seulement une vidéo déjà partagée par un créateur qui l'accepte
-// (User.featureConsent). Gagnée au rang Constellation ou dans le coffre
+// (User.featureConsent). Gagnée aux rangs Confirmé, Influent, Référence et
+// Icône (Réussites v3 ; Constellation en v2) ou dans le coffre
 // (objet « feature » de ReussiteItem), ou choisie par le propriétaire du
 // site. Retirable par le créateur et par le propriétaire (removedAt).
 // source : « rank » | « chest » | « admin ».
@@ -965,6 +982,75 @@ model FeaturedVideo {
   @@index([endsAt])
   @@index([userId])
   @@index([sharedVideoId])
+}
+
+// Avis de la communauté (02/10/2026) : avant de publier, un créateur
+// soumet 2 ou 3 miniatures (THUMBNAIL) ou titres (TITLE) ; les autres
+// membres votent pour leur préférée et commentent pendant 72 h. Ouvert à
+// tous les paliers : 2 demandes par semaine en Gratuit (voir
+// src/lib/community/feedback.ts). Les images sont rangées sous
+// u/<auteur>/avis/ et supprimées avec la demande (30 jours après sa fin).
+model FeedbackRequest {
+  id         String            @id @default(cuid())
+  authorId   String
+  kind       String
+  context    String            @default("")
+  network    String?
+  closesAt   DateTime
+  closedAt   DateTime?
+  createdAt  DateTime          @default(now())
+  author     User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  options    FeedbackOption[]
+  votes      FeedbackVote[]
+  comments   FeedbackComment[]
+
+  @@index([closesAt])
+  @@index([authorId, createdAt])
+  @@index([createdAt])
+}
+
+model FeedbackOption {
+  id        String          @id @default(cuid())
+  requestId String
+  position  Int             @default(0)
+  label     String          @default("")
+  imageUrl  String?
+  request   FeedbackRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  votes     FeedbackVote[]
+
+  @@index([requestId])
+}
+
+// Un vote par personne et par demande (revoter change le choix).
+model FeedbackVote {
+  id        String          @id @default(cuid())
+  requestId String
+  optionId  String
+  userId    String
+  createdAt DateTime        @default(now())
+  request   FeedbackRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  option    FeedbackOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, userId])
+  @@index([optionId])
+  @@index([userId])
+}
+
+model FeedbackComment {
+  id        String          @id @default(cuid())
+  requestId String
+  authorId  String
+  body      String
+  createdAt DateTime        @default(now())
+  // Réussites v3 (02/10/2026) : l'auteur de la demande a marqué cet avis
+  // « Cet avis m'a aidé » (compte pour « Avis utiles » de celui qui l'a écrit).
+  helpfulAt DateTime?
+  request   FeedbackRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author    User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@index([authorId])
 }
 
 // Défi collectif du mois (Réussites v2, lot C) : un objectif commun à tous
@@ -1554,6 +1640,10 @@ model AchievementUnlock {
   key          String
   xp           Int       @default(0)
   unlockedAt   DateTime  @default(now())
+  // Réussites v3 (02/10/2026) : preuve d'un record de qualité au moment où il
+  // est gagné (chiffre, publication, réseau, date du relevé), pour la carte
+  // à partager. Vide pour les autres accomplissements.
+  detail       Json?
   // Célébration (carte + confettis) déjà montrée à l'écran.
   celebratedAt DateTime?
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)

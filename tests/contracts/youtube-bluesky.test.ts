@@ -183,6 +183,26 @@ describe("YouTube : lectures (liste « uploads », 2 unités de quota)", () => {
     const metrics = await youtubeClient.fetchPostMetrics!(yt());
     expect(metrics[0]).toMatchObject({ postExternalId: "aBcDeFgHiJk", views: 1520, likes: 87, comments: 12 });
     expect(metrics[1]).toMatchObject({ postExternalId: "lMnOpQrStUv", views: 10, likes: null, comments: null });
+    // Durée lue dans contentDetails ; YouTube Analytics injoignable : pas de rétention, le reste arrive.
+    expect(metrics[0]).toMatchObject({ durationSeconds: 545, avgViewPct: null });
+    expect(metrics[1].durationSeconds).toBe(45);
+  });
+
+  it("rétention moyenne par vidéo (Réussites v3) : une seule requête YouTube Analytics", async () => {
+    const net = installNetwork([
+      ...uploadsRoutes,
+      { url: `${YT}/videos`, fixture: "youtube/videos-statistics" },
+      { url: "youtubeanalytics.googleapis.com/v2/reports", fixture: "youtube/analytics-average-view" }
+    ]);
+    const metrics = await youtubeClient.fetchPostMetrics!(yt());
+    expect(metrics[0]).toMatchObject({ postExternalId: "aBcDeFgHiJk", avgViewPct: 58.4, durationSeconds: 545 });
+    expect(metrics[1].avgViewPct).toBeNull(); // pas de données pour cette vidéo
+    const report = net.to(/v2\/reports$/);
+    expect(report).toHaveLength(1);
+    expect(report[0].url.searchParams.get("metrics")).toBe("views,averageViewPercentage");
+    expect(report[0].url.searchParams.get("dimensions")).toBe("video");
+    expect(report[0].url.searchParams.get("filters")).toBe("video==aBcDeFgHiJk,lMnOpQrStUv");
+    expect(net.to(/videos$/)[0].url.searchParams.get("part")).toBe("statistics,contentDetails");
   });
 
   it("statistiques de la chaîne", async () => {

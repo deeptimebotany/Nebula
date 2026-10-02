@@ -33,8 +33,9 @@ import type { Network } from "@/lib/types";
 import type { EarnedBadge } from "@/lib/badges";
 import { ContentActions } from "@/components/community/content-actions";
 import { reportKey } from "@/lib/community/report-reasons";
+import { FeedbackTab } from "@/components/community/feedback/feedback-tab";
 
-type Tab = "forum" | "guides" | "videos";
+type Tab = "forum" | "avis" | "guides" | "videos";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -133,6 +134,8 @@ export default function CommunityPage() {
   const [newBody, setNewBody] = useState("");
   const [newCategory, setNewCategory] = useState("GENERAL");
   const [posting, setPosting] = useState(false);
+  // Avis de la communauté (02/10/2026) : demandes en attente de mon vote.
+  const [feedbackCount, setFeedbackCount] = useState(0);
 
   // Aucune dépendance : le chargement ne doit se relancer que sur demande
   // (après une publication), jamais parce qu'un contexte a été re-rendu.
@@ -162,12 +165,20 @@ export default function CommunityPage() {
   // une alerte de signalement).
   useEffect(() => {
     const onglet = new URLSearchParams(window.location.search).get("onglet");
-    if (onglet === "videos" || onglet === "guides") setTab(onglet);
+    if (onglet === "videos" || onglet === "guides" || onglet === "avis") setTab(onglet);
   }, []);
   useEffect(() => {
     if (loading || !window.location.hash.startsWith("#video-")) return;
     document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
   }, [loading, tab]);
+
+  // Demandes d'avis en attente de mon vote : pastille de l'onglet Avis.
+  useEffect(() => {
+    fetch("/api/community/feedback?scope=open", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.requests && setFeedbackCount((d.requests as { myVote: string | null }[]).filter((x) => !x.myVote).length))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     fetch("/api/community/badges")
@@ -242,7 +253,7 @@ export default function CommunityPage() {
       <PageHeader
         icon={<IconUsers className="h-5 w-5" />}
         title="Communauté"
-        description="Entraide, guides et vidéos partagées entre créateurs Nebula — un espace public, commun à tous."
+        description="Entraide, avis avant de publier, guides et vidéos partagées entre créateurs Nebula — un espace commun à tous."
         actions={
           tab === "forum" && (
             <Button onClick={() => setComposerOpen((v) => !v)} variant={composerOpen ? "outline" : "glow"}>
@@ -276,6 +287,7 @@ export default function CommunityPage() {
             {(
               [
                 ["forum", "Forum", threads.length],
+                ["avis", "Avis", feedbackCount],
                 ["guides", "Guides", guides.length],
                 ["videos", "Vidéos du jour", videos.length]
               ] as [Tab, string, number][]
@@ -302,7 +314,7 @@ export default function CommunityPage() {
             </GlassCard>
           )}
 
-          {loading && (
+          {loading && tab !== "avis" && (
             <div className="space-y-3" aria-busy="true">
               <SkeletonCard lines={2} />
               <SkeletonCard lines={2} />
@@ -410,6 +422,8 @@ export default function CommunityPage() {
               </div>
             </div>
           )}
+
+          {tab === "avis" && <FeedbackTab viewerId={me?.user?.id ?? null} onCountChange={setFeedbackCount} />}
 
           {!loading && tab === "guides" && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

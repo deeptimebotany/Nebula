@@ -16,15 +16,19 @@
 //    être prises sans preuve ;
 //  - les accès offerts en attente (partenaires) ne s'appliquent qu'à une
 //    adresse confirmée.
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { EMAIL_COLORS, emailButton, emailFrame } from "@/lib/emails/brand";
 import { isAdminEmail } from "@/lib/admin-emails";
 import { isOwnerEmail } from "@/lib/dev-preview";
 import { SITE_URL } from "@/lib/site";
+import { deriveKey } from "@/lib/secrets";
 
 export const EMAIL_VERIFY_TTL_MS = 48 * 60 * 60 * 1000;
+export { EMAIL_VERIFY_RESEND_COOLDOWN_MS } from "@/lib/email-verify-config";
+/** Un lien encore valable au moins aussi longtemps est renvoyé tel quel. */
+const EMAIL_VERIFY_REUSE_MIN_MS = 6 * 60 * 60 * 1000;
 
 /** Base des liens envoyés par e-mail : jamais l'en-tête Host de la requête. */
 export function publicAppUrl(): string {
@@ -54,12 +58,46 @@ export function providerEmailVerified(provider: string, profile: unknown): boole
 // Confirmation de l'adresse
 // ---------------------------------------------------------------------------
 
-export async function sendVerificationEmail(user: { id: string; email: string; name?: string | null }): Promise<{ ok: boolean; error?: string }> {
-  const raw = randomBytes(32).toString("base64url");
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { emailVerifyTokenHash: hashToken(raw), emailVerifyTokenExpiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS) }
-  });
+/**
+ * Jeton du lien de confirmation, dérivé de NEXTAUTH_SECRET (clé
+ * « email-verify ») et lié au compte, à l'adresse et à la date
+ * d'expiration (01/10/2026). Un renvoi pendant la validité du lien
+ * recalcule LE MÊME jeton : tous les e-mails reçus gardent un lien qui
+ * marche (avant : chaque renvoi annulait les liens précédents, et on
+ * cliquait souvent sur un ancien e-mail → « lien invalide »). Seul son
+ * hash est en base, comme avant. Sans secret (tests) : jeton aléatoire.
+ */
+export function emailVerifyToken(userId: string, email: string, expiresAt: Date): string | null {
+  try {
+    return createHmac("sha256", deriveKey("email-verify")).update(`${userId}\n${email.trim().toLowerCase()}\n${expiresAt.getTime()}`).digest("base64url");
+  } catch {
+    return null;
+  }
+}
+
+/** Date lisible (heure de Paris) : « jeudi 3 octobre à 14:32 ». */
+function parisDate(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+    .format(date);
+}
+
+export async function sendVerificationEmail(
+  user: { id: string; email: string; name?: string | null }
+): Promise<{ ok: boolean; error?: string; sentAt?: Date; expiresAt?: Date }> {
+  const current = await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerifyTokenHash: true, emailVerifyTokenExpiresAt: true } });
+  let expiresAt = current?.emailVerifyTokenExpiresAt ?? null;
+  let raw: string | null = null;
+  // Lien encore valable assez longtemps : on renvoie le même.
+  if (expiresAt && current?.emailVerifyTokenHash && expiresAt.getTime() - Date.now() > EMAIL_VERIFY_REUSE_MIN_MS) {
+    const candidate = emailVerifyToken(user.id, user.email, expiresAt);
+    if (candidate && hashToken(candidate) === current.emailVerifyTokenHash) raw = candidate;
+  }
+  if (!raw) {
+    expiresAt = new Date(Date.now() + EMAIL_VERIFY_TTL_MS);
+    raw = emailVerifyToken(user.id, user.email, expiresAt) ?? randomBytes(32).toString("base64url");
+    await prisma.user.update({ where: { id: user.id }, data: { emailVerifyTokenHash: hashToken(raw), emailVerifyTokenExpiresAt: expiresAt } });
+  }
+  const until = parisDate(expiresAt as Date);
   const url = `${publicAppUrl()}/api/auth/verify-email?token=${raw}`;
   const hello = user.name ? `Bonjour ${escapeHtml(user.name.split(" ")[0])},` : "Bonjour,";
   const result = await sendEmail({
@@ -67,14 +105,19 @@ export async function sendVerificationEmail(user: { id: string; email: string; n
     subject: "Confirmez votre adresse e-mail Nebula",
     html: emailFrame(`
       <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827">Confirmez votre adresse</h1>
-      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">${hello} merci pour votre inscription sur Nebula. Confirmez que cette adresse est bien la vôtre — le lien est valable 48 heures.</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.55">${hello} merci pour votre inscription sur Nebula. Confirmez que cette adresse est bien la vôtre : le lien est valable jusqu'au ${until} (heure de Paris).</p>
       <p style="margin:22px 0">${emailButton("Confirmer mon adresse", url)}</p>
-      <p style="margin:0 0 8px;color:${EMAIL_COLORS.muted};font-size:13px;line-height:1.5">Vous devrez être connecté(e) à votre compte Nebula pour confirmer. Si vous n'avez pas créé de compte Nebula, ignorez cet e-mail : personne ne pourra utiliser votre adresse sans ce lien.</p>
+      <p style="margin:0 0 8px;color:${EMAIL_COLORS.muted};font-size:13px;line-height:1.5">Vous devrez être connecté(e) à votre compte Nebula pour confirmer. Si vous avez demandé plusieurs e-mails, le lien de chacun fonctionne. Si vous n'avez pas créé de compte Nebula, ignorez cet e-mail : personne ne pourra utiliser votre adresse sans ce lien.</p>
     `),
-    text: `Confirmez votre adresse Nebula (lien valable 48 h) : ${url}\n\nSi vous n'avez pas créé de compte Nebula, ignorez cet e-mail.`
+    text: `Confirmez votre adresse Nebula (lien valable jusqu'au ${until}, heure de Paris) : ${url}\n\nSi vous n'avez pas créé de compte Nebula, ignorez cet e-mail.`
   });
-  if (!result.ok) console.error("[account-security] e-mail de confirmation non envoyé :", result.error);
-  return result;
+  if (!result.ok) {
+    console.error("[account-security] e-mail de confirmation non envoyé :", result.error);
+    return result;
+  }
+  const sentAt = new Date();
+  await prisma.user.update({ where: { id: user.id }, data: { emailVerifySentAt: sentAt } });
+  return { ok: true, sentAt, expiresAt: expiresAt as Date };
 }
 
 // ---------------------------------------------------------------------------

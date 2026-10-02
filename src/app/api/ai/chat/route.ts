@@ -8,7 +8,8 @@ import { gateAppAi } from "@/lib/ai/guard";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { isAssistantContextKey, type AssistantContextKey } from "@/lib/ai/assistant-contexts";
-import { CONTEXT_PROMPTS, buildSystemInstruction, extractThumbnailBrief, trimHistory } from "@/lib/ai/assistant-prompts";
+import { CONTEXT_PROMPTS, buildSystemInstruction, extractThumbnailBrief, toolContextLines, trimHistory } from "@/lib/ai/assistant-prompts";
+import { getToolContext } from "@/lib/tools/app-context";
 import { z } from "zod";
 
 // POST /api/ai/chat — l'assistant « Demander à Nebula ».
@@ -235,6 +236,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Outils (02/10/2026) : les mêmes chiffres que la page de l'outil.
+  const toolLines = mod.needs.toolData ? toolContextLines(await getToolContext(brandId)) : [];
+
   let postContext = "";
   if (postId) {
     // Restreint à la marque déjà vérifiée ci-dessus : un postId d'une autre
@@ -252,7 +256,8 @@ export async function POST(req: NextRequest) {
     recentPostsLines,
     bioSummary,
     postContext,
-    postMetricsLines
+    postMetricsLines,
+    toolLines
   });
 
   try {

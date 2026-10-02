@@ -44,37 +44,53 @@ describe("constellation", () => {
 });
 
 describe("condition de variété des rangs", () => {
-  it("Étoile : 2 compétences au niveau 2 ; Constellation : 3 au niveau 3 ; Nébuleuse : 4 au niveau 4", () => {
+  it("compétences à partir de Régulier, records de qualité à partir de Confirmé", () => {
     expect(maxStepAllowed(levels())).toBe(6);
     expect(maxStepAllowed(levels({ regularite: 2, formats: 2 }))).toBe(9);
-    expect(maxStepAllowed(levels({ regularite: 3, formats: 3, portee: 3 }))).toBe(12);
-    expect(maxStepAllowed(levels({ regularite: 4, formats: 4, portee: 4, communaute: 4 }))).toBe(15);
+    // Confirmé : 3 compétences au niveau 3 ET 1 record de qualité (v3).
+    expect(maxStepAllowed(levels({ regularite: 3, formats: 3, portee: 3 }))).toBe(9);
+    expect(maxStepAllowed(levels({ regularite: 3, formats: 3, portee: 3 }), 1)).toBe(12);
+    const four = levels({ regularite: 4, formats: 4, portee: 4, communaute: 4 });
+    expect(maxStepAllowed(four, 2)).toBe(12);
+    expect(maxStepAllowed(four, 3)).toBe(15);
+    expect(maxStepAllowed(four, 6)).toBe(18);
+    expect(maxStepAllowed(levels({ regularite: 4, formats: 4, portee: 4, communaute: 4, strategie: 4 }), 10)).toBe(21);
+    expect(maxStepAllowed(levels({ regularite: 5, formats: 5, portee: 5, communaute: 5, strategie: 5 }), 15)).toBe(24);
   });
 
   it("rang en attente : barre pleine et ce qui manque, compétences les plus proches d'abord", () => {
     const r = gatedRank(1000, levels({ regularite: 2, formats: 1 }));
-    expect(r).toMatchObject({ level: 6, name: "Comète III", pct: 100, nextName: "Étoile I" });
-    expect(r.pending).toEqual({ step: 7, name: "Étoile I", condition: "2 compétences au niveau 2", missing: ["1 compétence de plus au niveau 2", "Formats vidéo (1/2)"] });
+    expect(r).toMatchObject({ level: 6, name: "Émergent III", pct: 100, nextName: "Régulier I" });
+    expect(r.pending).toEqual({ step: 7, name: "Régulier I", condition: "2 compétences au niveau 2", missing: ["1 compétence de plus au niveau 2", "Formats vidéo (1/2)"] });
     expect(gatedRank(500, levels()).pending).toBeNull(); // XP insuffisants : rien en attente
   });
 
+  it("rang en attente faute de records de qualité : ce qui manque est dit", () => {
+    const r = gatedRank(2400, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 0);
+    expect(r).toMatchObject({ level: 9, name: "Régulier III", pct: 100 });
+    expect(r.pending).toEqual({ step: 10, name: "Confirmé I", condition: "3 compétences au niveau 3 et 1 record de qualité", missing: ["1 record de qualité de plus (0/1), dans l'album « Qualité »"] });
+    expect(gatedRank(2400, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 1)).toMatchObject({ level: 10, name: "Confirmé I", pending: null });
+  });
+
   it("un rang déjà atteint n'est jamais retiré, mais jamais au-delà des XP", () => {
-    expect(gatedRank(1300, levels(), 8)).toMatchObject({ level: 8, name: "Étoile II" });
+    expect(gatedRank(1300, levels(), 8)).toMatchObject({ level: 8, name: "Régulier II" });
     expect(gatedRank(1300, levels(), 12).level).toBe(8);
     expect(gatedRank(1300, levels({ regularite: 2, portee: 2 }), 1)).toMatchObject({ level: 8, pending: null });
+    // Palier Confirmé gagné avant la v3 (sans record de qualité) : gardé.
+    expect(gatedRank(3100, levels({ regularite: 3, formats: 3, portee: 3 }), 11, 0)).toMatchObject({ level: 11, name: "Confirmé II" });
   });
 
   it("rankAt : progression dans le palier enregistré", () => {
-    expect(rankAt(520, 5)).toMatchObject({ name: "Comète II", pct: 35, pending: null });
+    expect(rankAt(520, 5)).toMatchObject({ name: "Émergent II", pct: 35, pending: null });
     expect(missingForRank(3, levels({ regularite: 2, formats: 2 }))).toEqual([]);
   });
 
-  it("la migration garde le palier des XP : mêmes seuils que le catalogue", () => {
+  it("la migration v2 garde le palier des XP : les 15 premiers paliers gardent leurs seuils", () => {
     const dir = join(process.cwd(), "prisma/migrations");
     const name = readdirSync(dir).find((d) => d.endsWith("_reussites_constellation"))!;
     const sql = readFileSync(join(dir, name, "migration.sql"), "utf8");
     const pairs = Array.from(sql.matchAll(/WHEN "creatorXp" >= (\d+) THEN (\d+)/g)).map((m) => [Number(m[1]), Number(m[2])]);
-    const expected = STEPS.filter((s) => s.step > 1).map((s) => [s.minXp, s.step]).reverse();
+    const expected = STEPS.filter((s) => s.step > 1 && s.step <= 15).map((s) => [s.minXp, s.step]).reverse();
     expect(pairs).toEqual(expected);
   });
 });

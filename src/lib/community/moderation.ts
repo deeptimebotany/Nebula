@@ -14,13 +14,15 @@
 import { prisma } from "@/lib/prisma";
 import { alertOwner } from "@/lib/owner-alerts";
 import { isOwnerEmail } from "@/lib/owner";
+import { deleteFeedbackRequest } from "@/lib/community/feedback";
 
 import { REPORT_DETAILS_MAX, reportKey, reportReasonLabel, REPORT_TARGET_TYPES, type ReportReason, type ReportTargetType } from "@/lib/community/report-reasons";
 
 export { REPORT_DETAILS_MAX, REPORT_REASONS, REPORT_REASON_IDS, REPORT_TARGET_TYPES, reportKey, reportReasonLabel } from "@/lib/community/report-reasons";
 export type { ReportReason, ReportTargetType } from "@/lib/community/report-reasons";
 
-const TYPE_LABEL: Record<ReportTargetType, string> = { THREAD: "sujet", REPLY: "réponse", VIDEO: "lien partagé" };
+const TYPE_LABEL: Record<ReportTargetType, string> = { THREAD: "sujet", REPLY: "réponse", VIDEO: "lien partagé", FEEDBACK: "demande d'avis", FEEDBACK_COMMENT: "avis" };
+const FEMININE = new Set<ReportTargetType>(["REPLY", "FEEDBACK"]);
 
 /** Le propriétaire du site modère toute la Communauté. */
 export function canModerate(email: string | null | undefined): boolean {
@@ -54,6 +56,20 @@ export async function findReportTarget(type: ReportTargetType, id: string): Prom
     if (!r) return null;
     return { type, id, authorId: r.authorId, authorName: r.author?.name || "un membre", excerpt: excerpt(r.body), href: `/community/${r.threadId}#reponse-${r.id}` };
   }
+  if (type === "FEEDBACK") {
+    const f = await prisma.feedbackRequest.findUnique({
+      where: { id },
+      select: { id: true, kind: true, context: true, authorId: true, author: { select: { name: true } }, options: { orderBy: { position: "asc" }, select: { label: true } } }
+    });
+    if (!f) return null;
+    const what = f.kind === "TITLE" ? `titres : ${f.options.map((o) => `« ${o.label} »`).join(", ")}` : "miniatures";
+    return { type, id, authorId: f.authorId, authorName: f.author?.name || "un membre", excerpt: excerpt(`${what}${f.context ? ` — ${f.context}` : ""}`), href: `/community?onglet=avis#avis-${f.id}` };
+  }
+  if (type === "FEEDBACK_COMMENT") {
+    const c = await prisma.feedbackComment.findUnique({ where: { id }, select: { id: true, body: true, requestId: true, authorId: true, author: { select: { name: true } } } });
+    if (!c) return null;
+    return { type, id, authorId: c.authorId, authorName: c.author?.name || "un membre", excerpt: excerpt(c.body), href: `/community?onglet=avis#avis-${c.requestId}` };
+  }
   const v = await prisma.sharedVideo.findUnique({ where: { id }, select: { id: true, title: true, note: true, externalUrl: true, authorId: true, author: { select: { name: true } } } });
   if (!v) return null;
   return {
@@ -83,7 +99,7 @@ export async function reportContent(input: { reporterId: string; type: ReportTar
   }
   const count = await prisma.communityReport.count({ where: { targetType: input.type, targetId: input.id } });
   await alertOwner({
-    title: `Communauté : ${TYPE_LABEL[input.type]} signalé${input.type === "REPLY" ? "e" : ""}`,
+    title: `Communauté : ${TYPE_LABEL[input.type]} signalé${FEMININE.has(input.type) ? "e" : ""}`,
     body: `${reportReasonLabel(input.reason)}${details ? ` — « ${excerpt(details, 80)} »` : ""}. ${TYPE_LABEL[input.type].charAt(0).toUpperCase()}${TYPE_LABEL[input.type].slice(1)} de ${target.authorName} : « ${target.excerpt} ». ${count} signalement${count > 1 ? "s" : ""} au total.`,
     dedupeKey: `community-report:${reportKey(input.type, input.id)}`,
     href: target.href,
@@ -110,10 +126,34 @@ export type DeleteResult = { ok: true } | { ok: false; status: number; error: st
  */
 export async function deleteCommunityContent(actor: { userId: string; email: string | null | undefined }, type: ReportTargetType, id: string): Promise<DeleteResult> {
   const target = await findReportTarget(type, id);
-  if (!target) return { ok: false, status: 404, error: type === "THREAD" ? "Discussion introuvable." : type === "REPLY" ? "Réponse introuvable." : "Partage introuvable." };
+  const NOT_FOUND: Record<ReportTargetType, string> = {
+    THREAD: "Discussion introuvable.",
+    REPLY: "Réponse introuvable.",
+    VIDEO: "Partage introuvable.",
+    FEEDBACK: "Demande d'avis introuvable.",
+    FEEDBACK_COMMENT: "Avis introuvable."
+  };
+  const OWN: Record<ReportTargetType, string> = {
+    THREAD: "vos propres discussions",
+    REPLY: "vos propres réponses",
+    VIDEO: "vos propres partages",
+    FEEDBACK: "vos propres demandes d'avis",
+    FEEDBACK_COMMENT: "vos propres avis"
+  };
+  if (!target) return { ok: false, status: 404, error: NOT_FOUND[type] };
   if (target.authorId !== actor.userId && !canModerate(actor.email)) {
-    const what = type === "THREAD" ? "vos propres discussions" : type === "REPLY" ? "vos propres réponses" : "vos propres partages";
-    return { ok: false, status: 403, error: `Vous ne pouvez supprimer que ${what}.` };
+    return { ok: false, status: 403, error: `Vous ne pouvez supprimer que ${OWN[type]}.` };
+  }
+  if (type === "FEEDBACK") {
+    // Les commentaires partent avec la demande : leurs signalements aussi.
+    const commentIds = (await prisma.feedbackComment.findMany({ where: { requestId: id }, select: { id: true } })).map((c) => c.id);
+    await prisma.communityReport.deleteMany({ where: { targetType: "FEEDBACK_COMMENT", targetId: { in: commentIds } } });
+    await deleteFeedbackRequest(id);
+    return { ok: true };
+  }
+  if (type === "FEEDBACK_COMMENT") {
+    await prisma.$transaction([prisma.communityReport.deleteMany({ where: { targetType: "FEEDBACK_COMMENT", targetId: id } }), prisma.feedbackComment.delete({ where: { id } })]);
+    return { ok: true };
   }
   if (type === "THREAD") {
     const replyIds = (await prisma.forumReply.findMany({ where: { threadId: id }, select: { id: true } })).map((r) => r.id);

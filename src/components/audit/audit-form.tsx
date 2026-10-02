@@ -39,9 +39,11 @@ const STATUS_LABEL: Record<SourceStatus, string> = {
   disabled: "pas encore activé"
 };
 
-export function AuditForm({ sources }: { sources: Record<AuditSourceKey, boolean> }) {
+export function AuditForm({ sources, initialValues }: { sources: Record<AuditSourceKey, boolean>; initialValues?: RawAuditInput }) {
   const fields = FIELDS.filter((f) => sources[f.key]);
-  const [values, setValues] = useState<RawAuditInput>({});
+  // Outil de l'application (02/10/2026) : champs préremplis avec les comptes
+  // connectés et la Page bio — seulement pour les sources disponibles.
+  const [values, setValues] = useState<RawAuditInput>(() => Object.fromEntries(Object.entries(initialValues ?? {}).filter(([k, v]) => v && sources[k as AuditSourceKey])) as RawAuditInput);
   const [errors, setErrors] = useState<InputErrors & { email?: string }>({});
   const [email, setEmail] = useState("");
   const [tips, setTips] = useState(false);

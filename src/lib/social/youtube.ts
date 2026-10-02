@@ -476,15 +476,29 @@ export const youtubeClient: SocialClient = {
     const videos = await fetchRecentVideos(connection, 15);
     if (videos.length === 0) return [];
     const ids = videos.map((v) => v.videoId).join(",");
-    const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=statistics&id=${ids}&maxResults=50`, {
+    const data = await fetchJson("YOUTUBE", `${API_BASE}/videos?part=statistics,contentDetails&id=${ids}&maxResults=50`, {
       headers: { Authorization: `Bearer ${connection.accessToken}` },
       // Compteurs en texte chez YouTube (« "1234" »), absents quand la chaîne
       // les masque (mentions J'aime désactivées…) : affichés « — ».
-      schema: ytList(z.object({ id: idSchema, statistics: soft(z.object({ viewCount: countSchema, likeCount: countSchema, commentCount: countSchema })) }))
+      // contentDetails.duration (ISO 8601) : Réussites v3, rétention des
+      // vidéos de plus de 3 minutes.
+      schema: ytList(
+        z.object({
+          id: idSchema,
+          statistics: soft(z.object({ viewCount: countSchema, likeCount: countSchema, commentCount: countSchema })),
+          contentDetails: soft(z.object({ duration: textSchema }))
+        })
+      )
     });
-    const statsById = new Map((data.items ?? []).map((item) => [item.id, item.statistics ?? {}]));
+    const byId = new Map((data.items ?? []).map((item) => [item.id, item]));
+    // Réussites v3 (02/10/2026) : part moyenne regardée (YouTube Analytics,
+    // gratuit, scope yt-analytics.readonly déjà demandé). En cas d'échec
+    // (chaîne connectée avant ce scope, quota), les statistiques restent.
+    const avgPct = await fetchAverageViewPercentages(connection, videos.map((v) => v.videoId)).catch(() => new Map<string, number>());
     return videos.map((v) => {
-      const st: { viewCount?: number; likeCount?: number; commentCount?: number } = statsById.get(v.videoId) ?? {};
+      const item = byId.get(v.videoId);
+      const st: { viewCount?: number; likeCount?: number; commentCount?: number } = item?.statistics ?? {};
+      const duration = isoDurationSeconds(item?.contentDetails?.duration ?? undefined);
       return {
         postExternalId: v.videoId,
         title: v.title,
@@ -495,7 +509,9 @@ export const youtubeClient: SocialClient = {
         likes: st.likeCount ?? null,
         comments: st.commentCount ?? null,
         shares: null,
-        saves: null
+        saves: null,
+        avgViewPct: avgPct.get(v.videoId) ?? null,
+        durationSeconds: duration || null
       };
     });
   },
@@ -571,6 +587,35 @@ export async function fetchRetention(
   }
 
   return data.rows.map((row) => ({ timeRatio: row[0], watchRatio: row[1] }));
+}
+
+/**
+ * Part moyenne regardée de plusieurs vidéos (YouTube Analytics,
+ * averageViewPercentage, sur toute la vie de la vidéo), par identifiant.
+ * Même donnée que « Durée moyenne de visionnage » en % dans YouTube Studio.
+ * Une vidéo sans données (trop récente, trop peu vue) est absente.
+ */
+export async function fetchAverageViewPercentages(connection: ConnectionLike, videoIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const ids = Array.from(new Set(videoIds.filter(Boolean))).slice(0, 50);
+  if (ids.length === 0) return out;
+  const params = new URLSearchParams({
+    ids: "channel==MINE",
+    // Voir fetchRetention : toute la vie de la chaîne.
+    startDate: "2005-02-14",
+    endDate: new Date().toISOString().slice(0, 10),
+    metrics: "views,averageViewPercentage",
+    dimensions: "video",
+    filters: `video==${ids.join(",")}`,
+    sort: "-views",
+    maxResults: String(ids.length)
+  });
+  const data = await fetchJson("YOUTUBE", `${ANALYTICS_BASE}/reports?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${connection.accessToken}` },
+    schema: z.object({ rows: opt(z.array(z.tuple([z.string(), z.number(), z.number()]).rest(z.unknown()))) })
+  });
+  for (const [videoId, , pct] of data.rows ?? []) if (Number.isFinite(pct) && pct >= 0) out.set(videoId, Math.round(pct * 10) / 10);
+  return out;
 }
 
 export interface YoutubeVideoSummary {

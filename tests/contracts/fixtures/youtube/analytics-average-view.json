@@ -1,0 +1,27 @@
+{
+  "kind": "youtubeAnalytics#resultTable",
+  "columnHeaders": [
+    {
+      "name": "video",
+      "columnType": "DIMENSION",
+      "dataType": "STRING"
+    },
+    {
+      "name": "views",
+      "columnType": "METRIC",
+      "dataType": "INTEGER"
+    },
+    {
+      "name": "averageViewPercentage",
+      "columnType": "METRIC",
+      "dataType": "FLOAT"
+    }
+  ],
+  "rows": [
+    [
+      "aBcDeFgHiJk",
+      1520,
+      58.37
+    ]
+  ]
+}

@@ -8,13 +8,16 @@ import type { Network } from "@/lib/types";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "@/lib/social/connection-health";
 import { dormantSyncResponse, withoutDormant } from "@/lib/billing/dormant";
+import { savePostMetrics } from "@/lib/social/metrics-store";
+import { refreshReussites } from "@/lib/reussites/engine";
 
 // « Actualiser » de la page /engagements : interroge l'API de chaque réseau
 // (SocialClient.fetchPostMetrics) pour les comptes d'une marque, ou pour un
 // seul compte, et met à jour PostMetric. Les valeurs précédentes sont
 // décalées dans prev* pour afficher l'évolution depuis la dernière fois.
 // Un réseau en échec (jeton expiré, API indisponible) n'empêche pas les
-// autres : le détail est renvoyé par compte.
+// autres : le détail est renvoyé par compte. Les mêmes relevés se font aussi
+// une fois par jour tout seuls (src/lib/social/auto-sync.ts, Réussites v3).
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -48,43 +51,7 @@ export async function POST(req: NextRequest) {
     }
     try {
       const inputs = await client.fetchPostMetrics(connection);
-      const now = new Date();
-      for (const input of inputs) {
-        const existing = await prisma.postMetric.findUnique({
-          where: { connectionId_postExternalId: { connectionId: connection.id, postExternalId: input.postExternalId } }
-        });
-        const values = {
-          title: input.title ?? existing?.title ?? null,
-          permalink: input.permalink ?? existing?.permalink ?? null,
-          thumbnailUrl: input.thumbnailUrl ?? existing?.thumbnailUrl ?? null,
-          publishedAt: input.publishedAt ?? existing?.publishedAt ?? null,
-          views: input.views ?? null,
-          likes: input.likes ?? null,
-          comments: input.comments ?? null,
-          shares: input.shares ?? null,
-          saves: input.saves ?? null,
-          capturedAt: now
-        };
-        if (existing) {
-          await prisma.postMetric.update({
-            where: { id: existing.id },
-            data: {
-              ...values,
-              prevViews: existing.views,
-              prevLikes: existing.likes,
-              prevComments: existing.comments,
-              prevShares: existing.shares,
-              prevSaves: existing.saves,
-              prevCapturedAt: existing.capturedAt
-            }
-          });
-        } else {
-          await prisma.postMetric.create({
-            data: { connectionId: connection.id, network: connection.network, postExternalId: input.postExternalId, ...values }
-          });
-        }
-      }
-      await prisma.socialConnection.update({ where: { id: connection.id }, data: { lastMetricsSyncedAt: now } });
+      await savePostMetrics(connection, inputs);
       await onSyncSuccess(connection);
       results.push({ connectionId: connection.id, network: connection.network, displayName: connection.displayName, count: inputs.length });
     } catch (err) {
@@ -94,6 +61,9 @@ export async function POST(req: NextRequest) {
 
   // Cadres de la page bio débloqués par les j'aime cumulés.
   await checkAudienceMilestones(userId);
+  // Réussites v3 : records de qualité (vues, engagement, rétention) mesurés
+  // sur les chiffres qui viennent d'arriver.
+  if (results.some((r) => r.count > 0)) await refreshReussites(userId);
 
   return NextResponse.json({ ok: true, results, count: results.reduce((sum, r) => sum + r.count, 0) });
 }

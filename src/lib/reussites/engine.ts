@@ -25,7 +25,13 @@
 // par skill-metrics.ts, et condition de variété des rangs (gatedRank).
 // Lot C : défi collectif du mois (collective.ts), badges de
 // saison (seasons.ts), Premier décollage (launch.ts), badge Explorateur,
-// ticket « vidéo à la une » du rang Constellation I (featured.ts).
+// ticket « vidéo à la une » du rang Constellation I (featured.ts, v2).
+// Réussites v3 (02/10/2026) : 8 rangs de créateur (Lancement → Icône, 24
+// paliers), records de qualité mesurés par quality.ts (vues comparées à la
+// médiane du compte, engagement au-dessus des repères, rétention YouTube,
+// croissance nette, avis reçus et jugés utiles), avec leur preuve gardée
+// dans AchievementUnlock.detail ; tickets « à la une » aux paliers
+// Confirmé I, Influent I, Référence I et Icône I.
 import { prisma } from "@/lib/prisma";
 import { ownedBy } from "@/lib/brand-access";
 import {
@@ -42,13 +48,16 @@ import { confirmedReferralCount } from "@/lib/billing/rewards";
 import {
   ALL_TIERS,
   EGG_XP,
+  FEATURE_TICKET_STEPS,
   LINKED_EGG_KEYS,
+  QUALITY_KEYS,
   REWARDS,
   STEPS,
   findChallenge,
   findTier,
   monthLabel,
   monthlyChallengeFor,
+  qualityCount,
   rankFor,
   rankKey,
   stepDef,
@@ -69,6 +78,7 @@ import { COLLECTIVE_XP, evaluateCollective, type CollectiveState } from "./colle
 import { SEASON_TARGET, SEASON_XP, seasonById, seasonOfMonth } from "./seasons";
 import { launchState, type LaunchState } from "./launch";
 import { grantRankTicket } from "./featured";
+import { loadQuality, type QualityEvidence, type QualityResult } from "./quality";
 
 const DAY = 86_400_000;
 const THROTTLE_MS = 5 * 60_000;
@@ -163,7 +173,7 @@ async function postPerformance(userId: string): Promise<{ bestEngagementPct: num
 }
 
 async function communityStats(userId: string) {
-  const [threads, replies, reactionsReceived] = await Promise.all([
+  const [threads, replies, reactionsReceived, feedbackComments] = await Promise.all([
     prisma.forumThread.count({ where: { authorId: userId } }),
     prisma.forumReply.findMany({
       where: { authorId: userId, thread: { authorId: { not: userId } } },
@@ -171,9 +181,17 @@ async function communityStats(userId: string) {
     }) as Promise<{ threadId: string; body: string }[]>,
     prisma.communityReaction.count({
       where: { userId: { not: userId }, OR: [{ thread: { authorId: userId } }, { reply: { authorId: userId } }] }
-    })
+    }),
+    // Avis de la communauté (02/10/2026) : un avis écrit sur la demande d'un
+    // autre créateur compte comme un sujet aidé (même seuil de 20 caractères).
+    prisma.feedbackComment.findMany({
+      where: { authorId: userId, request: { authorId: { not: userId } } },
+      select: { requestId: true, body: true }
+    }) as Promise<{ requestId: string; body: string }[]>
   ]);
-  const repliedThreads = new Set(replies.filter((r) => r.body.trim().length >= MIN_REPLY_CHARS).map((r) => r.threadId)).size;
+  const repliedThreads =
+    new Set(replies.filter((r) => r.body.trim().length >= MIN_REPLY_CHARS).map((r) => r.threadId)).size +
+    new Set(feedbackComments.filter((c) => c.body.trim().length >= MIN_REPLY_CHARS).map((c) => c.requestId)).size;
   return { threads, repliedThreads, reactionsReceived };
 }
 
@@ -192,10 +210,28 @@ export type Metrics = Record<MetricId, number>;
 interface Snapshot {
   metrics: Metrics;
   posts: PublishedPost[];
+  /** Preuves des records de qualité (enregistrées avec le palier gagné). */
+  evidence: QualityResult["evidence"];
 }
 
+const EMPTY_QUALITY: QualityResult = {
+  metrics: {
+    bestViewsRatio: 0,
+    postsAboveMedianEngagement: 0,
+    postsAboveHighEngagement: 0,
+    videosRetention50: 0,
+    bestRetentionPct: 0,
+    bestGrowthPct30d: 0,
+    growthMonthsStreak: 0,
+    bestSavesShares: 0,
+    bestFeedbackReceived: 0,
+    helpfulAdvice: 0
+  },
+  evidence: {}
+};
+
 async function computeMetrics(userId: string, now: Date): Promise<Snapshot> {
-  const [posts, planned, gain, perf, audience, community, bio, referrals, weeklyDone] = await Promise.all([
+  const [posts, planned, gain, perf, audience, community, bio, referrals, weeklyDone, quality] = await Promise.all([
     publishedPosts(userId),
     daysPlannedAhead(userId, now),
     bestGain90d(userId),
@@ -205,7 +241,12 @@ async function computeMetrics(userId: string, now: Date): Promise<Snapshot> {
     bioStats(userId),
     confirmedReferralCount(userId).catch(() => 0),
     // Défis de la semaine d'avant la v2 et missions de la semaine.
-    challengeCompletionDb.count({ where: { userId, kind: { in: ["WEEKLY", "MISSION"] } } })
+    challengeCompletionDb.count({ where: { userId, kind: { in: ["WEEKLY", "MISSION"] } } }),
+    // Réussites v3 : records de qualité (une mesure en échec ne bloque rien).
+    loadQuality(userId, now).catch((err: Error) => {
+      console.error("[reussites] mesures de qualité impossibles :", err.message);
+      return EMPTY_QUALITY;
+    })
   ]);
   const metrics: Metrics = {
     publishedPosts: posts.length,
@@ -231,9 +272,10 @@ async function computeMetrics(userId: string, now: Date): Promise<Snapshot> {
     starFragments: 0,
     // Complétées par evaluateReussites (lot C).
     launchSteps: 0,
-    toolsExplored: 0
+    toolsExplored: 0,
+    ...quality.metrics
   };
-  return { metrics, posts };
+  return { metrics, posts, evidence: quality.evidence };
 }
 
 // --- Défi du mois -----------------------------------------------------------------
@@ -330,9 +372,9 @@ export interface EvaluationResult {
   completions: ChallengeCompletionRow[];
 }
 
-async function tryCreateUnlock(userId: string, key: string, xp: number, celebrated: boolean): Promise<boolean> {
+async function tryCreateUnlock(userId: string, key: string, xp: number, celebrated: boolean, detail?: QualityEvidence): Promise<boolean> {
   try {
-    await achievementUnlockDb.create({ data: { userId, key, xp, celebratedAt: celebrated ? new Date() : null } });
+    await achievementUnlockDb.create({ data: { userId, key, xp, celebratedAt: celebrated ? new Date() : null, ...(detail ? { detail } : {}) } });
     return true;
   } catch {
     return false; // déjà débloqué (évaluation concurrente)
@@ -365,7 +407,7 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     if (!opts.force && user.reussitesCheckedAt && now.getTime() - new Date(user.reussitesCheckedAt).getTime() < THROTTLE_MS) return null;
     const firstRun = !user.reussitesCheckedAt;
 
-    const { metrics, posts } = await computeMetrics(userId, now);
+    const { metrics, posts, evidence } = await computeMetrics(userId, now);
     const existing = await achievementUnlockDb.findMany({ where: { userId } });
     const have = new Set(existing.map((u) => u.key));
     const fresh: FreshItem[] = [];
@@ -421,7 +463,10 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     // Accomplissements.
     for (const tier of ALL_TIERS) {
       if (have.has(tier.key) || metrics[tier.series.metric] < tier.target) continue;
-      if (await tryCreateUnlock(userId, tier.key, tier.xp, firstRun)) {
+      // Record de qualité : la preuve (publication, chiffres, date du relevé)
+      // est gardée avec le palier, pour la carte à partager.
+      const detail = QUALITY_KEYS.includes(tier.key) ? evidence[tier.series.metric as keyof typeof evidence] : undefined;
+      if (await tryCreateUnlock(userId, tier.key, tier.xp, firstRun, detail)) {
         have.add(tier.key);
         fresh.push({ type: "accomplishment", key: tier.key });
         // Easter egg historique lié (cadre de page bio, badge ambassadeur) :
@@ -441,9 +486,9 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     if ((firstRun || catchUp) && (await tryCreateUnlock(userId, MIGRATION_KEY, 0, true))) have.add(MIGRATION_KEY);
 
     // XP et rang (une ligne par palier atteint : jamais de retour en arrière).
-    // Condition de variété : les rangs Étoile, Constellation et Nébuleuse
-    // demandent aussi des compétences, mais un palier déjà atteint (ou
-    // mérité avant la v2) n'est jamais retiré.
+    // Conditions : à partir du rang Régulier, des compétences variées ; à
+    // partir de Confirmé, des records de qualité (v3). Un palier déjà
+    // atteint (ou mérité avant) n'est jamais retiré.
     const xp = await computeXp(userId);
     const reached = Math.max(
       Number(user.creatorLevel) || 1,
@@ -452,7 +497,7 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
         .map((k) => Number(k.slice(5)) || 1),
       catchUp ? rankFor(Number(user.creatorXp) || 0).level : 1
     );
-    const level = gatedRank(xp, skillLevels(have), reached);
+    const level = gatedRank(xp, skillLevels(have), reached, qualityCount(have));
     for (const st of STEPS) {
       if (st.step < 2 || st.step > level.level || have.has(rankKey(st.step))) continue;
       // Premier passage : seule la carte du palier atteint s'affiche.
@@ -463,8 +508,9 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
       }
     }
 
-    // Rang Constellation I : un ticket « vidéo à la une » (lot C, une seule fois).
-    if (level.level >= 10) await grantRankTicket(userId);
+    // Tickets « vidéo à la une » des paliers Confirmé I, Influent I,
+    // Référence I et Icône I (une seule fois chacun).
+    for (const step of FEATURE_TICKET_STEPS) if (level.level >= step) await grantRankTicket(userId, step);
 
     // Anneaux d'avatar gagnés : activés tout de suite (désactivables dans Paramètres).
     const newKeys = Array.from(have).filter((k) => !existing.some((e) => e.key === k));
@@ -493,7 +539,8 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
       weekly,
       streak,
       newRewards: newRewards.map((r) => r.label),
-      starsLit: ALL_STARS.filter((st) => have.has(st.key)).length
+      starsLit: ALL_STARS.filter((st) => have.has(st.key)).length,
+      evidence
     });
 
     const [unlocks, completions] = await Promise.all([
@@ -533,6 +580,8 @@ async function sendNotifications(
     streak: StreakResult;
     newRewards: string[];
     starsLit: number;
+    /** Preuves des records de qualité (Réussites v3). */
+    evidence: QualityResult["evidence"];
   }
 ): Promise<void> {
   const { fresh, firstRun, level } = ctx;
@@ -620,14 +669,16 @@ async function sendNotifications(
     });
   }
 
-  // Rang en attente : les XP sont là, il manque des compétences.
+  // Rang en attente : les XP sont là, il manque des compétences (ou, à
+  // partir de Confirmé, des records de qualité).
   if (level.pending && !ctx.catchUp) {
+    const onlyRecords = level.pending.missing.every((m) => m.includes("record"));
     await notifyOnce(userId, {
       kind: "achievement",
       title: `Rang ${level.pending.name} en attente`,
-      body: `Vos XP suffisent. Pour y entrer : ${level.pending.condition}. Il vous manque ${level.pending.missing[0]}${level.pending.missing.length > 1 ? ` — les plus proches : ${level.pending.missing.slice(1).join(", ")}` : ""}.`,
-      href: "/reussites?focus=constellation#competences",
-      actionLabel: "Voir ma constellation",
+      body: `Vos XP suffisent. Pour y entrer : ${level.pending.condition}. Il vous manque ${level.pending.missing[0]}${level.pending.missing.length > 1 ? ` — ${level.pending.missing.slice(1).join(", ")}` : ""}.`,
+      href: onlyRecords ? "/reussites?focus=record-vues#recompenses" : "/reussites?focus=constellation#competences",
+      actionLabel: onlyRecords ? "Voir les records" : "Voir ma constellation",
       dedupeKey: `rank-pending:${level.pending.step}`
     });
   }
@@ -644,14 +695,18 @@ async function sendNotifications(
   } else {
     for (const t of accomplishments) {
       const reward = tierRewardText(t);
+      // Record de qualité (v3) : la preuve dans la notification, et la carte.
+      const proof = QUALITY_KEYS.includes(t.key) ? ctx.evidence[t.series.metric as keyof typeof ctx.evidence] : undefined;
       await notify(userId, {
         kind: "achievement",
-        title: "Accomplissement débloqué",
-        body: `${t.series.emoji} ${t.title} : ${t.description.charAt(0).toLowerCase()}${t.description.slice(1)}.${reward ? ` Récompense : ${reward}.` : ""} +${t.xp} XP.`,
+        title: proof ? "Nouveau record de qualité" : "Accomplissement débloqué",
+        body: proof
+          ? `${t.series.emoji} ${t.title} : ${proof.headline}.${proof.title ? ` « ${proof.title.slice(0, 60)} ».` : ""} +${t.xp} XP, et il compte pour les rangs.`
+          : `${t.series.emoji} ${t.title} : ${t.description.charAt(0).toLowerCase()}${t.description.slice(1)}.${reward ? ` Récompense : ${reward}.` : ""} +${t.xp} XP.`,
         // Lien ciblé (24/09/2026) : la page défile jusqu'à ce succès et le
         // met en surbrillance quelques secondes.
         href: `/reussites?focus=${encodeURIComponent(t.key)}#recompenses`,
-        actionLabel: reward ? "Voir la récompense" : null,
+        actionLabel: proof ? "Partager la carte" : reward ? "Voir la récompense" : null,
         dedupeKey: `ach:${t.key}`
       });
     }
