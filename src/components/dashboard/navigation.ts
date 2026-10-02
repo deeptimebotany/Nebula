@@ -28,7 +28,8 @@ import {
   IconGift,
   IconSparkle,
   IconSend,
-  IconWrench
+  IconWrench,
+  IconClock
 } from "./icons";
 import { TOOL_CATALOG } from "@/components/tools/tool-catalog";
 
@@ -136,7 +137,10 @@ export const OWNER_NAV_ITEMS: NavItem[] = [
   { href: "/admin/reseaux", label: "Réseaux", icon: IconPlug, description: "Suspendre un réseau, disjoncteur", keywords: ["admin", "incident", "panne", "api", "suspendre"] },
   { href: "/admin/ia", label: "Coûts de l'IA", icon: IconChart, description: "Coût estimé par palier, budgets de l'essai", keywords: ["admin", "ia", "gemini", "coûts", "budget", "essai"] },
   { href: "/admin/statistiques", label: "Statistiques anonymes", icon: IconChart, description: "Chiffres de groupe (accord facultatif, 20 comptes min.)", keywords: ["admin", "données", "tendances", "rgpd", "anonyme"] },
-  { href: "/admin/reussites", label: "Réussites (admin)", icon: IconTrophy, description: "Défi collectif, vidéos à la une", keywords: ["admin", "défi collectif", "à la une", "communauté"] }
+  { href: "/admin/reussites", label: "Réussites (admin)", icon: IconTrophy, description: "Défi collectif, vidéos à la une", keywords: ["admin", "défi collectif", "à la une", "communauté"] },
+  // 02/10/2026 : journal de toutes les mises à jour, veille des changements d'API.
+  { href: "/admin/journal", label: "Journal des mises à jour", icon: IconClock, description: "Toutes les mises à jour, page par page", keywords: ["admin", "changelog", "historique", "versions", "livraisons", "zip"] },
+  { href: "/admin/api", label: "Veille des API", icon: IconPlug, description: "Fin de vie des versions, annonces, signaux", keywords: ["admin", "api", "dépréciation", "changelog", "meta", "gemini", "version"] }
 ];
 
 

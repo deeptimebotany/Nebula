@@ -41,7 +41,11 @@ const TABLES = [
   "AiMonthlyUsage",
   "AiCreditPurchase",
   // Listes d'attente (réseaux à venir, lancement du site), sans lien vers un compte.
-  "NetworkWaitlist"
+  "NetworkWaitlist",
+  // Veille des API (02/10/2026) : sources, annonces, signaux.
+  "ApiWatchSource",
+  "ApiWatchItem",
+  "ApiSignal"
 ];
 
 export async function resetDatabase(): Promise<void> {

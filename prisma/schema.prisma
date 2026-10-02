@@ -1889,3 +1889,60 @@ model AiCreditPurchase {
 
   @@index([userId, createdAt])
 }
+
+// Veille des API (02/10/2026) : être prévenu AVANT qu'un changement d'API
+// ne casse le site (src/lib/api-watch). Une source = un flux RSS/Atom ou une
+// page de changelog officielle relue une fois par jour ; `snapshot` garde le
+// texte de la page pour repérer les lignes nouvelles. Tables sans lien vers
+// un compte, lues dans /admin/api (propriétaire).
+model ApiWatchSource {
+  key           String    @id
+  lastCheckedAt DateTime?
+  lastOkAt      DateTime?
+  lastError     String?
+  failures      Int       @default(0)
+  contentHash   String?
+  snapshot      String?
+  updatedAt     DateTime  @updatedAt
+}
+
+// Annonce repérée dans une source (article d'un flux, lignes nouvelles d'une
+// page). `important` : parle de retrait, de fin de vie, de changement
+// cassant… (alerte au propriétaire). `baseline` : déjà là au premier relevé
+// (jamais d'alerte). `handledAt` : marquée « traitée » dans /admin/api.
+model ApiWatchItem {
+  id          String    @id @default(cuid())
+  sourceKey   String
+  externalId  String
+  title       String
+  url         String?
+  excerpt     String?
+  publishedAt DateTime?
+  important   Boolean   @default(false)
+  baseline    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  handledAt   DateTime?
+
+  @@unique([sourceKey, externalId])
+  @@index([createdAt])
+}
+
+// Signal de dépréciation lu dans une vraie réponse d'API (en-têtes
+// Deprecation, Sunset, X-Ad-Api-Version-Warning, version servie différente
+// de la version demandée…). Une ligne par signal distinct (`key`), comptée
+// à chaque nouvelle apparition ; alerte au propriétaire la première fois.
+model ApiSignal {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  provider    String
+  kind        String
+  endpoint    String
+  detail      String
+  sunsetAt    DateTime?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  count       Int       @default(1)
+  handledAt   DateTime?
+
+  @@index([lastSeenAt])
+}

@@ -3,7 +3,8 @@
 // conversion des mois offerts en attente, rappel des publications du
 // lendemain, purge des notifications de plus de 90 jours et rappels des
 // missions de la semaine (Réussites v2), puis relevé quotidien automatique
-// des comptes connectés (Réussites v3, auto-sync.ts). Chaque tâche est
+// des comptes connectés (Réussites v3, auto-sync.ts) et veille des API
+// (api-watch/watcher.ts). Chaque tâche est
 // isolée : l'échec de l'une n'empêche jamais les autres.
 import { closeDueFeedback, purgeOldFeedback } from "@/lib/community/feedback";
 import { processDueRewards, flushAllBonusMonths } from "@/lib/billing/rewards";
@@ -12,6 +13,7 @@ import { processWebhookRetries, purgeOldWebhookDeliveries } from "@/lib/webhooks
 import { purgePendingAdAuths, syncDueAdAccounts } from "@/lib/ads/sync";
 import { runReussitesNudges } from "@/lib/reussites/nudges";
 import { autoSyncDueConnections } from "@/lib/social/auto-sync";
+import { runApiWatch } from "@/lib/api-watch/watcher";
 
 function safe<T>(label: string, run: () => Promise<T>): Promise<T | null> {
   return run().catch((err) => {
@@ -40,5 +42,7 @@ export async function runAccountJobs() {
   // Réussites v3 (02/10/2026) : relevé quotidien automatique des comptes
   // connectés (statistiques, métriques par publication, rétention YouTube).
   const autoSynced = await safe("synchro quotidienne des comptes", () => autoSyncDueConnections());
-  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced };
+  // Veille des API (02/10/2026) : rappels d'échéance et changelogs officiels.
+  const apiWatch = await safe("veille des API", () => runApiWatch());
+  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch };
 }

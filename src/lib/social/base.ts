@@ -2,6 +2,7 @@ import type { TiktokPostOptions } from "./tiktok-direct-post";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { AnalyticsResult, Network, PublishResult } from "@/lib/types";
 import { describeIssue, endpointLabel, shapeOf } from "./contract";
+import { noteApiSignals } from "@/lib/api-watch/signals";
 
 export interface OAuthTokenResult {
   accessToken: string;
@@ -429,11 +430,16 @@ function noResponseError(network: Provider, err: unknown, read: boolean): Social
 export async function sendRequest(network: Provider, url: string, init: RequestOptions = {}): Promise<Response> {
   const { timeoutMs, readOnly, ...rest } = init;
   const method = (rest.method ?? "GET").toUpperCase();
+  let res: Response;
   try {
-    return await fetch(url, { ...rest, signal: rest.signal ?? AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS) });
+    res = await fetch(url, { ...rest, signal: rest.signal ?? AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS) });
   } catch (err) {
     throw noResponseError(network, err, isRead(method, readOnly));
   }
+  // Veille des API (02/10/2026) : en-têtes de dépréciation (Deprecation,
+  // Sunset, version Meta servie…), lus sans ralentir ni jamais faire échouer l'appel.
+  if (res?.headers) noteApiSignals(network, method, url, res);
+  return res;
 }
 
 /**
