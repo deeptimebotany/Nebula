@@ -8,6 +8,22 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-03-commentaires-reseaux",
+    date: "2026-10-03",
+    title: "Commentaires : seulement les réseaux qui les donnent",
+    category: "Interface",
+    links: [
+      { href: "/comments", label: "Commentaires" },
+      { href: "/accounts", label: "Comptes connectés" }
+    ],
+    result:
+      "L'onglet Commentaires ne montre plus le bandeau « TikTok, Pinterest ne permet pas encore de lire les commentaires » ni les filtres de ces comptes ; dans Comptes connectés, le lien « Commentaires » disparaît pour TikTok et Pinterest. Bluesky reste : ses réponses sont lues et on peut y répondre.",
+    change:
+      "Nouvelle propriété `readsComments` des réseaux (`src/lib/types.ts`) : l'onglet ne garde que les comptes dont le client lit les commentaires, le lien du menu de compte est masqué sinon, et `/api/engagement` ne renvoie plus de commentaires pour ces comptes (la démo n'en crée plus). Des tests vérifient que la propriété correspond aux clients réseau et que d'anciennes lignes TikTok ne ressortent pas.",
+    readme: 65,
+    migrations: []
+  },
+  {
     id: "2026-10-02-pinterest-bac-a-sable",
     date: "2026-10-02",
     title: "Pinterest : mode bac à sable pour la vidéo de démonstration",

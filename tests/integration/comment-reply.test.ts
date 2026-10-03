@@ -70,6 +70,24 @@ describe.skipIf(!hasDatabase)("Répondre aux commentaires depuis Nebula", () => 
     for (const c of connections) expect(c).not.toHaveProperty("scopes");
   });
 
+  it("TikTok (pas de commentaires par l'API) : compte signalé, anciennes lignes jamais renvoyées (03/10/2026)", async () => {
+    const s = await setup();
+    const tt = await prisma.socialConnection.create({
+      data: { brandId: s.brand.id, network: "TIKTOK", externalAccountId: "TIKTOK-acc", displayName: "Compte TIKTOK", accessToken: "tok-TIKTOK" }
+    });
+    await prisma.engagementItem.create({
+      data: { connectionId: tt.id, network: "TIKTOK", externalId: "TT-1", postExternalId: "POST-TT", authorName: "fan", text: "ancien", publishedAt: new Date() }
+    });
+    const body = (await (await list(new NextRequest(`http://localhost/api/engagement?brandId=${s.brand.id}`))).json()) as {
+      connections: { id: string; supportsEngagement: boolean }[];
+      items: { connectionId: string }[];
+    };
+    expect(body.connections.find((c) => c.id === tt.id)?.supportsEngagement).toBe(false);
+    expect(body.items.map((i) => i.connectionId).sort()).toEqual([s.ig.id, s.yt.id].sort());
+    const one = (await (await list(new NextRequest(`http://localhost/api/engagement?connectionId=${tt.id}`))).json()) as { items: unknown[] };
+    expect(one.items).toEqual([]);
+  });
+
   it("réponse envoyée : sur Instagram, commentaire lu et « Vous avez répondu »", async () => {
     const s = await setup();
     const net = installNetwork([{ method: "POST", url: `${G}/1785800001/replies`, body: { id: "1787000009" } }]);

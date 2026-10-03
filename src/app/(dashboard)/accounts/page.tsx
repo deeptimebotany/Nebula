@@ -365,12 +365,15 @@ function AccountsPageInner() {
                           >
                             <IconCalendar className="h-4 w-4 text-slate-500" /> Publié
                           </Link>
-                          <Link
-                            href={`/comments?connectionId=${c.id}`}
-                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
-                          >
-                            <IconMessage className="h-4 w-4 text-slate-500" /> Commentaires
-                          </Link>
+                          {/* Pas de lien « Commentaires » quand l'API du réseau ne les donne pas (TikTok, Pinterest). */}
+                          {NETWORK_META[c.network]?.readsComments !== false && (
+                            <Link
+                              href={`/comments?connectionId=${c.id}`}
+                              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                            >
+                              <IconMessage className="h-4 w-4 text-slate-500" /> Commentaires
+                            </Link>
+                          )}
                           <Link
                             href={`/engagements?connectionId=${c.id}`}
                             className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"

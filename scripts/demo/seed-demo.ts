@@ -302,8 +302,9 @@ export async function seedDemo(db: PrismaClient, opts: { now?: Date; passwordHas
           prevCapturedAt: new Date(now.getTime() - 26 * 3_600_000)
         }
       });
-      // Quelques commentaires récents (boîte « Commentaires »).
-      if (slot.day > -12 && net !== "FACEBOOK") {
+      // Quelques commentaires récents (boîte « Commentaires »). Pas pour
+      // TikTok : son API ne donne pas les commentaires (03/10/2026).
+      if (slot.day > -12 && net !== "FACEBOOK" && net !== "TIKTOK") {
         for (let k = 0; k < 2; k++) {
           const idx = (i * 3 + k) % COMMENTS.length;
           await db.engagementItem.create({

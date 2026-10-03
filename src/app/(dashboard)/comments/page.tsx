@@ -25,7 +25,7 @@ import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
 import { IconAvatar, IconMessage, IconRefresh, IconSparkle } from "@/components/dashboard/icons";
-import { NETWORK_META, type Network } from "@/lib/types";
+import { NETWORK_META, commentNetworks, networksSentence, type Network } from "@/lib/types";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 import { CommentReplyBox } from "@/components/comments/comment-reply-box";
@@ -95,6 +95,8 @@ function CommentsPageInner() {
   const [grouping, setGrouping] = useState<Grouping>("date");
   const [syncing, setSyncing] = useState(false);
   const [syncNotes, setSyncNotes] = useState<string[]>([]);
+  // La marque a-t-elle des comptes, même sans commentaires lisibles ?
+  const [hasAccounts, setHasAccounts] = useState(false);
 
   // Dépend de l'identifiant (stable) et non de l'objet marque : un objet
   // recréé au rendu relancerait le chargement en boucle.
@@ -104,7 +106,10 @@ function CommentsPageInner() {
     try {
       const res = await fetch(`/api/engagement?brandId=${brandId}`, { cache: "no-store" });
       const d = await res.json();
-      setConnections(d.connections ?? []);
+      // Seuls les comptes dont l'API laisse lire les commentaires (03/10/2026 :
+      // TikTok et Pinterest ne le permettent pas, ils n'apparaissent plus ici).
+      setConnections(((d.connections ?? []) as ConnectionInfo[]).filter((c) => c.supportsEngagement));
+      setHasAccounts((d.connections ?? []).length > 0);
       setItems(d.items ?? []);
     } catch {
       setConnections([]);
@@ -151,8 +156,7 @@ function CommentsPageInner() {
   }, [filtered, grouping]);
 
   const unreadCount = items?.filter((it) => !it.read && (accountFilter === "all" || it.connectionId === accountFilter)).length ?? 0;
-  const unsupported = (connections ?? []).filter((c) => !c.supportsEngagement);
-  const syncableCount = (connections ?? []).filter((c) => c.supportsEngagement).length;
+  const syncableCount = (connections ?? []).length;
 
   async function onSync() {
     if (!activeBrand) return;
@@ -207,8 +211,8 @@ function CommentsPageInner() {
         <PageHeader icon={<IconMessage className="h-5 w-5" />} title="Commentaires" description="Modérez les commentaires reçus sur vos publications, tous comptes confondus." />
         <EmptyState
           icon={<IconMessage className="h-5 w-5" />}
-          title="Aucun compte connecté"
-          description="Connectez un compte Instagram, Facebook, YouTube, Threads ou Bluesky pour voir ici les commentaires reçus et y répondre."
+          title={hasAccounts ? "Aucun compte avec commentaires" : "Aucun compte connecté"}
+          description={`Connectez un compte ${networksSentence(commentNetworks(), "ou")} pour voir ici les commentaires reçus et y répondre.`}
           action={<ButtonLink href="/accounts">Connecter un compte</ButtonLink>}
         />
       </div>
@@ -249,7 +253,7 @@ function CommentsPageInner() {
               Tous les comptes
             </FilterChip>
             {connections.map((c) => (
-              <FilterChip key={c.id} active={accountFilter === c.id} onClick={() => setAccountFilter(c.id)} title={c.supportsEngagement ? undefined : "Commentaires non disponibles pour ce réseau"}>
+              <FilterChip key={c.id} active={accountFilter === c.id} onClick={() => setAccountFilter(c.id)}>
                 {/* Filtre de compte : logo officiel + nom, sans pastille dans la pastille. */}
                 <NetworkTile network={c.network} size={18} />
                 <span className="max-w-[140px] truncate" title={NETWORK_META[c.network].label}>{c.displayName}</span>
@@ -275,14 +279,6 @@ function CommentsPageInner() {
             </FilterChip>
           </div>
         </div>
-      )}
-
-      {unsupported.length > 0 && (accountFilter === "all" || unsupported.some((c) => c.id === accountFilter)) && (
-        <GlassCard className="border-amber-500/30 bg-amber-500/[0.04]">
-          <p className="text-sm text-amber-200">
-            {unsupported.map((c) => NETWORK_META[c.network].label).filter((v, i, a) => a.indexOf(v) === i).join(", ")} ne permet pas encore de lire les commentaires via son API publique — ces comptes n&apos;apparaîtront pas ici tant que la plateforme ne l&apos;autorise pas.
-          </p>
-        </GlassCard>
       )}
 
       {syncNotes.length > 0 && (

@@ -33,6 +33,11 @@ export const LAUNCHED_NETWORKS: readonly Network[] = ["INSTAGRAM", "FACEBOOK", "
 /** Réseaux ouverts reliés par la page d'autorisation officielle (OAuth) : tous sauf Bluesky (mot de passe d'application). */
 export const OAUTH_LAUNCHED_NETWORKS: readonly Network[] = LAUNCHED_NETWORKS.filter((n) => n !== "BLUESKY");
 
+/** Réseaux ouverts dont on peut lire (et traiter) les commentaires. */
+export function commentNetworks(list: readonly Network[] = LAUNCHED_NETWORKS): Network[] {
+  return list.filter((n) => NETWORK_META[n].readsComments !== false);
+}
+
 /** « Instagram, Facebook, TikTok, YouTube, Bluesky et Pinterest » — jamais une liste écrite à la main. */
 export function networksSentence(list: readonly Network[] = LAUNCHED_NETWORKS, last: "et" | "ou" = "et"): string {
   const labels = list.map((n) => NETWORK_META[n].label);
@@ -97,6 +102,14 @@ export interface NetworkMeta {
    * erreur. Absent = statistiques disponibles.
    */
   statsAvailable?: boolean;
+  /**
+   * false : l'API publique ne permet pas de lire les commentaires (TikTok,
+   * Pinterest, LinkedIn). Ce réseau n'apparaît alors ni dans l'onglet
+   * Commentaires ni dans le lien « Commentaires » de Comptes connectés.
+   * Doit correspondre à la présence de fetchEngagement dans son client
+   * (tests/quality/comments-networks.test.ts le vérifie).
+   */
+  readsComments?: false;
 }
 
 // Métadonnées utilisées partout dans l'UI (badges, limites de caption, etc.)
@@ -136,7 +149,8 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     supportsImage: true,
     maxCaption: 2200,
     requiresAudit:
-      "Scope video.publish audité par TikTok (sinon publication limitée à vos comptes de test)."
+      "Scope video.publish audité par TikTok (sinon publication limitée à vos comptes de test).",
+    readsComments: false
   },
   YOUTUBE: {
     id: "YOUTUBE",
@@ -182,7 +196,8 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     supportsVideo: true,
     supportsImage: true,
     maxCaption: 500,
-    requiresAudit: "App Pinterest avec accès « Standard » (l'accès d'essai limite la publication aux épingles visibles par vous seul)."
+    requiresAudit: "App Pinterest avec accès « Standard » (l'accès d'essai limite la publication aux épingles visibles par vous seul).",
+    readsComments: false
   },
   LINKEDIN: {
     id: "LINKEDIN",
@@ -195,7 +210,8 @@ export const NETWORK_META: Record<Network, NetworkMeta> = {
     maxCaption: 3000,
     requiresAudit: "Produits « Sign In with LinkedIn (OpenID Connect) » et « Share on LinkedIn » (gratuits, sans validation) — profils personnels. Les Pages entreprise demandent la Community Management API.",
     // L'API gratuite ne donne ni les abonnés ni les statistiques d'un profil personnel.
-    statsAvailable: false
+    statsAvailable: false,
+    readsComments: false
   }
 };
 

@@ -30,8 +30,11 @@ export async function GET(req: NextRequest) {
   });
   if (connectionId && connections.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
 
+  // Seulement les comptes dont l'API laisse lire les commentaires (03/10/2026) :
+  // d'anciennes lignes TikTok ou Pinterest s'afficheraient sans compte ni réseau.
+  const readable = connections.filter((c) => Boolean(getSocialClient(c.network as Network).fetchEngagement));
   const items = await prisma.engagementItem.findMany({
-    where: { connectionId: { in: connections.map((c) => c.id) } },
+    where: { connectionId: { in: readable.map((c) => c.id) } },
     orderBy: { publishedAt: "desc" },
     take: connectionId ? 100 : 300
   });
