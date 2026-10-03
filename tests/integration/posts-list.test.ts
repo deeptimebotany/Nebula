@@ -26,7 +26,7 @@ describe.skipIf(!hasDatabase)("liste des publications par période (lot 4)", () 
     // Même période, autre marque : jamais renvoyée.
     await mk("autre-marque", new Date("2026-10-11T08:00:00Z"), undefined, other.brand.id, other.user.id);
 
-    const m1 = await prisma.mediaAsset.create({ data: { brandId: brand.id, url: "https://x.test/1.jpg", filename: "1.jpg", mimeType: "image/jpeg", type: "IMAGE", sizeBytes: 100 } });
+    const m1 = await prisma.mediaAsset.create({ data: { brandId: brand.id, url: "https://x.test/1.jpg", filename: "1.jpg", mimeType: "image/jpeg", type: "IMAGE", sizeBytes: 100, importSource: "canva" } });
     const m2 = await prisma.mediaAsset.create({ data: { brandId: brand.id, url: "https://x.test/2.jpg", filename: "2.jpg", mimeType: "image/jpeg", type: "IMAGE", sizeBytes: 100 } });
     await prisma.postMedia.createMany({ data: [{ postId: inside.id, mediaAssetId: m2.id, order: 1 }, { postId: inside.id, mediaAssetId: m1.id, order: 0 }] });
     await prisma.postTarget.create({ data: { postId: inside.id, connectionId: conn.id, network: "INSTAGRAM", status: "SCHEDULED", metadata: { secret: "réglage" } } });
@@ -49,7 +49,8 @@ describe.skipIf(!hasDatabase)("liste des publications par période (lot 4)", () 
       targets: Record<string, unknown>[];
     };
     expect(row.media).toHaveLength(1);
-    expect(row.media[0].mediaAsset).toEqual({ url: "https://x.test/1.jpg", type: "IMAGE", thumbnailUrl: null });
+    // Origine du média (« Image importée depuis Canva » dans la liste, 03/10/2026).
+    expect(row.media[0].mediaAsset).toEqual({ url: "https://x.test/1.jpg", type: "IMAGE", thumbnailUrl: null, importSource: "canva" });
     expect(Object.keys(row.targets[0]).sort()).toEqual(["connectionId", "errorMessage", "externalUrl", "network", "publishedAt", "status"]);
     expect(JSON.stringify(row)).not.toContain("réglage");
   });

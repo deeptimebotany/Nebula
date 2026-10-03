@@ -13,6 +13,20 @@ export const MEDIA_SOURCE_LABELS: Record<MediaSourceId, string> = {
   canva: "Canva"
 };
 
+/**
+ * Source d'un média enregistrée sur MediaAsset.importSource (03/10/2026) :
+ * seulement les plateformes d'import ; « api » (API publique de Nebula) et
+ * null (envoyé depuis l'appareil) ne s'affichent pas.
+ */
+export function mediaImportSource(value: string | null | undefined): MediaSourceId | null {
+  return value && (MEDIA_SOURCE_ORDER as readonly string[]).includes(value) ? (value as MediaSourceId) : null;
+}
+
+/** « Image importée depuis Canva », « Vidéo importée depuis Dropbox »… */
+export function importedFromText(source: MediaSourceId, type?: string | null): string {
+  return `${type === "VIDEO" ? "Vidéo importée" : type === "IMAGE" ? "Image importée" : "Importé"} depuis ${MEDIA_SOURCE_LABELS[source]}`;
+}
+
 /** Ce qu'on y trouve (page d'accueil). */
 export const MEDIA_SOURCE_KIND: Record<MediaSourceId, string> = {
   gdrive: "stockage cloud",

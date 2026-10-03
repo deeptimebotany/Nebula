@@ -20,6 +20,7 @@ import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { errorAdvice } from "@/lib/social/error-advice";
 import { PostStats } from "@/components/posts/post-stats";
+import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
 import { clsx } from "@/lib/clsx";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { DeletePostDialog } from "@/components/posts/delete-post-dialog";
@@ -30,6 +31,8 @@ interface MediaAsset {
   url: string;
   type: "VIDEO" | "IMAGE";
   thumbnailUrl?: string | null;
+  /** Plateforme d'où vient le média (03/10/2026). */
+  importSource?: string | null;
 }
 
 type Insight = InsightData;
@@ -367,6 +370,8 @@ export default function PostDetailPage() {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm text-slate-300">{post.caption || "(pas de description)"}</p>
+              {/* Origine du média (03/10/2026) : « Image importée depuis Canva »… */}
+              {thumbAsset?.mediaAsset.importSource && <ImportSourceBadge source={thumbAsset.mediaAsset.importSource} type={thumbAsset.mediaAsset.type} className="mt-3" />}
               {post.media.length === 0 && post.sourceMediaUrl && (
                 <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100">
                   {(post.sourceMediaAttempts ?? 0) >= 3 ? "Le média d’origine n’a pas pu être récupéré : ajoutez-le à la main avant de programmer." : "Média importé en cours de récupération (quelques minutes). Si rien n’apparaît, ajoutez-le à la main."}{" "}

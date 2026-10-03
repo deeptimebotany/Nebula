@@ -51,6 +51,7 @@ import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { uploadMediaFile, type UploadedAssetResult } from "@/lib/upload-client";
 import { MediaImportBar } from "@/components/composer/media-import/media-import-bar";
+import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { playLaunchWhoosh } from "@/lib/cosmic-audio";
 import { NetworkPauseNotice } from "@/components/composer/network-pause-notice";
@@ -609,13 +610,14 @@ function ComposerPageInner() {
           setFirstCommentOpen(true);
         }
         setAssets(
-          post.media.map((m: { mediaAsset: { id: string; url: string; filename: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string } }) => ({
+          post.media.map((m: { mediaAsset: { id: string; url: string; filename: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string; importSource?: string | null } }) => ({
             id: m.mediaAsset.id,
             url: m.mediaAsset.url,
             filename: m.mediaAsset.filename,
             type: m.mediaAsset.type,
             previewUrl: m.mediaAsset.url,
-            thumbnailUrl: m.mediaAsset.thumbnailUrl
+            thumbnailUrl: m.mediaAsset.thumbnailUrl,
+            importSource: m.mediaAsset.importSource ?? null
           }))
         );
         setSelectedNetworks(post.targets.map((t: { network: Network }) => t.network));
@@ -802,9 +804,10 @@ function ComposerPageInner() {
   // il remplace le média en cours. Pour Unsplash, le crédit du photographe
   // peut être ajouté à la fin de la légende.
   const onMediaImported = useCallback(
-    (asset: UploadedAssetResult, extra?: { credit?: { name: string } | null; creditInCaption?: boolean }) => {
+    (asset: UploadedAssetResult, extra?: { credit?: { name: string } | null; creditInCaption?: boolean; source?: string }) => {
       setUploadError(null);
-      setAssets([{ id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: asset.url }]);
+      // La source reste affichée sous le média (« Image importée depuis Canva »).
+      setAssets([{ id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: asset.url, importSource: extra?.source ?? null }]);
       setThumbOptions([]);
       setPreviewAspectClass("aspect-square");
       if (extra?.credit && extra.creditInCaption) {
@@ -877,12 +880,24 @@ function ComposerPageInner() {
       if (!activeBrand) throw new Error("Choisissez une marque avant d'enregistrer la vidéo.");
       const asset = await uploadMediaFile(file, activeBrand.id, setUploadPercent);
       setUploadPercent(null);
-      setAssets([{ id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: URL.createObjectURL(file) }]);
+      // Vidéo importée (Canva, Drive…) puis modifiée : elle garde son origine
+      // (03/10/2026), recopiée côté serveur depuis la vidéo d'avant.
+      const original = editingVideo?.importSource ? editingVideo : null;
+      if (original) {
+        await fetch(`/api/media/${asset.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ importSourceFrom: original.id })
+        }).catch(() => undefined);
+      }
+      setAssets([
+        { id: asset.id, url: asset.url, filename: asset.filename, type: asset.type, previewUrl: URL.createObjectURL(file), importSource: original?.importSource ?? null }
+      ]);
       setThumbOptions([]);
       setPreviewAspectClass("aspect-square");
       toast.success("Vidéo modifiée : c'est elle qui sera publiée.");
     },
-    [activeBrand, toast]
+    [activeBrand, toast, editingVideo]
   );
 
   function removeAsset(id: string) {
@@ -1582,6 +1597,8 @@ function ComposerPageInner() {
                     <p className="truncate border-t border-white/10 px-2.5 pt-2 text-[11px] text-slate-400" title={a.filename}>
                       {a.filename}
                     </p>
+                    {/* Origine du média (03/10/2026) : « Image importée depuis Canva »… */}
+                    <ImportSourceBadge source={a.importSource} type={a.type} variant="inline" className="px-2.5 pt-1" />
                     <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-2">
                       {a.type === "VIDEO" && (
                         <button

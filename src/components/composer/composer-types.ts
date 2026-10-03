@@ -9,6 +9,8 @@ export interface UploadedAsset {
   type: "VIDEO" | "IMAGE";
   previewUrl: string;
   thumbnailUrl?: string;
+  /** Plateforme d'où vient le média (MediaAsset.importSource, 03/10/2026). */
+  importSource?: string | null;
 }
 
 export interface ConnectionRow {

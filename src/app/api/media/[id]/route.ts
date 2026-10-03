@@ -8,14 +8,25 @@ import { brandUploadPrefix, isOwnFileUnder, userUploadPrefix } from "@/lib/uploa
 
 const dimension = z.number().int().min(1).max(20_000);
 const bodySchema = z
-  .object({ thumbnailUrl: z.string().min(1).max(2048).optional(), width: dimension.optional(), height: dimension.optional() })
-  .refine((b) => b.thumbnailUrl !== undefined || (b.width !== undefined && b.height !== undefined), { message: "thumbnailUrl ou width + height requis" });
+  .object({
+    thumbnailUrl: z.string().min(1).max(2048).optional(),
+    width: dimension.optional(),
+    height: dimension.optional(),
+    importSourceFrom: z.string().min(1).max(64).optional()
+  })
+  .refine((b) => b.thumbnailUrl !== undefined || (b.width !== undefined && b.height !== undefined) || b.importSourceFrom !== undefined, {
+    message: "thumbnailUrl, width + height ou importSourceFrom requis"
+  });
 
 // PATCH /api/media/[id] { thumbnailUrl } — enregistre la miniature choisie
 // (frame extraite ou uploadée) pour ce média.
 // PATCH /api/media/[id] { width, height } — dimensions lues par l'aperçu de
 // Publier (Réussites, lot B : étoile « Vertical natif »). Enregistrées une
 // seule fois : jamais remplacées ensuite.
+// PATCH /api/media/[id] { importSourceFrom } — vidéo modifiée dans l'éditeur
+// de Publier (03/10/2026) : elle garde l'origine (« importée depuis Canva »)
+// de la vidéo d'avant. Recopiée depuis un média de la MÊME marque déjà
+// importé, jamais choisie librement (missions « publier un média importé »).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -30,6 +41,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     select: { id: true, brandId: true, thumbnailUrl: true, width: true, height: true }
   });
   if (!owned) return NextResponse.json({ error: "Média introuvable" }, { status: 404 });
+
+  if (parsed.data.importSourceFrom !== undefined) {
+    const from = await prisma.mediaAsset.findFirst({
+      where: { id: parsed.data.importSourceFrom, brandId: owned.brandId, importSource: { not: null } },
+      select: { importSource: true }
+    });
+    if (!from) return NextResponse.json({ error: "Média d'origine introuvable" }, { status: 404 });
+    // Une origine déjà connue n'est jamais remplacée.
+    await prisma.mediaAsset.updateMany({ where: { id: owned.id, importSource: null }, data: { importSource: from.importSource } });
+    return NextResponse.json({ ok: true, importSource: from.importSource });
+  }
 
   if (parsed.data.thumbnailUrl === undefined) {
     if (owned.width === null && owned.height === null) {

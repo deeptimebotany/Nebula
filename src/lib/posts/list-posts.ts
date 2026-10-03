@@ -75,7 +75,8 @@ const LIGHT_SELECT = {
   media: {
     orderBy: { order: "asc" },
     take: 1,
-    select: { mediaAsset: { select: { url: true, type: true, thumbnailUrl: true } } }
+    // importSource : « Image importée depuis Canva » dans la liste (03/10/2026).
+    select: { mediaAsset: { select: { url: true, type: true, thumbnailUrl: true, importSource: true } } }
   },
   targets: {
     select: { network: true, connectionId: true, status: true, errorMessage: true, publishedAt: true, externalUrl: true }

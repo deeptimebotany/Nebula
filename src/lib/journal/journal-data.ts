@@ -8,6 +8,22 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-03-medias-importes-source",
+    date: "2026-10-03",
+    title: "Médias importés : « Importé depuis Canva »",
+    category: "Publication",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/publications", label: "Publications" }
+    ],
+    result:
+      "Une image ou une vidéo importée depuis Canva, Google Drive, Dropbox, OneDrive ou Unsplash l'indique sous son aperçu dans Publier, sur la page de la publication et dans la liste des publications. Une vidéo importée puis modifiée dans l'éditeur garde la mention.",
+    change:
+      "Mention lue sur `MediaAsset.importSource`, déjà enregistré par chaque import (`ImportSourceBadge`, libellés dans `src/lib/media-sources.ts`). La vidéo modifiée recopie l'origine de la précédente par `PATCH /api/media/[id] { importSourceFrom }`, seulement depuis un média importé de la même marque.",
+    readme: 66,
+    migrations: []
+  },
+  {
     id: "2026-10-03-commentaires-reseaux",
     date: "2026-10-03",
     title: "Commentaires : seulement les réseaux qui les donnent",

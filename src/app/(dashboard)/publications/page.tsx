@@ -11,6 +11,7 @@
 // l'historique chargé dans le navigateur.
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
+import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
@@ -37,7 +38,7 @@ interface ApiPost {
   scheduledAt: string | null;
   createdAt: string;
   updatedAt: string;
-  media: { mediaAsset: { url: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string | null } }[];
+  media: { mediaAsset: { url: string; type: "VIDEO" | "IMAGE"; thumbnailUrl?: string | null; importSource?: string | null } }[];
   targets: { network: Network; status: string; errorMessage?: string | null; publishedAt?: string | null; externalUrl?: string | null }[];
 }
 
@@ -324,6 +325,8 @@ function PublicationRow({ post }: { post: ApiPost }) {
                 ))}
               </span>
             )}
+            {/* Origine du média (03/10/2026). */}
+            <ImportSourceBadge source={first?.importSource} type={first?.type} variant="inline" />
             {failedTargets.length > 0 && (
               <span className={clsx("truncate text-red-300")} title={failedTargets[0].errorMessage ?? undefined}>
                 {failedTargets.length === 1 ? "1 compte en échec" : `${failedTargets.length} comptes en échec`}
