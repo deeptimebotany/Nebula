@@ -39,7 +39,8 @@ describe("balises des pages publiques", () => {
   it("chaque outil du plan du site a ses balises et ses données structurées", () => {
     const sitemap = readFileSync(path.join(process.cwd(), "src/app/sitemap.ts"), "utf8");
     const tools = [...sitemap.matchAll(/\/outils\/([a-z-]+)`/g)].map((m) => m[1]);
-    expect(tools.length).toBe(7);
+    expect(tools.length).toBe(6);
+    expect(tools).not.toContain("publier");
     for (const t of tools) {
       expect(SEO_TOOLS[t], t).toBeDefined();
       const [app, crumbs] = toolStructuredData(SEO_TOOLS[t]);
@@ -49,7 +50,7 @@ describe("balises des pages publiques", () => {
   });
 
   it("les outils IA disent qu'il faut un compte gratuit pour générer", () => {
-    for (const key of ["publier", "bio-instagram", "hashtags"]) expect(SEO_TOOLS[key].description).toMatch(/compte gratuit/);
+    for (const key of ["bio-instagram", "hashtags"]) expect(SEO_TOOLS[key].description).toMatch(/compte gratuit/);
   });
 
   it("clampDescription coupe au mot et ajoute « … »", () => {

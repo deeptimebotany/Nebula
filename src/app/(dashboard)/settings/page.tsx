@@ -8,6 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
+import { MonthlySummarySettings } from "@/components/monthly-summary/summary-settings";
 import { Input, Select } from "@/components/ui/input";
 import { DEFAULT_TIMEZONE, timeZoneLabel, timeZoneOptions } from "@/lib/timezone";
 import { IconClock } from "@/components/dashboard/icons";
@@ -896,6 +897,10 @@ export default function SettingsPage() {
             aria-label="Recevoir les conseils par email"
             className="mt-1 shrink-0"
           />
+        </div>
+        {/* Bilan du mois par e-mail (03/10/2026). */}
+        <div className="mt-4 border-t border-white/[0.06] pt-4">
+          <MonthlySummarySettings />
         </div>
       </GlassCard>
 

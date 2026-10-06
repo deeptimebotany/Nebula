@@ -14,7 +14,6 @@ import {
   CHEST_BONUS_XP,
   CHEST_XP,
   MAX_SHIELDS,
-  MAX_SWAPS,
   chestItemFromRoll,
   findMission,
   habitTargetFor,
@@ -205,10 +204,27 @@ export interface MissionState {
   action: string;
 }
 
+/** Une des 3 propositions de la mission Progression, avec son avancement. */
+export interface ProgressChoiceState {
+  key: string;
+  title: string;
+  description: string;
+  skill: string;
+  target: number;
+  value: number;
+  xp: number;
+  href: string;
+  action: string;
+  /** Mise en avant (dernière cliquée, ou celle qui a validé la mission). */
+  chosen: boolean;
+}
+
 export interface WeekMissions {
   week: Period;
   row: WeeklyMissionsRow;
   missions: MissionState[];
+  /** Les 3 propositions de la Progression : la première atteinte valide la mission. */
+  choices: ProgressChoiceState[];
   doneCount: number;
   chest: { ready: boolean; opened: boolean; item: string | null };
 }
@@ -272,8 +288,12 @@ export async function evaluateWeekMissions(
   const done = new Set(doneRows.map((r) => r.challengeKey));
   const fresh: FreshMission[] = [];
   const habit = findMission(row.habitKey) ?? findMission("habit-posts")!;
-  const progress = findMission(row.progressKey) ?? findMission("prog-plan3")!;
+  let progressKey = row.progressKey;
   const mystery = findMission(row.mysteryKey) ?? findMission("mys-weekend")!;
+  // Progression (03/10/2026) : plus de choix à verrouiller. Les 3 propositions
+  // comptent ; la première atteinte valide la mission.
+  const choiceDefs = row.choices.map((k) => findMission(k)).filter((m): m is MissionDef => Boolean(m));
+  if (choiceDefs.length === 0) choiceDefs.push(findMission(progressKey) ?? findMission("prog-plan3")!);
 
   const check = async (slot: MissionSlot, def: MissionDef, target: number) => {
     const key = missionCompletionKey(slot);
@@ -284,7 +304,22 @@ export async function evaluateWeekMissions(
     }
   };
   await check("habit", habit, row.habitTarget);
-  await check("progress", progress, progress.target);
+  const progressDoneKey = missionCompletionKey("progress");
+  const reached = choiceDefs.filter((d) => values[d.metric] >= d.target);
+  if (!done.has(progressDoneKey) && reached.length > 0 && opts.record) {
+    // Celle mise en avant si elle est atteinte, sinon la mieux payée.
+    const winner = reached.find((d) => d.key === progressKey) ?? [...reached].sort((a, b) => b.xp - a.xp)[0];
+    if (await tryComplete(userId, week, "progress", winner.xp, Boolean(opts.celebrated))) {
+      done.add(progressDoneKey);
+      fresh.push({ slot: "progress", title: winner.title(winner.target), xp: winner.xp });
+      if (winner.key !== progressKey) {
+        // La mission réussie devient celle de la semaine (affichage, semaine suivante).
+        await weeklyMissionsDb.updateMany({ where: { id: row.id }, data: { progressKey: winner.key } });
+        progressKey = winner.key;
+      }
+    }
+  }
+  const progress = findMission(progressKey) ?? choiceDefs[0];
 
   let revealedAt = row.revealedAt;
   let revealedNow = false;
@@ -303,11 +338,24 @@ export async function evaluateWeekMissions(
     stateOf("mystery", mystery, mystery.target, values[mystery.metric], done.has(missionCompletionKey("mystery")), revealed)
   ];
   const doneCount = missions.filter((m) => m.done).length;
+  const choices: ProgressChoiceState[] = choiceDefs.map((d) => ({
+    key: d.key,
+    title: d.title(d.target),
+    description: d.description,
+    skill: d.skill,
+    target: d.target,
+    value: Math.min(values[d.metric], d.target),
+    xp: d.xp,
+    href: d.href,
+    action: d.action,
+    chosen: d.key === progressKey
+  }));
   return {
     state: {
       week,
-      row: { ...row, revealedAt },
+      row: { ...row, revealedAt, progressKey },
       missions,
+      choices,
       doneCount,
       chest: { ready: doneCount === 3, opened: Boolean(row.chestOpenedAt), item: row.chestItem }
     },
@@ -316,18 +364,16 @@ export async function evaluateWeekMissions(
   };
 }
 
-/** Propositions de la mission Progression, avec leur titre (page Réussites). */
-export function progressChoices(row: WeeklyMissionsRow): { key: string; title: string; xp: number; skill: string; chosen: boolean }[] {
-  return row.choices
-    .map((key) => findMission(key))
-    .filter((m): m is MissionDef => Boolean(m))
-    .map((m) => ({ key: m.key, title: m.title(m.target), xp: m.xp, skill: m.skill, chosen: m.key === row.progressKey }));
-}
-
-// --- Choix de la mission Progression ----------------------------------------------------
+// --- Mise en avant d'une proposition Progression -----------------------------------------
 
 export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; status: number; error: string };
 
+/**
+ * Proposition mise en avant (03/10/2026) : un clic sur l'une des 3 change
+ * seulement l'indication (où aller) et la carte de la Vue d'ensemble ; les
+ * 3 comptent quoi qu'il arrive. Autant de changements que voulu, jusqu'à
+ * ce que la mission soit réussie.
+ */
 export async function chooseProgress(userId: string, key: string, now: Date = new Date()): Promise<ActionResult> {
   const week = weekOf(now);
   const row = await weeklyMissionsDb.findUnique({ where: { userId_week: { userId, week: week.id } } });
@@ -336,9 +382,7 @@ export async function chooseProgress(userId: string, key: string, now: Date = ne
   if (row.progressKey === key) return { ok: true };
   const completed = await challengeCompletionDb.findFirst({ where: { userId, period: week.id, challengeKey: missionCompletionKey("progress") } });
   if (completed) return { ok: false, status: 409, error: "Mission déjà réussie cette semaine : bravo !" };
-  if (row.swapsUsed >= MAX_SWAPS) return { ok: false, status: 409, error: "Vous avez déjà changé de mission cette semaine." };
-  const changed = await weeklyMissionsDb.updateMany({ where: { id: row.id, swapsUsed: row.swapsUsed }, data: { progressKey: key, swapsUsed: row.swapsUsed + 1 } });
-  if (changed.count === 0) return { ok: false, status: 409, error: "Vous avez déjà changé de mission cette semaine." };
+  await weeklyMissionsDb.updateMany({ where: { id: row.id }, data: { progressKey: key, swapsUsed: row.swapsUsed + 1 } });
   return { ok: true };
 }
 

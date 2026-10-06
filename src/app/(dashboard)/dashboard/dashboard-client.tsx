@@ -422,7 +422,8 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
 
       <RevealGroup className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <RevealItem className="lg:col-span-2">
-        <MotionGlassCard>
+        {/* Immobile au survol (03/10/2026) : on lit la courbe et son infobulle. */}
+        <MotionGlassCard still>
           {/* flex-wrap (30/09/2026) : sur mobile, les 4 pastilles de réseaux
               débordaient de l'écran (page de 465 px de large sur un écran
               de 390 : tout le tableau de bord apparaissait dézoomé). */}

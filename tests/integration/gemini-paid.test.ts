@@ -66,7 +66,7 @@ import { POST as postAnalyze } from "@/app/api/ai/analyze-channel-video/route";
 import { POST as postRegister } from "@/app/api/auth/register/route";
 import { POST as postAge } from "@/app/api/me/age/route";
 import { POST as postPack } from "@/app/api/billing/retention-pack/route";
-import { POST as postToolThumbnail } from "@/app/api/public/tools/thumbnail/route";
+import { POST as postAiThumbnail } from "@/app/api/media/[id]/thumbnails/ai/route";
 import { GET as getToolAccess } from "@/app/api/public/tools/access/route";
 import { aiQuotaSnapshot, assertAiAllowed } from "@/lib/ai/guard";
 import { accountCounterKey, parisMonth, reserveMonthly } from "@/lib/ai/counters";
@@ -305,11 +305,14 @@ describe.skipIf(!hasDatabase)("quotas du mois, âge et recharges", () => {
     expect((await prisma.user.findUniqueOrThrow({ where: { email: "alex@exemple.fr" } })).ageConfirmedAt).not.toBeNull();
   });
 
-  it("Gratuit : pas de miniature IA dans les outils (402, rien consommé, pas d'appel) ; le quota affiché le dit", async () => {
-    const { user } = await makeBrand();
+  // 06/10/2026 : l'outil public qui générait des miniatures est retiré ; la
+  // règle est vérifiée sur la route de Publier.
+  it("Gratuit : pas de miniature IA (402, rien consommé, pas d'appel) ; le quota affiché des outils le dit", async () => {
+    const { user, brand } = await makeBrand();
     await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
     session.userId = user.id;
-    const res = await postToolThumbnail(req("/api/public/tools/thumbnail", { imageBase64: "a".repeat(200), imageMimeType: "image/png" }));
+    const media = await prisma.mediaAsset.create({ data: { brandId: brand.id, url: "https://x.test/v.mp4", filename: "v.mp4", mimeType: "video/mp4", type: "VIDEO", sizeBytes: 100 } });
+    const res = await postAiThumbnail(req(`/api/media/${media.id}/thumbnails/ai`, { frameBase64: "a".repeat(200), frameMimeType: "image/png" }), { params: { id: media.id } });
     expect(res.status).toBe(402);
     expect(ai.thumb).not.toHaveBeenCalled();
     expect(await prisma.aiMonthlyUsage.count()).toBe(0);

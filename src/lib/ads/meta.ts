@@ -15,7 +15,7 @@ import { isoDay, num, type AdAccountChoice, type AdAccountRef, type AdCampaign, 
 import { countSchema, graphList, idSchema, soft, textSchema, z } from "@/lib/social/contract";
 import { metaGraphVersion } from "@/lib/social/versions";
 
-// v25.0 (février 2026). META_ADS_GRAPH_VERSION permet de monter de version
+// v26.0 (juillet 2026). META_ADS_GRAPH_VERSION permet de monter de version
 // sans toucher au code quand Meta annonce la fin de celle-ci.
 // Même version que la publication (voir social/versions.ts), sauf réglage dédié.
 const VERSION = () => process.env.META_ADS_GRAPH_VERSION || metaGraphVersion();

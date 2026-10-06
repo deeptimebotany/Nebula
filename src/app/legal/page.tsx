@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/seo";
 import { SEO_LEGAL } from "@/lib/seo-pages";
 import { RETENTION_PACK, formatEuroCents } from "@/lib/plans";
 import { OAUTH_LAUNCHED_NETWORKS, networksSentence } from "@/lib/types";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
 
 // Page publique combinée (aucune authentification requise) : mentions
 // légales, conditions d'utilisation et politique de confidentialité sur une
@@ -221,7 +221,8 @@ export default function LegalPage() {
             effet à la fin de la période déjà payée, sans remboursement au prorata sauf obligation légale contraire.
           </p>
           <p>
-            Offres de lancement. « Fondateur » : pour les {FOUNDER_MONTHLY.places} premiers abonnés, Pro 1 marque à{" "}
+            Offres de lancement, proposées jusqu&apos;au {FOUNDERS_SALE_END_LABEL} à 0 h (heure de Paris) ou jusqu&apos;à épuisement des
+            places ; les avantages déjà acquis restent valables après cette date. « Fondateur » : pour les {FOUNDER_MONTHLY.places} premiers abonnés, Pro 1 marque à{" "}
             {FOUNDER_MONTHLY.priceMonthly} € par mois pendant {FOUNDER_MONTHLY.months} mois, puis au prix normal ({founderRegularPrice()} € par
             mois à ce jour), renouvelé automatiquement comme tout abonnement ; un premier abonnement mensuel par compte.
             « Fondateur Premium » : {euros(FOUNDER_PREMIUM.priceCents)} en paiement unique pour Pro 1 marque pendant{" "}

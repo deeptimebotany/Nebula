@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LAUNCHED_NETWORKS, OAUTH_LAUNCHED_NETWORKS, networksSentence } from "@/lib/types";
 import { UPCOMING_NETWORKS } from "@/data/competitors";
 import { configuredMediaSources } from "@/lib/integrations/config";
-import { DEMO_LEGENDES_BY_NETWORK } from "@/lib/tools/demo";
 import { SITE_DESCRIPTION } from "@/lib/site";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -24,7 +23,6 @@ describe("Pinterest, connexion officielle", () => {
     expect(UPCOMING_NETWORKS.map((n) => n.slug)).not.toContain("pinterest");
     const config = createRequire(import.meta.url)(path.join(ROOT, "next.config.js")) as { redirects: () => Promise<{ source: string; destination: string; permanent: boolean }[]> };
     expect((await config.redirects()).find((r) => r.source === "/reseaux/pinterest")).toMatchObject({ destination: "/reseaux", permanent: true });
-    expect(DEMO_LEGENDES_BY_NETWORK.PINTEREST.description.length).toBeLessThanOrEqual(500);
   });
 
   it("les listes de réseaux viennent de LAUNCHED_NETWORKS, jamais écrites à la main", () => {

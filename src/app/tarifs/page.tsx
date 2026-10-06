@@ -4,7 +4,7 @@ import { PricingComparison } from "@/components/marketing/pricing-comparison";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ButtonLink } from "@/components/ui/button";
 import { AI_MONTHLY, PLAN_LIMITS, RETENTION_PACK, formatEuroCents } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice, foundersSaleOpen } from "@/lib/founders-offer";
 import { SavingsCalculator } from "@/components/marketing/savings-calculator";
 import { ExitIntentModal } from "@/components/marketing/exit-intent";
 import { COMPETITORS } from "@/data/competitors";
@@ -36,11 +36,14 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Qu'est-ce que l'offre Fondateur ?",
-    a: `Pour les ${FOUNDER_MONTHLY.places} premiers abonnés : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} € par mois, prélevé automatiquement et sans engagement. Elle se choisit dans Facturation, pour un premier abonnement mensuel, et donne le badge « Fondateur » à vie (Communauté, carte de créateur).`
+    // Page générée au build : après le 1er janvier 2027, le prochain déploiement passe au passé.
+    a: foundersSaleOpen()
+      ? `Pour les ${FOUNDER_MONTHLY.places} premiers abonnés, jusqu'au ${FOUNDERS_SALE_END_LABEL} : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} € par mois, prélevé automatiquement et sans engagement. Elle se choisit dans Facturation, pour un premier abonnement mensuel, et donne le badge « Fondateur » à vie (Communauté, carte de créateur).`
+      : `Une offre de lancement terminée le ${FOUNDERS_SALE_END_LABEL} : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois pour les premiers abonnés. Ceux qui l'ont prise gardent ce tarif jusqu'au bout des ${FOUNDER_MONTHLY.months} mois et le badge « Fondateur » à vie.`
   },
   {
     q: "Et Fondateur Premium ?",
-    a: `${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, pour soutenir Nebula dès son lancement (${FOUNDER_PREMIUM.places} places, une par compte, sans abonnement en cours). Rien n'est prélevé ensuite : un mois puis une semaine avant la fin, Nebula vous prévient et vous demande quel forfait il vous faut ; sans réponse, vous repassez au palier Gratuit sans rien perdre. Badge « Fondateur » à vie.`
+    a: `${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, pour soutenir Nebula dès son lancement (${FOUNDER_PREMIUM.places} places, une par compte, sans abonnement en cours, ${foundersSaleOpen() ? `jusqu'au ${FOUNDERS_SALE_END_LABEL}` : `offre terminée le ${FOUNDERS_SALE_END_LABEL}`}). Rien n'est prélevé ensuite : un mois puis une semaine avant la fin, Nebula vous prévient et vous demande quel forfait il vous faut ; sans réponse, vous repassez au palier Gratuit sans rien perdre. Badge « Fondateur » à vie.`
   },
   {
     q: "L'abonnement annuel est-il vraiment moins cher ?",
@@ -89,7 +92,7 @@ export default function TarifsPage() {
       />
 
       <div className="-mx-6 -mt-6">
-        <PricingSection showComparisonLink={false} showHeading={false} />
+        <PricingSection showComparisonLink={false} showHeading={false} foundersOpen={foundersSaleOpen()} />
       </div>
 
       {/* Maillage vers les comparatifs (brief growth, lot G5.a) */}

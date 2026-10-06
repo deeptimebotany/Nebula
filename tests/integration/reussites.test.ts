@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { evaluateReussites } from "@/lib/reussites/engine";
 import { chooseProgress, openChest } from "@/lib/reussites/weekly";
 import { weekOf } from "@/lib/reussites/periods";
+import { findMission } from "@/lib/reussites/missions";
 import { achievementUnlockDb, challengeCompletionDb, reussiteItemDb, userReussitesDb, weeklyMissionsDb } from "@/lib/prisma-extra";
 import { hasDatabase, makeBrand, resetDatabase } from "./helpers";
 
@@ -65,15 +66,41 @@ describe.skipIf(!hasDatabase)("Réussites v2 : missions, coffre, boucliers", () 
     expect(await challengeCompletionDb.count({ where: { userId: user.id, kind: "MISSION", challengeKey: "mission-habit" } })).toBe(1);
   });
 
-  it("Progression : un seul changement par semaine, et seulement parmi les propositions", async () => {
+  it("Progression : mise en avant libre (autant de fois que voulu), seulement parmi les propositions", async () => {
     const { user } = await setup();
     await evaluateReussites(user.id, { force: true });
     const row = (await weeklyMissionsDb.findFirst({ where: { userId: user.id } }))!;
     expect((await chooseProgress(user.id, "prog-inconnue")).ok).toBe(false);
     expect(await chooseProgress(user.id, row.choices[1])).toEqual({ ok: true });
-    const second = await chooseProgress(user.id, row.choices[2]);
-    expect(second).toMatchObject({ ok: false, status: 409 });
-    expect((await weeklyMissionsDb.findFirst({ where: { userId: user.id } }))!.progressKey).toBe(row.choices[1]);
+    expect(await chooseProgress(user.id, row.choices[2])).toEqual({ ok: true });
+    expect(await chooseProgress(user.id, row.choices[0])).toEqual({ ok: true });
+    expect((await weeklyMissionsDb.findFirst({ where: { userId: user.id } }))!.progressKey).toBe(row.choices[0]);
+  });
+
+  it("Progression : n'importe laquelle des 3 propositions valide la mission, même sans l'avoir mise en avant (03/10/2026)", async () => {
+    const { user, brand, connections } = await setup();
+    await evaluateReussites(user.id, { force: true });
+    const week = weekOf(new Date());
+    const row = (await weeklyMissionsDb.findFirst({ where: { userId: user.id } }))!;
+    await weeklyMissionsDb.update({ where: { id: row.id }, data: { choices: ["prog-plan3", "prog-multi2", "prog-import"], progressKey: "prog-plan3" } });
+    // Une publication sur 2 réseaux : « même publication sur 2 réseaux », pas la mission mise en avant.
+    const at = new Date(Math.min(week.start.getTime() + 10 * 3_600_000, Date.now() - 60_000));
+    await published(user.id, brand.id, [connections[0].id, connections[1].id], at);
+    const r = await evaluateReussites(user.id, { force: true });
+    const progress = r!.missions.missions.find((m) => m.slot === "progress")!;
+    expect(progress).toMatchObject({ done: true, key: "prog-multi2" });
+    const multi2 = findMission("prog-multi2")!;
+    expect(await challengeCompletionDb.findFirst({ where: { userId: user.id, period: week.id, challengeKey: "mission-progress" } })).toMatchObject({ xp: multi2.xp });
+    expect((await weeklyMissionsDb.findFirst({ where: { userId: user.id } }))!.progressKey).toBe("prog-multi2");
+    expect(r!.missions.choices.map((c) => [c.key, c.value, c.chosen])).toEqual([
+      ["prog-plan3", 0, false],
+      ["prog-multi2", 1, true],
+      ["prog-import", 0, false]
+    ]);
+    // Une seule validation, et plus de changement une fois réussie.
+    await evaluateReussites(user.id, { force: true });
+    expect(await challengeCompletionDb.count({ where: { userId: user.id, challengeKey: "mission-progress" } })).toBe(1);
+    expect(await chooseProgress(user.id, "prog-plan3")).toMatchObject({ ok: false, status: 409 });
   });
 
   it("coffre : fermé avant 3 missions, ouvert une seule fois, XP et objet enregistrés", async () => {

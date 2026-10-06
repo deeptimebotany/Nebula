@@ -208,18 +208,20 @@ function NextActionCard({ action, onGoTo }: { action: NextActionDTO | null; onGo
 function MissionCard({
   m,
   choices,
-  swapsLeft,
-  busyKey,
   onChoose,
   revealAt
 }: {
   m: MissionDTO;
   choices?: ProgressChoiceDTO[];
-  swapsLeft?: number;
-  busyKey?: string | null;
   onChoose?: (key: string) => void;
   revealAt: string;
 }) {
+  // Progression (03/10/2026) : les 3 propositions comptent, la première
+  // atteinte valide la mission. Un clic met seulement une proposition en
+  // avant (titre, avancement, lien « où aller »), autant de fois que voulu.
+  const serverFocus = choices?.find((c) => c.chosen)?.key ?? choices?.[0]?.key ?? null;
+  const [focusKey, setFocusKey] = useState<string | null>(serverFocus);
+  useEffect(() => setFocusKey(serverFocus), [serverFocus]);
   const slotTone = m.slot === "habit" ? "text-emerald-300" : m.slot === "progress" ? "text-aurora-300" : "text-amber-300";
   if (!m.revealed) {
     const day = new Date(revealAt).toLocaleDateString("fr-FR", { weekday: "long" });
@@ -236,52 +238,67 @@ function MissionCard({
       </article>
     );
   }
-  const canChoose = m.slot === "progress" && choices && choices.length > 1 && !m.done;
+  const options = m.slot === "progress" && !m.done && choices && choices.length > 1 ? choices : null;
+  const focus = options ? options.find((c) => c.key === focusKey) ?? options[0] : null;
+  // Ce que la carte montre : la proposition mise en avant tant que la mission n'est pas réussie.
+  const shown = focus
+    ? { title: focus.title, description: focus.description, skill: focus.skill, value: focus.value, target: focus.target, xp: focus.xp, href: focus.href, action: focus.action }
+    : { title: m.title, description: m.description, skill: m.skill, value: m.value, target: m.target, xp: m.xp, href: m.href, action: m.action };
   return (
     <article className={clsx("flex h-full flex-col gap-2.5 rounded-2xl border p-4 transition", m.done ? "border-emerald-400/35 bg-emerald-400/[0.05]" : m.slot === "progress" ? "border-aurora-400/35 bg-white/[0.02]" : "border-white/[0.08] bg-white/[0.02]")}>
       <p className={clsx("text-[11px] font-semibold uppercase tracking-[0.14em]", slotTone)}>
         {SLOT_LABEL[m.slot]}
-        {m.slot === "progress" && !m.done ? " · au choix" : ""}
+        {options ? " · au choix" : ""}
       </p>
       <p className="flex items-start gap-1.5 font-display text-sm font-semibold leading-snug text-white">
         {m.done && <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />}
-        {m.title}
+        {shown.title}
       </p>
-      <p className="text-xs leading-relaxed text-slate-400">{m.description}</p>
-      {m.skill && <p className="text-[11px] text-slate-500">Compétence : {m.skill}</p>}
-      {canChoose && (
-        <div className="space-y-1.5" role="group" aria-label="Choisir la mission de progression">
-          {choices!.map((c) => {
-            const locked = !c.chosen && (swapsLeft ?? 0) <= 0;
+      <p className="text-xs leading-relaxed text-slate-400">{shown.description}</p>
+      {shown.skill && <p className="text-[11px] text-slate-500">Compétence : {shown.skill}</p>}
+      {options && (
+        <div className="space-y-1.5" role="group" aria-label="Missions de progression au choix">
+          {options.map((c) => {
+            const active = c.key === focus?.key;
             return (
               <button
                 key={c.key}
                 type="button"
-                aria-pressed={c.chosen}
-                disabled={c.chosen || locked || Boolean(busyKey)}
-                onClick={() => onChoose?.(c.key)}
+                aria-pressed={active}
+                onClick={() => {
+                  if (active) return;
+                  setFocusKey(c.key);
+                  onChoose?.(c.key);
+                }}
                 className={clsx(
                   "flex min-h-[36px] w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition",
-                  c.chosen ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : locked ? "cursor-not-allowed border-white/[0.06] text-slate-500" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+                  active ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40 hover:text-white"
                 )}
               >
-                <span className="min-w-0">{busyKey === c.key ? "Changement…" : c.title}</span>
-                <span className="shrink-0 tabular-nums text-slate-400">+{c.xp}</span>
+                <span className="min-w-0">{c.title}</span>
+                <span className="flex shrink-0 items-center gap-2 tabular-nums text-slate-400">
+                  {c.value > 0 && (
+                    <span className="text-[11px]">
+                      {fmt(c.value)}/{fmt(c.target)}
+                    </span>
+                  )}
+                  +{c.xp}
+                </span>
               </button>
             );
           })}
-          <p className="text-[11px] text-slate-500">{(swapsLeft ?? 0) > 0 ? "Vous pouvez changer une fois cette semaine." : "Choix fixé pour cette semaine."}</p>
+          <p className="text-[11px] text-slate-500">Les 3 comptent : la première réussie valide la mission.</p>
         </div>
       )}
       <div className="mt-auto space-y-2 pt-1">
-        <Bar value={m.value} target={m.target} done={m.done} />
+        <Bar value={shown.value} target={shown.target} done={m.done} />
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span className={m.done ? "text-emerald-300" : "tabular-nums text-slate-400"}>{m.done ? "Réussie" : `${fmt(m.value)} / ${fmt(m.target)}`}</span>
-          <XpChip xp={m.xp} done={m.done} />
+          <span className={m.done ? "text-emerald-300" : "tabular-nums text-slate-400"}>{m.done ? "Réussie" : `${fmt(shown.value)} / ${fmt(shown.target)}`}</span>
+          <XpChip xp={shown.xp} done={m.done} />
         </div>
-        {!m.done && m.href && m.action && (
-          <Link href={m.href} className="inline-flex min-h-[36px] items-center text-xs font-medium text-aurora-300 transition hover:text-white">
-            {m.action} <span aria-hidden="true">&nbsp;→</span>
+        {!m.done && shown.href && shown.action && (
+          <Link href={shown.href} className="inline-flex min-h-[36px] items-center text-xs font-medium text-aurora-300 transition hover:text-white">
+            {shown.action} <span aria-hidden="true">&nbsp;→</span>
           </Link>
         )}
       </div>
@@ -569,7 +586,6 @@ export default function ReussitesPage() {
   const [tab, setTab] = useState<ReussitesTab>("missions");
   const [constellationCollapsed, toggleConstellation] = useCollapsedPref(CONSTELLATION_COLLAPSED);
   const [showcaseCollapsed, toggleShowcase] = useCollapsedPref(SHOWCASE_COLLAPSED);
-  const [choosing, setChoosing] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<{ week: string; label: string; xp: number } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -648,11 +664,11 @@ export default function ReussitesPage() {
     [act, load]
   );
 
+  // Mise en avant d'une proposition Progression : la carte change tout de
+  // suite ; l'enregistrement suit (Vue d'ensemble, prochaine action).
   const choose = useCallback(
     async (key: string) => {
-      setChoosing(key);
       if (await act({ action: "choose", key })) await load();
-      setChoosing(null);
     },
     [act, load]
   );
@@ -866,8 +882,6 @@ export default function ReussitesPage() {
                   m={m}
                   revealAt={data.week.revealAt}
                   choices={m.slot === "progress" ? data.choices : undefined}
-                  swapsLeft={data.swapsLeft}
-                  busyKey={choosing}
                   onChoose={choose}
                 />
               ))}

@@ -9,8 +9,22 @@
 //   - « Fondateur Premium » : 100 € en une fois, Pro 1 marque pendant 1 an,
 //     100 places, sans renouvellement : à la fin, Nebula demande « quel
 //     forfait vous faut-il ? » et rien n'est prélevé sans nouveau choix.
-// Les deux donnent le badge « Fondateur », gardé à vie.
+// Les deux donnent le badge « Fondateur », gardé à vie. Vente des deux
+// offres jusqu'au 1er janvier 2027 (ou avant si les places partent).
 import { findTier, type PaidPlan } from "@/lib/plans";
+
+/**
+ * Fin de la vente des deux offres (décision du 03/10/2026) : le 1er janvier
+ * 2027 à 0 h, heure de Paris. Ceux qui ont déjà l'offre gardent leurs
+ * avantages (3 mois à 10 €, année Premium, badge).
+ */
+export const FOUNDERS_SALE_ENDS_AT = new Date("2026-12-31T23:00:00Z");
+export const FOUNDERS_SALE_END_LABEL = "1er janvier 2027";
+
+/** Les offres fondateurs sont-elles encore en vente ? */
+export function foundersSaleOpen(now: Date = new Date()): boolean {
+  return now.getTime() < FOUNDERS_SALE_ENDS_AT.getTime();
+}
 
 export const FOUNDER_MONTHLY = {
   plan: "PRO" as PaidPlan,
@@ -60,6 +74,9 @@ export function placesOf(total: number, taken: number): FounderPlaces {
 /** Réponse de GET /api/billing/founders. */
 export interface FoundersResponse {
   open: boolean;
+  /** Vente encore ouverte (jusqu'au 1er janvier 2027). */
+  saleOpen: boolean;
+  saleEndsAt: string;
   monthly: FounderPlaces & { priceMonthly: number; months: number; regularPrice: number };
   premium: FounderPlaces & { priceCents: number; months: number };
   /** Compte connecté seulement. */

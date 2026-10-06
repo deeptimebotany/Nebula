@@ -505,7 +505,7 @@ function CalendarPageInner() {
         )}
 
         {view === "list" ? (
-          <MotionGlassCard>
+          <MotionGlassCard still>
             <div className="mb-4 flex items-center justify-between gap-2">
               <h2 className="font-display text-lg text-white">
                 {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
@@ -572,7 +572,7 @@ function CalendarPageInner() {
             </p>
           </MotionGlassCard>
         ) : view === "month" ? (
-          <MotionGlassCard>
+          <MotionGlassCard still>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg text-white">
                 {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
@@ -720,7 +720,7 @@ function CalendarPageInner() {
             </div>
           </MotionGlassCard>
         ) : (
-          <MotionGlassCard>
+          <MotionGlassCard still>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg text-white">
                 {agendaDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}

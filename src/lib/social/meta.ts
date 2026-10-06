@@ -107,8 +107,8 @@ const ENGAGEMENT_COMMENTS_PER_POST = 25;
 // compte développeur que Facebook. Doc officielle :
 // https://developers.facebook.com/docs/instagram-platform/content-publishing
 //
-// Lot 2 (fiabilité) : version centralisée dans versions.ts (v25.0 — la
-// v19.0 codée ici avait expiré le 21/05/2026).
+// Lot 2 (fiabilité) : version centralisée dans versions.ts (v26.0 depuis le
+// 06/10/2026 — la v19.0 codée ici avait expiré le 21/05/2026).
 export function graphBase(): string {
   return `https://graph.facebook.com/${metaGraphVersion()}`;
 }

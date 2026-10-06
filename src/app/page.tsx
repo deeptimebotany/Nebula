@@ -4,6 +4,7 @@ import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { foundersSaleOpen } from "@/lib/founders-offer";
 import { Faq } from "@/components/marketing/faq";
 import { ProductShot, type ScreenName } from "@/components/marketing/product-shot";
 import { ProductTour, type TourPanel } from "@/components/marketing/product-tour";
@@ -400,7 +401,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <PricingSection />
+        <PricingSection foundersOpen={foundersSaleOpen()} />
 
         <Faq />
 

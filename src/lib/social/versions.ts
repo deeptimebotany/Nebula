@@ -16,9 +16,13 @@
 //  - Google Ads : https://developers.google.com/google-ads/api/docs/sunset-dates
 //  - TikTok (publicité) : https://business-api.tiktok.com/portal/docs
 export const API_VERSIONS = {
-  // Graph API Meta (pages Facebook, Instagram, publicité Meta). v25.0 :
-  // sortie le 18/02/2026, en service jusqu'au 29/07/2028.
-  META_GRAPH: { version: "v25.0", reviewBy: "2028-03-01" },
+  // Graph API Meta (pages Facebook, Instagram, publicité Meta). v26.0 depuis
+  // le 06/10/2026 (sortie le 29/07/2026, fin de vie pas encore annoncée) :
+  // la veille des API voyait nos appels en v25.0 servis en v26.0 (Meta monte
+  // d'office les appels d'une application plus récente que la version
+  // demandée). Les changements de la v26.0 ne touchent aucun champ utilisé
+  // (pretty, debug, date_format, ?ids=, champs de Page retirés : non utilisés).
+  META_GRAPH: { version: "v26.0", reviewBy: "2027-07-01" },
   THREADS: { version: "v1.0", reviewBy: "2027-03-01" },
   // LinkedIn retire chaque version mensuelle au bout d'environ un an.
   LINKEDIN: { version: "202607", reviewBy: "2027-05-01" },

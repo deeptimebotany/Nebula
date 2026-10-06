@@ -57,11 +57,12 @@ const nextConfig = {
       // La page Succès est devenue Réussites (25/09/2026) : les easter eggs
       // y sont toujours, sous les accomplissements.
       { source: "/succes", destination: "/reussites", permanent: true },
-      // Le générateur de légendes et de titres et le générateur de miniatures
-      // ne font plus qu'un outil, bâti comme la page Publier (30/09/2026).
-      // Lien de l'ancien outil miniatures : l'aperçu s'ouvre sur YouTube.
-      { source: "/outils/legendes", destination: "/outils/publier", permanent: true },
-      { source: "/outils/miniatures", destination: "/outils/publier?reseau=youtube", permanent: true }
+      // Générateur de publications retiré le 06/10/2026 (il refaisait la page
+      // Publier) : son adresse et celles des deux anciens outils qu'il avait
+      // réunis (légendes, miniatures) mènent aux outils gratuits.
+      { source: "/outils/publier", destination: "/outils", permanent: true },
+      { source: "/outils/legendes", destination: "/outils", permanent: true },
+      { source: "/outils/miniatures", destination: "/outils", permanent: true }
     ];
   }
 };

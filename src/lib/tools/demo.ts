@@ -39,42 +39,4 @@ export const DEMO_TITRE_YOUTUBE: DemoCase<string[]> = {
   ]
 };
 
-/**
- * Légendes et titres (refonte du 29/09/2026) : un exemple PAR RÉSEAU, pour
- * que la démo suive le réseau choisi, comme l'IA le ferait. Même cas fictif
- * partout, affiché au visiteur.
- */
-export const DEMO_LEGENDES_CASE = "Ouverture de notre nouvelle boutique à Lyon ce week-end";
-
-export const DEMO_LEGENDES_BY_NETWORK: Record<"INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "FACEBOOK" | "BLUESKY" | "PINTEREST", { title: string; description: string }> = {
-  INSTAGRAM: {
-    title: "Notre boutique ouvre à Lyon ce week-end",
-    description:
-      "C'est le grand jour 🎉 Notre nouvelle boutique ouvre ses portes à Lyon ce samedi !\n\nVenez découvrir les nouveautés en avant-première, profiter d'une petite surprise pour les 50 premiers et rencontrer toute l'équipe.\n\n📍 Samedi et dimanche, de 10 h à 19 h\n👉 Dites-nous en commentaire avec qui vous venez !\n\n#lyon #nouvelleboutique #ouverture"
-  },
-  TIKTOK: {
-    title: "On ouvre à Lyon ce samedi 🎉",
-    description: "On ouvre notre boutique à Lyon ce samedi 🎉 Surprise pour les 50 premiers, on vous attend ! #lyon #ouverture #boutique #pourtoi"
-  },
-  YOUTUBE: {
-    title: "On ouvre notre boutique à Lyon : les coulisses de l'ouverture",
-    description:
-      "Ce week-end, notre nouvelle boutique ouvre ses portes à Lyon ! Dans cette vidéo, on vous montre les derniers préparatifs, l'équipe et les nouveautés à découvrir sur place.\n\n📍 Ouverture samedi et dimanche, de 10 h à 19 h\n🎁 Une surprise pour les 50 premiers visiteurs\n\nAbonnez-vous pour suivre la suite de l'aventure !"
-  },
-  FACEBOOK: {
-    title: "Ouverture de notre boutique à Lyon ce week-end",
-    description:
-      "Grande nouvelle : notre nouvelle boutique ouvre ses portes à Lyon ce samedi ! 🎉\n\nToute l'équipe vous accueille samedi et dimanche, de 10 h à 19 h, avec une petite surprise pour les 50 premiers visiteurs.\n\nPartagez avec vos amis lyonnais et dites-nous en commentaire si vous passez nous voir !"
-  },
-  PINTEREST: {
-    title: "Nouvelle boutique à Lyon : ouverture ce week-end",
-    description: "Notre nouvelle boutique ouvre à Lyon ce samedi et ce dimanche, de 10 h à 19 h. Découvrez les nouveautés en avant-première et une petite surprise pour les 50 premiers visiteurs. Idées déco, coin café et vitrine de la saison à retrouver sur place. #lyon #boutique #ouverture #deco"
-  },
-  BLUESKY: {
-    title: "Ouverture à Lyon ce samedi",
-    description: "Notre nouvelle boutique ouvre à Lyon ce samedi 🎉 On vous attend samedi et dimanche, de 10 h à 19 h, avec une surprise pour les 50 premiers."
-  }
-};
-
-/** Texte commun du bandeau de démo. */
 export const DEMO_NOTICE = "Ce texte a été écrit à l'avance, sans IA. Avec un compte gratuit, l'IA écrit le vôtre à partir de ce que vous avez saisi.";

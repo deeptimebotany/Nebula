@@ -80,7 +80,6 @@ export const STATIC_PAGES = [
   "/outils/bio-instagram",
   "/outils/hashtags",
   "/outils/meilleur-moment",
-  "/outils/publier",
   "/outils/taux-engagement",
   "/outils/titre-youtube",
   "/legal",
@@ -172,7 +171,9 @@ export function buildCsp({ nonce, dev }: { nonce: string | null; dev: boolean })
     // l'analyse IA d'une image — rien ne sort du navigateur.
     `connect-src 'self' blob: https://*.blob.vercel-storage.com https://vercel.com https://challenges.cloudflare.com https://*.googleapis.com https://www.dropbox.com${dev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
-    "frame-src https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
+    // 'self' (03/10/2026) : aperçu de l'e-mail « bilan du mois » dans la page
+    // propriétaire /admin/bilans (même origine, réponse noindex).
+    "frame-src 'self' https://challenges.cloudflare.com https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com https://www.dropbox.com",
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",

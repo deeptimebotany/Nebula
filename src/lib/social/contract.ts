@@ -134,7 +134,7 @@ export function shapeOf(value: unknown, depth = 0): unknown {
 
 /**
  * Adresse d'un appel, sans paramètres (le jeton y est parfois) et avec les
- * identifiants remplacés par {id} : « POST graph.facebook.com/v25.0/{id}/media ».
+ * identifiants remplacés par {id} : « POST graph.facebook.com/v26.0/{id}/media ».
  */
 export function endpointLabel(method: string, url: string): string {
   try {

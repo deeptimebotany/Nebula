@@ -78,16 +78,17 @@ describe("rareté réelle", () => {
 
 describe("badge Explorateur", () => {
   it("cookie : seulement des outils connus, sans doublon", () => {
-    expect(TOOL_IDS).toContain("publier");
+    expect(TOOL_IDS).toContain("hashtags");
     expect(TOOL_IDS).not.toContain("legendes");
-    expect(parseToolsCookie("publier.hashtags.publier")).toEqual(["publier", "hashtags"]);
-    expect(parseToolsCookie("publier.<script>.inconnu.constructor.__proto__")).toEqual(["publier"]);
-    expect(toolsExploredCount(encodeURIComponent("miniatures.titre-youtube"))).toBe(2);
+    expect(parseToolsCookie("audit.hashtags.audit")).toEqual(["audit", "hashtags"]);
+    expect(parseToolsCookie("audit.<script>.inconnu.constructor.__proto__")).toEqual(["audit"]);
+    expect(toolsExploredCount(encodeURIComponent("audit.titre-youtube"))).toBe(2);
   });
 
-  it("cookie posé avant la fusion : légendes et miniatures comptent pour le générateur de publications", () => {
-    expect(parseToolsCookie("legendes.miniatures.hashtags")).toEqual(["publier", "hashtags"]);
-    expect(toolsExploredCount("legendes.miniatures")).toBe(1);
+  it("outils retirés (publier, légendes, miniatures) : ignorés dans un ancien cookie", () => {
+    expect(TOOL_IDS).not.toContain("publier");
+    expect(parseToolsCookie("legendes.miniatures.publier.hashtags")).toEqual(["hashtags"]);
+    expect(toolsExploredCount("legendes.miniatures.publier")).toBe(0);
     expect(toolsExploredCount(undefined)).toBe(0);
   });
 

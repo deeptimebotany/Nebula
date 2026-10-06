@@ -35,7 +35,7 @@ import { useRouter } from "next/navigation";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { VerifyResendButton } from "@/components/email-verify/verify-resend-button";
 import { PLAN_LIMITS, brandChoicesLabel, upToBrandsText } from "@/lib/plans";
-import { FOUNDER_MONTHLY, isFounderMonthlyTier, placesText, type FoundersResponse } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, isFounderMonthlyTier, placesText, type FoundersResponse } from "@/lib/founders-offer";
 import { ProductShot } from "@/components/marketing/product-shot";
 import { trackGrowthEvent } from "@/lib/growth-client";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
@@ -421,7 +421,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                         <span className="text-sm font-normal text-slate-400"> / mois pendant {FOUNDER_MONTHLY.months} mois, puis {proTier.priceMonthly}{"\u00a0"}€/mois</span>
                       </p>
                       <p className="mt-1 text-xs text-aurora-200">
-                        Offre Fondateur · {placesText(founders.monthly.left)} · badge «{"\u00a0"}Fondateur{"\u00a0"}» à vie
+                        Offre Fondateur jusqu&apos;au {FOUNDERS_SALE_END_LABEL} · {placesText(founders.monthly.left)} · badge «{"\u00a0"}Fondateur{"\u00a0"}» à vie
                       </p>
                     </>
                   ) : countdown ? (

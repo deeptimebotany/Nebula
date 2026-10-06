@@ -67,11 +67,18 @@ export interface MissionDTO {
   action: string | null;
 }
 
+/** Une des 3 propositions de la Progression : la première atteinte valide la mission. */
 export interface ProgressChoiceDTO {
   key: string;
   title: string;
-  xp: number;
+  description: string;
   skill: string;
+  target: number;
+  value: number;
+  xp: number;
+  href: string;
+  action: string;
+  /** Mise en avant (dernière cliquée, ou celle qui a validé la mission). */
   chosen: boolean;
 }
 
@@ -216,7 +223,6 @@ export interface ReussitesPageDTO {
   week: { id: string; endsAt: string; revealAt: string };
   missions: MissionDTO[];
   choices: ProgressChoiceDTO[];
-  swapsLeft: number;
   chest: ChestDTO;
   /** Semaines passées dont le coffre attend d'être ouvert. */
   pendingChests: string[];

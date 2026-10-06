@@ -31,9 +31,8 @@ const HUB_LD = [
 ];
 
 // Liste des outils partagée avec le menu « Outils » de l'application
-// (02/10/2026) : src/components/tools/tool-catalog.ts. Le générateur de
-// publications (légendes, titres et miniatures réunis) prend toute la
-// largeur, en tête.
+// (02/10/2026) : src/components/tools/tool-catalog.ts. Le Générateur de
+// publications est retiré le 06/10/2026 (il refaisait la page Publier).
 export default function OutilsHubPage() {
   return (
     <main id="contenu" className="relative overflow-hidden">
@@ -51,7 +50,7 @@ export default function OutilsHubPage() {
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-sm text-slate-400 sm:text-base">
           Les mêmes assistants IA que dans Nebula. Voyez une démo tout de suite, puis générez les vôtres avec un
-          compte gratuit ({PLAN_LIMITS.FREE.aiDaily.text} textes par jour ; miniatures générées par l&apos;IA en Pro). Audit, taux
+          compte gratuit ({PLAN_LIMITS.FREE.aiDaily.text} textes par jour). Audit, taux
           d&apos;engagement et meilleur moment : sans compte.
         </p>
       </section>
@@ -59,7 +58,7 @@ export default function OutilsHubPage() {
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-16">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {TOOL_CATALOG.map((tool) => (
-            <Link key={tool.publicHref} href={tool.publicHref} className={tool.featured ? "sm:col-span-2" : undefined}>
+            <Link key={tool.publicHref} href={tool.publicHref}>
               <GlassCard className="h-full transition hover:border-aurora-400/30">
                 <tool.icon className="h-6 w-6 text-aurora-300" />
                 <h2 className="mt-3 font-display text-lg font-medium text-white">{tool.title}</h2>

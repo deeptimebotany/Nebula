@@ -40,8 +40,8 @@ import {
   type ShowcaseBadge,
   type SkillMetrics
 } from "./skills";
-import { CHEST_BONUS_XP, CHEST_TABLE, CHEST_XP, MAX_SHIELDS, MAX_SWAPS, SLOT_LABEL, chestItemLabel, findMission, missionTitle } from "./missions";
-import { pendingChests, progressChoices, revealTime, type MissionState, type WeekMissions } from "./weekly";
+import { CHEST_BONUS_XP, CHEST_TABLE, CHEST_XP, MAX_SHIELDS, SLOT_LABEL, chestItemLabel, findMission, missionTitle } from "./missions";
+import { pendingChests, revealTime, type MissionState, type WeekMissions } from "./weekly";
 import type { CelebrationDTO, ChallengeDTO, ConstellationDTO, MissionDTO, NearDTO, NextActionDTO, RarityDTO, ReussitesPageDTO, ReussitesSummaryDTO, SeriesDTO, ShowcaseDTO } from "./types";
 
 type RarityLookup = Map<string, { share: number; tier: RarityTier | null }>;
@@ -285,13 +285,12 @@ export async function buildPage(userId: string): Promise<ReussitesPageDTO | null
   const monthlyDone = new Set(r.completions.filter((c) => c.kind === "MONTHLY").map((c) => c.period));
   const featuredIds = new Set(mine.map((f) => f.sharedVideoId));
   const near = nearFrom(series);
-  const progressDone = state.missions.find((m) => m.slot === "progress")?.done ?? false;
   return {
     level: r.level,
     week: { id: state.week.id, endsAt: state.week.end.toISOString(), revealAt: revealTime(state.week).toISOString() },
     missions: state.missions.map(missionDTO),
-    choices: progressChoices(state.row),
-    swapsLeft: progressDone ? 0 : Math.max(0, MAX_SWAPS - state.row.swapsUsed),
+    // Les 3 propositions de la Progression, avec leur avancement (03/10/2026).
+    choices: state.choices,
     chest: {
       week: state.week.id,
       ready: state.chest.ready,

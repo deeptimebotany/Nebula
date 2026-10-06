@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Offres fondateurs (02/10/2026), sur une vraie base, Stripe simulé (aucun
 // appel réseau) : coupon « 10 € pendant 3 mois » appliqué seulement à qui y
@@ -88,6 +88,12 @@ describe.skipIf(!hasDatabase)("offres fondateurs", () => {
     process.env.STRIPE_PRICE_PRO_5_MONTHLY = "price_pro5_m";
     delete process.env.STRIPE_FOUNDER_COUPON;
     delete process.env.STRIPE_PRICE_FOUNDER_PREMIUM;
+    // Horloge fixée pendant la vente (qui s'arrête le 1er janvier 2027) :
+    // ces tests restent valables après cette date. L'heure avance quand même.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-15T10:00:00Z"), shouldAdvanceTime: true });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("places publiques ; droits d'un compte jamais abonné", async () => {
@@ -106,6 +112,8 @@ describe.skipIf(!hasDatabase)("offres fondateurs", () => {
     expect(await res.json()).toMatchObject({ coupon: "founder" });
     expect(fake.client.coupons.create).toHaveBeenCalledTimes(1);
     expect(fake.client.coupons.create.mock.calls[0][0]).toMatchObject({ id: "nebula-fondateur-3-mois", amount_off: 200, currency: "eur", duration: "repeating", duration_in_months: 3, max_redemptions: 100 });
+    // Plus utilisable chez Stripe après la fin de la vente (1er janvier 2027, 0 h à Paris).
+    expect(fake.client.coupons.create.mock.calls[0][0].redeem_by).toBe(Date.UTC(2026, 11, 31, 23) / 1000);
     expect(checkoutCalls()[0]).toMatchObject({ mode: "subscription", line_items: [{ price: "price_pro1_m" }], discounts: [{ coupon: "nebula-fondateur-3-mois" }], subscription_data: { metadata: { founder: "1", maxBrands: "1" } } });
 
     // Deuxième passage : coupon relu, pas recréé.
@@ -126,6 +134,39 @@ describe.skipIf(!hasDatabase)("offres fondateurs", () => {
     await prisma.user.update({ where: { id: user.id }, data: { firstPaidAt: new Date() } });
     await postCheckout(req("/api/billing/checkout", { plan: "PRO", interval: "month", maxBrands: 1, founder: true }));
     expect(checkoutCalls().at(-1)?.subscription_data.metadata.founder).toBe("0");
+  });
+
+  it("fin de la vente le 1er janvier 2027 à 0 h (Paris) : plus d'offre pour personne, les fondateurs gardent tout", async () => {
+    const { user } = await makeBrand();
+    const premium = await makeBrand();
+    await grantFounderPremium(premiumSession("cs_avant", premium.user.id), new Date("2026-12-20T10:00:00Z"));
+    {
+      // Dernière seconde du 31 décembre : encore ouvert.
+      vi.setSystemTime(new Date("2026-12-31T23:59:59+01:00"));
+      await login(user.id, user.email);
+      expect((await (await getFounders()).json()) as Record<string, unknown>).toMatchObject({ saleOpen: true, saleEndsAt: "2026-12-31T23:00:00.000Z", me: { monthlyEligible: true, premiumEligible: true } });
+
+      vi.setSystemTime(new Date("2027-01-01T00:00:00+01:00"));
+      const after = await (await getFounders()).json();
+      expect(after).toMatchObject({ saleOpen: false, me: { monthlyEligible: false, premiumEligible: false, premiumBlocked: "L'offre Fondateur Premium a pris fin le 1er janvier 2027." } });
+      // Paiement Pro 1 marque : prix normal, pas de coupon.
+      await postCheckout(req("/api/billing/checkout", { plan: "PRO", interval: "month", maxBrands: 1, founder: true }));
+      expect(fake.client.coupons.create).not.toHaveBeenCalled();
+      expect(checkoutCalls().at(-1)?.discounts).toBeUndefined();
+      expect(checkoutCalls().at(-1)?.subscription_data.metadata.founder).toBe("0");
+      // Premium : refusé avec la date.
+      const refused = await postPremium(req("/api/billing/founder-premium", { waiveWithdrawal: true }));
+      expect(refused.status).toBe(409);
+      expect((await refused.json()).error).toBe("L'offre Fondateur Premium a pris fin le 1er janvier 2027.");
+      // Un paiement ouvert avant minuit et réglé après est honoré.
+      const late = await makeBrand();
+      expect(await grantFounderPremium(premiumSession("cs_minuit", late.user.id))).toBe("granted");
+
+      // Le Fondateur Premium d'avant garde son année.
+      await login(premium.user.id, premium.user.email);
+      expect((await (await getFounders()).json()).me).toMatchObject({ kind: "PREMIUM", premiumUntil: "2027-12-20T10:00:00.000Z", premiumBlocked: "Vous êtes déjà Fondateur Premium : merci !" });
+      expect((await getUserPlan(premium.user.id)).plan).toBe("PRO");
+    }
   });
 
   it("coupon épuisé chez Stripe : paiement au prix normal, sans erreur", async () => {

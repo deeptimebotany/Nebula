@@ -3,7 +3,7 @@
 // /outils avant de s'inscrire reçoit le badge à la création de son compte.
 //
 // Cookie « nb_tools » (30 jours, première partie, SameSite=Lax) : SEULEMENT
-// les noms des outils essayés (« publier.hashtags »), rien d'autre — ni
+// les noms des outils essayés (« audit.hashtags »), rien d'autre — ni
 // identifiant, ni adresse, ni tiers. Lu à l'inscription (e-mail ou
 // connexion rapide) pour remplir User.toolsExplored. Décrit dans les
 // mentions légales (section Cookies). Importable client et serveur.
@@ -11,13 +11,8 @@
 export const TOOLS_COOKIE = "nb_tools";
 export const TOOLS_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 /** Outils gratuits reconnus (dossiers de src/app/outils). */
-export const TOOL_IDS = ["publier", "hashtags", "bio-instagram", "titre-youtube", "meilleur-moment", "taux-engagement", "audit"] as const;
+export const TOOL_IDS = ["hashtags", "bio-instagram", "titre-youtube", "meilleur-moment", "taux-engagement", "audit"] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
-/**
- * Anciens outils réunis dans le générateur de publications (30/09/2026) :
- * un cookie posé avant compte toujours, pour « publier ».
- */
-const LEGACY_TOOL_IDS: Record<string, ToolId> = { legendes: "publier", miniatures: "publier" };
 /** Outils à essayer pour le badge. */
 export const EXPLORER_TARGET = 2;
 export const TOOLS_EXPLORED_EVENT = "nebula:tool-explored";
@@ -28,7 +23,8 @@ export function parseToolsCookie(value: string | null | undefined): ToolId[] {
   const out: ToolId[] = [];
   for (const raw of decodeURIComponent(value).split(".")) {
     const name = raw.trim();
-    const id = (Object.prototype.hasOwnProperty.call(LEGACY_TOOL_IDS, name) ? LEGACY_TOOL_IDS[name] : name) as ToolId;
+    // Les anciens noms (publier, legendes, miniatures : outils retirés) sont ignorés.
+    const id = name as ToolId;
     if ((TOOL_IDS as readonly string[]).includes(id) && !out.includes(id)) out.push(id);
   }
   return out;

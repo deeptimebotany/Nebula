@@ -11,6 +11,9 @@ import { trackGrowth } from "@/lib/growth";
 // publications : titre, texte et image) le temps que le visiteur crée un compte, puis le
 // Composer le récupère via ?draft=<id> (GET/DELETE dans [id]/route.ts).
 // Sans authentification, limité par IP, expire en 7 jours (purge cron).
+// 06/10/2026 : le Générateur de publications, seul outil qui l'appelait, est
+// retiré ; la route reste pour un futur « Programmer avec Nebula » des outils
+// et pour les brouillons déjà mis de côté (Publier les lit encore 7 jours).
 const bodySchema = z.object({
   kind: z.enum(["CAPTION", "THUMBNAIL", "POST"]),
   tool: z.string().max(40).optional(),

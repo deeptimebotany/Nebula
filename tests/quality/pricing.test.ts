@@ -6,7 +6,20 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PLAN_LIMITS, annualFreeMonths, brandChoicesLabel, brandsText, findTier, topTier, upToBrandsText } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, addMonthsUtc, euros, founderDiscountCents, founderRegularPrice, isFounderMonthlyTier, placesOf, placesText } from "@/lib/founders-offer";
+import {
+  FOUNDERS_SALE_ENDS_AT,
+  FOUNDERS_SALE_END_LABEL,
+  FOUNDER_MONTHLY,
+  FOUNDER_PREMIUM,
+  addMonthsUtc,
+  euros,
+  founderDiscountCents,
+  founderRegularPrice,
+  foundersSaleOpen,
+  isFounderMonthlyTier,
+  placesOf,
+  placesText
+} from "@/lib/founders-offer";
 import { COMPETITORS, REFERENCE_SCENARIO, nebulaEstimate, toEur } from "@/data/competitors";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -97,6 +110,28 @@ describe("offres fondateurs", () => {
   it("Fondateur Premium : 100 € une fois, 12 mois, 100 places", () => {
     expect(FOUNDER_PREMIUM).toMatchObject({ plan: "PRO", maxBrands: 1, priceCents: 10000, months: 12, places: 100 });
     expect(euros(FOUNDER_PREMIUM.priceCents)).toBe("100 €");
+  });
+
+  it("fin de la vente : 1er janvier 2027 à 0 h, heure de Paris, affichée partout où les offres apparaissent", () => {
+    expect(FOUNDERS_SALE_ENDS_AT.toISOString()).toBe("2026-12-31T23:00:00.000Z");
+    expect(FOUNDERS_SALE_END_LABEL).toBe("1er janvier 2027");
+    expect(foundersSaleOpen(new Date("2026-12-31T23:59:59+01:00"))).toBe(true);
+    expect(foundersSaleOpen(new Date("2027-01-01T00:00:00+01:00"))).toBe(false);
+    for (const f of [
+      "src/components/marketing/founder-offers-public.tsx",
+      "src/components/billing/founder-offers.tsx",
+      "src/components/billing/upgrade-modal.tsx",
+      "src/components/marketing/faq.tsx",
+      "src/app/tarifs/page.tsx",
+      "src/app/legal/page.tsx",
+      "src/app/llms.txt/route.ts"
+    ]) {
+      expect(readFileSync(path.join(ROOT, f), "utf8"), f).toContain("FOUNDERS_SALE_END_LABEL");
+    }
+    // Section publique : valeur du serveur au premier rendu (pas d'écart d'hydratation), puis l'heure et l'API.
+    const pub = readFileSync(path.join(ROOT, "src/components/marketing/founder-offers-public.tsx"), "utf8");
+    expect(pub).toContain("if (!saleOpen) return null;");
+    for (const f of ["src/app/page.tsx", "src/app/tarifs/page.tsx"]) expect(readFileSync(path.join(ROOT, f), "utf8"), f).toContain("foundersOpen={foundersSaleOpen()}");
   });
 
   it("places et dates", () => {

@@ -5,7 +5,8 @@
 // missions de la semaine (Réussites v2), puis relevé quotidien automatique
 // des comptes connectés (Réussites v3, auto-sync.ts) et veille des API
 // (api-watch/watcher.ts), et les rappels / la fin de l'année « Fondateur
-// Premium » (billing/founders.ts). Chaque tâche est
+// Premium » (billing/founders.ts), et le bilan du mois par e-mail
+// (monthly-summary/send.ts, le 3 du mois). Chaque tâche est
 // isolée : l'échec de l'une n'empêche jamais les autres.
 import { closeDueFeedback, purgeOldFeedback } from "@/lib/community/feedback";
 import { processDueRewards, flushAllBonusMonths } from "@/lib/billing/rewards";
@@ -16,6 +17,7 @@ import { runReussitesNudges } from "@/lib/reussites/nudges";
 import { autoSyncDueConnections } from "@/lib/social/auto-sync";
 import { runApiWatch } from "@/lib/api-watch/watcher";
 import { runFounderJobs } from "@/lib/billing/founders";
+import { runMonthlySummaries } from "@/lib/monthly-summary/send";
 
 function safe<T>(label: string, run: () => Promise<T>): Promise<T | null> {
   return run().catch((err) => {
@@ -48,5 +50,7 @@ export async function runAccountJobs() {
   const apiWatch = await safe("veille des API", () => runApiWatch());
   // Offres fondateurs (02/10/2026) : rappels J-30 / J-7 et fin de l'année Premium.
   const founders = await safe("fondateurs", () => runFounderJobs());
-  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders };
+  // Bilan du mois (03/10/2026) : à partir du 3 à 9 h, quelques e-mails par passage.
+  const monthlySummaries = await safe("bilan du mois", () => runMonthlySummaries());
+  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries };
 }

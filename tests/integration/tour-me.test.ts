@@ -37,6 +37,10 @@ describe.skipIf(!hasDatabase)("visite guidée, sons et bootstrap", () => {
     expect((await patchTour(req("/api/me/tour", { action: "restart" }))).status).toBe(200);
     expect((await buildMe({ user: { id: user.id, email: user.email } } as unknown as Session))?.tour).toEqual({ completed: false, step: 0 });
 
+    // 7 étapes depuis le 06/10/2026 (étape « Mode focus ») : la dernière est enregistrée, au-delà refusé.
+    expect((await patchTour(req("/api/me/tour", { action: "step", step: 6 }))).status).toBe(200);
+    expect((await buildMe({ user: { id: user.id, email: user.email } } as unknown as Session))?.tour).toEqual({ completed: false, step: 6 });
+    expect((await patchTour(req("/api/me/tour", { action: "step", step: 7 }))).status).toBe(400);
     expect((await patchTour(req("/api/me/tour", { action: "step", step: 9 }))).status).toBe(400);
   });
 

@@ -49,25 +49,13 @@ export const SEO_TOOLS_HUB: SeoPage = {
   path: "/outils",
   title: "Outils IA gratuits pour les réseaux sociaux",
   description:
-    "Légendes, titres et miniatures, hashtags, bio Instagram, audit de présence, taux d'engagement et meilleur moment pour publier : des outils gratuits.",
+    "Audit de présence, hashtags, bio Instagram, testeur de titre YouTube, taux d'engagement et meilleur moment pour publier : des outils gratuits.",
   eyebrow: "Outils gratuits",
-  imageSubtitle: "Publications (titre, légende, miniature), hashtags, bio Instagram, audit"
+  imageSubtitle: "Audit, hashtags, bio Instagram, titre YouTube, taux d'engagement"
 };
 
 /** Les outils de /outils, dans l'ordre du hub. */
 export const SEO_TOOLS: Record<string, SeoPage> = {
-  // Légendes & titres + miniatures, réunis en un seul outil comme la page
-  // Publier (30/09/2026) ; /outils/legendes et /outils/miniatures y mènent.
-  publier: {
-    path: "/outils/publier",
-    toolName: "Générateur de publications (titre, légende, miniature)",
-    title: "Générateur de légendes, titres et miniatures (IA)",
-    description:
-      "Titre, légende et miniature au même endroit, avec l'aperçu Instagram, TikTok, YouTube ou Facebook. L'IA écrit et choisit avec un compte gratuit.",
-    eyebrow: "Outil IA",
-    imageTitle: "Générateur de publications",
-    imageSubtitle: "Titre, légende et miniature, avec l'aperçu du réseau"
-  },
   audit: {
     path: "/outils/audit",
     toolName: "Audit de présence en ligne",

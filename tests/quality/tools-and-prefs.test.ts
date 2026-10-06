@@ -8,7 +8,7 @@ import path from "path";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 import { FREE_IP_DAILY_LIMITS, TOOL_DAILY_LIMITS, toolQuotaMessage } from "@/lib/tools/quota";
-import { DEMO_BIO_INSTAGRAM, DEMO_HASHTAGS, DEMO_LEGENDES_BY_NETWORK, DEMO_NOTICE, DEMO_TITRE_YOUTUBE } from "@/lib/tools/demo";
+import { DEMO_BIO_INSTAGRAM, DEMO_HASHTAGS, DEMO_NOTICE, DEMO_TITRE_YOUTUBE } from "@/lib/tools/demo";
 import { LAUNCHED_NETWORKS, NETWORK_META } from "@/lib/types";
 import { UI_PREF_MAX_VALUE, isSyncedPrefKey, mergeUiPrefs, sanitizeUiPrefs } from "@/lib/ui-prefs";
 import { composerDraftSchema } from "@/lib/composer-draft-schema";
@@ -42,47 +42,47 @@ describe("outils IA : démos", () => {
     expect(DEMO_TITRE_YOUTUBE.result).toHaveLength(3);
     for (const t of DEMO_TITRE_YOUTUBE.result) expect(t.length).toBeLessThanOrEqual(60);
   });
-  it("légendes et titres : un exemple par réseau proposé, dans les limites de chaque réseau", () => {
-    for (const n of LAUNCHED_NETWORKS) {
-      const demo = DEMO_LEGENDES_BY_NETWORK[n as keyof typeof DEMO_LEGENDES_BY_NETWORK];
-      expect(demo, n).toBeDefined();
-      expect(demo.title.length, n).toBeLessThanOrEqual(100);
-      expect(demo.description.length, n).toBeLessThanOrEqual(NETWORK_META[n].maxCaption);
-    }
-  });
 });
 
-describe("générateur de publications (légendes + miniatures réunis, 30/09/2026)", () => {
+describe("Générateur de publications retiré (06/10/2026)", () => {
   const root = process.cwd();
   const read = (file: string) => readFileSync(path.join(root, file), "utf8");
 
-  it("un seul outil, construit comme la page Publier", () => {
-    expect(existsSync(path.join(root, "src/app/outils/publier/page.tsx"))).toBe(true);
-    expect(existsSync(path.join(root, "src/app/outils/legendes"))).toBe(false);
-    expect(existsSync(path.join(root, "src/app/outils/miniatures"))).toBe(false);
-    const page = read("src/app/outils/publier/page.tsx");
-    // Les cartes de Publier, dans l'ordre, puis l'aperçu.
-    const order = [">1. Média<", 'fieldHeader("title", 2', 'fieldHeader("description", 3', ">4. Réseau<", ">5. Publication<", "<ToolPreview"].map((m) => page.indexOf(m));
-    expect(order.every((i) => i > 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    // Les trois générations des anciens outils.
-    for (const api of ["/api/public/tools/captions", "/api/public/tools/pick-frames", "/api/public/tools/thumbnail"]) expect(page).toContain(api);
+  it("plus de page ni de routes IA propres à l'outil", () => {
+    for (const dir of ["src/app/outils/publier", "src/app/outils/legendes", "src/app/outils/miniatures", "src/app/api/public/tools/captions", "src/app/api/public/tools/pick-frames", "src/app/api/public/tools/thumbnail"]) {
+      expect(existsSync(path.join(root, dir)), dir).toBe(false);
+    }
   });
 
-  it("les anciennes adresses redirigent en permanence vers le nouvel outil", async () => {
+  it("son adresse et celles des anciens outils mènent aux outils gratuits", async () => {
     const config = createRequire(import.meta.url)(path.join(root, "next.config.js")) as { redirects: () => Promise<{ source: string; destination: string; permanent: boolean }[]> };
     const redirects = await config.redirects();
-    expect(redirects.find((r) => r.source === "/outils/legendes")).toMatchObject({ destination: "/outils/publier", permanent: true });
-    expect(redirects.find((r) => r.source === "/outils/miniatures")).toMatchObject({ destination: "/outils/publier?reseau=youtube", permanent: true });
+    for (const source of ["/outils/publier", "/outils/legendes", "/outils/miniatures"]) {
+      expect(redirects.find((r) => r.source === source), source).toMatchObject({ destination: "/outils", permanent: true });
+    }
   });
 
-  it("une seule carte dans le hub, plus aucun lien vers les anciens outils", () => {
-    for (const file of ["src/app/outils/page.tsx", "src/components/tools/tool-catalog.ts", "src/components/marketing/marketing-footer.tsx", "src/app/sitemap.ts", "src/app/llms.txt/route.ts"]) {
-      expect(read(file), file).not.toMatch(/outils\/(legendes|miniatures)/);
+  it("aucun lien vers l'outil, nulle part sur le site", () => {
+    for (const file of [
+      "src/app/outils/page.tsx",
+      "src/components/tools/tool-catalog.ts",
+      "src/components/marketing/marketing-footer.tsx",
+      "src/app/sitemap.ts",
+      "src/app/llms.txt/route.ts",
+      "src/lib/seo-pages.ts",
+      "src/lib/csp.ts",
+      "src/app/outils/hashtags/page.tsx",
+      "src/app/outils/bio-instagram/page.tsx",
+      "src/app/outils/taux-engagement/page.tsx",
+      "src/app/outils/meilleur-moment/page.tsx",
+      "src/app/outils/titre-youtube/page.tsx",
+      "src/app/(dashboard)/tools/page.tsx",
+      "src/lib/emails/lifecycle.ts"
+    ]) {
+      expect(read(file), file).not.toMatch(/outils\/(publier|legendes|miniatures)/);
+      expect(read(file), file).not.toMatch(/[Gg]énérateur de publications"/);
     }
-    // 02/10/2026 : la liste du hub vit dans le catalogue partagé avec l'application.
     expect(read("src/app/outils/page.tsx")).toMatch(/TOOL_CATALOG\.map/);
-    expect(read("src/components/tools/tool-catalog.ts").match(/publicHref: "\/outils\/publier"/g)).toHaveLength(1);
   });
 });
 

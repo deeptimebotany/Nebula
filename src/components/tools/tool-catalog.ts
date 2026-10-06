@@ -1,11 +1,12 @@
 // Catalogue des outils (02/10/2026) : une seule liste pour la page publique
 // /outils et le menu « Outils » de l'application (/tools). Chaque outil a sa
 // page publique (sans compte, démo pour l'IA) et sa version dans
-// l'application, préremplie avec la marque active — sauf le générateur de
-// publications, qui dans l'application EST la page Publier.
-import { IconAvatar, IconChart, IconClock, IconHash, IconSearch, IconSend, IconYouTube } from "@/components/dashboard/icons";
+// l'application, préremplie avec la marque active.
+// 06/10/2026 : le Générateur de publications est retiré (il refaisait la
+// page Publier) ; son ancienne adresse mène aux outils gratuits.
+import { IconAvatar, IconChart, IconClock, IconHash, IconSearch, IconYouTube } from "@/components/dashboard/icons";
 
-export type ToolSlug = "publier" | "audit" | "bio-instagram" | "hashtags" | "titre-youtube" | "taux-engagement" | "meilleur-moment";
+export type ToolSlug = "audit" | "bio-instagram" | "hashtags" | "titre-youtube" | "taux-engagement" | "meilleur-moment";
 
 export interface ToolEntry {
   slug: ToolSlug;
@@ -17,23 +18,11 @@ export interface ToolEntry {
   appDesc: string;
   publicHref: string;
   appHref: string;
-  featured?: boolean;
   /** Utilise l'IA (quota du palier). */
   ai: boolean;
 }
 
 export const TOOL_CATALOG: ToolEntry[] = [
-  {
-    slug: "publier",
-    icon: IconSend,
-    title: "Générateur de publications",
-    desc: "Comme la page Publier de Nebula, en un seul outil : votre vidéo et sa miniature, le titre et la description écrits par l'IA pour le réseau visé, et l'aperçu fidèle de la publication.",
-    appDesc: "Dans l'application, c'est la page Publier : vidéo et miniature, titre et description par l'IA, aperçu fidèle, puis programmation sur vos comptes.",
-    publicHref: "/outils/publier",
-    appHref: "/composer",
-    featured: true,
-    ai: true
-  },
   {
     slug: "audit",
     icon: IconSearch,

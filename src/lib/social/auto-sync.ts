@@ -11,7 +11,8 @@
 //    de verrou : deux passages du cron ne prennent jamais le même compte) ;
 //  - d'une marque dont un membre a ouvert Nebula dans les 30 derniers jours
 //    (Réussites évaluées : tableau de bord, Réussites, publication) — pas
-//    d'appels aux réseaux pour un compte abandonné ;
+//    d'appels aux réseaux pour un compte abandonné — ou, les 1er et 2 du
+//    mois, inscrit au bilan du mois (relevé de fin de mois) ;
 //  - dont le réseau n'est pas suspendu (disjoncteur, lot 5).
 // Un relevé fait à la main dans les 20 dernières heures n'est pas refait.
 // Uniquement les API officielles et gratuites déjà utilisées par
@@ -22,6 +23,7 @@ import { NETWORK_META, type Network } from "@/lib/types";
 import { getSocialClient } from "@/lib/social";
 import { onSyncError, onSyncSuccess, syncBlockedReason } from "./connection-health";
 import { saveAnalyticsSnapshot, savePostMetrics } from "./metrics-store";
+import { endOfMonthSyncWindow } from "@/lib/monthly-summary/period-window";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -45,7 +47,18 @@ export async function dueConnections(now: Date, take: number) {
       status: "CONNECTED",
       dormantAt: null,
       OR: [{ autoSyncedAt: null }, { autoSyncedAt: { lt: cutoff } }],
-      brand: { memberships: { some: { user: { reussitesCheckedAt: { gte: activeSince } } } } }
+      // Membre actif ces 30 derniers jours, ou, en fin de mois (les 1er et 2),
+      // inscrit au bilan du mois : son bilan doit partir avec les vrais
+      // chiffres de fin de mois même s'il ne s'est pas connecté (03/10/2026).
+      brand: {
+        memberships: {
+          some: {
+            user: endOfMonthSyncWindow(now)
+              ? { OR: [{ reussitesCheckedAt: { gte: activeSince } }, { monthlySummaryAt: { not: null } }] }
+              : { reussitesCheckedAt: { gte: activeSince } }
+          }
+        }
+      }
     },
     orderBy: { autoSyncedAt: { sort: "asc", nulls: "first" } },
     take

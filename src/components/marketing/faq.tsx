@@ -5,7 +5,7 @@
 // RÉEL du produit (quotas de plans.ts, OAuth, pages partagées par lien,
 // export des données) — rien n'est promis qui n'existe pas.
 import { AI_MONTHLY, PLAN_LIMITS, brandChoicesLabel } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice, foundersSaleOpen } from "@/lib/founders-offer";
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -34,7 +34,10 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Y a-t-il une offre de lancement ?",
-    a: `Oui, en places limitées. « Fondateur » : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} €, pour les ${FOUNDER_MONTHLY.places} premiers abonnés. « Fondateur Premium » : ${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, sans renouvellement (${FOUNDER_PREMIUM.places} places). Les deux donnent le badge « Fondateur » à vie.`
+    // Page générée au build : après le 1er janvier 2027, le prochain déploiement passe au passé.
+    a: foundersSaleOpen()
+      ? `Oui, en places limitées et jusqu'au ${FOUNDERS_SALE_END_LABEL}. « Fondateur » : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} €, pour les ${FOUNDER_MONTHLY.places} premiers abonnés. « Fondateur Premium » : ${euros(FOUNDER_PREMIUM.priceCents)} en une fois pour ${PLAN_LIMITS.PRO.label} 1 marque pendant ${FOUNDER_PREMIUM.months} mois, sans renouvellement (${FOUNDER_PREMIUM.places} places). Les deux donnent le badge « Fondateur » à vie.`
+      : `Les offres de lancement « Fondateur » et « Fondateur Premium » ont pris fin le ${FOUNDERS_SALE_END_LABEL}. Les fondateurs gardent leurs avantages jusqu'à leur terme et leur badge « Fondateur » à vie.`
   },
   {
     q: "Puis-je résilier ou récupérer mes données ?",

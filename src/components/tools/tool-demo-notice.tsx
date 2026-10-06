@@ -80,33 +80,3 @@ export function ToolQuotaLine({
     </p>
   );
 }
-
-/**
- * Miniatures générées par l'IA : réservées aux paliers payants depuis le
- * 30/09/2026 (Gemini en version payante). Le bouton d'un compte Gratuit
- * ouvre ce bandeau au lieu d'appeler l'IA ; le choix des 3 meilleures images
- * de la vidéo reste disponible.
- */
-export function ToolProOffer({ proImages, onClose }: { proImages: number; onClose: () => void }) {
-  return (
-    <div className="mt-4 rounded-xl border border-aurora-400/25 bg-aurora-400/[0.05] p-4" role="note" aria-label="Offre Pro">
-      <p className="flex flex-wrap items-center gap-2 text-sm text-slate-200">
-        <span className="rounded-full border border-aurora-400/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-aurora-300">Pro</span>
-        <span>Miniatures générées par l&apos;IA</span>
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-300">
-        L&apos;IA retravaille votre image (couleurs, contraste, titre lisible) avec le modèle d&apos;images de Google : c&apos;est inclus en Pro ({proImages}{" "}
-        miniatures par mois) et en Agence. Avec votre compte gratuit, l&apos;IA continue de choisir les 3 meilleures images de vos vidéos, et vous pouvez
-        télécharger celle qui vous plaît.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Link href="/billing" className={buttonClasses("glow")}>
-          Voir l&apos;offre Pro
-        </Link>
-        <button type="button" onClick={onClose} className="text-sm text-slate-400 transition hover:text-white">
-          Plus tard
-        </button>
-      </div>
-    </div>
-  );
-}

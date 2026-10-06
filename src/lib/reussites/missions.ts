@@ -7,7 +7,8 @@
 //  - Habitude : publier, avec un objectif réglé sur SON rythme (médiane des
 //    4 dernières semaines + 1, « semaine douce » après 2 semaines vides) ;
 import { limitsOf } from "@/lib/plans";
-//  - Progression : au choix parmi 3 propositions, un changement permis ;
+//  - Progression : 3 propositions, la première atteinte valide la mission
+//    (03/10/2026 ; avant : une seule choisie, un changement permis) ;
 //  - Mystère : révélée quand les deux autres sont réussies, ou le jeudi.
 // Jamais de mission impossible : seulement les réseaux connectés, les
 // sources d'import configurées, et ce qui n'est pas déjà fait.
@@ -299,7 +300,6 @@ export function missionTitle(key: string, target: number): string {
   return def ? def.title(target) : "Mission";
 }
 
-export const MAX_SWAPS = 1;
 export const SLOT_ORDER: MissionSlot[] = ["habit", "progress", "mystery"];
 export const SLOT_LABEL: Record<MissionSlot, string> = { habit: "Habitude", progress: "Progression", mystery: "Mystère" };
 export const missionCompletionKey = (slot: MissionSlot) => `mission-${slot}`;

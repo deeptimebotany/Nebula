@@ -26,7 +26,6 @@ const PAGES = [
   { path: "/legal", title: /Mentions|Légal|légal/i, contains: "Mentions" },
   { path: "/outils", title: /Outils/, contains: "Outils" },
   { path: "/outils/audit", title: /Audit gratuit/i, contains: "audit" },
-  { path: "/outils/publier", title: /légendes, titres et miniatures/i, contains: "sa miniature" },
   { path: "/outils/bio-instagram", title: /bio Instagram/i, contains: "bio" },
   { path: "/outils/hashtags", title: /hashtags/i, contains: "hashtag" },
   { path: "/outils/titre-youtube", title: /titre YouTube/i, contains: "titre" },

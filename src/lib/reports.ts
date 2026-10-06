@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { emailIdempotencyKey, sendReportEmail } from "@/lib/email";
 import { getBrandPlan } from "@/lib/billing/plan";
+import { VIEWS_KIND, viewsInRange } from "@/lib/monthly-summary/build";
 
 // Rapports clients automatiques (produit n°6 de la feuille de route) — voir
 // BrandReport dans prisma/schema.prisma. Une marque n'a jamais plus d'un
@@ -61,8 +62,37 @@ export async function computeReportData(brandId: string, periodDays: number): Pr
   const byNetwork: { network: string; followers: number; followersDelta: number }[] = [];
   const growthByDay = new Map<string, number>();
 
+  // Vues : calculées comme chaque réseau les donne (03/10/2026). Avant, les
+  // relevés étaient additionnés tels quels : le compteur TOTAL de la chaîne
+  // YouTube, relevé chaque jour, était compté 30 fois.
+  const viewsByConnection = new Map<string, number | null>();
+  for (const conn of connections) {
+    const kind = VIEWS_KIND[conn.network] ?? "none";
+    const [before, posts] = await Promise.all([
+      kind === "cumulative"
+        ? prisma.analyticsSnapshot.findFirst({ where: { connectionId: conn.id, capturedAt: { lt: periodStart } }, orderBy: { capturedAt: "desc" }, select: { capturedAt: true, impressions: true, followers: true } })
+        : Promise.resolve(null),
+      kind === "posts"
+        ? prisma.postMetric.findMany({ where: { connectionId: conn.id, publishedAt: { gte: periodStart, lt: now } }, select: { publishedAt: true, views: true } })
+        : Promise.resolve([])
+    ]);
+    const snaps = conn.analytics.map((s: { capturedAt: Date; impressions: number; followers: number }) => ({ connectionId: conn.id, capturedAt: s.capturedAt, impressions: s.impressions, followers: s.followers }));
+    viewsByConnection.set(
+      conn.id,
+      viewsInRange(
+        kind,
+        snaps,
+        before ? { connectionId: conn.id, ...before } : null,
+        (posts as { publishedAt: Date | null; views: number | null }[]).filter((p): p is { publishedAt: Date; views: number | null } => p.publishedAt instanceof Date),
+        periodStart,
+        now
+      )
+    );
+  }
+
   for (const conn of connections) {
     const snaps = conn.analytics;
+    impressions += viewsByConnection.get(conn.id) ?? 0;
     if (snaps.length === 0) continue;
     const latest = snaps[snaps.length - 1];
     const earliest = snaps[0];
@@ -71,7 +101,6 @@ export async function computeReportData(brandId: string, periodDays: number): Pr
     byNetwork.push({ network: conn.network, followers: latest.followers, followersDelta: latest.followers - earliest.followers });
 
     for (const s of snaps) {
-      impressions += s.impressions;
       reach += s.reach;
       engagementSum += s.engagementRate;
       engagementCount += 1;

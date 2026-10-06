@@ -83,7 +83,7 @@ describe("Instagram : traitement de la vidéo", () => {
     expect(isPendingPublish(out) && out.checkpoint).toEqual({ step: "ig_container", containerId: "CONT1" });
     expect(calls.some((c) => c.url.includes("media_publish"))).toBe(false);
     // Version de l'API à jour et jeton jamais dans l'adresse d'un POST.
-    expect(calls[0].url).toContain("/v25.0/");
+    expect(calls[0].url).toContain("/v26.0/");
     expect(calls[0].url).not.toContain("TOKEN");
     expect(calls[0].body).toContain("appsecret_proof=");
   });

@@ -1,8 +1,8 @@
 // Extrait des images d'une vidéo directement dans le navigateur (canvas),
 // sans passer par ffmpeg côté serveur : fonctionne partout, y compris sur
 // Vercel et avec des vidéos stockées sur Vercel Blob. Utilisé par la page
-// Publier (section Miniature) et par l'outil gratuit /outils/publier
-// (29/09/2026) : la vidéo du visiteur ne quitte jamais son navigateur.
+// Publier (section Miniature) et par l'éditeur vidéo : la vidéo ne quitte
+// jamais le navigateur.
 // Module navigateur uniquement (document, canvas).
 
 /** Attend un événement de la vidéo, avec une limite de temps (certains formats ne se lisent jamais). */

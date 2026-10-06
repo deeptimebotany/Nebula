@@ -491,38 +491,6 @@ export async function generateCopy(input: {
 }
 
 /**
- * Version "grand public" de generateCopy(), utilisée par le générateur
- * de /outils/publier (compte gratuit requis, voir /api/public/tools/captions).
- * Différence clé : ici on ne décrit jamais un média réel (le visiteur n'a
- * rien uploadé) mais un simple SUJET tapé au clavier — le prompt doit donc
- * traiter ce texte comme le sujet de la publication, pas comme la légende
- * d'un fichier joint, sans quoi Gemini comprend de travers (voir le
- * "Média joint : ..." de generateCopy, qui suppose toujours un fichier).
- */
-export async function generateFreeCaption(input: {
-  field: "title" | "description";
-  network?: string;
-  maxLength?: number;
-  brandName: string;
-  topic: string;
-}): Promise<string> {
-  const { field, network, maxLength, brandName, topic } = input;
-
-  const promptLines = [
-    `Tu es un assistant de community management qui aide "${brandName}" à rédiger une publication.`,
-    `Sujet de la publication, décrit par la personne : ${topic}`,
-    field === "title"
-      ? `Rédige UN SEUL titre accrocheur (sans guillemets, sans hashtag) pour cette publication${network ? ` sur ${network}` : ""}.`
-      : `Rédige UNE SEULE description/légende engageante${network ? ` adaptée à ${network}` : ""}, avec 2-3 hashtags pertinents à la fin.`,
-    maxLength ? `Reste sous ${maxLength} caractères.` : "",
-    "Réponds uniquement avec le texte final, sans préambule ni explication."
-  ].filter(Boolean);
-
-  const text = await callGemini({ contents: [{ role: "user", parts: [{ text: promptLines.join("\n") }] }] });
-  return text.trim().replace(/^"|"$/g, "");
-}
-
-/**
  * Proposition de réponse à un commentaire reçu (page Commentaires,
  * 01/10/2026). Le commentaire vient d'un inconnu : il est passé comme une
  * donnée à lire, jamais comme une consigne (une phrase « ignore tes

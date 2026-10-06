@@ -131,6 +131,7 @@ export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA
 export const OWNER_NAV_ITEMS: NavItem[] = [
   OWNER_NAV_ITEM,
   { href: "/admin/acquisition", label: "Acquisition", icon: IconChart, description: "D'où viennent inscrits et payants", keywords: ["admin", "stats", "croissance"] },
+  { href: "/admin/bilans", label: "Bilans du mois", icon: IconSend, description: "E-mail mensuel : inscrits, envois, aperçu", keywords: ["admin", "bilan", "e-mail", "mensuel", "résumé", "rapport"] },
   { href: "/admin/lancement", label: "Lancement", icon: IconSend, description: "Pré-lancement : personnes à prévenir, annonce", keywords: ["admin", "bientôt", "liste d'attente", "ouverture", "inscriptions"] },
   { href: "/admin/messages", label: "Messages", icon: IconMessage, description: "Formulaire de contact du site", keywords: ["admin", "contact", "support", "prospects", "e-mails"] },
   { href: "/admin/partenaires", label: "Partenaires", icon: IconGift, description: "Accès Pro / Agence offerts", keywords: ["admin", "codes", "promo", "partenaires"] },

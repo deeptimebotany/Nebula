@@ -23,6 +23,7 @@ import { OWNER_EMAIL } from "@/lib/owner";
 import { checkSource, runApiWatch, runDeadlineAlerts } from "@/lib/api-watch/watcher";
 import { recordApiSignal } from "@/lib/api-watch/record";
 import { WATCH_SOURCES } from "@/lib/api-watch/sources";
+import { dueDeadlineAlerts } from "@/lib/api-watch/deadlines";
 import { GET, POST } from "@/app/api/admin/api-watch/route";
 import { hasDatabase, makeBrand, resetDatabase } from "./helpers";
 
@@ -52,16 +53,20 @@ describe.skipIf(!hasDatabase)("veille des API", () => {
 
   it("rappels d'échéance : une alerte par seuil, jamais deux fois", async () => {
     const o = await owner();
-    expect(await runDeadlineAlerts(NOW)).toBe(1);
-    expect(await runDeadlineAlerts(NOW)).toBe(1);
+    // Meta en v26.0 depuis le 06/10/2026 : revue de la Marketing API le 15/01/2027, à 25 jours le 21/12/2026.
+    const later = new Date("2026-12-21T09:00:00Z");
+    const due = dueDeadlineAlerts(later).length;
+    expect(due).toBeGreaterThanOrEqual(1);
+    expect(await runDeadlineAlerts(later)).toBe(due);
+    expect(await runDeadlineAlerts(later)).toBe(due);
     const notes = await prisma.notification.findMany({ where: { userId: o.id, dedupeKey: { startsWith: "api-deadline:" } } });
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ title: "Revue à faire dans 25 jours : Meta Marketing API (Publicité Meta)", href: "/admin/api" });
+    expect(notes).toHaveLength(due);
+    expect(notes.find((n) => n.title === "Revue à faire dans 25 jours : Meta Marketing API (Publicité Meta)")).toMatchObject({ href: "/admin/api" });
     // Le cron ne refait le calcul que toutes les 12 h.
     await prisma.notification.deleteMany({});
-    const first = await runApiWatch(NOW, { sources: 0, fetchText: async () => "" });
-    const again = await runApiWatch(new Date(NOW.getTime() + 3_600_000), { sources: 0, fetchText: async () => "" });
-    expect([first.deadlineAlerts, again.deadlineAlerts]).toEqual([1, 0]);
+    const first = await runApiWatch(later, { sources: 0, fetchText: async () => "" });
+    const again = await runApiWatch(new Date(later.getTime() + 3_600_000), { sources: 0, fetchText: async () => "" });
+    expect([first.deadlineAlerts, again.deadlineAlerts]).toEqual([due, 0]);
   });
 
   it("flux : premier relevé = point de départ ; ensuite, annonce importante signalée", async () => {
@@ -127,7 +132,9 @@ describe.skipIf(!hasDatabase)("veille des API", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const d = await res.json();
-    expect(d.deadlines[0]).toMatchObject({ id: "meta-marketing", next: { kind: "revue", level: "urgent" } });
+    // Échéances triées de la plus proche à la plus lointaine ; la Marketing API de Meta y figure.
+    for (let i = 1; i < d.deadlines.length; i++) expect(d.deadlines[i].next.days).toBeGreaterThanOrEqual(d.deadlines[i - 1].next.days);
+    expect(d.deadlines.find((x: { id: string }) => x.id === "meta-marketing")).toMatchObject({ next: { kind: "revue" } });
     expect(d.sources).toHaveLength(WATCH_SOURCES.length);
     expect(d.signals).toHaveLength(1);
     expect(d.announcements.length).toBeGreaterThan(5);

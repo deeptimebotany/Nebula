@@ -2011,6 +2011,43 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
 [data-mode="light"] .nb-tour-spot {
   box-shadow: 0 0 0 2px rgb(var(--c-nebula-500) / 0.9), 0 0 0 9999px rgba(15, 23, 42, 0.28);
 }
+/* Flèche de la bulle vers sa cible (étape « Mode focus », 06/10/2026) :
+   tracée à l'apparition, fixe si « Réduire les animations ». */
+.nb-tour-arrow path,
+.nb-tour-arrow polyline {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+[data-mode="light"] .nb-tour-arrow {
+  color: rgb(var(--c-nebula-500));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nb-tour-arrow {
+    animation: nb-tour-arrow-nudge 0.9s ease-in-out 1.1s 3;
+  }
+  .nb-tour-arrow path {
+    stroke-dashoffset: 1;
+    animation: nb-tour-arrow-draw 0.45s ease-out 0.3s forwards;
+  }
+  .nb-tour-arrow polyline {
+    stroke-dashoffset: 1;
+    animation: nb-tour-arrow-draw 0.2s ease-out 0.72s forwards;
+  }
+}
+@keyframes nb-tour-arrow-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes nb-tour-arrow-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(var(--nb-nx, 0), var(--nb-ny, 0));
+  }
+}
 
 /* Pastille de palier du sélecteur de marque : en clair, sans fond teinté
    (contraste AA du texte de 9 px sur le blanc). */

@@ -1,8 +1,7 @@
 // Gabarit commun des micro-outils gratuits de /outils (brief growth, lot
 // G4.c) : H1 = la requête visée, introduction de 80 à 120 mots, l'outil,
 // FAQ en <details> doublée d'un JSON-LD FAQPage, appel « Programmer avec
-// Nebula », liens croisés entre outils. Même layout que /outils/publier
-// (nav + footer via outils/layout.tsx).
+// Nebula », liens croisés entre outils (nav + footer via outils/layout.tsx).
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { FaqSection, type FaqItem } from "@/components/marketing/faq-section";

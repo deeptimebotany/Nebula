@@ -57,6 +57,8 @@ export async function sendEmail(params: {
    * les autres applications (en-tête X-Entity-Ref-ID unique, lu par Gmail).
    */
   allowThreading?: boolean;
+  /** En-têtes en plus (ex. List-Unsubscribe du bilan du mois, 03/10/2026). */
+  headers?: Record<string, string>;
 }): Promise<{ ok: boolean; error?: string; retryable?: boolean }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -82,9 +84,14 @@ export async function sendEmail(params: {
         ...(params.replyTo ? { reply_to: params.replyTo } : {}),
         // Avec une clé d'idempotence, identifiant stable : un nouvel essai
         // envoie exactement le même contenu (Resend le reconnaît).
-        ...(params.allowThreading
+        ...(params.allowThreading && !params.headers
           ? {}
-          : { headers: { "X-Entity-Ref-ID": params.idempotencyKey ? createHash("sha256").update(params.idempotencyKey).digest("hex").slice(0, 32) : randomUUID() } })
+          : {
+              headers: {
+                ...(params.allowThreading ? {} : { "X-Entity-Ref-ID": params.idempotencyKey ? createHash("sha256").update(params.idempotencyKey).digest("hex").slice(0, 32) : randomUUID() }),
+                ...(params.headers ?? {})
+              }
+            })
       }),
       cache: "no-store",
       timeoutMs: 15_000,

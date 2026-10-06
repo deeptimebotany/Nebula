@@ -90,7 +90,9 @@ describe("menu « Outils »", () => {
   it("chaque outil a sa page publique et sa page dans l'application", () => {
     expect(APP_TOOL_SLUGS).toEqual(["audit", "bio-instagram", "hashtags", "titre-youtube", "taux-engagement", "meilleur-moment"]);
     for (const t of TOOL_CATALOG) expect(existsSync(path.join(__dirname, "../../src/app", t.publicHref, "page.tsx")), t.publicHref).toBe(true);
-    expect(TOOL_CATALOG.find((t) => t.slug === "publier")?.appHref).toBe("/composer");
+    // Générateur de publications retiré le 06/10/2026 : chaque outil du catalogue s'ouvre dans /tools.
+    expect(TOOL_CATALOG.map((t) => t.slug)).toEqual(APP_TOOL_SLUGS);
+    expect(TOOL_CATALOG.map((t) => t.title)).not.toContain("Générateur de publications");
   });
 
   it("entrée de menu, fil d'Ariane, connexion obligatoire, plan donné à l'assistant", () => {

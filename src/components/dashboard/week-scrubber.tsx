@@ -15,6 +15,17 @@
 //    contient la majorité de ses jours) ;
 //  - en vue Mois, toutes les semaines du mois affiché sont surlignées ;
 //  - les noms de mois sous la bande sont cliquables.
+//
+// Correctif du 03/10/2026 (« le gros bloc gris ») : chaque barre remplissait
+// toute la largeur de sa semaine (≈ 120 px) : la semaine la plus chargée
+// devenait un grand rectangle gris, et une semaine vide gardait 20 % de
+// hauteur, comme si elle avait des publications. Désormais :
+//  - des colonnes fines (24 px au plus), arrondies en haut, posées sur une
+//    même ligne de base ;
+//  - une semaine vide n'est qu'un trait au ras de la ligne de base ;
+//  - le mois affiché est une plage teintée derrière ses semaines (même vides),
+//    ses colonnes en violet, les autres en gris neutre ;
+//  - un point repère la semaine en cours.
 
 import { m as motion } from "framer-motion";
 import { useMemo } from "react";
@@ -22,6 +33,10 @@ import { clsx } from "@/lib/clsx";
 import { MotionRoot } from "@/components/motion/motion-root";
 
 const MONTH_SHORT = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+/** Hauteur utile des colonnes (px), sous le repère de lecture. */
+const BAR_MAX_PX = 30;
+/** Une semaine avec au moins une publication reste visible. */
+const BAR_MIN_PX = 4;
 
 function mondayOf(d: Date): Date {
   const date = new Date(d);
@@ -36,6 +51,12 @@ export function monthOfWeek(monday: Date): Date {
   const thursday = new Date(monday);
   thursday.setDate(thursday.getDate() + 3);
   return new Date(thursday.getFullYear(), thursday.getMonth(), 1);
+}
+
+/** Hauteur d'une colonne (px) : 0 pour une semaine vide, proportionnelle sinon. */
+export function weekBarHeight(count: number, maxCount: number): number {
+  if (count <= 0 || maxCount <= 0) return 0;
+  return Math.max(BAR_MIN_PX, Math.round((count / maxCount) * BAR_MAX_PX));
 }
 
 function sameMonth(a: Date, b: Date): boolean {
@@ -58,6 +79,7 @@ export function WeekScrubber({
   onSelectMonth: (firstOfMonth: Date) => void;
 }) {
   const activeMonday = mondayOf(activeDate).getTime();
+  const currentMonday = mondayOf(new Date()).getTime();
 
   const weeks = useMemo(() => {
     const start = mondayOf(new Date());
@@ -86,31 +108,50 @@ export function WeekScrubber({
   }, [weeks]);
 
   const maxCount = Math.max(1, ...weeks.map((w) => w.count));
+  const activeFlags = weeks.map((w) => (mode === "week" ? w.monday.getTime() === activeMonday : sameMonth(w.month, activeDate)));
 
   return (
     <MotionRoot>
       <div className="glass-panel rounded-xl px-3 pb-1.5 pt-2.5">
-        <div className="flex items-end gap-1">
-          {weeks.map((w) => {
-            const isActive = mode === "week" ? w.monday.getTime() === activeMonday : sameMonth(w.month, activeDate);
-            const heightPct = 20 + (w.count / maxCount) * 80;
+        <div className="flex items-end">
+          {weeks.map((w, i) => {
+            const isActive = activeFlags[i];
+            const isCurrent = w.monday.getTime() === currentMonday;
+            const height = weekBarHeight(w.count, maxCount);
+            const label = `Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}${isCurrent ? " (cette semaine)" : ""}, ${w.count} publication${w.count === 1 ? "" : "s"}`;
             return (
               <button
                 key={w.monday.toISOString()}
                 type="button"
                 onClick={() => onSelectWeek(w.monday)}
-                title={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${w.count} publication${w.count === 1 ? "" : "s"}`}
-                aria-label={`Semaine du ${w.monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, ${w.count} publication${w.count === 1 ? "" : "s"}`}
+                title={label}
+                aria-label={label}
                 aria-pressed={isActive}
-                className="group relative flex h-10 flex-1 items-end"
+                className={clsx(
+                  "group relative flex h-10 flex-1 items-end justify-center transition-colors",
+                  // Plage du mois (ou de la semaine) affiché : teintée d'un bout à l'autre.
+                  isActive ? "bg-aurora-400/[0.10]" : "hover:bg-slate-500/[0.08]",
+                  isActive && !activeFlags[i - 1] && "rounded-l-md",
+                  isActive && !activeFlags[i + 1] && "rounded-r-md",
+                  !isActive && "rounded-md"
+                )}
               >
-                <div
-                  className={clsx(
-                    "w-full rounded-sm transition-all",
-                    isActive ? "bg-aurora-400" : w.count > 0 ? "bg-white/25 group-hover:bg-white/40" : "bg-white/[0.06] group-hover:bg-white/15"
-                  )}
-                  style={{ height: `${heightPct}%` }}
-                />
+                {height > 0 ? (
+                  <span
+                    data-week-bar
+                    className={clsx(
+                      "block w-full max-w-[24px] rounded-t-[4px] transition-colors",
+                      isActive ? "bg-aurora-400" : "bg-slate-500 group-hover:bg-slate-400"
+                    )}
+                    style={{ height }}
+                  />
+                ) : (
+                  // Semaine vide : un simple trait sur la ligne de base.
+                  <span data-week-bar className={clsx("block h-0.5 w-full max-w-[24px] rounded-full", isActive ? "bg-aurora-400/50" : "bg-slate-500/30")} />
+                )}
+                {isCurrent && (
+                  <span aria-hidden="true" className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-aurora-300" />
+                )}
                 {mode === "week" && isActive && (
                   <motion.div
                     layoutId="week-scrubber-playhead"
@@ -124,7 +165,7 @@ export function WeekScrubber({
           })}
         </div>
         {/* Noms de mois, alignés sur leur première semaine — cliquables. */}
-        <div className="relative mt-1 h-5">
+        <div className="relative mt-1.5 h-5">
           {monthMarks.map((m) => {
             const active = mode === "month" && sameMonth(m.month, activeDate);
             return (

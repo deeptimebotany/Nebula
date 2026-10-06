@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 const actionSchema = z.discriminatedUnion("action", [
-  // Mission Progression : choisir parmi les 3 propositions (un changement par semaine).
+  // Mission Progression : mettre en avant une des 3 propositions (toutes comptent, 03/10/2026).
   z.object({ action: z.literal("choose"), key: z.string().min(1).max(40) }),
   // Coffre d'une semaine aux 3 missions réussies (il n'expire jamais).
   z.object({ action: z.literal("open-chest"), week: z.string().regex(/^\d{4}-W\d{2}$/) }),

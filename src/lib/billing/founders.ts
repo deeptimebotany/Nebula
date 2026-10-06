@@ -23,6 +23,9 @@
 //     forfait vous faut-il ? » (FounderEndModal). Jamais de prélèvement
 //     automatique.
 // Les deux posent founderSince : badge « Fondateur » à vie.
+// Vente des deux offres jusqu'au 1er janvier 2027 à 0 h, heure de Paris
+// (FOUNDERS_SALE_ENDS_AT) : ensuite plus aucune éligibilité, et le coupon
+// créé par Nebula porte la même date limite chez Stripe (redeem_by).
 import type Stripe from "stripe";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +38,21 @@ import { emailIdempotencyKey, escapeHtml, isEmailConfigured, sendEmail } from "@
 import { emailLayout, emailPlainText, type EmailLayoutInput } from "@/lib/emails/layout";
 import { trackGrowth } from "@/lib/growth";
 import { PLAN_LIMITS } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, FOUNDER_PREMIUM_NOTE, addMonthsUtc, euros, founderDiscountCents, founderRegularPrice, placesOf, type FounderPlaces, type FoundersResponse } from "@/lib/founders-offer";
+import {
+  FOUNDERS_SALE_ENDS_AT,
+  FOUNDERS_SALE_END_LABEL,
+  FOUNDER_MONTHLY,
+  FOUNDER_PREMIUM,
+  FOUNDER_PREMIUM_NOTE,
+  addMonthsUtc,
+  euros,
+  founderDiscountCents,
+  founderRegularPrice,
+  foundersSaleOpen,
+  placesOf,
+  type FounderPlaces,
+  type FoundersResponse
+} from "@/lib/founders-offer";
 
 export { addMonthsUtc };
 export const FOUNDER_PREMIUM_KIND = "founder_premium";
@@ -86,18 +103,20 @@ export interface FounderEligibility {
   user: FounderUser | null;
 }
 
-/** Ce compte peut-il prendre l'une ou l'autre offre, maintenant ? */
-export async function founderEligibility(userId: string, places?: { monthly: FounderPlaces; premium: FounderPlaces }): Promise<FounderEligibility> {
+/** Ce compte peut-il prendre l'une ou l'autre offre, maintenant ? Plus rien après le 1er janvier 2027. */
+export async function founderEligibility(userId: string, places?: { monthly: FounderPlaces; premium: FounderPlaces }, now: Date = new Date()): Promise<FounderEligibility> {
   const [user, info, left] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: FOUNDER_SELECT }),
     getUserPlan(userId),
     places ? Promise.resolve(places) : founderPlaces()
   ]);
   if (!user) return { monthly: false, premium: false, premiumBlocked: "Compte introuvable.", user: null };
+  const saleOpen = foundersSaleOpen(now);
   // Premier abonnement seulement : jamais payé, pas déjà fondateur.
-  const monthly = left.monthly.left > 0 && !info.paid && !user.firstPaidAt && !user.founderKind && !user.founderPremiumAt;
+  const monthly = saleOpen && left.monthly.left > 0 && !info.paid && !user.firstPaidAt && !user.founderKind && !user.founderPremiumAt;
   let premiumBlocked: string | null = null;
   if (user.founderPremiumSessionId) premiumBlocked = user.founderPremiumAt ? "Vous êtes déjà Fondateur Premium : merci !" : "L'offre Fondateur Premium ne se prend qu'une fois par compte.";
+  else if (!saleOpen) premiumBlocked = `L'offre Fondateur Premium a pris fin le ${FOUNDERS_SALE_END_LABEL}.`;
   else if (info.paid) premiumBlocked = "Vous avez déjà un abonnement en cours : l'offre Fondateur Premium est réservée aux comptes sans abonnement.";
   else if (info.pausedUntil) premiumBlocked = "Votre abonnement est en pause : il reprendra seul à sa date. L'offre Premium est réservée aux comptes sans abonnement.";
   else if (info.comp) premiumBlocked = "Vous profitez déjà d'un accès offert.";
@@ -106,12 +125,12 @@ export async function founderEligibility(userId: string, places?: { monthly: Fou
 }
 
 /** Réponse de GET /api/billing/founders (places, et l'état du compte connecté). */
-export async function foundersSnapshot(userId: string | null): Promise<FoundersResponse> {
+export async function foundersSnapshot(userId: string | null, now: Date = new Date()): Promise<FoundersResponse> {
   const places = await founderPlaces();
   const open = isBillingEnabled();
   let me: FoundersResponse["me"] = null;
   if (userId) {
-    const e = await founderEligibility(userId, places);
+    const e = await founderEligibility(userId, places, now);
     const kind = e.user?.founderKind === "MONTHLY" || e.user?.founderKind === "PREMIUM" ? e.user.founderKind : null;
     me = {
       kind,
@@ -124,6 +143,8 @@ export async function foundersSnapshot(userId: string | null): Promise<FoundersR
   }
   return {
     open,
+    saleOpen: foundersSaleOpen(now),
+    saleEndsAt: FOUNDERS_SALE_ENDS_AT.toISOString(),
     monthly: { ...places.monthly, priceMonthly: FOUNDER_MONTHLY.priceMonthly, months: FOUNDER_MONTHLY.months, regularPrice: founderRegularPrice() },
     premium: { ...places.premium, priceCents: FOUNDER_PREMIUM.priceCents, months: FOUNDER_PREMIUM.months },
     me
@@ -169,6 +190,8 @@ export async function founderCouponId(): Promise<string | null> {
       duration: "repeating",
       duration_in_months: FOUNDER_MONTHLY.months,
       max_redemptions: FOUNDER_MONTHLY.places,
+      // Stripe refuse aussi le coupon après la fin de la vente (1er janvier 2027).
+      redeem_by: Math.floor(FOUNDERS_SALE_ENDS_AT.getTime() / 1000),
       metadata: { nebula: "founder_monthly" }
     });
     cachedCoupon = c.id;

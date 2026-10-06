@@ -43,7 +43,7 @@ export function StatsConsentCard() {
             {ANON_MIN_ACCOUNTS} comptes, à partir de ce que vous faites dans Nebula — jamais les données de vos réseaux
             (vues, abonnés, commentaires), jamais vos textes ni rien qui permette de vous identifier. Ces statistiques
             pourront être partagées avec des partenaires. Refuser ne change rien à votre utilisation de Nebula.{" "}
-            <Link href="/legal#statistiques" className="text-aurora-300 hover:underline">
+            <Link href="/legal#statistiques" className="text-aurora-300 underline underline-offset-2 hover:text-aurora-200">
               En savoir plus
             </Link>
           </p>

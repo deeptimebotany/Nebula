@@ -5,7 +5,8 @@
 // chaque application), en version mobile et en version ordinateur. Purement
 // visuel : les compteurs sont des valeurs d'exemple, rien n'est cliquable.
 // Les zones qui défilent (légende longue) se prennent au clavier (tabIndex,
-// 30/09/2026). Utilisé par composer-preview.tsx et tools/tool-preview.tsx.
+// 30/09/2026). Utilisé par composer-preview.tsx (l'outil public qui le
+// reprenait, le Générateur de publications, est retiré le 06/10/2026).
 //
 // Son (30/09/2026) : la vidéo démarre muette (les navigateurs bloquent la
 // lecture automatique avec le son) ; le bouton haut-parleur de la barre de

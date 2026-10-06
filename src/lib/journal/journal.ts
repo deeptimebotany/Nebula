@@ -3,4 +3,4 @@
 export { JOURNAL_ENTRIES } from "./journal-data";
 
 /** Date de la dernière mise à jour du journal : avancée à chaque envoi du zip. */
-export const JOURNAL_UPDATED_AT = "2026-10-03";
+export const JOURNAL_UPDATED_AT = "2026-10-06";

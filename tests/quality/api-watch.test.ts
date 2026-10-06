@@ -48,15 +48,16 @@ describe("calendrier des API", () => {
     for (let i = 1; i < statuses.length; i++) expect(statuses[i].days).toBeGreaterThanOrEqual(statuses[i - 1].days);
   });
 
-  it("rappels : seulement le plus petit seuil franchi ; aujourd'hui, la Marketing API de Meta à 25 jours", () => {
-    const alerts = dueDeadlineAlerts(NOW);
+  it("rappels : seulement le plus petit seuil franchi ; la Marketing API de Meta (v26.0) à 25 jours de sa revue", () => {
+    // Passage en v26.0 le 06/10/2026 : plus aucune échéance à moins de 90 jours le 02/10/2026.
+    expect(dueDeadlineAlerts(NOW)).toEqual([]);
+    const later = new Date("2026-12-21T09:00:00Z");
+    const alerts = dueDeadlineAlerts(later);
     const meta = alerts.find((a) => a.status.api.id === "meta-marketing");
-    expect(meta).toMatchObject({ threshold: 30, key: "api-deadline:meta-marketing:v25.0:revue:2026-10-27:30" });
+    expect(meta).toMatchObject({ threshold: 30, key: "api-deadline:meta-marketing:v26.0:revue:2027-01-15:30" });
     expect(meta!.title).toBe("Revue à faire dans 25 jours : Meta Marketing API (Publicité Meta)");
-    expect(meta!.body).toContain("27 octobre 2026");
+    expect(meta!.body).toContain("15 janvier 2027");
     expect(alerts.filter((a) => a.status.api.id === "meta-marketing")).toHaveLength(1);
-    // Aucune autre échéance à moins de 90 jours le 02/10/2026.
-    expect(alerts.map((a) => a.status.api.id)).toEqual(["meta-marketing"]);
     // À 6 jours : le seuil de 7 ; le jour même : 0 ; une nouvelle version relance les rappels.
     const api = [{ ...WATCHED_APIS[0], id: "x", inUse: "v1", sunset: null, reviewBy: "2026-10-08" }];
     expect(dueDeadlineAlerts(NOW, api)[0].threshold).toBe(7);

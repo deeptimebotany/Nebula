@@ -10,7 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { FounderBadge } from "@/components/reussites/founder-badge";
 import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { PLAN_LIMITS, upToBrandsText } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice, placesText, type FoundersResponse } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, founderRegularPrice, foundersSaleOpen, placesText, type FoundersResponse } from "@/lib/founders-offer";
 
 function Check() {
   return (
@@ -20,14 +20,20 @@ function Check() {
   );
 }
 
-export function FounderOffersPublic() {
+export function FounderOffersPublic({ initialOpen = true }: { initialOpen?: boolean }) {
   const [data, setData] = useState<FoundersResponse | null>(null);
+  // Vente terminée le 1er janvier 2027 (03/10/2026) : la section disparaît,
+  // même sur une page générée avant cette date. Premier rendu = valeur du
+  // serveur (initialOpen), puis l'heure du navigateur et la réponse de l'API.
+  const [clockOpen, setClockOpen] = useState(initialOpen);
   useEffect(() => {
+    setClockOpen(foundersSaleOpen());
     fetch("/api/billing/founders", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: FoundersResponse | null) => d && setData(d))
       .catch(() => undefined);
   }, []);
+  const saleOpen = data ? data.saleOpen : clockOpen;
   const open = isSiteOpen();
   const href = open ? "/register" : PRELAUNCH_PAGE;
   const pro = PLAN_LIMITS.PRO.label;
@@ -58,12 +64,17 @@ export function FounderOffersPublic() {
     }
   ];
 
+  if (!saleOpen) return null;
+
   return (
     <div className="mt-10" id="fondateurs">
       <div className="mx-auto mb-5 max-w-2xl text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Offres de lancement</p>
         <h3 className="mt-2 font-display text-2xl font-semibold text-white">Devenez fondateur</h3>
-        <p className="mt-2 text-sm text-slate-400">Places limitées, pour celles et ceux qui nous rejoignent dès le début.</p>
+        <p className="mt-2 text-sm text-slate-400">
+          Places limitées, pour celles et ceux qui nous rejoignent dès le début.{" "}
+          <strong className="font-medium text-slate-200">Fin des offres le {FOUNDERS_SALE_END_LABEL}.</strong>
+        </p>
       </div>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {cards.map((c) => (
@@ -86,7 +97,7 @@ export function FounderOffersPublic() {
               ))}
             </ul>
             <p className="mt-4 text-xs font-medium text-aurora-200" aria-live="polite">
-              {c.left > 0 ? `${placesText(c.left)} sur ${c.total}` : "Complet : merci à tous les fondateurs !"}
+              {c.left > 0 ? `${placesText(c.left)} sur ${c.total} · jusqu'au ${FOUNDERS_SALE_END_LABEL}` : "Complet : merci à tous les fondateurs !"}
             </p>
             <ButtonLink href={href} variant="outline" className="mt-3 w-full">
               {open ? (c.left > 0 ? "Créer mon espace et en profiter" : "Créer mon espace gratuitement") : "Être prévenu du lancement"}
@@ -95,7 +106,8 @@ export function FounderOffersPublic() {
         ))}
       </div>
       <p className="mt-4 text-center text-xs text-slate-500">
-        L&apos;offre se choisit dans Facturation après l&apos;inscription. Fondateur : premier abonnement, mensuel. Fondateur Premium : paiement unique, accès immédiat.
+        L&apos;offre se choisit dans Facturation après l&apos;inscription, jusqu&apos;au {FOUNDERS_SALE_END_LABEL} (ou avant si les places partent). Fondateur :
+        premier abonnement, mensuel. Fondateur Premium : paiement unique, accès immédiat.
       </p>
     </div>
   );

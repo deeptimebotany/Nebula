@@ -112,7 +112,16 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
 
 // showHeading=false sur la page /tarifs, qui a déjà son propre titre : on
 // évite d'afficher deux introductions à la suite.
-export function PricingSection({ showComparisonLink = true, showHeading = true }: { showComparisonLink?: boolean; showHeading?: boolean }) {
+export function PricingSection({
+  showComparisonLink = true,
+  showHeading = true,
+  foundersOpen = true
+}: {
+  showComparisonLink?: boolean;
+  showHeading?: boolean;
+  /** Offres fondateurs encore en vente au moment où la page est générée (serveur). */
+  foundersOpen?: boolean;
+}) {
   const [interval, setInterval] = useState<BillingInterval>("month");
   const yearly = interval === "year";
 
@@ -192,7 +201,7 @@ export function PricingSection({ showComparisonLink = true, showHeading = true }
         ))}
       </RevealGroup>
 
-      <FounderOffersPublic />
+      <FounderOffersPublic initialOpen={foundersOpen} />
 
       <Reveal>
         {showComparisonLink && (

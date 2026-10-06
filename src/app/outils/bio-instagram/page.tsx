@@ -27,7 +27,7 @@ export default function BioInstagramPage() {
       related={[
         { href: "/outils/audit", title: "Audit de présence en ligne" },
         { href: "/outils/hashtags", title: "Générateur de hashtags" },
-        { href: "/outils/publier", title: "Générateur de publications" },
+        { href: "/outils/taux-engagement", title: "Calculateur de taux d'engagement" },
         { href: "/decouvrir/page-bio", title: "Créer une page bio" }
       ]}
       ctaLabel="Créer ma page bio gratuite"

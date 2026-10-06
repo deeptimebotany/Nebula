@@ -3,6 +3,7 @@
 import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
+import { MonthlySummaryPromo } from "@/components/monthly-summary/summary-settings";
 import { PageSkeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -562,6 +563,10 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           }
           actions={
             <>
+              {/* Bilan du mois (03/10/2026) : la page et l'e-mail du 3 du mois. */}
+              <Link href="/analytics/bilan" className="inline-flex">
+                <Button variant="outline">Bilan du mois</Button>
+              </Link>
               <Button variant="outline" onClick={exportCsv} disabled={!hasRealData}>
                 Exporter (CSV)
               </Button>
@@ -612,6 +617,8 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           ))}
         </div>
 
+        {tab === "overview" && connections.length > 0 && <MonthlySummaryPromo />}
+
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -659,7 +666,8 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
             </RevealGroup>
 
             <Reveal delay={0.1}>
-            <MotionGlassCard glow>
+            {/* Immobile au survol (03/10/2026) : on lit la courbe et son infobulle. */}
+            <MotionGlassCard glow still>
               {/* flex-wrap (30/09/2026) : les pastilles débordaient sur mobile
                   (page de 466 px de large sur un écran de 390). */}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

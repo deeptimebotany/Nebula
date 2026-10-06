@@ -22,7 +22,6 @@ vi.mock("@/lib/ai/gemini", async (orig) => ({
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { POST as postGenerateCopy } from "@/app/api/ai/generate-copy/route";
-import { POST as postToolThumbnail } from "@/app/api/public/tools/thumbnail/route";
 import { POST as postRegister } from "@/app/api/auth/register/route";
 import { DELETE as deleteAccount } from "@/app/api/settings/account/route";
 import { POST as postAnalyticsSync } from "@/app/api/analytics/sync/route";
@@ -125,11 +124,15 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     expect(body.error).toMatch(/En Essai, 20 textes par jour.*En Pro, 60/);
     expect(gemini.copy).toHaveBeenCalledTimes(20);
 
-    const image = { imageBase64: "a".repeat(200), imageMimeType: "image/png" };
-    for (let i = 0; i < 5; i++) expect((await postToolThumbnail(req("/api/public/tools/thumbnail", image))).status).toBe(200);
-    const sixthImage = await postToolThumbnail(req("/api/public/tools/thumbnail", image));
-    expect(sixthImage.status).toBe(429);
-    expect(await sixthImage.json()).toMatchObject({ reason: "trial_ai_limit", error: expect.stringMatching(/Pendant l'essai, 5 miniatures en tout.*En Pro, 20 par mois/) });
+    // Miniatures IA (06/10/2026 : l'outil public est retiré, la règle est vérifiée sur la porte de l'IA).
+    const trialPlan = await getUserPlan(user.id);
+    for (let i = 0; i < 5; i++) {
+      const gate = await assertAiAllowed({ userId: user.id, plan: trialPlan, kind: "image" });
+      if (!gate.ok) throw new Error(gate.error);
+      await gate.run(async () => "ok");
+    }
+    const sixthImage = await assertAiAllowed({ userId: user.id, plan: trialPlan, kind: "image" });
+    expect(sixthImage).toMatchObject({ ok: false, status: 429, reason: "trial_ai_limit", error: expect.stringMatching(/Pendant l'essai, 5 miniatures en tout.*En Pro, 20 par mois/) });
     // Compté sur la période de l'essai (clé « essai:<dernier jour> »), pas le mois.
     const monthly = await prisma.aiMonthlyUsage.findMany();
     expect(monthly.map((m) => [m.period.startsWith("essai:"), m.kind, m.count])).toEqual([[true, "image", 5]]);

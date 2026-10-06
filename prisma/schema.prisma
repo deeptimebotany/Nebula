@@ -259,6 +259,12 @@ model User {
   // Emails de conseils (cycle de vie) — désinscription dans Paramètres ou
   // via le lien de chaque email. Les emails de service (essai) restent.
   lifecycleEmails Boolean @default(true)
+  // Bilan du mois par e-mail (03/10/2026, src/lib/monthly-summary) : activé
+  // par la personne (null = pas inscrite), un e-mail par marque cochée
+  // (liste vide = toutes ses marques). Voir MonthlySummary.
+  monthlySummaryAt       DateTime?
+  monthlySummaryBrandIds String[]  @default([])
+  monthlySummaries       MonthlySummary[]
   // Déclencheurs d'invitation au parrainage déjà affichés (clés).
   referralPromptsSeen Json?
 
@@ -322,6 +328,7 @@ model User {
 
   // Places des offres fondateurs (comptées à chaque affichage des tarifs).
   @@index([founderKind])
+  @@index([monthlySummaryAt])
   @@index([founderPremiumAt])
 }
 
@@ -402,6 +409,7 @@ model Brand {
   approvalLinks  ApprovalLink[]
   linkPage       LinkPage?
   report         BrandReport?
+  monthlySummaries MonthlySummary[]
   calendarShare  CalendarShare?
   adAccounts     AdAccount[]
   studioGenerations StudioGeneration[]
@@ -1966,4 +1974,34 @@ model ApiSignal {
   handledAt   DateTime?
 
   @@index([lastSeenAt])
+}
+
+// Bilan du mois envoyé (03/10/2026, src/lib/monthly-summary) : une ligne par
+// compte, marque et mois (« 2026-09 »), posée AVANT l'envoi (contrainte
+// unique : jamais deux envois, même avec deux passages du cron).
+// status : "SENDING" | "SENT" | "FAILED" | "SKIPPED" (aucune donnée) | "OFF" (désinscrit
+// entre la réservation et l'envoi).
+// bioClicks : total des clics de la page bio au moment de l'envoi, pour
+// afficher les clics « depuis le dernier bilan » le mois suivant.
+model MonthlySummary {
+  id        String    @id @default(cuid())
+  userId    String
+  brandId   String
+  month     String
+  status    String    @default("SENDING")
+  error     String?
+  bioClicks Int?
+  // Essais d'envoi (au plus 3, espacés de 2 h) : un refus passager de Resend
+  // (quota du jour atteint) ne prive personne de son bilan.
+  attempts      Int       @default(1)
+  lastAttemptAt DateTime  @default(now())
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId, month])
+  @@index([month, status])
+  @@index([sentAt])
+  @@index([brandId])
 }

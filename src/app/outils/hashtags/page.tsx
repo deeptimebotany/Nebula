@@ -26,7 +26,7 @@ export default function HashtagsPage() {
       faq={FAQ}
       related={[
         { href: "/outils/audit", title: "Audit de présence en ligne" },
-        { href: "/outils/publier", title: "Générateur de publications" },
+        { href: "/outils/titre-youtube", title: "Testeur de titre YouTube" },
         { href: "/outils/bio-instagram", title: "Générateur de bio Instagram" },
         { href: "/outils/meilleur-moment", title: "Meilleur moment pour publier" }
       ]}

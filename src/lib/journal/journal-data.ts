@@ -8,6 +8,117 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-06-meta-v26",
+    date: "2026-10-06",
+    title: "Facebook et Instagram : passage à la version 26.0 de l'API de Meta",
+    category: "Fiabilité",
+    links: [{ href: "/admin/api", label: "Veille des API" }],
+    result:
+      "La veille des API signalait « Version dépassée » : nos appels demandés en v25.0 étaient servis en v26.0 par Meta. Nebula appelle désormais directement la v26.0 pour les publications Facebook et Instagram, leurs statistiques et la publicité Meta ; le signal ne réapparaît plus après le déploiement.",
+    change:
+      "`META_GRAPH` passe à v26.0 dans `src/lib/social/versions.ts` (revue le 01/07/2027) ; échéances de la veille mises à jour (Marketing API : revue le 15/01/2027). Changements de la v26.0 relus : aucun paramètre ni champ utilisé par Nebula n'est touché.",
+    readme: 74,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-generateur-retire",
+    date: "2026-10-06",
+    title: "Générateur de publications retiré des outils",
+    category: "Outils",
+    links: [
+      { href: "/tools", label: "Outils (application)" },
+      { href: "/outils", label: "Outils gratuits" }
+    ],
+    result:
+      "Le Générateur de publications, qui refaisait la page Publier, n'est plus dans les Outils de l'application ni sur le site public. Son ancienne adresse mène aux outils gratuits ; les six autres outils restent, et Publier garde tout ce qu'il faisait (miniature, titre et description par l'IA, aperçu).",
+    change:
+      "Retirés : `src/app/outils/publier/`, les routes `/api/public/tools/captions`, `pick-frames` et `thumbnail` (seules utilisatrices de l'IA payante côté public), ses composants et données de démo. Catalogue, sitemap, `SEO_TOOLS`, CSP, pied de page, `llms.txt` et liens croisés mis à jour ; `/outils/publier`, `/outils/legendes` et `/outils/miniatures` redirigent vers `/outils`.",
+    readme: 73,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-visite-mode-focus",
+    date: "2026-10-06",
+    title: "Visite guidée : le Mode focus montré dans Paramètres",
+    category: "Interface",
+    links: [{ href: "/settings#apparence", label: "Paramètres → Apparence & Succès" }],
+    result:
+      "La visite de bienvenue a une 7e étape « Mode focus » : l'anneau entoure Paramètres dans le menu, une flèche part de la bulle vers lui et le chemin « Paramètres › Apparence & Succès › Mode focus » est écrit (sur téléphone, il commence par Menu). On peut toujours l'activer d'un clic depuis la bulle. L'étape Réussites ne parle plus que des Réussites.",
+    change:
+      "`src/components/tour/guided-tour.tsx` : options `arrow` et `path` des étapes, `place()` testable avec la flèche, composant `TourArrow` (tracé à l'apparition, fixe avec « Réduire les animations »). `TOUR_STEP_COUNT` (7) partagé avec `PATCH /api/me/tour`.",
+    readme: 72,
+    migrations: []
+  },
+  {
+    id: "2026-10-03-bilan-du-mois",
+    date: "2026-10-03",
+    title: "Bilan du mois par e-mail",
+    category: "Analytics",
+    links: [
+      { href: "/analytics/bilan", label: "Bilan du mois" },
+      { href: "/settings#compte", label: "Paramètres → Compte" },
+      { href: "/admin/bilans", label: "Bilans du mois (admin)" }
+    ],
+    result:
+      "Le 3 de chaque mois, les personnes qui l'ont activé reçoivent le bilan du mois écoulé, un e-mail par marque : abonnés, vues, interactions et publications comparés au mois précédent, courbes jour par jour, top 3, ce qui a marché, communauté, page bio, Réussites et mois suivant. Le même bilan est dans Analytics → Bilan du mois, avec les mois passés.",
+    change:
+      "Module `src/lib/monthly-summary` (calcul réseau par réseau, e-mail, envoi par le cron avec plafond quotidien `MONTHLY_SUMMARY_DAILY_LIMIT`, désinscription en un clic). Table `MonthlySummary`. Vues YouTube des Rapports clients corrigées (compteur total plus additionné chaque jour).",
+    readme: 71,
+    migrations: ["20261013090000_monthly_summary"]
+  },
+  {
+    id: "2026-10-03-calendrier-frise",
+    date: "2026-10-03",
+    title: "Calendrier : frise des semaines plus lisible",
+    category: "Calendrier",
+    links: [{ href: "/calendar", label: "Calendrier" }],
+    result:
+      "La frise au-dessus du calendrier n'affiche plus de grand bloc gris : des colonnes fines et proportionnelles, un trait pour une semaine vide, le mois affiché en plage teintée et un point sous la semaine en cours.",
+    change: "`src/components/dashboard/week-scrubber.tsx` : colonnes de 24 px au plus (`weekBarHeight`), plage du mois affiché, repère de la semaine en cours.",
+    readme: 70,
+    migrations: []
+  },
+  {
+    id: "2026-10-03-analytics-graphique-immobile",
+    date: "2026-10-03",
+    title: "Analytics : « Évolution des abonnés » ne bouge plus au survol",
+    category: "Analytics",
+    links: [{ href: "/analytics", label: "Analytics" }],
+    result:
+      "Au premier survol, la carte du graphique s'inclinait en 3D puis sautait à plat. Les graphiques et les grilles du calendrier restent maintenant immobiles ; les petites cartes animées gardent la même légère inclinaison à chaque survol.",
+    change: "`MotionGlassCard` : inclinaison par Framer Motion (`rotateX`, `rotateY`, `transformPerspective`), plus faible sur les grandes cartes, option `still`.",
+    readme: 69,
+    migrations: []
+  },
+  {
+    id: "2026-10-03-reussites-progression-au-choix",
+    date: "2026-10-03",
+    title: "Réussites : les 3 missions Progression comptent",
+    category: "Réussites",
+    links: [{ href: "/reussites#missions", label: "Missions de la semaine" }],
+    result:
+      "Plus besoin de choisir une seule mission Progression : la première des 3 réussie valide la mission. Un clic sur l'une d'elles change seulement l'indication du bas (où aller), autant de fois que voulu, et chacune montre son avancement.",
+    change: "`evaluateWeekMissions` valide la Progression par n'importe laquelle des propositions ; `chooseProgress` sans limite ; `MAX_SWAPS` supprimé.",
+    readme: 68,
+    migrations: []
+  },
+  {
+    id: "2026-10-03-fondateurs-fin-1er-janvier",
+    date: "2026-10-03",
+    title: "Offres fondateurs : fin le 1er janvier 2027",
+    category: "Compte et facturation",
+    links: [
+      { href: "/tarifs#fondateurs", label: "Tarifs" },
+      { href: "/billing", label: "Facturation" }
+    ],
+    result:
+      "Les offres Fondateur et Fondateur Premium affichent leur date de fin, le 1er janvier 2027, sur l'accueil, /tarifs, Facturation, la modale Pro, les FAQ et les conditions. Ce jour-là à 0 h (heure de Paris), la vente s'arrête toute seule ; les fondateurs gardent leurs avantages et leur badge.",
+    change:
+      "`FOUNDERS_SALE_ENDS_AT` et `foundersSaleOpen()` (`src/lib/founders-offer.ts`) : éligibilité coupée côté serveur après la date, `saleOpen` dans `/api/billing/founders`, section publique masquée, coupon Stripe avec `redeem_by`.",
+    readme: 67,
+    migrations: []
+  },
+  {
     id: "2026-10-03-medias-importes-source",
     date: "2026-10-03",
     title: "Médias importés : « Importé depuis Canva »",
@@ -63,7 +174,6 @@ const NEW_ENTRIES: JournalEntry[] = [
     links: [
       { href: "/#import-medias", label: "Accueil : réseaux et import" },
       { href: "/reseaux", label: "Réseaux" },
-      { href: "/outils/publier", label: "Outil Publier" },
       { href: "/support", label: "Soutenir Nebula" }
     ],
     result:
@@ -326,7 +436,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Le son dans l'aperçu de Publier",
     category: "Publication",
-    links: [{ href: "/composer", label: "Publier" }, { href: "/outils/publier", label: "Générateur de publications" }],
+    links: [{ href: "/composer", label: "Publier" }],
     result: "Un bouton haut-parleur dans la barre de l'aperçu permet d'entendre la vidéo, et un clic sur la vidéo active aussi le son. Le choix reste le même en changeant de réseau ou de format.",
     change: "Les navigateurs ne lancent la lecture automatique que sans le son : l'aperçu fidèle restait donc muet. Le bouton est ajouté dans Publier et dans l'outil gratuit /outils/publier.",
     migrations: []
@@ -400,7 +510,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Un seul outil : le Générateur de publications",
     category: "Outils",
-    links: [{ href: "/outils/publier", label: "Générateur de publications" }, { href: "/outils", label: "Outils gratuits" }],
+    links: [{ href: "/outils", label: "Outils gratuits" }],
     result: "Les générateurs de légendes et de miniatures ne font plus qu'un outil, /outils/publier, construit comme la page Publier : média et miniature, titre, description, réseau, publication, avec l'aperçu fidèle à droite. Les anciennes adresses redirigent vers le nouvel outil.",
     change: "Nouvelle page `src/app/outils/publier/`, redirections permanentes de `/outils/legendes` et `/outils/miniatures`, hub, sitemap, pied de page et `llms.txt` mis à jour. Les aperçus des réseaux gardent leurs couleurs d'origine en mode clair (heure de la barre d'état, logo Instagram).",
     readme: 39,
@@ -488,7 +598,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-29",
     title: "Outils Légendes et Miniatures fidèles à l'application",
     category: "Outils",
-    links: [{ href: "/outils/publier", label: "Générateur de publications" }],
+    links: [{ href: "/outils", label: "Outils gratuits" }],
     result: "Les outils gratuits reprennent les écrans de Publier : même éditeur, même aperçu fidèle, et un exemple qui suit le réseau choisi. Pour les miniatures, le navigateur extrait 12 images de la vidéo sans l'envoyer nulle part ; avec un compte, l'IA choisit les 3 meilleures.",
     change: "Nouvelle route `/api/public/tools/pick-frames` (compte requis, quota des textes) ; la fausse démo illustrée et le cadre « En attente » qui ne bougeait jamais sont supprimés. Ces deux outils ont été réunis le lendemain dans le Générateur de publications.",
     migrations: []
@@ -563,7 +673,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-29",
     title: "Outils IA : démo sans compte",
     category: "Outils",
-    links: [{ href: "/outils", label: "Outils gratuits" }, { href: "/outils/publier", label: "Générateur de publications" }],
+    links: [{ href: "/outils", label: "Outils gratuits" }],
     result: "Sans compte, les outils IA montrent une démo préparée à l'avance, annoncée « Démo · sans IA ». Avec un compte gratuit, la vraie génération est disponible, avec 10 textes par jour.",
     change: "Les routes de génération exigent une session (401 sinon) et comptent un quota par compte selon le palier, plus un plafond par adresse IP pour les comptes Gratuits ; exemples écrits dans `src/lib/tools/demo.ts`. La clé Gemini n'est plus consommée par des visiteurs anonymes.",
     readme: 26,
@@ -735,7 +845,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-24",
     title: "Miniatures IA réparées, Gemini mieux encadré",
     category: "IA",
-    links: [{ href: "/composer", label: "Publier" }, { href: "/outils/publier", label: "Générateur de publications" }],
+    links: [{ href: "/composer", label: "Publier" }],
     result: "La génération de miniatures et de stickers par l'IA fonctionne : elle échouait toujours avec « Gemini n'a renvoyé aucune image ». Les refus de l'IA (filtres, réponse coupée) s'expliquent en français, et le propriétaire est prévenu quand un modèle est retiré ou que la clé est refusée.",
     change: "Les réponses de Gemini en camelCase (`inlineData`) sont maintenant lues ; la clé passe dans l'en-tête `x-goog-api-key` et non plus dans l'adresse, et chaque appel est borné à 55 s, relances comprises (`src/lib/ai/gemini.ts`).",
     migrations: []
@@ -1119,7 +1229,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-21",
     title: "Outils gratuits : légendes et miniatures",
     category: "Outils",
-    links: [{ href: "/outils", label: "Outils gratuits" }, { href: "/outils/publier", label: "Générateur de publications" }],
+    links: [{ href: "/outils", label: "Outils gratuits" }],
     result: "Deux outils gratuits, sans compte, génèrent avec l'IA des titres et légendes et des miniatures percutantes, avec un petit quota par jour.",
     change: "Pages `/outils/legendes` et `/outils/miniatures` (réunies depuis dans le Générateur de publications), quota quotidien par IP dans la table `PublicToolUsage`.",
     migrations: []

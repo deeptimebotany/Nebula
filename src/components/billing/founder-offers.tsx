@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { FounderBadge } from "@/components/reussites/founder-badge";
 import { PLAN_LIMITS, upToBrandsText } from "@/lib/plans";
-import { FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, placesText, type FoundersResponse } from "@/lib/founders-offer";
+import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, placesText, type FoundersResponse } from "@/lib/founders-offer";
 import { clsx } from "@/lib/clsx";
 
 function frDate(value: string | Date): string {
@@ -43,7 +43,10 @@ export function FounderMonthlyChoice({ founders, checked, onChange }: { founders
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-aurora-500" />
       <span>
         <strong className="text-white">Offre Fondateur</strong> : {m.priceMonthly} € par mois pendant {m.months} mois, puis {m.regularPrice} €, prélevé
-        automatiquement, sans engagement. Badge « Fondateur » à vie. <span className="text-aurora-200">{placesText(m.left)} sur {m.total}.</span>
+        automatiquement, sans engagement. Badge « Fondateur » à vie.{" "}
+        <span className="text-aurora-200">
+          {placesText(m.left)} sur {m.total}, jusqu&apos;au {FOUNDERS_SALE_END_LABEL}.
+        </span>
       </span>
     </label>
   );
@@ -92,10 +95,15 @@ export function FounderPremiumCard({ founders }: { founders: FoundersResponse })
             lancement. Sans renouvellement automatique : un mois avant la fin, nous vous demandons quel forfait il vous faut.
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            <span className="text-aurora-200">
-              {placesText(p.left)} sur {p.total}
-            </span>{" "}
-            · badge « Fondateur » à vie, dans la Communauté et sur votre carte de créateur.
+            {!me?.premiumUntil && (
+              <>
+                <span className="text-aurora-200">
+                  {placesText(p.left)} sur {p.total}, jusqu&apos;au {FOUNDERS_SALE_END_LABEL}
+                </span>{" "}
+                ·{" "}
+              </>
+            )}
+            badge « Fondateur » à vie, dans la Communauté et sur votre carte de créateur.
           </p>
         </div>
         <div className="shrink-0 text-right">

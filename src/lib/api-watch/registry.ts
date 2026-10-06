@@ -59,12 +59,12 @@ export const WATCHED_APIS: WatchedApi[] = [
     group: "Réseaux sociaux",
     inUse: API_VERSIONS.META_GRAPH.version,
     envVar: "META_GRAPH_VERSION",
-    sunset: "2028-07-29",
-    sunsetNote: "v26.0 disponible depuis le 29/07/2026.",
+    sunset: null,
+    sunsetNote: "Nebula en v26.0 depuis le 06/10/2026 (sortie le 29/07/2026) ; fin de vie pas encore annoncée, en général deux ans après la version suivante.",
     reviewBy: API_VERSIONS.META_GRAPH.reviewBy,
     changelog: "https://developers.facebook.com/docs/graph-api/changelog/versions",
     howTo: "Lire le changelog de la nouvelle version, régler META_GRAPH_VERSION sur Vercel (ou versions.ts), lancer npm test (contrats), publier un essai sur chaque réseau Meta.",
-    checkedAt: CHECKED
+    checkedAt: "2026-10-06"
   },
   {
     id: "meta-marketing",
@@ -74,11 +74,11 @@ export const WATCHED_APIS: WatchedApi[] = [
     envVar: "META_GRAPH_VERSION",
     sunset: null,
     sunsetNote:
-      "Date officielle « TBD ». Règle de Meta : l'ancienne version reste au moins 90 jours après la sortie d'une nouvelle ; v26.0 est sortie le 29/07/2026, donc la v25.0 peut être retirée dès le 27/10/2026 (les appels sont alors montés d'office, en-tête X-Ad-Api-Version-Warning).",
-    reviewBy: "2026-10-27",
+      "Nebula en v26.0 depuis le 06/10/2026. Règle de Meta : une version de la Marketing API reste au moins 90 jours après la sortie de la suivante ; la v27.0 est attendue fin 2026, la v26.0 pourra donc être retirée au plus tôt début 2027 (les appels sont alors montés d'office, en-tête X-Ad-Api-Version-Warning).",
+    reviewBy: "2027-01-15",
     changelog: "https://developers.facebook.com/docs/marketing-api/overview/versioning",
-    howTo: "Même variable que la Graph API (META_GRAPH_VERSION) : passer à v26.0, puis vérifier la synchro Publicité (Analytics → Publicité). Les changements de la v26.0 lus le 02/10/2026 ne touchent pas les champs utilisés par Nebula.",
-    checkedAt: CHECKED
+    howTo: "Même variable que la Graph API (META_GRAPH_VERSION) : passer à la nouvelle version, puis vérifier la synchro Publicité (Analytics → Publicité).",
+    checkedAt: "2026-10-06"
   },
   {
     id: "threads",
@@ -257,7 +257,7 @@ export const KNOWN_ANNOUNCEMENTS: KnownAnnouncement[] = [
     date: "2026-10-06",
     title: "Fin de la v24.0 de la Marketing API",
     impact: "aucun",
-    detail: "Nebula est en v25.0.",
+    detail: "Nebula est en v26.0 depuis le 06/10/2026.",
     source: "https://developers.facebook.com/docs/graph-api/changelog/versions"
   },
   {
