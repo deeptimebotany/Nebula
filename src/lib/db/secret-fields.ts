@@ -15,7 +15,7 @@
 // l'extension (il n'y en a aucune sur ces tables) ; un filtre « where » sur
 // la valeur d'un jeton ne peut pas fonctionner (le chiffrement est aléatoire).
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { currentSecretPrefix, isSealed, openSecret, sealSecret } from "@/lib/crypto/secret-box";
+import { SECRET_PREFIX, currentSecretPrefix, isSealed, openSecret, sealSecret } from "@/lib/crypto/secret-box";
 
 /** Champs secrets, par modèle (nullable = colonne facultative). */
 export const SECRET_FIELDS = {
@@ -109,6 +109,46 @@ export const secretFieldsExtension = Prisma.defineExtension({
 interface SecretDelegate {
   findMany(args: unknown): Promise<Array<Record<string, unknown>>>;
   updateMany(args: unknown): Promise<{ count: number }>;
+  count(args: unknown): Promise<number>;
+}
+
+export interface SecretsStatus {
+  /** TOKEN_ENCRYPTION_KEY configurée. */
+  enabled: boolean;
+  /** Valeurs de secrets en base (jetons, secrets de webhooks). */
+  total: number;
+  /** Chiffrées avec la clé actuelle. */
+  sealed: number;
+  /** Encore en clair. */
+  plain: number;
+  /** Chiffrées avec une ancienne clé (à re-chiffrer par le cron). */
+  otherKey: number;
+}
+
+/**
+ * État du chiffrement des secrets (06/10/2026) : combien de valeurs sont
+ * chiffrées avec la clé actuelle, en clair, ou avec une ancienne clé. Ne lit
+ * que le début des valeurs (préfixe), jamais un jeton.
+ */
+export async function secretFieldsStatus(base: PrismaClient): Promise<SecretsStatus> {
+  const prefix = currentSecretPrefix();
+  let total = 0;
+  let sealedAny = 0;
+  let sealed = 0;
+  for (const [delegateName, fields] of Object.entries(SECRET_FIELDS)) {
+    const db = (base as unknown as Record<string, SecretDelegate>)[delegateName];
+    for (const { field, nullable } of fields) {
+      const [all, anyKey, current] = await Promise.all([
+        db.count({ where: nullable ? { [field]: { not: null } } : {} }),
+        db.count({ where: { [field]: { startsWith: SECRET_PREFIX } } }),
+        prefix ? db.count({ where: { [field]: { startsWith: prefix } } }) : Promise.resolve(0)
+      ]);
+      total += all;
+      sealedAny += anyKey;
+      sealed += current;
+    }
+  }
+  return { enabled: Boolean(prefix), total, sealed, plain: total - sealedAny, otherKey: sealedAny - sealed };
 }
 
 /**

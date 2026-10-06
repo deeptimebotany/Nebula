@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const update = vi.fn(async () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: { socialConnection: { update: (...a: unknown[]) => update(...(a as [])), findUnique: vi.fn(async () => null) } } }));
+// Plafond TikTok des comptes qui publient (06/10/2026) : compteur et alerte simulés.
+const cap = vi.hoisted(() => ({ record: vi.fn(async () => 1), reached: vi.fn(async () => undefined) }));
+vi.mock("@/lib/social/tiktok-cap", () => ({ recordTiktokPublisher: cap.record, noteTiktokCapReached: cap.reached }));
 
 import { SocialApiError, UNEXPECTED_RESPONSE, isPendingPublish, type ConnectionLike, type PublishCheckpoint, type PublishInput } from "@/lib/social/base";
 import { classifyProviderError } from "@/lib/social/errors";
@@ -32,6 +35,8 @@ const input = (over: Partial<PublishInput> = {}): PublishInput => ({ caption: "N
 
 beforeEach(() => {
   update.mockClear();
+  cap.record.mockClear();
+  cap.reached.mockClear();
   process.env.THREADS_APP_ID = "threads-app";
   process.env.THREADS_APP_SECRET = "threads-secret";
   process.env.THREADS_REDIRECT_URI = "https://nebulahub.space/api/connections/threads/callback";
@@ -156,11 +161,37 @@ describe("TikTok : publication directe (FILE_UPLOAD, règles Direct Post)", () =
     expect(err.message).toContain("data.privacy_level_options");
   });
 
+  it("statistiques du profil : seulement les champs utilisés (abonnés, nombre de vidéos), jamais likes_count", async () => {
+    const net = installNetwork([{ url: `${TT}/user/info/`, fixture: "tiktok/user-info-stats" }]);
+    const stats = await tiktokClient.fetchAnalytics(conn({ tokenExpiresAt: new Date(Date.now() + 3_600_000) }));
+    expect(stats).toMatchObject({ followers: 1200, postsCount: 42 });
+    const asked = net.sent.find((r) => r.url.pathname === "/v2/user/info/")!;
+    expect(asked.url.searchParams.get("fields")).toBe("follower_count,video_count");
+  });
+
   it("créateur qui ne peut plus publier (spam_risk_too_many_posts) : erreur avec le code TikTok", async () => {
     installNetwork([{ method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/error-too-many-posts" }]);
     const err = (await fetchTiktokCreatorInfo(conn()).catch((e) => e)) as SocialApiError;
     expect(err.code).toBe("spam_risk_too_many_posts");
     expect(classifyProviderError(err).category).toBe("QUOTA_EXHAUSTED");
+    // Message en français, plus le texte anglais de TikTok (06/10/2026).
+    expect(err.message).toBe("[TIKTOK] Ce compte TikTok a atteint le nombre de publications par jour autorisé par TikTok. Relancez la publication demain.");
+    expect(cap.reached).not.toHaveBeenCalled();
+  });
+
+  it("plafond de comptes de l'application atteint (reached_active_user_cap) : message clair, propriétaire prévenu, rien de compté", async () => {
+    installNetwork([
+      { method: "POST", url: `${TT}/post/publish/creator_info/query/`, fixture: "tiktok/creator-info" },
+      { method: "HEAD", url: "cdn.nebula.test/v.mp4", raw: "", headers: { "content-length": String(3 * MB), "content-type": "video/mp4" } },
+      { method: "POST", url: `${TT}/post/publish/video/init/`, fixture: "tiktok/error-active-user-cap" }
+    ]);
+    const err = (await tiktokClient.publishPost(conn(), tiktokInput()).catch((e) => e)) as SocialApiError;
+    expect(err.code).toBe("reached_active_user_cap");
+    expect(err.message).toMatch(/^\[TIKTOK\] TikTok limite chaque jour le nombre de comptes qui peuvent publier depuis Nebula/);
+    expect(err.message).not.toMatch(/daily quota/);
+    expect(classifyProviderError(err)).toMatchObject({ category: "QUOTA_EXHAUSTED", autoRetry: false, needsReconnect: false });
+    expect(cap.reached).toHaveBeenCalledTimes(1);
+    expect(cap.record).not.toHaveBeenCalled();
   });
 
   it("envoi par morceaux : init FILE_UPLOAD, morceaux dans l'ordre avec Content-Range, puis statut (id de 19 chiffres intact)", async () => {
@@ -168,6 +199,8 @@ describe("TikTok : publication directe (FILE_UPLOAD, règles Direct Post)", () =
     const net = uploadRoutes(size);
     const out = await tiktokClient.publishPost(conn({ externalAccountId: "723f24d7" }), tiktokInput({ aiGenerated: true }));
     expect(out).toEqual({ externalPostId: "7301234567890123456", externalUrl: "https://www.tiktok.com/video/7301234567890123456" });
+    // Envoi accepté par TikTok : le compte compte pour le plafond (comptes différents sur 24 h).
+    expect(cap.record).toHaveBeenCalledWith("723f24d7");
 
     const init = net.to(/video\/init\/$/)[0].json as { post_info: Record<string, unknown>; source_info: Record<string, unknown> };
     expect(init.source_info).toEqual({ source: "FILE_UPLOAD", video_size: size, chunk_size: 10 * MB, total_chunk_count: 2 });

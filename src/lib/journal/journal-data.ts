@@ -8,6 +8,44 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-06-tiktok-likes-count",
+    date: "2026-10-06",
+    title: "TikTok : Nebula ne demande plus le total des j'aime du profil",
+    category: "Sécurité",
+    links: [{ href: "/analytics", label: "Analytics" }],
+    result:
+      "Nebula ne demande à TikTok que les chiffres du profil qu'il affiche : abonnés et nombre de vidéos. Le total des j'aime du profil (likes_count) était demandé sans jamais servir ; il ne l'est plus. Rien ne change dans Analytics.",
+    change: "`fetchAnalytics` de `src/lib/social/tiktok.ts` : `user/info/?fields=follower_count,video_count`. Test de contrat ajouté.",
+    readme: 77,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-chiffrement-jetons",
+    date: "2026-10-06",
+    title: "Chiffrement des jetons : état visible et alertes",
+    category: "Sécurité",
+    links: [{ href: "/admin/reseaux", label: "Réseaux (admin)" }],
+    result:
+      "Les jetons des comptes connectés (TikTok, YouTube, Meta…) sont chiffrés en AES-256-GCM dès que la clé TOKEN_ENCRYPTION_KEY est configurée. La page Réseaux du propriétaire montre maintenant l'état exact (actif ou non, combien de jetons sont chiffrés), et le propriétaire est alerté dans la cloche et par e-mail si la clé manque en production ou si des jetons ne peuvent pas être chiffrés.",
+    change:
+      "`secretFieldsStatus` (`src/lib/db/secret-fields.ts`, lit seulement le préfixe des valeurs), `src/lib/secrets-health.ts` appelé par le cron après le rattrapage, carte « Chiffrement des jetons » sur `/admin/reseaux`.",
+    readme: 76,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-plafond-tiktok",
+    date: "2026-10-06",
+    title: "TikTok : suivi du plafond de comptes qui publient",
+    category: "Fiabilité",
+    links: [{ href: "/admin/reseaux", label: "Réseaux (admin)" }],
+    result:
+      "TikTok limite le nombre de comptes différents qui publient via Nebula sur 24 heures (100). Nebula les compte : dès 70, le propriétaire reçoit une alerte dans la cloche et par e-mail, avec le chiffre du jour et le maximum des 30 derniers jours, et une seconde si TikTok refuse quand même une publication. La personne refusée voit un message clair en français (limite du jour atteinte, relancer demain ou publier dans l'app TikTok) au lieu du texte anglais de TikTok ; les autres refus de TikTok (limite du compte, compte privé exigé avant l'audit…) sont aussi traduits.",
+    change:
+      "`src/lib/social/tiktok-cap.ts` (tables `TiktokPublisher` et `TiktokPublisherDay`, seuil `TIKTOK_PUBLISHER_ALERT_AT`, plafond `TIKTOK_DAILY_PUBLISHER_CAP`), messages dans `src/lib/social/tiktok-errors.ts`, compteur affiché sur `/admin/reseaux`, purge à 60 jours.",
+    readme: 75,
+    migrations: ["20261014090000_tiktok_publishers"]
+  },
+  {
     id: "2026-10-06-meta-v26",
     date: "2026-10-06",
     title: "Facebook et Instagram : passage à la version 26.0 de l'API de Meta",

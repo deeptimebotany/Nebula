@@ -24,6 +24,8 @@ import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z 
 import { adoptConcurrentRefresh } from "./tokens";
 import { tiktokBlockingReason, tiktokChunkPlan, tiktokChunkRange, tiktokPostInfo, type TiktokChunkPlan, type TiktokCreatorInfo } from "./tiktok-direct-post";
 import { envValue } from "@/lib/env-value";
+import { TIKTOK_ACTIVE_USER_CAP, tiktokErrorMessage } from "./tiktok-errors";
+import { noteTiktokCapReached, recordTiktokPublisher } from "./tiktok-cap";
 
 // Doc officielle : https://developers.tiktok.com/doc/content-posting-api-get-started
 // Le scope video.publish est en accès audité : sans audit TikTok, la
@@ -127,7 +129,11 @@ async function tiktokApi<T>(
   });
   const error = (body as { error?: { code?: unknown; message?: unknown } } | undefined)?.error;
   if (error && typeof error.code === "string" && error.code !== "ok") {
-    throw new SocialApiError("TIKTOK", typeof error.message === "string" && error.message ? error.message : error.code, 400, body, error.code);
+    // Plafond de comptes de l'application atteint : le propriétaire est prévenu (06/10/2026).
+    if (error.code === TIKTOK_ACTIVE_USER_CAP) await noteTiktokCapReached();
+    // Refus connus en clair, en français (sinon le texte de TikTok).
+    const raw = typeof error.message === "string" && error.message ? error.message : error.code;
+    throw new SocialApiError("TIKTOK", tiktokErrorMessage(error.code, raw), 400, body, error.code);
   }
   // `data` est vérifié dans son enveloppe pour que le champ fautif soit
   // nommé en entier (« data.videos »…).
@@ -380,6 +386,8 @@ async function startTiktokPublish(connection: ConnectionLike, input: PublishInpu
       source_info: { source: "FILE_UPLOAD", video_size: plan.videoSize, chunk_size: plan.chunkSize, total_chunk_count: plan.totalChunks }
     }
   });
+  // Compte qui publie via Nebula : compté pour le plafond de TikTok (comptes différents sur 24 h).
+  await recordTiktokPublisher(connection.externalAccountId);
   const state: UploadState = { ...plan, publishId: init.publish_id, uploadUrl: init.upload_url, mimeType: head.type, nextChunk: 0, uploadStartedAt: Date.now() };
   return continueTiktokUpload(connection, input, state);
 }
@@ -502,10 +510,13 @@ export const tiktokClient: SocialClient = {
     await freshTiktokToken(connection);
     // Statistiques du profil : autorisation user.info.stats (demandée depuis
     // le 30/09/2026 ; un compte connecté avant doit être reconnecté).
+    // Seulement les champs utilisés (06/10/2026) : likes_count (total des
+    // j'aime du profil) était demandé sans jamais servir — retiré, pour ne
+    // demander à TikTok que ce dont Nebula se sert.
     const profile = await tiktokApi(
-      `${API_BASE}/user/info/?fields=follower_count,likes_count,video_count`,
+      `${API_BASE}/user/info/?fields=follower_count,video_count`,
       connection.accessToken,
-      z.object({ user: z.object({ follower_count: z.number(), likes_count: countSchema, video_count: countSchema }) })
+      z.object({ user: z.object({ follower_count: z.number(), video_count: countSchema }) })
     );
 
     return {

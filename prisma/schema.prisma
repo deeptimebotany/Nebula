@@ -2005,3 +2005,23 @@ model MonthlySummary {
   @@index([sentAt])
   @@index([brandId])
 }
+
+// Plafond TikTok des comptes qui publient (06/10/2026). TikTok limite le
+// nombre de comptes TikTok DIFFÉRENTS qui publient par une même application
+// sur 24 h (erreur « reached_active_user_cap »). Une ligne par compte TikTok
+// (open_id), avec sa dernière publication acceptée par TikTok : le nombre de
+// comptes sur 24 h glissantes se lit sur lastAt.
+model TiktokPublisher {
+  accountId String   @id
+  lastAt    DateTime @default(now())
+
+  @@index([lastAt])
+}
+
+// Pic du jour (jour UTC, « AAAA-MM-JJ ») de ce nombre de comptes sur 24 h :
+// sert au « maximum des 30 derniers jours » des alertes.
+model TiktokPublisherDay {
+  day    String   @id
+  peak   Int
+  peakAt DateTime @default(now())
+}

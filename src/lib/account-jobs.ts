@@ -18,6 +18,7 @@ import { autoSyncDueConnections } from "@/lib/social/auto-sync";
 import { runApiWatch } from "@/lib/api-watch/watcher";
 import { runFounderJobs } from "@/lib/billing/founders";
 import { runMonthlySummaries } from "@/lib/monthly-summary/send";
+import { purgeTiktokPublishers } from "@/lib/social/tiktok-cap";
 
 function safe<T>(label: string, run: () => Promise<T>): Promise<T | null> {
   return run().catch((err) => {
@@ -52,5 +53,7 @@ export async function runAccountJobs() {
   const founders = await safe("fondateurs", () => runFounderJobs());
   // Bilan du mois (03/10/2026) : à partir du 3 à 9 h, quelques e-mails par passage.
   const monthlySummaries = await safe("bilan du mois", () => runMonthlySummaries());
-  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries };
+  // Plafond TikTok (06/10/2026) : comptes sans publication depuis 60 jours oubliés.
+  const tiktokPublishersPurged = await safe("purge compteur TikTok", () => purgeTiktokPublishers());
+  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries, tiktokPublishersPurged };
 }

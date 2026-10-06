@@ -7,6 +7,7 @@ import { purgeExpiredRateLimits } from "@/lib/rate-limit";
 import { runGrowthMaintenance } from "@/lib/growth-jobs";
 import { runAccountJobs } from "@/lib/account-jobs";
 import { backfillSecrets } from "@/lib/prisma";
+import { checkSecretsHealth } from "@/lib/secrets-health";
 import { isPlaceholderSecret, safeEqual } from "@/lib/secrets";
 
 // Le cron publie, termine les vidéos en traitement, envoie les rapports… :
@@ -56,10 +57,16 @@ export async function GET(req: NextRequest) {
     // Chiffrement en tâche de fond des jetons encore en clair (audit
     // sécurité, lot 1 — voir lib/db/secret-fields.ts). Sans effet tant que
     // TOKEN_ENCRYPTION_KEY n'est pas configurée.
-    backfillSecrets().catch((err) => {
-      console.error("[cron] chiffrement des jetons :", (err as Error).message);
-      return null;
-    }),
+    // 06/10/2026 : clé absente en production ou échec → alerte au propriétaire.
+    backfillSecrets()
+      .catch((err) => {
+        console.error("[cron] chiffrement des jetons :", (err as Error).message);
+        return null;
+      })
+      .then(async (result) => {
+        await checkSecretsHealth(result);
+        return result;
+      }),
     // Lot 2 (fiabilité) : publications « en traitement » chez un réseau,
     // publications interrompues, jetons de Page Facebook.
     advanceProcessingTargets().catch((err) => {

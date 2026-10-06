@@ -15,7 +15,7 @@ function appUrl(): string {
 }
 
 /** Le propriétaire a-t-il déjà reçu cette alerte (même clé) ? */
-async function alreadyAlerted(dedupeKey: string): Promise<boolean> {
+export async function alreadyAlerted(dedupeKey: string): Promise<boolean> {
   const found = await prisma.notification
     .findFirst({ where: { dedupeKey, user: { email: OWNER_EMAIL } }, select: { id: true } })
     .catch(() => null);
@@ -25,21 +25,32 @@ async function alreadyAlerted(dedupeKey: string): Promise<boolean> {
 /**
  * Alerte unique (cloche + e-mail) : une clé déjà envoyée ne repart jamais,
  * même si la tâche repasse (les rappels d'échéance sont recalculés chaque jour).
+ * Les textes de l'e-mail sont ceux de la veille des API, sauf s'ils sont
+ * donnés (plafond TikTok, 06/10/2026).
  */
-export async function alertOwnerWithEmail(input: { title: string; body: string; dedupeKey: string; href?: string }): Promise<void> {
+export async function alertOwnerWithEmail(input: {
+  title: string;
+  body: string;
+  dedupeKey: string;
+  href?: string;
+  subject?: string;
+  actionLabel?: string;
+  button?: string;
+  footer?: string;
+}): Promise<void> {
   if (await alreadyAlerted(input.dedupeKey)) return;
   const href = input.href ?? API_WATCH_HREF;
-  await alertOwner({ title: input.title, body: input.body, dedupeKey: input.dedupeKey, href, actionLabel: "Voir la veille" });
+  await alertOwner({ title: input.title, body: input.body, dedupeKey: input.dedupeKey, href, actionLabel: input.actionLabel ?? "Voir la veille" });
   if (!isEmailConfigured()) return;
   await sendEmail({
     to: OWNER_EMAIL,
-    subject: `Veille des API — ${input.title}`,
+    subject: input.subject ?? `Veille des API — ${input.title}`,
     idempotencyKey: emailIdempotencyKey("api-watch", OWNER_EMAIL, input.dedupeKey),
     html: emailFrame(`
       <h1 style="margin:0 0 14px;font-size:20px;line-height:1.3;color:#111827">${escapeHtml(input.title)}</h1>
       <p style="margin:0 0 14px;font-size:15px;line-height:1.55">${escapeHtml(input.body)}</p>
-      <p style="margin:22px 0">${emailButton("Ouvrir la veille des API", `${appUrl()}${href}`)}</p>
-      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">E-mail réservé au propriétaire de Nebula : calendrier des versions, annonces des changelogs officiels et signaux lus dans les réponses des API.</p>
+      <p style="margin:22px 0">${emailButton(input.button ?? "Ouvrir la veille des API", `${appUrl()}${href}`)}</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">${escapeHtml(input.footer ?? "E-mail réservé au propriétaire de Nebula : calendrier des versions, annonces des changelogs officiels et signaux lus dans les réponses des API.")}</p>
     `),
     text: `${input.title}\n\n${input.body}\n\n${appUrl()}${href}`
   }).catch(() => undefined);

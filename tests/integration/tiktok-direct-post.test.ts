@@ -108,6 +108,11 @@ describe.skipIf(!hasDatabase)("TikTok : règles Direct Post", () => {
     creatorInfo.mockRejectedValue(new SocialApiError("TIKTOK", "The daily post cap from the API is reached.", 400, undefined, "spam_risk_too_many_posts"));
     const res = await getCreatorInfo(req(`/api/social/tiktok/creator-info?connectionId=${tiktok.id}`));
     expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({ cannotPost: true, error: expect.stringContaining("limite de publications") });
+    expect(await res.json()).toMatchObject({ cannotPost: true, error: expect.stringContaining("nombre de publications par jour autorisé par TikTok") });
+    // Plafond de comptes de l'application (06/10/2026) : même message clair que sous une publication échouée.
+    creatorInfo.mockRejectedValue(new SocialApiError("TIKTOK", "The daily quota for active publishing users from your client is reached.", 400, undefined, "reached_active_user_cap"));
+    const cap = await getCreatorInfo(req(`/api/social/tiktok/creator-info?connectionId=${tiktok.id}`));
+    expect(cap.status).toBe(409);
+    expect(await cap.json()).toMatchObject({ cannotPost: true, code: "reached_active_user_cap", error: expect.stringMatching(/^TikTok limite chaque jour le nombre de comptes qui peuvent publier depuis Nebula/) });
   });
 });

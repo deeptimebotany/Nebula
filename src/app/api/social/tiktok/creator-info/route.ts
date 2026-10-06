@@ -6,6 +6,7 @@ import { requireBrandMembership } from "@/lib/brand-access";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { SocialApiError } from "@/lib/social/base";
 import { fetchTiktokCreatorInfo } from "@/lib/social/tiktok";
+import { TIKTOK_ACTIVE_USER_CAP, TIKTOK_ERROR_MESSAGES } from "@/lib/social/tiktok-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,10 @@ export const dynamic = "force-dynamic";
 // autorise davantage ; Publier ne l'appelle qu'à l'ouverture de la section).
 
 /** Le créateur ne peut pas publier pour le moment : on le dit et on bloque. */
-const CANNOT_POST: Record<string, string> = {
-  spam_risk_too_many_posts: "Ce compte TikTok a atteint sa limite de publications pour aujourd'hui. Réessayez plus tard.",
-  spam_risk_user_banned_from_posting: "TikTok n'autorise plus ce compte à publier pour le moment.",
-  reached_active_user_cap: "TikTok limite pour aujourd'hui le nombre de comptes qui publient depuis Nebula. Réessayez plus tard."
-};
+// Textes partagés avec la publication (src/lib/social/tiktok-errors.ts, 06/10/2026).
+const CANNOT_POST: Record<string, string> = Object.fromEntries(
+  ["spam_risk_too_many_posts", "spam_risk_user_banned_from_posting", TIKTOK_ACTIVE_USER_CAP].map((code) => [code, TIKTOK_ERROR_MESSAGES[code]])
+);
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);

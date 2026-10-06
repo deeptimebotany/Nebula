@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { backfillSecretFields, secretFieldsExtension } from "@/lib/db/secret-fields";
+import { backfillSecretFields, secretFieldsExtension, secretFieldsStatus } from "@/lib/db/secret-fields";
 
 // Client Prisma unique de l'application.
 //
@@ -26,4 +26,9 @@ export const prisma = clients.prisma;
 /** Chiffre par petits lots les secrets encore en clair (appelé par le cron). */
 export function backfillSecrets(limit = 100) {
   return backfillSecretFields(clients.base, limit);
+}
+
+/** État du chiffrement des secrets (page Réseaux du propriétaire, alertes). */
+export function secretsStatus() {
+  return secretFieldsStatus(clients.base);
 }
