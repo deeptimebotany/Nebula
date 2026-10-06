@@ -8,6 +8,35 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-06-logos-reseaux",
+    date: "2026-10-06",
+    title: "Logos officiels de Facebook, Instagram, Threads, Bluesky et LinkedIn",
+    category: "Interface",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/comments", label: "Commentaires" },
+      { href: "/media-kit", label: "Media kit" }
+    ],
+    result:
+      "Dans l'application, les pastilles des réseaux montrent les logos officiels (fichiers téléchargés sur les sites de marque) au lieu des dessins de Nebula, partout où les règles du réseau le permettent : Facebook, Threads et Bluesky partout ; LinkedIn à partir de 25 px ; Instagram seulement là où il a assez d'espace vide autour (titres de Comptes connectés, media kit). Threads et LinkedIn passent en blanc en mode sombre. Un compte déconnecté reprend le dessin en gris (un logo officiel ne se recolore pas). TikTok, Pinterest et YouTube gardent le dessin, comme la page d'accueil et l'exemple de media kit de la page publicitaire.",
+    change:
+      "`src/components/ui/official-network-logos.ts` (règles et fichiers, `public/brands/`), `NetworkTile` (options `muted`, `roomy`, `drawn`), classes `nb-on-light` et `nb-on-dark`, option `drawnLogos` de `KitView`.",
+    readme: 80,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-logos-sources",
+    date: "2026-10-06",
+    title: "Publier : logos officiels de Google Drive, Dropbox et Unsplash",
+    category: "Publication",
+    links: [{ href: "/composer", label: "Publier" }],
+    result:
+      "Comme pour Canva, les boutons « Importer depuis » de Publier et les mentions « Importé depuis… » affichent les logos officiels de Google Drive, Dropbox et Unsplash (le logo Unsplash passe en blanc en mode sombre), avec une infobulle qui dit l'action. OneDrive garde son dessin : Microsoft n'autorise pas ses logos sans licence. La page d'accueil publique garde les dessins.",
+    change: "`src/components/media-import/brand-logo.tsx` (fichiers dans `public/brands/`), option `brand` de `SourceIcon`, classe `nb-logo-mono` pour la variante blanche d'Unsplash.",
+    readme: 79,
+    migrations: []
+  },
+  {
     id: "2026-10-06-canva-marque-compte",
     date: "2026-10-06",
     title: "Canva : logo officiel et compte connecté affiché",

@@ -2181,3 +2181,25 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   background-color: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
+
+/* Logos officiels monochromes (Unsplash, 06/10/2026) : noirs sur fond clair,
+   variante blanche en mode sombre. */
+.nb-logo-mono {
+  filter: invert(1);
+}
+[data-mode="light"] .nb-logo-mono {
+  filter: none;
+}
+
+/* Logos officiels des réseaux à deux fichiers (Threads, LinkedIn, 06/10/2026) :
+   variante claire sur fond clair, variante blanche en mode sombre — jamais de
+   filtre (couleurs non modifiables). Voir NetworkTile, network-badge.tsx. */
+.nb-on-light {
+  display: none;
+}
+[data-mode="light"] .nb-on-light {
+  display: block;
+}
+[data-mode="light"] .nb-on-dark {
+  display: none;
+}

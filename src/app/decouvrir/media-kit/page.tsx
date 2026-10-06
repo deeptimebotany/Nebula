@@ -102,7 +102,8 @@ export default async function DecouvrirMediaKit({ searchParams }: { searchParams
       <div className="mx-auto mt-14 max-w-4xl">
         <p className="mb-3 text-center text-xs text-slate-500">Exemple de media kit (marque et chiffres fictifs)</p>
         <div className="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-4 sm:p-6">
-          <KitView data={EXAMPLE} nested />
+          {/* Page publicitaire : dessins de Nebula, jamais les logos officiels des réseaux. */}
+          <KitView data={EXAMPLE} nested drawnLogos />
         </div>
       </div>
 

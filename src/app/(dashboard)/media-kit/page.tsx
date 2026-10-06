@@ -314,7 +314,7 @@ export default function MediaKitPage() {
                       return (
                         <li key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
                           <span className="flex min-w-0 items-center gap-2.5">
-                            <NetworkTile network={c.network} size={24} className={off ? "opacity-50 grayscale" : undefined} />
+                            <NetworkTile network={c.network} size={24} muted={off} />
                             <span className="min-w-0">
                               <span className="block truncate text-sm text-white">{c.name}</span>
                               <span className="block truncate text-[11px] text-slate-500">{off ? "Déconnecté : jamais affiché" : NETWORK_META[c.network].label}</span>

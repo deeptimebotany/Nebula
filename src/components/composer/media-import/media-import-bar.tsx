@@ -147,6 +147,8 @@ export function MediaImportBar({
             onClick={() => onClick(id)}
             disabled={!brandId || disabled || busy !== null}
             aria-busy={busy === id}
+            // Infobulle qui dit l'action (consigne de marque de Google Drive, 06/10/2026).
+            title={`Importer depuis ${LABELS[id]}`}
             className={clsx(
               // 8 px autour du logo (consigne Canva pour son icône dans un bouton, 06/10/2026).
               "flex items-center gap-2 rounded-full border py-2 pl-2 pr-3 text-xs transition",
@@ -154,7 +156,7 @@ export function MediaImportBar({
               (!brandId || disabled) && "opacity-50"
             )}
           >
-            {busy === id ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-aurora-300" aria-hidden="true" /> : <SourceIcon id={id} />}
+            {busy === id ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-aurora-300" aria-hidden="true" /> : <SourceIcon id={id} brand />}
             {LABELS[id]}
           </button>
         ))}

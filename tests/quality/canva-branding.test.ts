@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
 import { SourceIcon } from "@/components/media-import/source-icon";
 import { CANVA_ICON_SRC } from "@/components/media-import/canva-icon";
+import { BRAND_LOGOS } from "@/components/media-import/brand-logo";
+import { existsSync } from "node:fs";
 
 const read = (f: string) => readFileSync(f, "utf8");
 
@@ -41,5 +43,30 @@ describe("Canva : logo officiel", () => {
     expect(dialogs).toContain('"Déconnecter Canva"');
     expect(dialogs).not.toContain("Délier Canva");
     expect(read("src/components/composer/media-import/media-import-bar.tsx")).toContain("gap-2 rounded-full border py-2 pl-2 pr-3");
+  });
+});
+
+describe("logos officiels des autres sources (06/10/2026)", () => {
+  it("Google Drive, Dropbox et Unsplash : fichiers présents, affichés dans l'application seulement", () => {
+    for (const logo of Object.values(BRAND_LOGOS)) expect(existsSync(`public${logo.src}`), logo.src).toBe(true);
+    for (const id of ["gdrive", "dropbox", "unsplash"] as const) {
+      expect(renderToStaticMarkup(createElement(SourceIcon, { id, brand: true }))).toContain(`src="${BRAND_LOGOS[id].src}"`);
+      // Sans `brand` (page d'accueil publique) : le dessin, jamais le logo.
+      expect(renderToStaticMarkup(createElement(SourceIcon, { id }))).toContain("<svg");
+    }
+    // Microsoft n'autorise pas ses logos sans licence : OneDrive garde son dessin.
+    expect(renderToStaticMarkup(createElement(SourceIcon, { id: "onedrive", brand: true }))).toContain("<svg");
+    expect(renderToStaticMarkup(createElement(SourceIcon, { id: "unsplash", brand: true }))).toContain("nb-logo-mono");
+    expect(read("src/components/marketing/hero.tsx")).not.toMatch(/<SourceIcon[^>]*\bbrand\b/);
+  });
+
+  it("barre « Importer depuis » : logos officiels et infobulle de l'action ; mention « Importé depuis » : logo en pastille, texte seul en ligne", () => {
+    const bar = read("src/components/composer/media-import/media-import-bar.tsx");
+    expect(bar).toContain("<SourceIcon id={id} brand />");
+    expect(bar).toContain("title={`Importer depuis ${LABELS[id]}`}");
+    const pill = renderToStaticMarkup(createElement(ImportSourceBadge, { source: "gdrive", type: "VIDEO" }));
+    expect(pill).toContain("/brands/google-drive/google-drive.png");
+    expect(pill).toContain("Google Drive");
+    expect(renderToStaticMarkup(createElement(ImportSourceBadge, { source: "dropbox", type: "IMAGE", variant: "inline" }))).not.toMatch(/<img|<svg/);
   });
 });

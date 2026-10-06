@@ -1,12 +1,15 @@
 // Glyphes des sources d'import de médias (lot 3, 25/09/2026), partagés par
 // la barre « Importer depuis » de Publier et la page d'accueil (02/10/2026).
-// Dessins simplifiés au trait, pas les logos officiels — sauf Canva, qui
-// exige son logo officiel (06/10/2026, voir canva-icon.tsx). Sans hook :
-// utilisable dans un composant serveur.
+// Dessins simplifiés au trait — sauf Canva, toujours avec son logo officiel
+// (06/10/2026, voir canva-icon.tsx). `brand` : logos officiels de Google
+// Drive, Dropbox et Unsplash, réservés à l'application (voir brand-logo.tsx).
+// Sans hook : utilisable dans un composant serveur.
 import type { MediaSourceId } from "@/lib/media-sources";
 import { CanvaIcon } from "./canva-icon";
+import { BrandLogo, isBrandLogoId } from "./brand-logo";
 
-export function SourceIcon({ id, className = "h-4 w-4" }: { id: MediaSourceId | "device"; className?: string }) {
+export function SourceIcon({ id, className = "h-4 w-4", brand = false }: { id: MediaSourceId | "device"; className?: string; brand?: boolean }) {
+  if (brand && isBrandLogoId(id)) return <BrandLogo id={id} className={className} />;
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, "aria-hidden": true };
   switch (id) {
     case "device":

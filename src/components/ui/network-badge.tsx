@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { IconTikTok, IconYouTube, IconInstagram, IconFacebook, IconBluesky, IconThreads, IconPinterest, IconLinkedIn } from "@/components/dashboard/icons";
+import { officialNetworkLogo } from "@/components/ui/official-network-logos";
 
 const NETWORK_ICONS: Record<Network, (props: { className?: string }) => JSX.Element> = {
   TIKTOK: IconTikTok,
@@ -34,10 +35,12 @@ export function networkInkStyle(network: Network): CSSProperties {
 
 // Pastille de réseau (refonte du 24/09/2026, « badges qui font brouillon ») :
 // une pastille neutre, identique partout (Commentaires, Engagements, comptes,
-// publications…), avec le logo officiel sur sa couleur de marque — au lieu
-// d'un fond et d'un contour teintés à la couleur du réseau (le rouge YouTube
-// criait à côté du reste). `muted` : option non retenue, logo en gris.
-export function NetworkBadge({ network, size = "md", muted = false }: { network: Network; size?: "sm" | "md"; muted?: boolean }) {
+// publications…), avec le logo du réseau (NetworkTile : officiel quand ses
+// règles le permettent, dessin de Nebula sinon) — au lieu d'un fond et d'un
+// contour teintés à la couleur du réseau (le rouge YouTube criait à côté du
+// reste). `muted` : option non retenue, dessin en gris. `drawn` : dessin
+// imposé (page publicitaire).
+export function NetworkBadge({ network, size = "md", muted = false, drawn = false }: { network: Network; size?: "sm" | "md"; muted?: boolean; drawn?: boolean }) {
   const meta = NETWORK_META[network];
   return (
     <span
@@ -47,7 +50,7 @@ export function NetworkBadge({ network, size = "md", muted = false }: { network:
         muted ? "border-white/10 bg-white/[0.02] text-slate-400" : "border-white/10 bg-white/[0.04] text-slate-200"
       )}
     >
-      <NetworkTile network={network} size={size === "sm" ? 16 : 20} className={muted ? "opacity-50 grayscale" : undefined} />
+      <NetworkTile network={network} size={size === "sm" ? 16 : 20} muted={muted} drawn={drawn} />
       {meta.label}
     </span>
   );
@@ -62,7 +65,8 @@ export function NetworkDot({ network }: { network: Network }) {
 // Lucas pour « Réseaux cibles ») : le pictogramme simplifié de Nebula, en
 // blanc, posé sur la couleur officielle du réseau (dégradé pour Instagram,
 // noir pour TikTok et Threads). Rond pour Facebook et Pinterest, carré
-// arrondi pour les autres.
+// arrondi pour les autres. Depuis le 06/10/2026, remplacé par le logo
+// officiel quand les règles du réseau le permettent (voir NetworkTile).
 const TILE_BG: Record<Network, string> = {
   INSTAGRAM: "radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%)",
   FACEBOOK: "#1877F2",
@@ -77,10 +81,35 @@ const ROUND_TILES = new Set<Network>(["FACEBOOK", "PINTEREST"]);
 // Réseaux dont la couleur est le noir : contour clair en mode sombre.
 const DARK_BRAND = new Set<Network>(["TIKTOK", "THREADS"]);
 
-export function NetworkTile({ network, size = 22, className }: { network: Network; size?: number; className?: string }) {
+/**
+ * Logo d'un réseau dans un carré de `size` px. Logo officiel (fichier de
+ * public/brands, voir official-network-logos.ts) quand les règles du réseau
+ * le permettent à cette taille, sinon le pictogramme de Nebula sur la couleur
+ * du réseau.
+ *  - `muted` : réseau « éteint » (compte déconnecté, option non retenue) —
+ *    toujours le dessin, en gris : un logo officiel ne se recolore pas ;
+ *  - `roomy` : l'appelant garantit un grand espace vide autour (moitié de la
+ *    taille de chaque côté), exigé par Instagram ;
+ *  - `drawn` : toujours le dessin (page publicitaire : LinkedIn interdit son
+ *    logo dans la publicité sans accord écrit).
+ */
+export function NetworkTile({ network, size = 22, className, muted = false, roomy = false, drawn = false }: { network: Network; size?: number; className?: string; muted?: boolean; roomy?: boolean; drawn?: boolean }) {
+  const official = drawn ? null : officialNetworkLogo(network, size, { muted, roomy });
+  if (official) {
+    return (
+      <span className={clsx("nt-official inline-flex shrink-0 items-center justify-center", className)} style={{ width: size, height: size }} aria-hidden="true" data-official-logo={network}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={official.light} alt="" className={clsx("h-full w-full object-contain", official.dark && "nb-on-light")} />
+        {official.dark && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={official.dark} alt="" className="nb-on-dark h-full w-full object-contain" />
+        )}
+      </span>
+    );
+  }
   return (
     <span
-      className={clsx("nt-tile inline-flex shrink-0 items-center justify-center", DARK_BRAND.has(network) && "nt-tile-dark", className)}
+      className={clsx("nt-tile inline-flex shrink-0 items-center justify-center", DARK_BRAND.has(network) && "nt-tile-dark", muted && "opacity-50 grayscale", className)}
       style={{ width: size, height: size, borderRadius: ROUND_TILES.has(network) ? size / 2 : Math.round(size * 0.28), background: TILE_BG[network], color: "#fff" }}
       aria-hidden="true"
     >
@@ -120,7 +149,8 @@ export function NetworkTargetChip({ network, state }: { network: Network; state:
   const meta = NETWORK_META[network];
   return (
     <span className={clsx("nt-chip", `nt-chip-${state}`)} style={state === "selected" ? edgeVars(network) : undefined}>
-      <NetworkTile network={network} size={22} className={state === "connect" ? "opacity-80" : undefined} />
+      {/* Pas d'opacité sur « connecter » : un logo officiel garde ses couleurs (les pointillés et « + connecter » suffisent). */}
+      <NetworkTile network={network} size={22} />
       <span className={clsx("nt-chip-label", state === "selected" && "font-semibold")}>{meta.label}</span>
       {state === "connect" && <span className="nt-chip-cta">+ connecter</span>}
       {state === "selected" && (

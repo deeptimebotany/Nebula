@@ -45,12 +45,13 @@ function Row({ label, value, title, tone }: { label: string; value: string; titl
   );
 }
 
-function AccountCard({ account }: { account: KitAccount }) {
+function AccountCard({ account, drawn }: { account: KitAccount; drawn: boolean }) {
   const growth = account.growth;
   return (
     <GlassCard hover={false} className="break-inside-avoid p-4">
-      <div className="flex items-center gap-3">
-        <NetworkTile network={account.network} size={36} />
+      {/* 18 px entre le logo et le nom : l'espace vide exigé autour du glyphe officiel d'Instagram. */}
+      <div className="flex items-center gap-[18px]">
+        <NetworkTile network={account.network} size={36} roomy drawn={drawn} />
         <div className="min-w-0">
           <p className="truncate font-medium text-white">{account.name}</p>
           <p className="truncate text-xs text-slate-400">
@@ -81,7 +82,7 @@ function AccountCard({ account }: { account: KitAccount }) {
   );
 }
 
-function PostCard({ post }: { post: KitPost }) {
+function PostCard({ post, drawn }: { post: KitPost; drawn: boolean }) {
   const body = (
     <>
       <div className="relative aspect-video overflow-hidden rounded-xl bg-white/[0.04]">
@@ -90,16 +91,16 @@ function PostCard({ post }: { post: KitPost }) {
             src={post.thumbnailUrl}
             className="absolute inset-0 h-full w-full"
             sizes="(max-width: 640px) 100vw, 300px"
-            fallback={<span className="flex h-full w-full items-center justify-center"><NetworkTile network={post.network} size={32} /></span>}
+            fallback={<span className="flex h-full w-full items-center justify-center"><NetworkTile network={post.network} size={32} roomy drawn={drawn} /></span>}
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
-            <NetworkTile network={post.network} size={32} />
+            <NetworkTile network={post.network} size={32} roomy drawn={drawn} />
           </span>
         )}
       </div>
       <div className="mt-2.5 flex items-center justify-between gap-2">
-        <NetworkBadge network={post.network} size="sm" />
+        <NetworkBadge network={post.network} size="sm" drawn={drawn} />
         {post.publishedAt && <span className="text-[11px] text-slate-500">{SHORT_DATE.format(new Date(post.publishedAt))}</span>}
       </div>
       <p className="mt-1.5 line-clamp-2 text-sm font-medium text-white">{post.title}</p>
@@ -130,8 +131,11 @@ function SectionTitle({ children, nested }: { children: ReactNode; nested?: bool
 /**
  * `nested` : le kit est affiché DANS une autre page (aperçu de l'éditeur,
  * exemple d'une landing) — le nom passe en h2 et les sections en h3.
+ * `drawnLogos` : dessins de Nebula au lieu des logos officiels des réseaux
+ * (exemple sur une page publicitaire : LinkedIn l'exige, voir
+ * official-network-logos.ts).
  */
-export function KitView({ data, actions, className, nested = false }: { data: PublicKitData; actions?: ReactNode; className?: string; nested?: boolean }) {
+export function KitView({ data, actions, className, nested = false, drawnLogos = false }: { data: PublicKitData; actions?: ReactNode; className?: string; nested?: boolean; drawnLogos?: boolean }) {
   const { stats } = data;
   const Title = nested ? "h2" : "h1";
   const Sub = nested ? "h3" : "h2";
@@ -157,7 +161,7 @@ export function KitView({ data, actions, className, nested = false }: { data: Pu
                 <span className="sr-only">Présent sur {networks.map((n) => NETWORK_META[n].label).join(", ")}</span>
                 {networks.map((n) => (
                   <span key={n} aria-hidden="true">
-                    <NetworkTile network={n} size={20} />
+                    <NetworkTile network={n} size={20} drawn={drawnLogos} />
                   </span>
                 ))}
               </p>
@@ -186,7 +190,7 @@ export function KitView({ data, actions, className, nested = false }: { data: Pu
           <SectionTitle nested={nested}>Comptes</SectionTitle>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {stats.accounts.map((a) => (
-              <AccountCard key={a.id} account={a} />
+              <AccountCard key={a.id} account={a} drawn={drawnLogos} />
             ))}
           </div>
         </section>
@@ -199,7 +203,7 @@ export function KitView({ data, actions, className, nested = false }: { data: Pu
           <SectionTitle nested={nested}>{stats.postsChosen ? "Publications à la une" : "Publications qui ont le mieux marché"}</SectionTitle>
           <div className={clsx("grid grid-cols-1 gap-3 sm:grid-cols-2", nested ? "2xl:grid-cols-3" : "lg:grid-cols-3")}>
             {stats.posts.map((p) => (
-              <PostCard key={p.id} post={p} />
+              <PostCard key={p.id} post={p} drawn={drawnLogos} />
             ))}
           </div>
         </section>

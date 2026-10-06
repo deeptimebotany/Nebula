@@ -21,8 +21,8 @@ export function ImportSourceBadge({
 }) {
   const id = mediaImportSource(source);
   if (!id) return null;
-  // Logo officiel de Canva : 8 px de marge tout autour (pastille) ; dans une
-  // ligne de texte, où cette marge est impossible, le texte seul (06/10/2026).
+  // Logos officiels (06/10/2026) : en pastille, avec 8 px de marge autour pour
+  // Canva ; dans une ligne de texte, le texte seul, pour toutes les sources.
   const canva = id === "canva";
   return (
     <span
@@ -34,7 +34,7 @@ export function ImportSourceBadge({
         className
       )}
     >
-      {!(canva && variant === "inline") && <SourceIcon id={id} className={canva ? "h-4 w-4" : "h-3.5 w-3.5 shrink-0"} />}
+      {variant === "pill" && <SourceIcon id={id} brand className={canva ? "h-4 w-4" : "h-3.5 w-3.5 shrink-0"} />}
       {importedFromText(id, type)}
     </span>
   );

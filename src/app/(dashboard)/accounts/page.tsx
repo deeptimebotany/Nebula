@@ -234,9 +234,11 @@ function AccountsPageInner() {
           return (
             <GlassCard key={provider.id}>
               <div className="mb-3 flex items-center justify-between gap-3">
-                {/* Logo officiel en couleur (24/09/2026), au lieu du nom seul. */}
-                <h2 className="flex items-center gap-2.5 font-display text-base font-medium text-white">
-                  <NetworkTile network={provider.networks[0]} size={30} />
+                {/* Logo du réseau en couleur (24/09/2026), au lieu du nom seul.
+                    Espace de 16 px autour : assez pour le glyphe officiel
+                    d'Instagram (moitié de sa taille de chaque côté). */}
+                <h2 className="flex items-center gap-4 font-display text-base font-medium text-white">
+                  <NetworkTile network={provider.networks[0]} size={30} roomy />
                   {provider.label}
                 </h2>
                 <Button
