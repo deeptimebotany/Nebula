@@ -25,7 +25,7 @@ interface Sources {
   dropbox: { appKey: string } | null;
   onedrive: { connected: boolean } | null;
   unsplash: boolean;
-  canva: { connected: boolean } | null;
+  canva: { connected: boolean; accountName?: string | null } | null;
 }
 
 type SourceId = MediaSourceId;
@@ -148,7 +148,8 @@ export function MediaImportBar({
             disabled={!brandId || disabled || busy !== null}
             aria-busy={busy === id}
             className={clsx(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+              // 8 px autour du logo (consigne Canva pour son icône dans un bouton, 06/10/2026).
+              "flex items-center gap-2 rounded-full border py-2 pl-2 pr-3 text-xs transition",
               busy === id ? "border-aurora-400/50 bg-aurora-400/10 text-white" : "border-white/10 text-slate-300 hover:border-aurora-400/40 hover:text-white",
               (!brandId || disabled) && "opacity-50"
             )}
@@ -173,6 +174,7 @@ export function MediaImportBar({
           onClose={() => setDialog(null)}
           brandId={brandId}
           connected={sources.canva.connected}
+          accountName={sources.canva.accountName ?? null}
           onDisconnected={() => {
             setDialog(null);
             refreshSources();

@@ -14,7 +14,8 @@ export interface PublicMediaSources {
   dropbox: { appKey: string } | null;
   onedrive: { connected: boolean } | null;
   unsplash: boolean;
-  canva: { connected: boolean } | null;
+  /** accountName : nom du compte Canva relié, montré dans la fenêtre d'import (06/10/2026). */
+  canva: { connected: boolean; accountName?: string | null } | null;
 }
 
 export function gdriveConfig(): PublicMediaSources["gdrive"] {

@@ -1,8 +1,10 @@
 // Glyphes des sources d'import de médias (lot 3, 25/09/2026), partagés par
 // la barre « Importer depuis » de Publier et la page d'accueil (02/10/2026).
-// Dessins simplifiés au trait, pas les logos officiels. Sans hook : utilisable
-// dans un composant serveur.
+// Dessins simplifiés au trait, pas les logos officiels — sauf Canva, qui
+// exige son logo officiel (06/10/2026, voir canva-icon.tsx). Sans hook :
+// utilisable dans un composant serveur.
 import type { MediaSourceId } from "@/lib/media-sources";
+import { CanvaIcon } from "./canva-icon";
 
 export function SourceIcon({ id, className = "h-4 w-4" }: { id: MediaSourceId | "device"; className?: string }) {
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, "aria-hidden": true };
@@ -43,11 +45,6 @@ export function SourceIcon({ id, className = "h-4 w-4" }: { id: MediaSourceId | 
         </svg>
       );
     case "canva":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M15.5 9.5a4 4 0 1 0 0 5" />
-        </svg>
-      );
+      return <CanvaIcon className={className} />;
   }
 }

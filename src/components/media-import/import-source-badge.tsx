@@ -21,15 +21,20 @@ export function ImportSourceBadge({
 }) {
   const id = mediaImportSource(source);
   if (!id) return null;
+  // Logo officiel de Canva : 8 px de marge tout autour (pastille) ; dans une
+  // ligne de texte, où cette marge est impossible, le texte seul (06/10/2026).
+  const canva = id === "canva";
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1.5",
-        variant === "pill" ? "rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300" : "text-xs text-slate-400",
+        "inline-flex items-center",
+        variant === "pill"
+          ? clsx("rounded-full border border-white/10 bg-white/[0.04] text-xs text-slate-300", canva ? "gap-2 py-2 pl-2 pr-3" : "gap-1.5 px-2.5 py-1")
+          : "gap-1.5 text-xs text-slate-400",
         className
       )}
     >
-      <SourceIcon id={id} className="h-3.5 w-3.5 shrink-0" />
+      {!(canva && variant === "inline") && <SourceIcon id={id} className={canva ? "h-4 w-4" : "h-3.5 w-3.5 shrink-0"} />}
       {importedFromText(id, type)}
     </span>
   );

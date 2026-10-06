@@ -9,6 +9,7 @@ import { clsx } from "@/lib/clsx";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { UploadedAssetResult } from "@/lib/upload-client";
+import { CanvaIcon } from "@/components/media-import/canva-icon";
 
 export interface UnsplashCredit {
   name: string;
@@ -254,13 +255,26 @@ export function UnsplashDialog({
 
 function ConnectPanel({ provider, label, text }: { provider: "canva" | "onedrive"; label: string; text: string }) {
   const returnTo = `/composer?import=${provider}`;
+  const href = `/api/integrations/${provider}/start?returnTo=${encodeURIComponent(returnTo)}`;
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
       <p className="max-w-md text-sm text-slate-300">{text}</p>
-      <a href={`/api/integrations/${provider}/start?returnTo=${encodeURIComponent(returnTo)}`} className="rounded-lg bg-aurora-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110">
-        Relier {label}
-      </a>
-      <p className="text-xs text-slate-500">Vous pourrez le délier à tout moment. Nebula ne lit que ce dont il a besoin pour importer vos fichiers.</p>
+      {provider === "canva" ? (
+        // Bouton Canva (06/10/2026, consignes de Canva) : logo officiel avec
+        // 8 px de marge tout autour, et le texte de l'action.
+        <a
+          href={href}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white py-2 pl-2 pr-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aurora-400"
+        >
+          <CanvaIcon size={24} />
+          Connecter mon compte Canva
+        </a>
+      ) : (
+        <a href={href} className="rounded-lg bg-aurora-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110">
+          Relier {label}
+        </a>
+      )}
+      <p className="text-xs text-slate-500">Vous pourrez le déconnecter à tout moment. Nebula ne lit que ce dont il a besoin pour importer vos fichiers.</p>
     </div>
   );
 }
@@ -284,6 +298,7 @@ export function CanvaDialog({
   onClose,
   brandId,
   connected,
+  accountName: initialAccountName = null,
   onDisconnected,
   onImported
 }: {
@@ -291,9 +306,13 @@ export function CanvaDialog({
   onClose: () => void;
   brandId: string;
   connected: boolean;
+  /** Nom du compte Canva relié (montré une fois connecté, consigne de Canva). */
+  accountName?: string | null;
   onDisconnected: () => void;
   onImported: (asset: UploadedAssetResult) => void;
 }) {
+  const [accountName, setAccountName] = useState<string | null>(initialAccountName);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [query, setQuery] = useState("");
   const [designs, setDesigns] = useState<CanvaDesign[] | null>(null);
   const [continuation, setContinuation] = useState<string | null>(null);
@@ -311,12 +330,13 @@ export function CanvaDialog({
       if (q.trim()) params.set("q", q.trim());
       if (cont) params.set("continuation", cont);
       const res = await fetch(`/api/integrations/canva/designs?${params.toString()}`, { cache: "no-store" });
-      const data = await readJson<{ designs: CanvaDesign[]; continuation: string | null }>(res);
+      const data = await readJson<{ designs: CanvaDesign[]; continuation: string | null; account?: { name: string | null } }>(res);
       if (res.status === 401) {
         setNeedsReconnect(true);
         return;
       }
       if (!res.ok) throw new Error(data.error || "Canva ne répond pas.");
+      if (data.account?.name) setAccountName(data.account.name);
       setDesigns((prev) => (cont && prev ? [...prev, ...data.designs] : data.designs));
       setContinuation(data.continuation);
     } catch (err) {
@@ -380,6 +400,35 @@ export function CanvaDialog({
           />
         ) : (
           <>
+            {/* Compte Canva connecté (06/10/2026, consigne de Canva : montrer le
+                compte utilisé et une façon claire de le déconnecter). */}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 pl-2 pr-3">
+              <p className="flex min-w-0 items-center gap-2 text-sm text-slate-300">
+                <CanvaIcon size={24} />
+                <span className="min-w-0">
+                  Compte Canva connecté
+                  {accountName ? (
+                    <>
+                      {" : "}
+                      <strong className="font-semibold text-white">{accountName}</strong>
+                    </>
+                  ) : null}
+                </span>
+              </p>
+              <button
+                type="button"
+                disabled={disconnecting}
+                onClick={async () => {
+                  setDisconnecting(true);
+                  await disconnect("canva");
+                  setDisconnecting(false);
+                  onDisconnected();
+                }}
+                className="text-sm text-slate-300 underline underline-offset-2 transition hover:text-white disabled:opacity-60"
+              >
+                {disconnecting ? "Déconnexion…" : "Déconnecter Canva"}
+              </button>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0 flex-1">
                 <SearchField value={query} onChange={setQuery} placeholder="Rechercher un design…" />
@@ -437,19 +486,7 @@ export function CanvaDialog({
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-xs text-slate-500">
-              <span>La première page du design est importée.</span>
-              <button
-                type="button"
-                onClick={async () => {
-                  await disconnect("canva");
-                  onDisconnected();
-                }}
-                className="text-slate-400 hover:text-white"
-              >
-                Délier Canva
-              </button>
-            </div>
+            <p className="border-t border-white/[0.06] pt-3 text-xs text-slate-500">La première page du design est importée.</p>
           </>
         )}
       </div>

@@ -25,7 +25,7 @@ export async function GET() {
     dropbox: dropboxConfig(),
     onedrive: isOneDriveConfigured() ? { connected: Boolean(onedrive) } : null,
     unsplash: isUnsplashConfigured(),
-    canva: isCanvaConfigured() ? { connected: Boolean(canva) } : null
+    canva: isCanvaConfigured() ? { connected: Boolean(canva), accountName: canva?.displayName ?? null } : null
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }

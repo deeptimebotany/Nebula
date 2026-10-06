@@ -8,6 +8,19 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-06-canva-marque-compte",
+    date: "2026-10-06",
+    title: "Canva : logo officiel et compte connecté affiché",
+    category: "Publication",
+    links: [{ href: "/composer", label: "Publier" }],
+    result:
+      "Partout où Canva apparaît (bouton « Canva » de Publier, mention « Importé depuis Canva », accueil), Nebula affiche le logo officiel de Canva au lieu d'un dessin maison. Le bouton de connexion devient « Connecter mon compte Canva » avec ce logo, et une fois connecté, la fenêtre « Importer depuis Canva » montre le compte utilisé (« Compte Canva connecté : Lucas ») avec un bouton « Déconnecter Canva ». Demandé par la revue de l'application Canva.",
+    change:
+      "Logo « Canva Icon logo » du kit officiel dans `public/brands/canva/canva-icon.svg` (`CanvaIcon`), 8 px de marge autour de lui ; nom du compte (profil Canva) renvoyé par `/api/media/sources` et `/api/integrations/canva/designs`, récupéré une fois pour les connexions plus anciennes.",
+    readme: 78,
+    migrations: []
+  },
+  {
     id: "2026-10-06-tiktok-likes-count",
     date: "2026-10-06",
     title: "TikTok : Nebula ne demande plus le total des j'aime du profil",
