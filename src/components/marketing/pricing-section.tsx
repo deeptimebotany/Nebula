@@ -21,8 +21,9 @@ import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { PAID_PLANS as PAID_PLAN_IDS, PLAN_LIMITS, type Plan, type BillingInterval } from "@/lib/plans";
 import { clsx } from "@/lib/clsx";
-import { IconLock, IconSparkle } from "@/components/dashboard/icons";
+import { IconLock } from "@/components/dashboard/icons";
 import { FounderOffersPublic } from "@/components/marketing/founder-offers-public";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 const PAID_PLANS: Plan[] = [...PAID_PLAN_IDS];
 
@@ -217,7 +218,7 @@ export function PricingSection({
           </span>
           <span>Résiliable à tout moment depuis votre espace</span>
           <span className="flex items-center gap-1.5">
-            <IconSparkle className="h-3.5 w-3.5" /> Quotas de publication et de comptes par marque
+            <AiIcon className="h-3.5 w-3.5" /> Quotas de publication et de comptes par marque
           </span>
         </p>
       </Reveal>

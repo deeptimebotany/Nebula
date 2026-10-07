@@ -7,6 +7,11 @@ import { isAiEnabled, generateContentIdea } from "@/lib/ai/gemini";
 import { gateAppAi } from "@/lib/ai/guard";
 import { z } from "zod";
 
+// Durée maximale de la fonction Vercel (07/10/2026) : l'appel à Gemini est
+// borné à 55 s, relances comprises (src/lib/ai/gemini.ts). Sans ce réglage,
+// la fonction dépendait du défaut du projet Vercel.
+export const maxDuration = 60;
+
 const bodySchema = z.object({
   brandId: z.string(),
   date: z.string() // YYYY-MM-DD

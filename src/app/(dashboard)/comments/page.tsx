@@ -24,12 +24,13 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
-import { IconAvatar, IconMessage, IconRefresh, IconSparkle } from "@/components/dashboard/icons";
+import { IconAvatar, IconMessage, IconRefresh } from "@/components/dashboard/icons";
 import { NETWORK_META, commentNetworks, networksSentence, type Network } from "@/lib/types";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 import { CommentReplyBox } from "@/components/comments/comment-reply-box";
 import type { CommentReplySupport } from "@/lib/social/comment-reply-support";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 interface CommentRow {
   id: string;
@@ -438,7 +439,7 @@ function CommentCard({
               className="inline-flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
               title="L'IA prépare une réponse dans le champ ; vous la relisez avant de l'envoyer"
             >
-              <IconSparkle className="h-3.5 w-3.5 text-aurora-300" /> Proposer une réponse
+              <AiIcon className="h-3.5 w-3.5" /> Proposer une réponse
             </button>
           )}
           {link && (

@@ -9,11 +9,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { IconSend, IconSparkle } from "@/components/dashboard/icons";
+import { IconSend } from "@/components/dashboard/icons";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { replyLength, type CommentReplySupport } from "@/lib/social/comment-reply-support";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 export interface ReplyTarget {
   id: string;
@@ -194,7 +195,7 @@ export function CommentReplyBox({
             disabled={busy !== null}
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
           >
-            <IconSparkle className="h-3.5 w-3.5 text-aurora-300" />
+            <AiIcon className="h-3.5 w-3.5" active={busy === "suggest"} />
             {busy === "suggest" ? "Proposition…" : draft ? (tone === "warm" ? "Version plus sobre" : "Version plus chaleureuse") : "Proposer une réponse"}
           </button>
         )}

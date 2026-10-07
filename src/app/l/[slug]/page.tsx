@@ -19,10 +19,16 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const page = await getCachedPublicLinkPage(params.slug);
   if (!page) return { title: "Page introuvable", robots: { index: false, follow: false } };
   const description = page.bio?.trim() ? page.bio.trim().slice(0, 160) : `Les liens de ${page.brandName}.`;
+  // Adresse canonique (07/10/2026, Search Console : « Page en double sans URL
+  // canonique sélectionnée par l'utilisateur ») : les liens partagés depuis
+  // Instagram, Facebook ou TikTok arrivent avec ?fbclid=…, ?utm_…, et Google
+  // voyait autant de copies de la même page bio. Tout renvoie à /l/<marque>.
+  const canonical = `/l/${encodeURIComponent(params.slug)}`;
   return {
     title: page.brandName,
     description,
-    openGraph: { title: page.brandName, description, type: "profile", ...(page.avatarUrl ? { images: [page.avatarUrl] } : {}) },
+    alternates: { canonical },
+    openGraph: { title: page.brandName, description, type: "profile", url: canonical, ...(page.avatarUrl ? { images: [page.avatarUrl] } : {}) },
     twitter: { card: "summary", title: page.brandName, description }
   };
 }

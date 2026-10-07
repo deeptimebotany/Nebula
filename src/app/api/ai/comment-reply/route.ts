@@ -8,6 +8,11 @@ import { gateAppAi } from "@/lib/ai/guard";
 import { REPLY_MAX_LENGTH } from "@/lib/social/comment-reply-support";
 import { NETWORK_META, type Network } from "@/lib/types";
 
+// Durée maximale de la fonction Vercel (07/10/2026) : l'appel à Gemini est
+// borné à 55 s, relances comprises (src/lib/ai/gemini.ts). Sans ce réglage,
+// la fonction dépendait du défaut du projet Vercel.
+export const maxDuration = 60;
+
 const bodySchema = z.object({ engagementId: z.string().min(1).max(64), tone: z.enum(["warm", "sober"]).optional() });
 
 // POST /api/ai/comment-reply { engagementId, tone? } — propose une réponse à

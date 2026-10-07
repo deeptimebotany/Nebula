@@ -13,9 +13,10 @@ import { DEMO_TITRE_YOUTUBE } from "@/lib/tools/demo";
 import { scoreTitle } from "@/lib/tools/title-score";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { IconSparkle } from "@/components/dashboard/icons";
+
 import { clsx } from "@/lib/clsx";
 import { ToolError } from "@/components/tools/tool-error";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 const INPUT = "mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60";
 
@@ -107,7 +108,7 @@ export function TitleTester({ suggestions = [] }: { suggestions?: string[] }) {
       )}
 
       <Button onClick={run} disabled={gen.loading || gen.access.status === "loading" || (member && title.trim().length < 3)} className="mt-4 w-full">
-        <IconSparkle className="h-4 w-4" /> {gen.loading ? "Reformulation…" : member ? "Proposer 3 reformulations (IA)" : "Voir un exemple de reformulations (démo sans IA)"}
+        <AiIcon className="h-4 w-4" tone="onAccent" /> {gen.loading ? "Reformulation…" : member ? "Proposer 3 reformulations (IA)" : "Voir un exemple de reformulations (démo sans IA)"}
       </Button>
       <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
       <ToolError message={gen.error} reason={gen.errorReason} />

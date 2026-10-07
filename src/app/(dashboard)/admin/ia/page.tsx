@@ -4,13 +4,15 @@ import { loadAiCostReport } from "@/lib/ai/cost-report";
 import { PageHeader } from "@/components/ui/page-header";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PLAN_LIMITS, PLANS, type Plan } from "@/lib/plans";
+import { GeminiDiagnosticCard } from "./gemini-diagnostic";
 
 // Page propriétaire « Coûts de l'IA » (lot E5, brief « Essai 14 jours » ;
 // palier payant de Gemini le 30/09/2026) : modèles et prix en vigueur, ce que
 // l'IA coûte chaque jour, par palier, et en moyenne PAR ACTION, pour ajuster
 // les quotas sur des chiffres réels. Tout est estimé (jetons × prix de
-// pricing.ts). 404 pour tout autre compte, exclue des robots. Page serveur,
-// sans JavaScript.
+// pricing.ts). 404 pour tout autre compte, exclue des robots. Page serveur ;
+// seul le bouton « Tester la connexion à Gemini » (07/10/2026) est un
+// composant client.
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Coûts de l'IA — Nebula", robots: { index: false, follow: false } };
 
@@ -39,6 +41,8 @@ export default async function AdminAiCostsPage() {
         title="Coûts de l'IA"
         description={`Estimations : jetons × prix de Gemini vérifiés le ${new Date(r.pricingVerifiedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} (src/lib/ai/pricing.ts). Les montants facturés font foi dans Google Cloud → Facturation.`}
       />
+
+      <GeminiDiagnosticCard />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <GlassCard hover={false}>

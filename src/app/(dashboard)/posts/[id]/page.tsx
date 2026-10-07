@@ -16,7 +16,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useMilestoneCelebration } from "@/components/milestone-celebration";
 import { RetentionInsightView, RetentionQuotaLine, type InsightData } from "@/components/retention/insight-view";
 import { useBootstrap } from "@/components/bootstrap-provider";
-import { IconSend, IconSparkle, IconUsers } from "@/components/dashboard/icons";
+import { IconSend, IconUsers } from "@/components/dashboard/icons";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { errorAdvice } from "@/lib/social/error-advice";
 import { PostStats } from "@/components/posts/post-stats";
@@ -25,6 +25,7 @@ import { clsx } from "@/lib/clsx";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { DeletePostDialog } from "@/components/posts/delete-post-dialog";
 import { removedFromNetworkAt, type RemoteDeleteSupport } from "@/lib/social/remote-delete-support";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 interface MediaAsset {
   id: string;
@@ -464,7 +465,7 @@ export default function PostDetailPage() {
                       {!insight ? (
                         <div className="space-y-2">
                           <Button variant="outline" onClick={() => analyzeRetention(t.id)} disabled={analyzing === t.id}>
-                            <IconSparkle className="h-4 w-4" />{" "}
+                            <AiIcon className="h-4 w-4" active={analyzing === t.id} />{" "}
                             {analyzing === t.id ? "Analyse en cours..." : "Analyser la rétention (IA)"}
                           </Button>
                           {analyzeError[t.id] && (

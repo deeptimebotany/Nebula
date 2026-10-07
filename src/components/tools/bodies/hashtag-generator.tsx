@@ -10,9 +10,10 @@ import { useToolGeneration } from "@/components/tools/use-tool-generation";
 import { DEMO_HASHTAGS } from "@/lib/tools/demo";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { IconSparkle } from "@/components/dashboard/icons";
+
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { ToolError } from "@/components/tools/tool-error";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 type Groups = { label: string; items: string[] }[];
 
@@ -72,7 +73,7 @@ export function HashtagGenerator({ initialNiche = "", initialNetwork = "" }: { i
         ))}
       </select>
       <Button onClick={run} disabled={gen.loading || gen.access.status === "loading" || (member && niche.trim().length < 3)} className="mt-4 w-full">
-        <IconSparkle className="h-4 w-4" /> {gen.loading ? "Génération…" : member ? "Générer mes hashtags" : "Voir un exemple (démo sans IA)"}
+        <AiIcon className="h-4 w-4" tone="onAccent" /> {gen.loading ? "Génération…" : member ? "Générer mes hashtags" : "Voir un exemple (démo sans IA)"}
       </Button>
       <ToolQuotaLine status={gen.access.status} remaining={gen.access.remaining?.text ?? null} kind="text" />
       <ToolError message={gen.error} reason={gen.errorReason} />

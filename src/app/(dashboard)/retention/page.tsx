@@ -21,13 +21,14 @@ import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
 import { useAiStatus } from "@/components/use-ai-status";
-import { IconRetention, IconSparkle, IconLock } from "@/components/dashboard/icons";
+import { IconRetention, IconLock } from "@/components/dashboard/icons";
 import { UpgradeGem } from "@/components/dashboard/upgrade-gem";
 import dynamic from "next/dynamic";
 import { useBootstrap, useFocusMode } from "@/components/bootstrap-provider";
 import { RetentionInsightView, RetentionQuotaLine, type InsightData } from "@/components/retention/insight-view";
 import { useSearchParams } from "next/navigation";
 import { useConnections } from "@/lib/data/hooks";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 // Mini-jeu d'attente chargé seulement pendant une analyse (lot 5).
 const LoadingMiniGame = dynamic(() => import("@/components/mini-game/loading-mini-game").then((m) => m.LoadingMiniGame), { ssr: false });
@@ -289,7 +290,7 @@ function RetentionTool() {
                   ) : !insight ? (
                     <>
                       <Button onClick={() => analyze(false)} disabled={analyzing} className="mt-3">
-                        <IconSparkle className="h-4 w-4" /> {analyzing ? "Analyse en cours…" : "Analyser la rétention (IA)"}
+                        <AiIcon className="h-4 w-4" tone="onAccent" /> {analyzing ? "Analyse en cours…" : "Analyser la rétention (IA)"}
                       </Button>
                       {analyzing && <p className="mt-2 text-xs text-slate-500">L&apos;IA regarde la vidéo : jusqu&apos;à 2 ou 3 minutes pour une vidéo longue.</p>}
                       <RetentionQuotaLine className="mt-3" />

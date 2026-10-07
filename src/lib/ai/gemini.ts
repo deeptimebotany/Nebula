@@ -18,6 +18,7 @@ import { SocialApiError, NO_RESPONSE_CODES, checkShape, errorFromResponse, fetch
 import { classifyProviderError } from "@/lib/social/errors";
 import { opt, soft, textSchema, z } from "@/lib/social/contract";
 import { alertOwner, alertOwnerFormatChange } from "@/lib/owner-alerts";
+import { alertOwnerWithEmail } from "@/lib/api-watch/notify";
 import { recordAiUsage } from "@/lib/ai/usage";
 import { TOKENS_PER_IMAGE_1K } from "@/lib/ai/pricing";
 
@@ -43,11 +44,36 @@ export function configuredModels(): { text: string; retention: string; image: st
 }
 
 export function isAiEnabled(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY);
+  return Boolean(cleanApiKey(process.env.GEMINI_API_KEY).key);
+}
+
+/**
+ * Clé telle que Google l'attend (07/10/2026) : une clé copiée-collée sur
+ * Vercel peut emporter un retour à la ligne, des guillemets ou un caractère
+ * invisible (espace insécable, espace de largeur nulle…). Un caractère
+ * invisible fait échouer l'appel AVANT l'envoi (en-tête HTTP refusé par
+ * Node), ce qui ressemblait jusqu'ici à « Gemini met trop de temps à
+ * répondre ». Une clé d'API ne contient jamais d'espace : on retire tout ça,
+ * et le diagnostic de /admin/ia signale ce qui a été retiré.
+ */
+export function cleanApiKey(raw: string | undefined): { key: string; issues: string[] } {
+  if (!raw) return { key: "", issues: [] };
+  const issues: string[] = [];
+  let key = raw;
+  if (/[\r\n]/.test(key)) issues.push("retour à la ligne");
+  if (/^[ \t]|[ \t]$/.test(key.replace(/[\r\n]/g, ""))) issues.push("espace au début ou à la fin");
+  if (/[\u00a0\u200b-\u200d\u2060\ufeff]/.test(key)) issues.push("caractère invisible (espace insécable ou de largeur nulle)");
+  key = key.replace(/[\s\u00a0\u200b-\u200d\u2060\ufeff]+/g, "");
+  if (/^["'`].*["'`]$/.test(key)) {
+    issues.push("guillemets autour de la clé");
+    key = key.slice(1, -1);
+  }
+  if (/[^\x21-\x7e]/.test(key)) issues.push("caractère non autorisé (accent ou symbole)");
+  return { key, issues };
 }
 
 function requireKey(): string {
-  const key = process.env.GEMINI_API_KEY;
+  const key = cleanApiKey(process.env.GEMINI_API_KEY).key;
   if (!key) {
     throw new Error("GEMINI_API_KEY manquant. Créez une clé sur aistudio.google.com/apikey (facturation activée) et ajoutez-la à .env pour activer les fonctions IA.");
   }
@@ -342,6 +368,10 @@ async function fetchGeminiWithRetry(model: string, body: unknown, options: CallO
       if (!(err instanceof SocialApiError)) throw err;
       const status = (err.raw as { error?: { status?: string } } | undefined)?.error?.status;
       const googleMessage = err.message.replace(/^\[GEMINI\] /, "");
+      // Journal Vercel (07/10/2026) : la cause exacte de chaque échec (statut
+      // HTTP, statut Google, code réseau, durée), jamais la clé. Avant, un
+      // délai dépassé ou une coupure n'y laissait aucune trace.
+      console.error(`[gemini] échec ${model} (essai ${attempt}) : HTTP ${err.status ?? "—"} ${status ?? err.code ?? ""} — ${redactKey(googleMessage).slice(0, 300)}`);
       const quota = err.status === 429 || status === "RESOURCE_EXHAUSTED";
       const overloaded = err.status === 503 || err.status === 500 || status === "UNAVAILABLE" || status === "INTERNAL";
       const { category } = classifyProviderError(err);
@@ -351,6 +381,18 @@ async function fetchGeminiWithRetry(model: string, body: unknown, options: CallO
         throw new Error("Le service IA a répondu dans un format inattendu. L'équipe Nebula est prévenue ; réessayez un peu plus tard.");
       }
       if (category === "TIMEOUT") {
+        // 07/10/2026 : « TIMEOUT » regroupe le vrai délai dépassé (pas de
+        // réponse dans le temps imparti, ou 504 de Google) et la connexion
+        // coupée. Une génération de texte n'a pas d'autre effet que sa
+        // facture : une relance si le temps restant le permet (une coupure
+        // ou un 504 rapide), avant d'abandonner.
+        if (!options.stream && attempt < 2 && deadline - Date.now() > 20_000) {
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
+          continue;
+        }
+        if (err.code === NO_RESPONSE_CODES.CONNECTION_LOST) {
+          throw new Error("La connexion au service IA de Google (Gemini) a été coupée. Réessayez dans un instant ; si ça recommence, l'équipe Nebula regarde le diagnostic.");
+        }
         throw new Error("Le service IA de Google (Gemini) met trop de temps à répondre. Réessayez dans un instant, avec une demande plus courte si possible.");
       }
       // Modèle retiré par Google (déjà arrivé le 19/09/2026) : réglage à changer.
@@ -370,6 +412,26 @@ async function fetchGeminiWithRetry(model: string, body: unknown, options: CallO
           dedupeKey: "gemini-key"
         });
         throw new Error("Le service IA est momentanément indisponible (configuration). L'équipe Nebula est prévenue.");
+      }
+
+      // Crédits prépayés épuisés (facturation « Prepay » de l'API Gemini,
+      // 07/10/2026) : Google répond 402 depuis le 18/09/2026 (429
+      // RESOURCE_EXHAUSTED avant, même message). Inutile de réessayer : toutes
+      // les clés du compte de facturation sont coupées jusqu'à la recharge.
+      // Le propriétaire est prévenu (cloche et e-mail, une fois par jour) ;
+      // la personne voit un message clair au lieu du texte anglais de Google.
+      if (err.status === 402 || /prepayment credits are depleted/i.test(googleMessage)) {
+        void alertOwnerWithEmail({
+          title: "Gemini : crédits épuisés, l'IA de Nebula est en pause",
+          body: "Le solde de crédits prépayés de l'API Gemini est à 0 : Google refuse tous les appels, donc toutes les fonctions IA de Nebula (assistant, Studio, miniatures, Rétention, propositions de texte) sont en pause. Rechargez sur aistudio.google.com, page Facturation → « Acheter des crédits », et vérifiez la recharge automatique. Les appels refusés ne sont décomptés à personne.",
+          dedupeKey: `gemini-credits:${new Date().toISOString().slice(0, 10)}`,
+          href: "/admin/ia",
+          subject: "Gemini : crédits épuisés, l'IA de Nebula est en pause",
+          actionLabel: "Voir les coûts IA",
+          button: "Ouvrir les coûts IA",
+          footer: "E-mail réservé au propriétaire de Nebula : suivi de la facturation de l'API Gemini."
+        }).catch(() => undefined);
+        throw new Error("Les fonctions IA de Nebula sont momentanément indisponibles. L'équipe Nebula est prévenue ; réessayez un peu plus tard.");
       }
 
       const retryable = quota || overloaded || category === "TRANSIENT";
@@ -393,6 +455,129 @@ async function fetchGeminiWithRetry(model: string, body: unknown, options: CallO
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
   }
+}
+
+/** Retire la clé d'un texte destiné aux journaux ou au propriétaire. */
+function redactKey(text: string): string {
+  const raw = process.env.GEMINI_API_KEY;
+  const key = cleanApiKey(raw).key;
+  let out = text;
+  for (const k of [raw, key]) if (k && k.length >= 8) out = out.split(k).join("…");
+  return out;
+}
+
+// --- Diagnostic (07/10/2026, page /admin/ia) --------------------------------
+// « Tester la connexion à Gemini » : deux appels courts, avec la clé et le
+// modèle de ce déploiement, pour savoir POURQUOI l'IA échoue (clé refusée,
+// modèle introuvable, crédits épuisés, Google qui ne répond pas…) au lieu du
+// message générique montré aux utilisateurs. Réservé au propriétaire.
+
+export interface GeminiDiagnosticStep {
+  label: string;
+  ok: boolean;
+  /** Durée de l'appel, en millisecondes. */
+  ms: number;
+  httpStatus: number | null;
+  /** Statut renvoyé par Google (INVALID_ARGUMENT, RESOURCE_EXHAUSTED, DEADLINE_EXCEEDED…) ou code réseau. */
+  googleStatus: string | null;
+  detail: string;
+}
+
+export interface GeminiDiagnostic {
+  keyPresent: boolean;
+  /** 4 derniers caractères de la clé, pour la reconnaître dans AI Studio. */
+  keyEnd: string | null;
+  /** Ce que la valeur sur Vercel contenait en trop (retiré automatiquement). */
+  keyIssues: string[];
+  model: string;
+  steps: GeminiDiagnosticStep[];
+  ok: boolean;
+  verdict: string;
+}
+
+async function diagnosticStep(label: string, method: "GET" | "POST", url: string, key: string, body: unknown, timeoutMs: number): Promise<GeminiDiagnosticStep> {
+  const t0 = Date.now();
+  try {
+    const res = await sendRequest("GEMINI", url, {
+      method,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      cache: "no-store",
+      timeoutMs,
+      readOnly: method === "GET"
+    });
+    const { text, json } = await readBody("GEMINI", res, method, method === "GET");
+    const ms = Date.now() - t0;
+    const err = (json as { error?: { status?: string; message?: string } } | undefined)?.error;
+    if (!res.ok) {
+      return { label, ok: false, ms, httpStatus: res.status, googleStatus: err?.status ?? null, detail: redactKey(err?.message ?? text.slice(0, 300)) || "Réponse vide." };
+    }
+    if (method === "GET") {
+      const name = (json as { displayName?: string; name?: string } | undefined)?.displayName ?? (json as { name?: string } | undefined)?.name ?? "modèle";
+      return { label, ok: true, ms, httpStatus: res.status, googleStatus: null, detail: `Modèle trouvé : ${name}.` };
+    }
+    const data = json as GenerateResponse;
+    const reply = (data?.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("").trim();
+    return reply
+      ? { label, ok: true, ms, httpStatus: res.status, googleStatus: null, detail: `Réponse reçue : « ${reply.slice(0, 80)} ».` }
+      : { label, ok: false, ms, httpStatus: res.status, googleStatus: data?.candidates?.[0]?.finishReason ?? null, detail: emptyReason(data) };
+  } catch (err) {
+    const ms = Date.now() - t0;
+    if (err instanceof SocialApiError) {
+      const timeout = err.code === NO_RESPONSE_CODES.TIMEOUT;
+      return {
+        label,
+        ok: false,
+        ms,
+        httpStatus: null,
+        googleStatus: err.code ?? null,
+        detail: timeout ? `Google n'a pas répondu en ${Math.round(timeoutMs / 1000)} s.` : redactKey(err.message.replace(/^\[GEMINI\] /, ""))
+      };
+    }
+    return { label, ok: false, ms, httpStatus: null, googleStatus: null, detail: redactKey((err as Error).message) };
+  }
+}
+
+function diagnosticVerdict(steps: GeminiDiagnosticStep[]): string {
+  const [model, reply] = steps;
+  const all = steps.map((x) => `${x.httpStatus ?? ""} ${x.googleStatus ?? ""} ${x.detail}`).join(" ");
+  if (model && !model.ok) {
+    // Refus sans réponse au format Google ({ error: { status } }) : c'est un
+    // intermédiaire (pare-feu, proxy) qui bloque, pas Google ni la clé.
+    if (model.httpStatus && model.httpStatus >= 400 && !model.googleStatus && model.httpStatus !== 404) return "Un intermédiaire (pare-feu ou proxy) bloque l'accès à Google avant même la clé : voir le détail ci-dessus.";
+    if (model.httpStatus === 404) return "Google ne trouve pas ce modèle : réglez GEMINI_MODEL sur Vercel avec un modèle actuel, ou laissez-la vide.";
+    if (model.httpStatus === 400 || model.httpStatus === 401 || model.httpStatus === 403) return "Google refuse la clé : vérifiez GEMINI_API_KEY sur Vercel (copiée en entier, sans espace) et qu'elle appartient au projet relié à la facturation.";
+    if (!model.httpStatus) return "Impossible de joindre Google depuis Vercel (délai dépassé ou connexion coupée) : réessayez dans quelques minutes ; si ça dure, c'est une panne côté Google ou réseau.";
+    return "Google refuse la lecture du modèle : voir le détail ci-dessus.";
+  }
+  if (reply && !reply.ok) {
+    if (reply.httpStatus === 402 || /prepayment credits are depleted/i.test(all)) return "Google dit que les crédits prépayés sont épuisés : ajoutez des crédits dans AI Studio (Facturation). Juste après un achat, la mise à jour chez Google peut prendre un moment.";
+    if (reply.httpStatus === 429) return "Google limite le nombre de demandes (quota du niveau de facturation) : patientez, ou vérifiez les limites du projet dans AI Studio.";
+    if (reply.httpStatus === 400 || reply.httpStatus === 403) return "La clé est acceptée pour lire, mais Google refuse de générer : vérifiez la facturation du projet de la clé dans AI Studio (bandeau « solde impayé », compte de facturation actif).";
+    if (reply.httpStatus === 504 || reply.googleStatus === NO_RESPONSE_CODES.TIMEOUT || /DEADLINE_EXCEEDED/.test(all)) return "La clé et le modèle sont bons, mais Google ne termine pas la réponse à temps (lenteur ou panne côté Google, ou compte de facturation pas encore actif). Réessayez dans quelques minutes ; si ça dure, regardez la facturation du projet dans AI Studio.";
+    if (reply.httpStatus && reply.httpStatus >= 500) return "Google est en panne ou surchargé en ce moment : réessayez dans quelques minutes.";
+    return "La génération échoue : voir le détail ci-dessus.";
+  }
+  const total = steps.reduce((n, x) => n + x.ms, 0);
+  return `Gemini répond normalement (${(total / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s pour les deux appels).`;
+}
+
+/** Deux appels courts avec la clé et le modèle de ce déploiement (page /admin/ia). */
+export async function diagnoseGemini(): Promise<GeminiDiagnostic> {
+  const { key, issues } = cleanApiKey(process.env.GEMINI_API_KEY);
+  const model = DEFAULT_MODEL;
+  if (!key) return { keyPresent: false, keyEnd: null, keyIssues: issues, model, steps: [], ok: false, verdict: "GEMINI_API_KEY est absente sur ce déploiement : ajoutez-la sur Vercel (Production), puis redéployez." };
+  const steps: GeminiDiagnosticStep[] = [];
+  steps.push(await diagnosticStep("Clé et modèle (lecture, non facturée)", "GET", `${API_BASE}/models/${encodeURIComponent(model)}`, key, null, 15_000));
+  if (steps[0].ok) {
+    const body = {
+      contents: [{ role: "user", parts: [{ text: "Réponds seulement : OK" }] }],
+      generationConfig: isGemini3(model) ? { maxOutputTokens: 64 + THINKING_HEADROOM.low, thinkingConfig: { thinkingLevel: "low" } } : { maxOutputTokens: 64 }
+    };
+    steps.push(await diagnosticStep("Réponse très courte (quelques jetons facturés)", "POST", `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`, key, body, 45_000));
+  }
+  const ok = steps.length === 2 && steps.every((x) => x.ok);
+  return { keyPresent: true, keyEnd: key.slice(-4), keyIssues: issues, model, steps, ok, verdict: diagnosticVerdict(steps) };
 }
 
 /** Marge ajoutée au plafond de sortie pour la « pensée » (comptée dans la sortie). */

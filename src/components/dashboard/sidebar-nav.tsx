@@ -158,7 +158,8 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
           active ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow" : "text-slate-400 hover:bg-white/5 hover:text-white"
         )}
       >
-        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-aurora-300" : "text-slate-500 group-hover:text-slate-300")} />
+        {/* Studio IA : son étoile prend la couleur de l'IA au survol (voir ai-icon.tsx). */}
+        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-aurora-300" : item.href === "/studio" ? "nb-ai-nav text-slate-500" : "text-slate-500 group-hover:text-slate-300")} />
         {!collapsed && <span className="truncate">{item.label}</span>}
         {!collapsed && eggBadge && (
           <span

@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
     user: { findUnique: vi.fn(async () => ({ id: "owner" })) },
     notification: {
       findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
       create: vi.fn(async (args: { data: { title: string; body: string; dedupeKey: string | null } }) => {
         alerts.list.push(args.data);
         return args.data;
@@ -25,7 +26,7 @@ vi.mock("@/lib/prisma", () => ({
   }
 }));
 
-import { GeminiQuotaError, chatComplete, generateRetentionJson, generateThumbnail } from "@/lib/ai/gemini";
+import { GeminiQuotaError, chatComplete, cleanApiKey, diagnoseGemini, generateRetentionJson, generateThumbnail } from "@/lib/ai/gemini";
 import { runWithAiContext, type AiCallContext } from "@/lib/ai/usage";
 import { emailIdempotencyKey, sendEmail } from "@/lib/email";
 import { extractLinktreeLinksDetailed } from "@/lib/linktree";
@@ -168,6 +169,29 @@ describe("Gemini", () => {
     expect(alerts.list[0].body).toContain("GEMINI_MODEL");
   });
 
+  it("crédits prépayés épuisés (402, 07/10/2026) : pas de nouvel essai, message clair, propriétaire prévenu une fois par jour", async () => {
+    // Réponse annoncée par Google le 18/09/2026 (402 au lieu de 429) :
+    // https://discuss.ai.google.dev/t/api-update-depleted-prepay-credits-now-return-http-402-instead-of-429/183654
+    const net = installNetwork([{ method: "POST", url: GEMINI, status: 402, fixture: "gemini/error-prepay-depleted" }]);
+    const err = await chatComplete([{ role: "user", text: "…" }], "Assistant").catch((e) => e);
+    expect(err).not.toBeInstanceOf(GeminiQuotaError);
+    expect((err as Error).message).toMatch(/^Les fonctions IA de Nebula sont momentanément indisponibles/);
+    expect((err as Error).message).not.toMatch(/prepayment/i);
+    expect(net.sent).toHaveLength(1);
+    await flush();
+    await flush();
+    expect(alerts.list[0]).toMatchObject({ title: "Gemini : crédits épuisés, l'IA de Nebula est en pause" });
+    expect(alerts.list[0].dedupeKey).toMatch(/^gemini-credits:\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("ancienne réponse (429 RESOURCE_EXHAUSTED « prepayment credits are depleted ») : traitée comme des crédits épuisés, pas comme un quota", async () => {
+    const net = installNetwork([{ method: "POST", url: GEMINI, status: 429, body: { error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing." } } }]);
+    const err = await chatComplete([{ role: "user", text: "…" }], "Assistant").catch((e) => e);
+    expect(err).not.toBeInstanceOf(GeminiQuotaError);
+    expect((err as Error).message).toMatch(/momentanément indisponibles/);
+    expect(net.sent).toHaveLength(1);
+  });
+
   it("clé refusée : propriétaire prévenu, aucune clé dans le message", async () => {
     installNetwork([{ method: "POST", url: GEMINI, status: 400, fixture: "gemini/error-key-invalid" }]);
     const err = await chatComplete([{ role: "user", text: "…" }], "Assistant").catch((e) => e);
@@ -181,6 +205,151 @@ describe("Gemini", () => {
     await expect(chatComplete([{ role: "user", text: "…" }], "Assistant")).rejects.toThrow(/format inattendu/);
     await flush();
     expect(alerts.list[0].title).toBe("Gemini répond dans un nouveau format");
+  });
+});
+
+// 07/10/2026 : en production, l'assistant répondait « Gemini met trop de
+// temps à répondre » alors que la clé et les crédits étaient en place. Cette
+// erreur regroupait le vrai délai dépassé ET toute coupure avant la réponse
+// (y compris une clé mal collée, refusée par Node avant même l'envoi), sans
+// trace dans les journaux. Désormais : clé nettoyée, une relance, message
+// juste, cause journalisée, et un test de connexion dans /admin/ia.
+describe("Gemini : pannes réseau et diagnostic (07/10/2026)", () => {
+  const MODEL = /^generativelanguage\.googleapis\.com\/v1beta\/models\/[^/:]+$/;
+  const modelInfo = { name: "models/gemini-3.8-flash", displayName: "Gemini 3.8 Flash", inputTokenLimit: 1048576, outputTokenLimit: 65536 };
+
+  it("clé collée avec un retour à la ligne, des guillemets ou un caractère invisible : nettoyée avant l'envoi", async () => {
+    expect(cleanApiKey(" cle-gemini\n")).toEqual({ key: "cle-gemini", issues: ["retour à la ligne", "espace au début ou à la fin"] });
+    expect(cleanApiKey('"cle-gemini"').key).toBe("cle-gemini");
+    expect(cleanApiKey("cle-\u200bgemini\u00a0").issues).toEqual(["caractère invisible (espace insécable ou de largeur nulle)"]);
+    expect(cleanApiKey("cle-gemini")).toEqual({ key: "cle-gemini", issues: [] });
+    // Sans nettoyage, Node refuse l'en-tête AVANT l'envoi (« Cannot convert
+    // argument to a ByteString ») : c'était « met trop de temps à répondre ».
+    process.env.GEMINI_API_KEY = "cle-\u200bgemini\n";
+    const net = installNetwork([{ method: "POST", url: GEMINI, fixture: "gemini/text" }]);
+    expect(await chatComplete([{ role: "user", text: "Bonjour" }], "Assistant")).toMatch(/Nouveau menu/);
+    expect(net.sent[0].headers["x-goog-api-key"]).toBe("cle-gemini");
+  });
+
+  it("504 de Google puis réponse : une relance, et la cause est dans les journaux (sans la clé)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const logs = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const net = installNetwork([
+      { method: "POST", url: GEMINI, times: 1, status: 504, body: { error: { code: 504, status: "DEADLINE_EXCEEDED", message: "Deadline expired before operation could complete." } } },
+      { method: "POST", url: GEMINI, fixture: "gemini/text" }
+    ]);
+    const pending = chatComplete([{ role: "user", text: "…" }], "Assistant");
+    await vi.runAllTimersAsync();
+    expect(await pending).toMatch(/Nouveau menu/);
+    expect(net.sent).toHaveLength(2);
+    const line = logs.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith("[gemini]"));
+    expect(line).toContain("HTTP 504");
+    expect(line).toContain("DEADLINE_EXCEEDED");
+    expect(line).not.toContain("cle-gemini");
+    logs.mockRestore();
+  });
+
+  it("connexion coupée deux fois : message « connexion coupée », pas « trop de temps »", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const logs = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("fetch failed", { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = chatComplete([{ role: "user", text: "…" }], "Assistant").catch((e) => e);
+    await vi.runAllTimersAsync();
+    const err = (await pending) as Error;
+    expect(err.message).toMatch(/connexion au service IA de Google \(Gemini\) a été coupée/);
+    expect(err.message).not.toMatch(/trop de temps/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    logs.mockRestore();
+  });
+
+  it("vrai délai dépassé deux fois : « met trop de temps à répondre »", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const logs = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = chatComplete([{ role: "user", text: "…" }], "Assistant").catch((e) => e);
+    await vi.runAllTimersAsync();
+    expect(((await pending) as Error).message).toMatch(/met trop de temps à répondre/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    logs.mockRestore();
+  });
+
+  it("diagnostic : tout va bien → deux étapes OK, 4 derniers caractères de la clé seulement", async () => {
+    const net = installNetwork([
+      { method: "GET", url: MODEL, body: modelInfo },
+      { method: "POST", url: GEMINI, fixture: "gemini/text" }
+    ]);
+    const d = await diagnoseGemini();
+    expect(d).toMatchObject({ ok: true, keyPresent: true, keyEnd: "mini", keyIssues: [], model: "gemini-3.8-flash" });
+    expect(d.steps.map((x) => x.ok)).toEqual([true, true]);
+    expect(d.steps[0].detail).toContain("Gemini 3.8 Flash");
+    expect(d.verdict).toMatch(/répond normalement/);
+    expect(JSON.stringify(d)).not.toContain("cle-gemini");
+    expect(net.sent[0].headers["x-goog-api-key"]).toBe("cle-gemini");
+    const body = net.sent[1].json as { generationConfig: { maxOutputTokens: number; thinkingConfig: { thinkingLevel: string } } };
+    expect(body.generationConfig.thinkingConfig.thinkingLevel).toBe("low");
+  });
+
+  it("diagnostic : clé refusée dès la lecture du modèle → une seule étape, verdict sur la clé", async () => {
+    const net = installNetwork([{ method: "GET", url: MODEL, status: 400, fixture: "gemini/error-key-invalid" }]);
+    const d = await diagnoseGemini();
+    expect(d.ok).toBe(false);
+    expect(d.steps).toHaveLength(1);
+    expect(d.steps[0]).toMatchObject({ ok: false, httpStatus: 400 });
+    expect(d.verdict).toMatch(/Google refuse la clé/);
+    expect(net.sent).toHaveLength(1);
+  });
+
+  it("diagnostic : refus qui ne vient pas de Google (pare-feu, proxy) → pas accusé à tort la clé", async () => {
+    installNetwork([{ method: "GET", url: MODEL, status: 403, raw: "Host not in allowlist", headers: { "content-type": "text/plain" } }]);
+    const d = await diagnoseGemini();
+    expect(d.verdict).toMatch(/intermédiaire/);
+    expect(d.verdict).not.toMatch(/refuse la clé/);
+  });
+
+  it("diagnostic : modèle introuvable → verdict GEMINI_MODEL", async () => {
+    installNetwork([{ method: "GET", url: MODEL, status: 404, fixture: "gemini/error-model-not-found" }]);
+    expect((await diagnoseGemini()).verdict).toMatch(/GEMINI_MODEL/);
+  });
+
+  it("diagnostic : crédits épuisés (402) → verdict sur les crédits", async () => {
+    installNetwork([
+      { method: "GET", url: MODEL, body: modelInfo },
+      { method: "POST", url: GEMINI, status: 402, fixture: "gemini/error-prepay-depleted" }
+    ]);
+    const d = await diagnoseGemini();
+    expect(d.steps[1]).toMatchObject({ ok: false, httpStatus: 402 });
+    expect(d.verdict).toMatch(/crédits prépayés sont épuisés/);
+  });
+
+  it("diagnostic : Google ne répond pas à temps → verdict « ne termine pas la réponse à temps »", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith(":generateContent")) throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      return new Response(JSON.stringify(modelInfo), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const d = await diagnoseGemini();
+    expect(d.steps[1]).toMatchObject({ ok: false, httpStatus: null, googleStatus: "TIMEOUT" });
+    expect(d.steps[1].detail).toMatch(/n'a pas répondu en 45 s/);
+    expect(d.verdict).toMatch(/ne termine pas la réponse à temps/);
+  });
+
+  it("diagnostic : clé absente, ou collée avec un retour à la ligne (signalé)", async () => {
+    delete process.env.GEMINI_API_KEY;
+    expect(await diagnoseGemini()).toMatchObject({ ok: false, keyPresent: false, steps: [] });
+    process.env.GEMINI_API_KEY = "cle-gemini\n";
+    installNetwork([
+      { method: "GET", url: MODEL, body: modelInfo },
+      { method: "POST", url: GEMINI, fixture: "gemini/text" }
+    ]);
+    const d = await diagnoseGemini();
+    expect(d.ok).toBe(true);
+    expect(d.keyIssues).toEqual(["retour à la ligne"]);
   });
 });
 

@@ -12,7 +12,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
-import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconSparkle, IconUpload } from "@/components/dashboard/icons";
+import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconUpload } from "@/components/dashboard/icons";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { LivingClock } from "@/components/dashboard/living-clock";
@@ -32,6 +32,7 @@ import { saveComposerDraftNow } from "@/lib/composer-draft-client";
 import { TrialChoiceCard } from "@/components/billing/dormant-brand";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { clsx } from "@/lib/clsx";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 
 const WEEKDAY_LABEL: Record<string, string> = {
@@ -342,7 +343,7 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
         <Reveal delay={0.03}>
           <MotionGlassCard className="border-aurora-400/20 bg-nebula-700/[0.08]">
             <div className="mb-2 flex items-center gap-2">
-              <IconSparkle className="h-4 w-4 text-aurora-300" />
+              <AiIcon className="h-4 w-4" />
               <h2 className="font-display text-base font-medium text-white">Insights IA</h2>
             </div>
             {insightsFailed ? (

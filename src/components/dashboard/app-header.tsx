@@ -20,9 +20,10 @@ import { NotificationBell } from "./notification-bell";
 import { UpgradeButton } from "./upgrade-gem";
 import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
-import { IconMenu, IconPlus, IconSearch, IconSparkle } from "./icons";
+import { IconMenu, IconPlus, IconSearch } from "./icons";
 import { useConnections } from "@/lib/data/hooks";
 import { limitsOf } from "@/lib/plans";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 interface ConnectionRow {
   id: string;
@@ -166,13 +167,17 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
           </kbd>
         </button>
 
-        {/* Assistant IA — même point d'entrée que le bouton flottant, à
-            l'endroit où YouTube Studio place « Demander à Studio ». Masqué
-            tant que l'IA n'est pas disponible pour la marque. */}
+        {/* Assistant IA — seul point d'entrée général (le bouton flottant
+            a été retiré le 06/10/2026, il faisait doublon), à l'endroit où
+            YouTube Studio place « Demander à Studio ». Masqué tant que l'IA
+            n'est pas disponible pour la marque. Survol ou focus : le tiroir
+            se télécharge, pour que l'ouverture garde son animation. */}
         {assistant.enabled && (
           <button
             type="button"
             onClick={assistant.toggle}
+            onPointerEnter={assistant.prepare}
+            onFocus={assistant.prepare}
             aria-label="Demander à Nebula"
             aria-pressed={assistant.open}
             title="Demander à Nebula"
@@ -183,7 +188,7 @@ export function AppHeader({ oauth, onOpenMenu, menuOpen, whiteLabel }: AppHeader
                 : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-aurora-400/40 hover:text-white"
             )}
           >
-            <IconSparkle className="h-4 w-4 text-aurora-300" />
+            <AiIcon className="h-4 w-4" active={assistant.open} />
             <span className="hidden md:inline [.nebula-assistant-docked_&]:hidden">Demander à Nebula</span>
           </button>
         )}

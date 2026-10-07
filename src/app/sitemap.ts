@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 import { COMPETITOR_SLUGS, UPCOMING_NETWORKS } from "@/data/competitors";
+import { isSiteOpen } from "@/lib/launch";
 
 // Pages publiques uniquement : ni les pages du tableau de bord (elles exigent
 // une connexion et redirigent sinon vers /login), ni les pages accessibles
@@ -30,7 +31,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...UPCOMING_NETWORKS.map((n) => ({ url: `${SITE_URL}/reseaux/${n.slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.4 })),
     { url: `${SITE_URL}/securite`, lastModified: now, changeFrequency: "yearly", priority: 0.6 },
     { url: `${SITE_URL}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.5 },
-    { url: `${SITE_URL}/register`, lastModified: now, changeFrequency: "yearly", priority: 0.5 },
+    // Inscription : seulement une fois le site ouvert. En pré-lancement,
+    // /register renvoie vers /bientot (noindex) : une adresse redirigée dans
+    // le sitemap est signalée par Google (07/10/2026, Search Console).
+    ...(isSiteOpen() ? [{ url: `${SITE_URL}/register`, lastModified: now, changeFrequency: "yearly" as const, priority: 0.5 }] : []),
     { url: `${SITE_URL}/legal`, lastModified: now, changeFrequency: "yearly", priority: 0.2 }
   ];
 }

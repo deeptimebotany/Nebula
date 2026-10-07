@@ -12,6 +12,11 @@ import { CONTEXT_PROMPTS, buildSystemInstruction, extractThumbnailBrief, toolCon
 import { getToolContext } from "@/lib/tools/app-context";
 import { z } from "zod";
 
+// Durée maximale de la fonction Vercel (07/10/2026) : l'appel à Gemini est
+// borné à 55 s, relances comprises (src/lib/ai/gemini.ts). Sans ce réglage,
+// la fonction dépendait du défaut du projet Vercel.
+export const maxDuration = 60;
+
 // POST /api/ai/chat — l'assistant « Demander à Nebula ».
 //
 // Économie de l'IA (Gemini en version payante depuis le 30/09/2026 : chaque

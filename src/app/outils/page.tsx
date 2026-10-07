@@ -2,11 +2,12 @@ import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { IconSparkle } from "@/components/dashboard/icons";
+
 import { TOOL_CATALOG } from "@/components/tools/tool-catalog";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { SEO_TOOLS, SEO_TOOLS_HUB } from "@/lib/seo-pages";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 // Hub des outils IA gratuits (voir la feuille de route —
 // produit n°2 : aimant à visiteurs qui redirige ensuite vers un compte
@@ -42,7 +43,7 @@ export default function OutilsHubPage() {
 
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-10 pt-16 text-center sm:pt-20">
         <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-4 py-1.5 text-xs text-aurora-200">
-          <IconSparkle className="h-3.5 w-3.5" />
+          <AiIcon className="h-3.5 w-3.5" />
           Gratuit, sans carte bancaire
         </div>
         <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-5xl">

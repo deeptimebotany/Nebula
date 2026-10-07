@@ -8,6 +8,75 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-07-diagnostic-gemini",
+    date: "2026-10-07",
+    title: "IA : test de connexion à Gemini et vraie cause des erreurs",
+    category: "Fiabilité",
+    links: [{ href: "/admin/ia", label: "Coûts IA" }],
+    result:
+      "Quand l'assistant affiche une erreur, le propriétaire peut cliquer sur « Tester la connexion à Gemini » dans Coûts IA : deux appels courts disent si la clé est refusée, si le modèle est introuvable, si les crédits sont épuisés ou si Google est lent, avec la durée et la réponse exacte de Google. Une clé collée avec un espace ou un caractère invisible marche quand même (et c'est signalé). Une coupure ou un délai dépassé est relancé une fois, une coupure n'est plus présentée comme « trop de temps », et chaque échec est noté dans les journaux Vercel.",
+    change:
+      "`src/lib/ai/gemini.ts` : `cleanApiKey`, `diagnoseGemini`, une relance sur délai dépassé ou coupure, message « connexion coupée », journal `[gemini] échec …` sans la clé ; route `POST /api/admin/ia/diagnostic` (propriétaire) et carte `gemini-diagnostic.tsx` sur /admin/ia ; `maxDuration = 60` sur 8 routes IA.",
+    readme: 85,
+    migrations: []
+  },
+  {
+    id: "2026-10-07-canonique-page-bio",
+    date: "2026-10-07",
+    title: "Référencement : adresse canonique des pages bio, sitemap du pré-lancement",
+    category: "Site public",
+    links: [{ href: "/link-in-bio", label: "Page bio" }],
+    result:
+      "Une page bio partagée depuis Instagram, Facebook ou TikTok (avec ?fbclid=… ou ?utm_… dans l'adresse) n'est plus vue par Google comme une page en double : elle déclare son adresse canonique /l/<marque>. Un test vérifie désormais que chaque page publique indexable déclare la sienne. Tant que le site est en pré-lancement, le sitemap ne liste plus /register, qui renvoie vers /bientot.",
+    change: "`src/app/l/[slug]/page.tsx` : `alternates.canonical` et `openGraph.url` ; `src/app/sitemap.ts` : /register selon `isSiteOpen()`. Test `tests/quality/canonical.test.ts`.",
+    readme: 84,
+    migrations: []
+  },
+  {
+    id: "2026-10-07-gemini-credits-epuises",
+    date: "2026-10-07",
+    title: "IA : message clair et alerte quand les crédits Gemini sont épuisés",
+    category: "Fiabilité",
+    links: [{ href: "/admin/ia", label: "Coûts IA" }],
+    result:
+      "Si le solde de crédits prépayés de l'API Gemini tombe à 0, la personne lit « Les fonctions IA de Nebula sont momentanément indisponibles. L'équipe Nebula est prévenue » au lieu du message anglais de Google (ou d'un faux « trop de demandes »), et le propriétaire reçoit une alerte dans la cloche et par e-mail, une fois par jour, avec la marche à suivre pour recharger.",
+    change: "`src/lib/ai/gemini.ts` : réponse 402 (et ancienne réponse 429 « prepayment credits are depleted ») sans nouvel essai, `alertOwnerWithEmail` avec la clé `gemini-credits:<jour>`.",
+    readme: 83,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-etoile-ia",
+    date: "2026-10-06",
+    title: "Étoiles de l'IA blanches au repos, en couleur pendant l'utilisation ; rond flottant du chat retiré",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/composer", label: "Publier" },
+      { href: "/comments", label: "Commentaires" }
+    ],
+    result:
+      "Partout où l'IA est proposée (« Demander à Nebula », « Proposer une réponse », « Générer avec l'IA », Studio IA…), l'étoile est blanche au repos (gris foncé en mode clair), prend la couleur de l'IA au survol, la garde pendant que l'IA travaille ou tant que le chat est ouvert, puis redevient blanche. Le rond flottant en bas à droite, qui doublait le bouton « Demander à Nebula » de l'en-tête, est retiré. L'entrée « Studio IA » du menu prend aussi la couleur de l'IA au survol.",
+    change:
+      "Composant `AiIcon` (`src/components/ai/ai-icon.tsx`, options `active` et `tone`), classes `nb-ai-icon` et `nb-ai-nav` (globals.css), bouton flottant retiré de `ai-assistant-lazy.tsx` (le tiroir se prépare au survol du bouton de l'en-tête : `prepared` / `prepare` du contexte).",
+    readme: 82,
+    migrations: []
+  },
+  {
+    id: "2026-10-06-anti-robot-discret",
+    date: "2026-10-06",
+    title: "Anti-robot discret : la case Cloudflare n'apparaît plus que si besoin",
+    category: "Site public",
+    links: [
+      { href: "/contact", label: "Contact" },
+      { href: "/forgot-password", label: "Mot de passe oublié" }
+    ],
+    result:
+      "Sur l'inscription, le mot de passe oublié, le contact, l'audit gratuit et les listes d'attente, la vérification anti-robot se fait en arrière-plan : pour la plupart des visiteurs, plus aucune case ni logo Cloudflare. La case n'apparaît que si Cloudflare a un doute, et prend alors toute la largeur du formulaire. Si l'on envoie trop vite, le message dit que la vérification est en cours et de réessayer dans un instant.",
+    change: "`TurnstileWidget` : options `appearance: \"interaction-only\"` et `size: \"flexible\"`, nouveau `TURNSTILE_PENDING_MESSAGE`.",
+    readme: 81,
+    migrations: []
+  },
+  {
     id: "2026-10-06-logos-reseaux",
     date: "2026-10-06",
     title: "Logos officiels de Facebook, Instagram, Threads, Bluesky et LinkedIn",

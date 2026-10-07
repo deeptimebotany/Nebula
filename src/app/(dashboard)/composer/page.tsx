@@ -45,7 +45,7 @@ import { Button } from "@/components/ui/button";
 import { NetworkBadge, NetworkLogo, NetworkTargetChip, NetworkTile } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconUpload, IconSparkle, IconMessage, IconEmoji, IconHash, IconBell, IconLink, IconUsers } from "@/components/dashboard/icons";
+import { IconUpload, IconMessage, IconEmoji, IconHash, IconBell, IconLink, IconUsers } from "@/components/dashboard/icons";
 import { FeedbackRequestDialog, type FeedbackPrefill } from "@/components/community/feedback/feedback-request-dialog";
 import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
@@ -60,6 +60,7 @@ import { getPref, setPref } from "@/lib/ui-prefs-client";
 import { loadComposerDraft, saveComposerDraft, saveComposerDraftNow } from "@/lib/composer-draft-client";
 import { captureVideoFrames } from "@/lib/video/capture-frames";
 import { useUiSounds } from "@/components/use-ui-sounds";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
@@ -1457,12 +1458,12 @@ function ComposerPageInner() {
           <>
             {aiStatus?.enabled && (title.trim() || caption.trim()) && (
               <Button variant="outline" onClick={onRepurpose}>
-                <IconSparkle className="h-4 w-4" /> Recycler ce contenu
+                <AiIcon className="h-4 w-4" active={repurposeOpen || repurposeLoading} /> Recycler ce contenu
               </Button>
             )}
             {aiStatus?.enabled && (
               <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
-                <IconSparkle className="h-4 w-4" /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
+                <AiIcon className="h-4 w-4" active={generatingAll} /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
               </Button>
             )}
           </>
@@ -1651,7 +1652,7 @@ function ComposerPageInner() {
                         }
                         title="Ouvrir l'assistant en mode miniature : concept, accroche, composition — et le pourquoi de chaque choix"
                       >
-                        <IconSparkle className="h-4 w-4 text-aurora-300" />
+                        <AiIcon className="h-4 w-4" active={assistant.open && assistant.contextKey === "thumbnails"} />
                         Demander à l&apos;assistant
                       </Button>
                     )}
@@ -1666,7 +1667,7 @@ function ComposerPageInner() {
                           l'étoile signale que l'IA choisit et explique. La
                           version « plus accrocheuse » se demande dans le chat,
                           qui renvoie un brief → « Générer » sur le brief. */}
-                      {aiStatus?.enabled && <IconSparkle className={clsx("h-4 w-4 text-aurora-300", thumbLoading && "animate-pulse")} />}
+                      {aiStatus?.enabled && <AiIcon className={clsx("h-4 w-4", thumbLoading && "animate-pulse")} active={thumbLoading} />}
                       {thumbLoading ? (aiStatus?.enabled ? "Analyse..." : "Extraction...") : "Générer des miniatures"}
                     </Button>
                     <input
@@ -1685,7 +1686,7 @@ function ComposerPageInner() {
                 </p>
                 {assistantBrief && (
                   <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-aurora-400/25 bg-nebula-900/40 px-3 py-2 text-xs">
-                    <IconSparkle className="h-3.5 w-3.5 shrink-0 text-aurora-300" />
+                    <AiIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 text-slate-300">
                       Brief de l&apos;assistant
                       {assistantBrief.hook && (
@@ -1702,7 +1703,7 @@ function ComposerPageInner() {
                       disabled={aiThumbLoading || thumbLoading}
                       className="inline-flex items-center gap-1 rounded-lg bg-aurora-400/15 px-2.5 py-1 font-medium text-aurora-200 transition hover:bg-aurora-400/25 disabled:cursor-wait disabled:opacity-60"
                     >
-                      <IconSparkle className={clsx("h-3 w-3", aiThumbLoading && "animate-pulse")} />
+                      <AiIcon className={clsx("h-3 w-3", aiThumbLoading && "animate-pulse")} active={aiThumbLoading} />
                       {aiThumbLoading ? "Génération…" : "Générer"}
                     </button>
                     <button
@@ -1820,7 +1821,7 @@ function ComposerPageInner() {
                     title={generatingFields.has("title") ? "Génération en cours..." : "Générer avec l'IA"}
                     className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
                   >
-                    <IconSparkle className={clsx("h-3.5 w-3.5", generatingFields.has("title") && "animate-pulse")} />
+                    <AiIcon className={clsx("h-3.5 w-3.5", generatingFields.has("title") && "animate-pulse")} active={generatingFields.has("title")} />
                     {generatingFields.has("title") ? "Génération..." : "IA"}
                   </button>
                 )}
@@ -1868,7 +1869,7 @@ function ComposerPageInner() {
                     title={generatingFields.has("description") ? "Génération en cours..." : "Générer avec l'IA"}
                     className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
                   >
-                    <IconSparkle className={clsx("h-3.5 w-3.5", generatingFields.has("description") && "animate-pulse")} />
+                    <AiIcon className={clsx("h-3.5 w-3.5", generatingFields.has("description") && "animate-pulse")} active={generatingFields.has("description")} />
                     {generatingFields.has("description") ? "Génération..." : "IA"}
                   </button>
                 )}
@@ -2067,7 +2068,7 @@ function ComposerPageInner() {
                       <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <IconSparkle className="h-3.5 w-3.5 text-aurora-300" />
+                            <AiIcon className="h-3.5 w-3.5" />
                             Contenu généré par l&apos;IA
                             <InfoTip label={`À quoi sert « Contenu généré par l'IA » sur ${NETWORK_META[n].label} ?`}>{AI_CONTENT_HELP[n]}</InfoTip>
                           </span>
@@ -2337,7 +2338,7 @@ function AiContentMaster({ checked, onChange, exceptions }: { checked: boolean; 
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-medium text-white">
-            <IconSparkle className="h-4 w-4 shrink-0 text-aurora-300" />
+            <AiIcon className="h-4 w-4 shrink-0" />
             Contenu généré par l&apos;IA
             <InfoTip label="À quoi sert « Contenu généré par l'IA » ?">
               À activer si ce média contient des images, des voix ou des scènes réalistes créées ou modifiées par l&apos;IA. Un seul clic l&apos;active sur tous vos réseaux : YouTube et TikTok affichent leur propre étiquette IA, et pour Instagram et Facebook (qui ne le permettent pas depuis une application) Nebula ajoute une courte mention à la fin de la légende. Pas besoin de l&apos;activer si l&apos;IA a seulement aidé à écrire le texte. Vous pouvez faire une exception réseau par réseau, plus bas dans « 4. Réseaux cibles ».

@@ -12,13 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Tabs } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IconSparkle } from "@/components/dashboard/icons";
+
 import { useBrand } from "@/components/brand-context";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { FactsPanel, IdeaCard, ScriptView } from "@/components/studio/studio-parts";
 import { NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { generationTitle, type StudioGenerationDTO, type StudioHistoryItem, type StudioPageDTO, type StudioQuota, type VideoFormat } from "@/lib/studio/types";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 type Tab = "ideas" | "script";
 
@@ -129,7 +130,7 @@ export default function StudioPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={<IconSparkle className="h-5 w-5" />}
+        icon={<AiIcon className="h-5 w-5" />}
         title="Studio IA"
         description="Des idées, des accroches et des scripts de vidéo écrits à partir de ce qui marche déjà chez vous : vos meilleures publications, vos heures, vos courbes de rétention."
       />
@@ -208,7 +209,7 @@ export default function StudioPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" onClick={() => generate(tab)} disabled={busy || !brandId || (tab === "script" && subject.trim().length < 3 && !locked)}>
-            <IconSparkle className="h-4 w-4" />
+            <AiIcon className="h-4 w-4" tone="onAccent" />
             {busy ? "Écriture en cours…" : tab === "ideas" ? "Proposer 5 idées" : "Écrire le script"}
             {locked && <span className="rounded-full bg-white/15 px-1.5 text-[10px] font-semibold">PRO</span>}
           </Button>

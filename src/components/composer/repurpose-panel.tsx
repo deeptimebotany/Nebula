@@ -7,11 +7,12 @@
 import { m as motion, AnimatePresence } from "framer-motion";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { SkeletonText } from "@/components/ui/skeleton";
-import { IconSparkle } from "@/components/dashboard/icons";
+
 import { NETWORK_META, type Network } from "@/lib/types";
 import { networkInkStyle } from "@/components/ui/network-badge";
 import type { RepurposedContent } from "@/lib/ai/gemini";
 import { MotionRoot } from "@/components/motion/motion-root";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 interface RepurposePanelProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function RepurposePanel({ open, loading, result, onClose, onApply }: Repu
             <MotionGlassCard glow className="border-aurora-400/25 bg-nebula-700/[0.08]">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-                  <IconSparkle className="h-4 w-4 text-aurora-300" /> Recyclage de contenu
+                  <AiIcon className="h-4 w-4" /> Recyclage de contenu
                 </h2>
                 <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-white">
                   Fermer

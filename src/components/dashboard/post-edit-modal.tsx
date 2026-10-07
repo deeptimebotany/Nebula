@@ -10,7 +10,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { useBrand } from "@/components/brand-context";
 import { DEFAULT_TIMEZONE, localInputToUtc, timeZoneLabel, utcToLocalInput } from "@/lib/timezone";
-import { IconSparkle, IconClose } from "@/components/dashboard/icons";
+import { IconClose } from "@/components/dashboard/icons";
 import { useToast } from "@/components/dashboard/toast";
 import { useAiStatus } from "@/components/use-ai-status";
 import { uploadMediaFile } from "@/lib/upload-client";
@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { PostStats } from "@/components/posts/post-stats";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "En ligne",
@@ -342,7 +343,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
               labelAside={
                 aiStatus?.enabled ? (
                   <button type="button" onClick={() => generate("title")} disabled={aiBusy !== null} className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50">
-                    <IconSparkle className="h-3 w-3" /> {aiBusy === "title" ? "…" : "Proposer avec l'IA"}
+                    <AiIcon className="h-3 w-3" active={aiBusy === "title"} /> {aiBusy === "title" ? "…" : "Proposer avec l'IA"}
                   </button>
                 ) : undefined
               }
@@ -357,7 +358,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
               labelAside={
                 aiStatus?.enabled ? (
                   <button type="button" onClick={() => generate("caption")} disabled={aiBusy !== null} className="flex items-center gap-1 text-xs text-aurora-300 hover:underline disabled:opacity-50">
-                    <IconSparkle className="h-3 w-3" /> {aiBusy === "caption" ? "…" : "Proposer avec l'IA"}
+                    <AiIcon className="h-3 w-3" active={aiBusy === "caption"} /> {aiBusy === "caption" ? "…" : "Proposer avec l'IA"}
                   </button>
                 ) : undefined
               }

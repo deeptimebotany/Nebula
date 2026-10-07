@@ -2,7 +2,8 @@
 
 // État partagé du tiroir « Demander à Nebula » (voir ai-assistant.tsx pour
 // l'interface). Monté dans le layout du dashboard, au-dessus du shell : ainsi
-// l'en-tête (bouton « Demander à Nebula »), le bouton flottant, n'importe
+// l'en-tête (bouton « Demander à Nebula », seul point d'entrée général
+// depuis le 06/10/2026 : le bouton flottant faisait doublon), n'importe
 // quelle page (ex. la section Miniature du composer) et le tiroir lui-même
 // parlent du MÊME assistant, sans dupliquer de panneau.
 //
@@ -50,6 +51,10 @@ interface AiAssistantContextValue {
   open: boolean;
   setOpen: (v: boolean) => void;
   toggle: () => void;
+  /** Le tiroir est à télécharger (survol ou focus du bouton de l'en-tête) :
+   *  il est monté fermé avant l'ouverture, pour garder son animation. */
+  prepared: boolean;
+  prepare: () => void;
   /** Contexte effectif : override d'une page, sinon celui de l'URL. */
   contextKey: AssistantContextKey;
   setContextOverride: (key: AssistantContextKey | null) => void;
@@ -75,6 +80,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   const aiStatus = useAiStatus(activeBrand?.id);
 
   const [open, setOpen] = useState(false);
+  const [prepared, setPrepared] = useState(false);
   const [override, setOverride] = useState<AssistantContextKey | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
   const [pendingInjection, setPendingInjection] = useState<PendingInjection | null>(null);
@@ -89,6 +95,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   const contextKey = override ?? pageKey;
 
   const toggle = useCallback(() => setOpen((v) => !v), []);
+  const prepare = useCallback(() => setPrepared(true), []);
 
   const ask = useCallback((text: string, options?: { submit?: boolean; contextKey?: AssistantContextKey }) => {
     if (options?.contextKey) setOverride(options.contextKey);
@@ -113,6 +120,8 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       open,
       setOpen,
       toggle,
+      prepared,
+      prepare,
       contextKey,
       setContextOverride: setOverride,
       ask,
@@ -124,7 +133,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       externalThinking,
       setExternalThinking
     }),
-    [aiStatus?.enabled, open, toggle, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking]
+    [aiStatus?.enabled, open, toggle, prepared, prepare, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking]
   );
 
   return <AiAssistantContext.Provider value={value}>{children}</AiAssistantContext.Provider>;

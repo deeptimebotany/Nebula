@@ -36,9 +36,10 @@ import {
 } from "@/lib/ai/assistant-contexts";
 import { sendThumbnailBrief, sendThumbnailPick, type FramePickCard, type ThumbnailBrief } from "@/lib/ai/thumbnail-brief-bridge";
 import { MarkdownLite } from "@/components/ui/markdown-lite";
-import { IconChevronRight, IconClose, IconRefresh, IconSend, IconSparkle } from "./icons";
+import { IconChevronRight, IconClose, IconRefresh, IconSend } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
 import { clsx } from "@/lib/clsx";
+import { AiIcon } from "@/components/ai/ai-icon";
 
 interface Message {
   id: string;
@@ -467,7 +468,7 @@ export function AiAssistant() {
                                 onClick={() => onGenerateThumbnail(m.thumbnail as ThumbnailBrief)}
                                 className="btn-glow mt-3 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-white"
                               >
-                                <IconSparkle className="h-4 w-4" />
+                                <AiIcon className="h-4 w-4" tone="onAccent" />
                                 Générer cette miniature
                               </button>
                               <p className="mt-2 text-[11px] leading-snug text-slate-500">

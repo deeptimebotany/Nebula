@@ -9,6 +9,11 @@ import { saveUploadedFile } from "@/lib/storage";
 import { z } from "zod";
 import { brandUploadPrefix } from "@/lib/upload-policy";
 
+// Durée maximale de la fonction Vercel (07/10/2026) : l'appel à Gemini est
+// borné à 55 s, relances comprises (src/lib/ai/gemini.ts). Sans ce réglage,
+// la fonction dépendait du défaut du projet Vercel.
+export const maxDuration = 60;
+
 const bodySchema = z.object({
   frameBase64: z.string(),
   frameMimeType: z.string(),

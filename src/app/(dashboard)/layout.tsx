@@ -92,8 +92,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {/* Particules des thèmes Nova et Prisme (voir theme-particles.tsx). */}
               <AppThemeParticles />
               {/* Assistant « Demander à Nebula » : le provider enveloppe le
-                  shell pour que le bouton de l'en-tête, le bouton flottant et
-                  les pages (ex. section Miniature) pilotent le même tiroir. */}
+                  shell pour que le bouton de l'en-tête et les pages (ex. section
+                  Miniature) pilotent le même tiroir. */}
               {/* Paywall contextuel (UpgradeModal) : disponible partout dans
                   l'application connectée — pages, tiroir IA, composer. */}
               <UpgradeModalProvider>
