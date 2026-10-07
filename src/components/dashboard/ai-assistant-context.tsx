@@ -69,7 +69,10 @@ interface AiAssistantContextValue {
   /** Une page travaille pour l'assistant (ex. analyse des images) : affiche
    *  l'indicateur « en train d'écrire ». */
   externalThinking: boolean;
-  setExternalThinking: (v: boolean) => void;
+  /** Ce que fait la page pendant ce temps, affiché à côté de l'indicateur
+   *  (« Je regarde votre vidéo… ») : une longue attente reste lisible. */
+  externalThinkingLabel: string | null;
+  setExternalThinking: (v: boolean, label?: string) => void;
 }
 
 const AiAssistantContext = createContext<AiAssistantContextValue | null>(null);
@@ -84,7 +87,12 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   const [override, setOverride] = useState<AssistantContextKey | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
   const [pendingInjection, setPendingInjection] = useState<PendingInjection | null>(null);
-  const [externalThinking, setExternalThinking] = useState(false);
+  const [externalThinking, setExternalThinkingState] = useState(false);
+  const [externalThinkingLabel, setExternalThinkingLabel] = useState<string | null>(null);
+  const setExternalThinking = useCallback((v: boolean, label?: string) => {
+    setExternalThinkingState(v);
+    setExternalThinkingLabel(v && label ? label : null);
+  }, []);
 
   // Changement de page → l'override de la page précédente n'a plus de sens.
   useEffect(() => {
@@ -131,9 +139,10 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       pendingInjection,
       consumePendingInjection,
       externalThinking,
+      externalThinkingLabel,
       setExternalThinking
     }),
-    [aiStatus?.enabled, open, toggle, prepared, prepare, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking]
+    [aiStatus?.enabled, open, toggle, prepared, prepare, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking, externalThinkingLabel, setExternalThinking]
   );
 
   return <AiAssistantContext.Provider value={value}>{children}</AiAssistantContext.Provider>;

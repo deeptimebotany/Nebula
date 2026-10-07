@@ -8,6 +8,8 @@
 // vérifiée par l'appelant (route : requireBrandMembership ; page :
 // resolveActiveBrand, qui ne renvoie qu'une marque de l'utilisateur).
 import { prisma } from "@/lib/prisma";
+import { firstCommentSupport } from "@/lib/social/first-comment-support";
+import { youtubeCommentReplyEnabled } from "@/lib/social/youtube";
 import { isAiEnabled } from "@/lib/ai/gemini";
 import { getBrandPlan } from "@/lib/billing/plan";
 import { bestHourOf, MIN_SNAPSHOTS_FOR_SLOT, type HourSnapshot } from "@/lib/best-hour";
@@ -40,20 +42,25 @@ export async function getConnectionsList(brandId: string) {
       lastError: true,
       tokenExpiresAt: true,
       refreshToken: true,
+      // Premier commentaire possible ? (07/10/2026) : lu ici, jamais renvoyé.
+      scopes: true,
       // Compte en veille (lot E4) : badge « En veille » sur la page Comptes.
       dormantAt: true
     },
     orderBy: { connectedAt: "desc" }
   });
+  const youtubeCommentsEnabled = youtubeCommentReplyEnabled();
   // autoRenew : le jeton d'accès de ces réseaux ne dure que quelques heures
   // (YouTube 1 h, TikTok 24 h) ou semaines (Pinterest), mais Nebula le
   // renouvelle tout seul tant qu'il a un jeton de rafraîchissement : la page
   // Comptes ne doit donc pas afficher « expirée » d'après tokenExpiresAt.
   // Le jeton de rafraîchissement lui-même n'est jamais renvoyé au navigateur.
   return {
-    connections: connections.map(({ refreshToken, ...c }: { refreshToken: string | null; network: string } & Record<string, unknown>) => ({
+    connections: connections.map(({ refreshToken, scopes, ...c }: { refreshToken: string | null; scopes: string | null; network: string } & Record<string, unknown>) => ({
       ...c,
-      autoRenew: Boolean(refreshToken) && AUTO_RENEW_NETWORKS.has(c.network)
+      autoRenew: Boolean(refreshToken) && AUTO_RENEW_NETWORKS.has(c.network),
+      // Premier commentaire sur ce compte (Publier) : possible, ou pourquoi pas.
+      firstComment: firstCommentSupport(c.network, { scopes }, { youtubeCommentsEnabled })
     }))
   };
 }

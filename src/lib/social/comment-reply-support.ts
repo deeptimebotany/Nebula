@@ -41,7 +41,7 @@ export type CommentReplySupport =
       reconnect?: boolean;
     };
 
-function hasScope(scopes: string | null | undefined, scope: string): boolean {
+export function hasScope(scopes: string | null | undefined, scope: string): boolean {
   return (scopes ?? "").split(/[\s,]+/).some((s) => s === scope || s.endsWith(`/${scope}`));
 }
 

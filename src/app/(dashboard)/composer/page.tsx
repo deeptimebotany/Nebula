@@ -58,7 +58,11 @@ import { NetworkPauseNotice } from "@/components/composer/network-pause-notice";
 import { refreshUsage, useConnections } from "@/lib/data/hooks";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 import { loadComposerDraft, saveComposerDraft, saveComposerDraftNow } from "@/lib/composer-draft-client";
-import { captureVideoFrames } from "@/lib/video/capture-frames";
+import { captureVideoFrames, captureVideoFramesAt, readVideoInfo } from "@/lib/video/capture-frames";
+import { formatDuration } from "@/lib/video/format-time";
+import { firstCommentLength, firstCommentSupport, type FirstCommentSupport } from "@/lib/social/first-comment-support";
+import { FORMAT_NETWORKS, POST_FORMATS, defaultFormat, formatProblem, type MediaFacts, type PostFormat } from "@/lib/social/post-format";
+import { FormatPicker } from "@/components/composer/format-picker";
 import { useUiSounds } from "@/components/use-ui-sounds";
 import { AiIcon } from "@/components/ai/ai-icon";
 
@@ -210,6 +214,32 @@ async function uploadThumbnailBlob(blob: Blob): Promise<string> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Échec de l'envoi de l'image.");
   return data.url as string;
+}
+
+/** Réponse de /api/media/[id]/thumbnails/analyze (voir src/lib/ai/thumbnail-analysis.ts). */
+interface ThumbnailAnalysisResponse {
+  summary: string;
+  audience: string;
+  promise: string;
+  concepts: { second: number; moment: string; angle: string; hook: string; imagePrompt: string; why: string[] }[];
+  durationSeconds: number | null;
+  truncated: boolean;
+  /** Miniatures encore possibles ce mois-ci (3 au plus). */
+  imagesAllowed: number;
+}
+
+/** Message du chat après l'analyse : ce que l'IA a compris de la vidéo. */
+function thumbnailAnalysisMessage(a: ThumbnailAnalysisResponse, creating: number): string {
+  const watched = a.durationSeconds ? ` (${formatDuration(a.durationSeconds)}, image et son${a.truncated ? " ; la première heure seulement" : ""})` : " (image et son)";
+  const facts = [
+    `- **Ce qu'elle raconte :** ${a.summary}`,
+    a.audience ? `- **Pour qui :** ${a.audience}` : "",
+    a.promise ? `- **Sa promesse :** ${a.promise}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const next = creating > 1 ? `Je pars de ses ${creating} moments les plus forts pour créer vos miniatures.` : creating === 1 ? "Je pars de son moment le plus fort pour créer votre miniature." : "";
+  return [`J'ai regardé votre vidéo en entier${watched}.`, facts, next].filter(Boolean).join("\n\n");
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -383,6 +413,13 @@ function ComposerPageInner() {
   // jamais gardés d'une publication à l'autre (la confidentialité se choisit
   // à chaque fois), et ce qui bloque l'envoi (voir tiktok-options.tsx).
   const [tiktokOptions, setTiktokOptions] = useState<TiktokPostOptions>(DEFAULT_TIKTOK_OPTIONS);
+  // Format choisi par réseau (07/10/2026) : Publication, Reel ou Story
+  // (Instagram, Facebook). Sans choix : format proposé selon le média.
+  const [formats, setFormats] = useState<Partial<Record<Network, PostFormat>>>({});
+  const [igShareToFeed, setIgShareToFeed] = useState(true);
+  // Taille et durée du premier média, lues dans le navigateur (format proposé,
+  // Short ou vidéo YouTube, limites des Reels et Stories).
+  const [mediaSize, setMediaSize] = useState<{ assetId: string; width: number; height: number; duration: number | null } | null>(null);
   const [tiktokStatus, setTiktokStatus] = useState<TiktokSectionStatus>({ reason: null, creator: null });
   // Option « Contenu généré par l'IA » : un interrupteur général (carte
   // « 1. Média », en haut de page, pour y penser avant de descendre aux
@@ -421,6 +458,14 @@ function ComposerPageInner() {
   const [aiThumbLoading, setAiThumbLoading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState(false);
   const lastCapturedFrame = useRef<Blob | null>(null);
+  // Miniatures « en un clic » (07/10/2026) : étape en cours (texte du
+  // bouton), image de la vidéo d'où vient chaque miniature créée (reprise
+  // par « Générer cette miniature » du chat après un choix) et format.
+  const [thumbStep, setThumbStep] = useState<"analyse" | "creation" | null>(null);
+  const conceptFrames = useRef(new Map<string, Blob>());
+  /** Miniatures dans l'ordre des cartes du chat (« Option 1, 2, 3 »). */
+  const proposalUrls = useRef<string[]>([]);
+  const [thumbAspect, setThumbAspect] = useState<"16:9" | "9:16" | null>(null);
   const thumbFileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Assistant « Demander à Nebula » × section Miniature -----------------
@@ -552,6 +597,18 @@ function ComposerPageInner() {
   // utile dès qu'un réseau a plusieurs comptes connectés (palier Pro+).
   const [selectedConnectionByNetwork, setSelectedConnectionByNetwork] = useState<Partial<Record<Network, string>>>({});
 
+  // Premier commentaire (07/10/2026) : possible sur ce réseau avec le compte
+  // choisi ? (autorisations lues par /api/connections ; YouTube : aussi
+  // selon la confidentialité et « conçue pour les enfants » de la vidéo).
+  function firstCommentSupportFor(network: Network): FirstCommentSupport {
+    const connection = connections.find((c) => c.id === selectedConnectionByNetwork[network]) || connections.find((c) => c.network === network);
+    if (network === "YOUTUBE" && (youtubeOptions.madeForKids || youtubeOptions.privacyStatus === "private")) {
+      return firstCommentSupport("YOUTUBE", { scopes: "youtube.force-ssl" }, { youtube: youtubeOptions });
+    }
+    if (FORMAT_NETWORKS.has(network) && formatFor(network) === "STORY") return firstCommentSupport(network, null, { format: "STORY" });
+    return connection?.firstComment ?? firstCommentSupport(network, null);
+  }
+
   // Réseau affiché dans l'aperçu à droite (voir carte "Aperçu" ci-dessous) —
   // se recale automatiquement sur le premier réseau sélectionné tant que la
   // personne n'a pas cliqué sur un autre onglet réseau dans l'aperçu.
@@ -622,6 +679,14 @@ function ComposerPageInner() {
           }))
         );
         setSelectedNetworks(post.targets.map((t: { network: Network }) => t.network));
+        // Format choisi sur la publication d'origine (07/10/2026).
+        const restored: Partial<Record<Network, PostFormat>> = {};
+        for (const t of post.targets as { network: Network; metadata?: { format?: unknown; instagram?: { shareToFeed?: unknown } } | null }[]) {
+          const f = t.metadata?.format;
+          if (typeof f === "string" && (POST_FORMATS as readonly string[]).includes(f)) restored[t.network] = f as PostFormat;
+          if (t.network === "INSTAGRAM" && typeof t.metadata?.instagram?.shareToFeed === "boolean") setIgShareToFeed(t.metadata.instagram.shareToFeed);
+        }
+        setFormats(restored);
       });
   }, [duplicateId]);
 
@@ -725,6 +790,44 @@ function ComposerPageInner() {
   const availableNetworks = Array.from(new Set(connections.map((c) => c.network)));
   const videoAsset = assets.find((a) => a.type === "VIDEO");
 
+  // Taille et durée du premier média (07/10/2026, choix du format).
+  useEffect(() => {
+    const first = assets[0];
+    if (!first?.previewUrl) {
+      setMediaSize(null);
+      return;
+    }
+    if (mediaSize?.assetId === first.id) return;
+    let cancelled = false;
+    if (first.type === "VIDEO") {
+      void readVideoInfo(first.previewUrl).then((info) => {
+        if (!cancelled && info && info.width > 0) setMediaSize({ assetId: first.id, width: info.width, height: info.height, duration: info.duration > 0 ? info.duration : null });
+      });
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        if (!cancelled) setMediaSize({ assetId: first.id, width: img.naturalWidth, height: img.naturalHeight, duration: null });
+      };
+      img.src = first.previewUrl;
+    }
+    return () => {
+      cancelled = true;
+    };
+    // mediaSize : seulement pour ne pas relire le même média.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets]);
+  const mediaFacts = useMemo<MediaFacts>(() => {
+    const size = mediaSize && mediaSize.assetId === assets[0]?.id ? mediaSize : null;
+    return { type: assets[0]?.type ?? null, count: assets.length, width: size?.width ?? null, height: size?.height ?? null, durationSeconds: size?.duration ?? null };
+  }, [assets, mediaSize]);
+  /** Format retenu pour ce réseau : celui choisi, sinon celui proposé selon le média. */
+  const formatFor = useCallback(
+    (network: Network): PostFormat | null => (FORMAT_NETWORKS.has(network) ? (formats[network] ?? defaultFormat(network, mediaFacts)) : null),
+    [formats, mediaFacts]
+  );
+  // Format impossible avec ce média (vidéo trop longue pour une story…).
+  const formatBlocked = assets.length > 0 ? (selectedNetworks.map((n) => formatProblem(n, formatFor(n), mediaFacts)).find(Boolean) ?? null) : null;
+
   // Section Miniature à l'écran ⇒ l'assistant passe en contexte « miniatures ».
   // Remis à zéro dès que la section sort de l'écran, disparaît (vidéo
   // retirée) ou que la page est quittée.
@@ -777,7 +880,7 @@ function ComposerPageInner() {
     if (!chatPickUrl) return;
     setChatPickUrl(null);
     if (!videoAsset || !thumbOptions.includes(chatPickUrl)) {
-      toast.error("Cette proposition ne correspond plus à la vidéo en cours : relancez « Générer des miniatures ».");
+      toast.error("Cette proposition ne correspond plus à la vidéo en cours : relancez la génération des miniatures.");
       return;
     }
     void pickThumbnail(chatPickUrl);
@@ -1025,14 +1128,167 @@ function ComposerPageInner() {
     setGeneratingAll(false);
   }
 
-  // « Générer des miniatures » : extrait 12 images de la vidéo, en fait
-  // choisir exactement 3 à l'IA (netteté, cadrage, potentiel de clic) et —
-  // quand l'appel vient du bouton — ouvre le chat IA pour présenter ces 3
-  // propositions avec le pourquoi de chaque choix et un bouton « Choisir
-  // celle-ci ». Sans IA : 3 images prises à intervalles réguliers, sans chat.
-  // `viaChat: false` : appel interne (ex. avant la génération d'un brief), sans
-  // ouvrir le chat.
+  // Bouton de la section Miniature. Avec l'IA (07/10/2026) : miniatures
+  // « en un clic » (onCreateThumbnailsFromVideo). Sans IA : 3 images de la
+  // vidéo prises à intervalles réguliers.
   async function onGenerateThumbnails(options: { viaChat?: boolean } = {}) {
+    if (!videoAsset) return;
+    const useAi = Boolean(aiStatus?.enabled && activeBrand);
+    if (options.viaChat && useAi && assistant.enabled) return onCreateThumbnailsFromVideo();
+    return onPickFrames({ viaChat: options.viaChat });
+  }
+
+  // Miniatures « en un clic » (07/10/2026, demande de Lucas) : plus aucune
+  // question sur le sujet ou le public de la vidéo.
+  //  1. Gemini regarde la vidéo importée (image et son, /thumbnails/analyze),
+  //     dit ce qu'il en a compris dans le chat et propose 3 concepts, chacun
+  //     ancré sur un instant précis de la vidéo ;
+  //  2. le navigateur extrait l'image de chaque instant ;
+  //  3. chaque miniature est créée à partir de cette image (/thumbnails/ai :
+  //     une miniature décomptée par image réussie, 3 par clic au plus) ;
+  //  4. les miniatures arrivent dans le chat, avec leur accroche, l'instant
+  //     d'où elles viennent et le « pourquoi » du taux de clic.
+  // Vidéo impossible à analyser : repli sur les 3 meilleures images extraites.
+  async function onCreateThumbnailsFromVideo() {
+    if (!videoAsset || !activeBrand) return;
+    const asset = videoAsset;
+    setThumbLoading(true);
+    setThumbStep("analyse");
+    assistant.inject([{ role: "user", text: `Crée 3 miniatures pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""}.` }], { contextKey: "thumbnails" });
+    assistant.setExternalThinking(true, "Je regarde votre vidéo, image et son…");
+    // Raison du repli sur l'ancienne méthode (vidéo impossible à analyser),
+    // lancé APRÈS avoir rendu la main (bouton, indicateur du chat).
+    let fallbackReason: string | null = null;
+    // Étapes 1 à 4 ; un « return » y termine la tentative sans sauter le repli.
+    const attempt = async () => {
+      const info = await readVideoInfo(asset.previewUrl);
+      const res = await fetch(`/api/media/${asset.id}/thumbnails/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          caption,
+          networks: selectedNetworks,
+          ...(info && info.duration > 0 ? { durationSeconds: Math.round(info.duration * 10) / 10 } : {}),
+          ...(info && info.width > 0 && info.height > 0 ? { width: info.width, height: info.height } : {})
+        })
+      });
+      const data = (await res.json().catch(() => ({}))) as Partial<ThumbnailAnalysisResponse> & { error?: unknown };
+      const errorText = typeof data.error === "string" ? data.error : null;
+      if (!res.ok) {
+        // Palier, adresse à confirmer, quota : la bonne fenêtre (rien n'est décompté).
+        if (upgrade.openFromResponse(res.status, data)) {
+          assistant.inject([{ role: "model", text: errorText ?? "Les miniatures IA ne sont pas disponibles pour le moment.", error: true }]);
+        } else if (res.status === 429 || res.status === 401) {
+          assistant.inject([{ role: "model", text: errorText ?? "Réessayez dans quelques minutes.", error: true }]);
+        } else {
+          fallbackReason = errorText ?? "Je n'ai pas pu regarder votre vidéo cette fois-ci.";
+        }
+        return;
+      }
+      const analysis = data as ThumbnailAnalysisResponse;
+      const concepts = analysis.concepts.slice(0, Math.max(0, analysis.imagesAllowed));
+      assistant.inject([{ role: "model", text: thumbnailAnalysisMessage(analysis, concepts.length) }]);
+      if (concepts.length === 0) {
+        assistant.inject([{ role: "model", text: "Vous avez utilisé toutes vos miniatures IA de ce mois-ci : je ne peux pas en créer de nouvelles pour l'instant.", error: true }]);
+        return;
+      }
+
+      setThumbStep("creation");
+      assistant.setExternalThinking(true, concepts.length > 1 ? `Je crée les ${concepts.length} miniatures à partir de ces moments…` : "Je crée la miniature à partir de ce moment…");
+      const captured = await captureVideoFramesAt(asset.previewUrl, concepts.map((c) => c.second), { maxWidth: 1920 });
+      const aspect: "16:9" | "9:16" = captured.height > captured.width ? "9:16" : "16:9";
+      const results = await Promise.allSettled(
+        concepts.map(async (concept, k) => {
+          const frame = captured.frames[k];
+          if (!frame) throw new Error("Image introuvable à cet instant de la vidéo.");
+          const r = await fetch(`/api/media/${asset.id}/thumbnails/ai`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              frameBase64: await blobToBase64(frame),
+              frameMimeType: "image/jpeg",
+              title,
+              aspect,
+              brief: { hook: concept.hook, imagePrompt: concept.imagePrompt }
+            })
+          });
+          const d = (await r.json().catch(() => ({}))) as { url?: string; error?: unknown };
+          if (!r.ok || !d.url) {
+            throw Object.assign(new Error(typeof d.error === "string" ? d.error : "La miniature n'a pas pu être créée."), { status: r.status, data: d });
+          }
+          return { url: d.url, frame, concept, index: k };
+        })
+      );
+      const made = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+      const failed = results.flatMap((r, k) => (r.status === "rejected" ? [{ index: k, error: r.reason as Error & { status?: number; data?: unknown } }] : []));
+      // Quota atteint pendant la création : la fenêtre adaptée, une seule fois.
+      const refused = failed.find((f) => f.error.status === 402 || f.error.status === 403 || f.error.status === 429);
+      if (refused?.error.status) upgrade.openFromResponse(refused.error.status, refused.error.data);
+      if (made.length === 0) throw new Error(failed[0]?.error.message ?? "Aucune miniature n'a pu être créée.");
+
+      const urls = made.map((m) => m.url);
+      conceptFrames.current = new Map(made.map((m) => [m.url, m.frame]));
+      proposalUrls.current = urls;
+      lastCapturedFrame.current = made[0].frame;
+      setThumbAspect(aspect);
+      setThumbOptions(urls);
+      setThumbReasons(Object.fromEntries(made.map((m) => [m.url, m.concept.why.join(" ")])));
+      const cards: FramePickCard[] = made.map((m) => ({
+        url: m.url,
+        reason: m.concept.why.join(" "),
+        sharpness: 0,
+        framing: 0,
+        clickPotential: 0,
+        angle: m.concept.angle,
+        hook: m.concept.hook,
+        second: m.concept.second,
+        moment: m.concept.moment,
+        why: m.concept.why,
+        aspect
+      }));
+      const notes = [
+        ...failed.map((f) => `La proposition ${f.index + 1} n'a pas pu être créée : ${f.error.message}`),
+        analysis.concepts.length > concepts.length
+          ? `Il ne vous restait que ${concepts.length} miniature${concepts.length > 1 ? "s" : ""} IA ce mois-ci : j'ai gardé ${concepts.length > 1 ? "les plus fortes" : "la plus forte"}.`
+          : ""
+      ].filter(Boolean);
+      assistant.inject([
+        {
+          role: "model",
+          text: [
+            made.length > 1
+              ? `Voici ${made.length} miniatures créées à partir de vrais moments de votre vidéo, de la plus forte à la moins forte. Choisissez-en une, ou demandez-moi d'en retravailler une (par exemple « rends la 2 plus contrastée »).`
+              : "Voici votre miniature, créée à partir d'un vrai moment de votre vidéo. Choisissez-la, ou demandez-moi de la retravailler.",
+            ...notes
+          ].join("\n\n"),
+          framePicks: cards
+        }
+      ]);
+    };
+    try {
+      await attempt();
+    } catch (err) {
+      const message = (err as Error).message || "La création des miniatures a échoué.";
+      toast.error(message);
+      assistant.inject([{ role: "model", text: message, error: true }]);
+    } finally {
+      setThumbLoading(false);
+      setThumbStep(null);
+      assistant.setExternalThinking(false);
+    }
+    if (fallbackReason) await onPickFrames({ viaChat: true, fallbackReason });
+  }
+
+  // Ancienne méthode, gardée pour le repli et sans IA : extrait 12 images de
+  // la vidéo, en fait choisir exactement 3 à l'IA (netteté, cadrage,
+  // potentiel de clic) et, avec le chat, les présente avec le pourquoi de
+  // chaque choix et un bouton « Choisir celle-ci ». Sans IA : 3 images
+  // prises à intervalles réguliers, sans chat. `viaChat: false` : appel
+  // interne (ex. avant la génération d'un brief), sans ouvrir le chat.
+  // `fallbackReason` : la vidéo n'a pas pu être analysée (message déjà
+  // demandé dans le chat).
+  async function onPickFrames(options: { viaChat?: boolean; fallbackReason?: string } = {}) {
     if (!videoAsset) return;
     const CANDIDATE_COUNT = 12;
     const TARGET_COUNT = 3;
@@ -1041,10 +1297,12 @@ function ComposerPageInner() {
     setThumbLoading(true);
     if (useChat) {
       assistant.inject(
-        [{ role: "user", text: `Propose-moi les 3 meilleures miniatures pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""}.` }],
+        options.fallbackReason
+          ? [{ role: "model", text: `${options.fallbackReason} À la place, je choisis les 3 meilleures images de la vidéo.`, error: true }]
+          : [{ role: "user", text: `Propose-moi les 3 meilleures miniatures pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""}.` }],
         { contextKey: "thumbnails" }
       );
-      assistant.setExternalThinking(true);
+      assistant.setExternalThinking(true, "Je choisis les meilleures images de la vidéo…");
     }
     try {
       const blobs = await captureVideoFrames(videoAsset.previewUrl, CANDIDATE_COUNT);
@@ -1090,6 +1348,9 @@ function ComposerPageInner() {
 
       lastCapturedFrame.current = picks[0].blob;
       const urls = await Promise.all(picks.map((p) => uploadThumbnailBlob(p.blob)));
+      conceptFrames.current = new Map(urls.map((u, k) => [u, picks[k].blob]));
+      proposalUrls.current = urls;
+      setThumbAspect(null);
       setThumbOptions(urls);
       setThumbReasons(Object.fromEntries(urls.map((u, k) => [u, picks[k].reason]).filter(([, r]) => r)));
 
@@ -1128,13 +1389,20 @@ function ComposerPageInner() {
     }
     if (!lastCapturedFrame.current) return;
     const brief = briefOverride === undefined ? assistantBrief : briefOverride;
+    // Proposition retravaillée (« rends la 2 plus contrastée ») : on repart
+    // de l'image de la vidéo d'où vient cette proposition.
+    const optionUrl = brief?.option ? proposalUrls.current[brief.option - 1] : undefined;
+    const frame = (optionUrl && conceptFrames.current.get(optionUrl)) || lastCapturedFrame.current;
     setAiThumbLoading(true);
     try {
-      const base64 = await blobToBase64(lastCapturedFrame.current);
+      const base64 = await blobToBase64(frame);
+      // Format de la vidéo (07/10/2026) : une vidéo verticale garde une miniature 9:16.
+      const info = thumbAspect ? null : await readVideoInfo(videoAsset.previewUrl);
+      const aspect = thumbAspect ?? (info && info.height > info.width ? "9:16" : "16:9");
       const res = await fetch(`/api/media/${videoAsset.id}/thumbnails/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title, brief })
+        body: JSON.stringify({ frameBase64: base64, frameMimeType: "image/jpeg", title, brief, aspect })
       });
       const data = await res.json();
       if (!res.ok && upgrade.openFromResponse(res.status, data)) return;
@@ -1215,6 +1483,10 @@ function ComposerPageInner() {
 
   async function pickThumbnail(url: string) {
     if (!videoAsset) return;
+    // « Générer cette miniature » (chat) repart ensuite de l'image de la vidéo
+    // d'où vient la miniature choisie.
+    const frame = conceptFrames.current.get(url);
+    if (frame) lastCapturedFrame.current = frame;
     await fetch(`/api/media/${videoAsset.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1226,7 +1498,9 @@ function ComposerPageInner() {
   // TikTok sélectionné : confidentialité choisie, contenu commercial complet,
   // durée acceptée… sinon le bouton reste désactivé (raison affichée).
   const tiktokBlocked = selectedNetworks.includes("TIKTOK") && assets.length > 0 ? tiktokStatus.reason : null;
-  const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand && !tiktokBlocked;
+  // TikTok, puis format impossible (07/10/2026) : la raison s'affiche dans la barre.
+  const publishBlocked = tiktokBlocked ?? formatBlocked;
+  const canSubmit = assets.length > 0 && selectedNetworks.length > 0 && !!activeBrand && !publishBlocked;
 
   // Easter egg : 20 clics sur "Publier" alors qu'il est visuellement
   // désactivé (voir le bouton plus bas — désactivé par CSS/aria-disabled,
@@ -1237,7 +1511,7 @@ function ComposerPageInner() {
   const onSubmit = useCallback(async () => {
     if (!canSubmit) {
       // TikTok : dire ce qui manque (confidentialité, contenu commercial…).
-      if (tiktokBlocked) toast.error(tiktokBlocked);
+      if (publishBlocked) toast.error(publishBlocked);
       disabledClicks.current += 1;
       if (disabledClicksResetTimer.current) window.clearTimeout(disabledClicksResetTimer.current);
       if (disabledClicks.current >= 20) {
@@ -1277,11 +1551,21 @@ function ComposerPageInner() {
             network === "YOUTUBE" ||
             network === "PINTEREST" ||
             network === "TIKTOK" ||
+            FORMAT_NETWORKS.has(network) ||
             (network === "INSTAGRAM" && instagramOptions.collaborators.length > 0) ||
             (aiContentOverrides[network] ?? aiContentAll) ||
             (location && LOCATION_NETWORKS.has(network))
               ? {
-                  ...(network === "INSTAGRAM" && instagramOptions.collaborators.length > 0 ? { instagram: { collaborators: instagramOptions.collaborators } } : {}),
+                  // Format choisi (Publication, Reel, Story — 07/10/2026).
+                  ...(FORMAT_NETWORKS.has(network) ? { format: formatFor(network) } : {}),
+                  ...(network === "INSTAGRAM" && (instagramOptions.collaborators.length > 0 || (formatFor("INSTAGRAM") === "REEL" && !igShareToFeed))
+                    ? {
+                        instagram: {
+                          ...(instagramOptions.collaborators.length > 0 ? { collaborators: instagramOptions.collaborators } : {}),
+                          ...(formatFor("INSTAGRAM") === "REEL" ? { shareToFeed: igShareToFeed } : {})
+                        }
+                      }
+                    : {}),
                   ...(network === "TIKTOK" ? { tiktok: tiktokOptions } : {}),
                   ...(network === "YOUTUBE" ? buildYoutubeMetadata(youtubeOptions) : {}),
                   ...(network === "PINTEREST"
@@ -1372,7 +1656,10 @@ function ComposerPageInner() {
     pinterestOptions,
     instagramOptions,
     tiktokOptions,
-    tiktokBlocked,
+    // Format choisi (07/10/2026).
+    formatFor,
+    igShareToFeed,
+    publishBlocked,
     aiContentAll,
     aiContentOverrides,
     location,
@@ -1641,34 +1928,30 @@ function ComposerPageInner() {
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-medium text-white">Miniature</h3>
                   <div className="flex flex-wrap gap-2">
-                    {assistant.enabled && (
-                      <Button
-                        variant="ghost"
-                        onClick={() =>
-                          assistant.ask(
-                            `Propose un concept de miniature pour ma vidéo${title.trim() ? ` « ${title.trim()} »` : ""} (sujet : …, public visé : …) et explique pourquoi chaque choix donne envie de cliquer.`,
-                            { submit: false, contextKey: "thumbnails" }
-                          )
-                        }
-                        title="Ouvrir l'assistant en mode miniature : concept, accroche, composition — et le pourquoi de chaque choix"
-                      >
-                        <AiIcon className="h-4 w-4" active={assistant.open && assistant.contextKey === "thumbnails"} />
-                        Demander à l&apos;assistant
-                      </Button>
-                    )}
+                    {/* Un seul bouton (07/10/2026) : l'ancien « Demander à
+                        l'assistant », qui faisait remplir le sujet et le
+                        public de la vidéo, est retiré. L'IA regarde la vidéo
+                        elle-même ; on discute ensuite des propositions dans
+                        le chat, où elles arrivent. */}
                     <Button
                       variant="outline"
                       onClick={() => void onGenerateThumbnails({ viaChat: true })}
                       disabled={thumbLoading || aiThumbLoading}
-                      title={aiStatus?.enabled ? "3 propositions choisies par l'IA, expliquées dans le chat" : "3 images extraites de votre vidéo"}
+                      data-testid="generate-thumbnails"
+                      title={aiStatus?.enabled ? "L'IA regarde votre vidéo et crée 3 miniatures, expliquées dans le chat" : "3 images extraites de votre vidéo"}
                     >
-                      {/* Un seul bouton de génération (le 24/09/2026, l'ancien
-                          « Générer avec l'IA » séparé a été fusionné ici) :
-                          l'étoile signale que l'IA choisit et explique. La
-                          version « plus accrocheuse » se demande dans le chat,
-                          qui renvoie un brief → « Générer » sur le brief. */}
                       {aiStatus?.enabled && <AiIcon className={clsx("h-4 w-4", thumbLoading && "animate-pulse")} active={thumbLoading} />}
-                      {thumbLoading ? (aiStatus?.enabled ? "Analyse..." : "Extraction...") : "Générer des miniatures"}
+                      {thumbLoading
+                        ? thumbStep === "analyse"
+                          ? "Analyse de la vidéo…"
+                          : thumbStep === "creation"
+                            ? "Création des miniatures…"
+                            : aiStatus?.enabled
+                              ? "Analyse…"
+                              : "Extraction…"
+                        : aiStatus?.enabled
+                          ? "Générer 3 miniatures"
+                          : "Générer des miniatures"}
                     </Button>
                     <input
                       ref={thumbFileInputRef}
@@ -1681,8 +1964,8 @@ function ComposerPageInner() {
                 </div>
                 <p className="mb-2 text-xs text-slate-500">
                   {aiStatus?.enabled
-                    ? "L'IA choisit 3 images de votre vidéo (netteté, cadrage, potentiel de clic) et vous explique ses choix dans le chat — choisissez celle qui donne le plus envie de cliquer, ou demandez-lui dans le chat d'en créer une version plus accrocheuse."
-                    : "3 images extraites de votre vidéo — choisissez celle qui donne le plus envie de cliquer."}
+                    ? "En un clic, l'IA regarde votre vidéo (image et son), crée 3 miniatures à partir de ses meilleurs moments et vous explique dans le chat pourquoi chacune fera cliquer. Choisissez-en une, ou demandez-lui de la retravailler. Chaque miniature créée compte dans votre quota de miniatures IA."
+                    : "3 images extraites de votre vidéo : choisissez celle qui donne le plus envie de cliquer."}
                 </p>
                 {assistantBrief && (
                   <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-aurora-400/25 bg-nebula-900/40 px-3 py-2 text-xs">
@@ -1733,7 +2016,13 @@ function ComposerPageInner() {
                           videoAsset.thumbnailUrl === url ? "border-aurora-400" : "border-white/10 hover:border-white/30"
                         )}
                       >
-                        <img loading="lazy" decoding="async" src={url} alt="Miniature" className="aspect-video w-full object-cover" />
+                        <img
+                          loading="lazy"
+                          decoding="async"
+                          src={url}
+                          alt="Miniature"
+                          className={clsx("aspect-video w-full", thumbAspect === "9:16" ? "bg-black object-contain" : "object-cover")}
+                        />
                       </button>
                     ))}
                     <button
@@ -2012,6 +2301,16 @@ function ComposerPageInner() {
                     const networkConnections = connections.filter((c) => c.network === n);
                     return (
                     <div key={n} className="rounded-xl border border-white/[0.06] bg-white/[0.015] p-3">
+                      {assets.length > 0 && (
+                        <FormatPicker
+                          network={n}
+                          facts={mediaFacts}
+                          value={formatFor(n)}
+                          onChange={(f) => setFormats((prev) => ({ ...prev, [n]: f }))}
+                          shareToFeed={igShareToFeed}
+                          onShareToFeedChange={setIgShareToFeed}
+                        />
+                      )}
                       {networkConnections.length > 1 && (
                         <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
                           <span>Compte {NETWORK_META[n].label} :</span>
@@ -2235,9 +2534,8 @@ function ComposerPageInner() {
             {firstCommentOpen && (
               <div className="mt-3 animate-fade-in-up rounded-xl border border-white/10 bg-white/[0.02] p-3">
                 <p className="mb-2 text-xs text-slate-400">
-                  Publié automatiquement juste après la publication, en commentaire sous le post (Instagram,
-                  Facebook, Bluesky, Threads et LinkedIn — pas encore TikTok, YouTube ni Pinterest). Les comptes
-                  Instagram et Facebook connectés avant cette option doivent se reconnecter une fois.
+                  Publié automatiquement juste après la publication, en commentaire sous le post, sur chaque réseau qui le
+                  permet. Son sort, réseau par réseau, est indiqué sur la fiche de la publication.
                 </p>
                 <textarea
                   value={firstComment}
@@ -2246,6 +2544,46 @@ function ComposerPageInner() {
                   placeholder="Ex : Lien en bio 👇"
                   className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
                 />
+                {/* Où il sera publié (07/10/2026) : avant, TikTok, Pinterest et
+                    YouTube l'ignoraient sans rien dire. */}
+                {selectedNetworks.length > 0 ? (
+                  <ul className="mt-2 space-y-1" data-testid="first-comment-networks">
+                    {selectedNetworks.map((network) => {
+                      const support = firstCommentSupportFor(network);
+                      const tooLong = support.mode === "api" && firstComment.trim() !== "" && firstCommentLength(firstComment) > support.maxLength;
+                      const ok = support.mode === "api" && !tooLong;
+                      return (
+                        <li key={network} className="flex items-start gap-2 text-xs">
+                          <NetworkLogo network={network} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span className={ok ? "text-slate-300" : "text-amber-300"}>
+                            <span className="font-medium">{NETWORK_META[network].label}</span>
+                            {" : "}
+                            {support.mode === "unsupported"
+                              ? support.reason
+                              : tooLong
+                                ? `trop long, ${support.maxLength} caractères au plus (${firstCommentLength(firstComment)} actuellement).`
+                                : network === "YOUTUBE"
+                                  ? "publié sous la vidéo. YouTube ne permet pas aux applications de l'épingler : épinglez-le depuis YouTube si vous le souhaitez."
+                                  : "publié en commentaire."}
+                            {support.mode === "unsupported" && support.reconnect && (
+                              <>
+                                {" "}
+                                <Link href="/accounts" className="underline hover:text-white">
+                                  Comptes connectés
+                                </Link>
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Possible sur Instagram, Facebook, Threads, LinkedIn, Bluesky et YouTube (avec l&apos;autorisation de commenter). Pas sur
+                    TikTok ni Pinterest : leurs API ne permettent pas de commenter.
+                  </p>
+                )}
               </div>
             )}
           </GlassCard>
@@ -2265,6 +2603,7 @@ function ComposerPageInner() {
             network={effectivePreviewNetwork}
             accountFor={previewAccountFor}
             instagramCollaborators={instagramOptions.collaborators}
+            formatFor={assets.length > 0 ? formatFor : undefined}
             selectedNetworks={selectedNetworks}
             onPickNetwork={setPreviewNetwork}
             asset={previewAsset}
@@ -2291,7 +2630,7 @@ function ComposerPageInner() {
         canSubmit={canSubmit}
         submitting={submitting}
         onSubmit={onSubmit}
-        blockedReason={tiktokBlocked}
+        blockedReason={publishBlocked}
         footnote={selectedNetworks.includes("TIKTOK") ? <TiktokConsent options={tiktokOptions} className="mt-2 border-t border-white/[0.06] pt-2" /> : null}
       />
 

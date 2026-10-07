@@ -22,7 +22,7 @@ import { countSchema, endpointLabel, idSchema, opt, soft, textSchema, toDate, z 
 import { adoptConcurrentRefresh } from "./tokens";
 import { isoDurationSeconds } from "@/lib/audit/sources/youtube";
 import { envValue } from "@/lib/env-value";
-import { YOUTUBE_REPLY_SCOPE } from "./comment-reply-support";
+import { YOUTUBE_REPLY_SCOPE, hasScope } from "./comment-reply-support";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -374,6 +374,24 @@ export const youtubeClient: SocialClient = {
    * renvoie une erreur : on l'ignore et on continue avec les autres plutôt
    * que de faire échouer tout le rafraîchissement.
    */
+  // Premier commentaire (07/10/2026) : commentThreads.insert, commentaire
+  // principal sous la vidéo, au nom de la chaîne. Même droit que les
+  // réponses (youtube.force-ssl) ; 50 unités de quota. L'API ne permet pas
+  // d'épingler le commentaire. Doc :
+  // https://developers.google.com/youtube/v3/docs/commentThreads/insert
+  async postComment(connection: ConnectionLike, externalPostId: string, comment: string) {
+    if (!hasScope(connection.scopes, YOUTUBE_REPLY_SCOPE)) {
+      throw new SocialApiError("YOUTUBE", "autorisation de commenter absente : reconnectez la chaîne.", 403, { error: { errors: [{ reason: "insufficientPermissions" }] } });
+    }
+    await freshYoutubeToken(connection);
+    await fetchJson("YOUTUBE", `${API_BASE}/commentThreads?part=snippet`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${connection.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ snippet: { videoId: externalPostId, topLevelComment: { snippet: { textOriginal: comment.trim() } } } }),
+      schema: z.object({ id: idSchema })
+    });
+  },
+
   // Réponse à un commentaire (page Commentaires) : comments.insert avec
   // snippet.parentId (droit youtube.force-ssl, voir youtubeCommentReplyEnabled).
   // 50 unités de quota par réponse.

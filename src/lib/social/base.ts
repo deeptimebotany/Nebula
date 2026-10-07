@@ -88,7 +88,14 @@ export interface PublishInput {
   thumbnailUrl?: string;
   // Instagram (01/10/2026) : collaborateurs invités comme co-auteurs (3 au
   // plus, voir social/instagram-collaborators.ts). Ignoré par les autres réseaux.
-  instagram?: { collaborators?: string[] };
+  // shareToFeed (07/10/2026) : un Reel apparaît aussi dans le fil du profil
+  // (vrai par défaut).
+  instagram?: { collaborators?: string[]; shareToFeed?: boolean };
+  // Format choisi dans Publier (07/10/2026, voir social/post-format.ts) :
+  // Instagram et Facebook, « POST », « REEL » ou « STORY ». Absent :
+  // comportement d'avant (Instagram : Reel pour une vidéo ; Facebook :
+  // publication).
+  format?: "POST" | "REEL" | "STORY";
 }
 
 /**
@@ -542,6 +549,25 @@ async function fetchJsonOnce<T>(network: Provider, url: string, init?: RequestOp
  * encore été envoyé au réseau : une panne ici se relance sans risque
  * (code UNREACHABLE), un fichier introuvable est un problème de média.
  */
+/**
+ * Comme downloadMedia, sans charger le média en mémoire (07/10/2026 : vidéo
+ * envoyée par morceaux à Gemini pour les miniatures « en un clic ») : le
+ * flux, la taille annoncée (null si inconnue) et le type. Le délai couvre
+ * toute la lecture du flux.
+ */
+export async function openMediaStream(network: Provider, url: string, timeoutMs = 120_000): Promise<{ body: ReadableStream<Uint8Array>; size: number | null; type: string }> {
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+  } catch (err) {
+    throw new SocialApiError(network, `média momentanément inaccessible (${(err as Error).name === "TimeoutError" ? "téléchargement trop long" : (err as Error).message}).`, 503, undefined, NO_RESPONSE_CODES.UNREACHABLE);
+  }
+  if (res.status >= 500) throw new SocialApiError(network, `média momentanément inaccessible (${res.status}).`, 503, undefined, NO_RESPONSE_CODES.UNREACHABLE);
+  if (!res.ok || !res.body) throw new SocialApiError(network, `média introuvable ou inaccessible (${res.status}) : remplacez le fichier puis relancez.`, res.status);
+  const length = Number(res.headers.get("content-length"));
+  return { body: res.body, size: Number.isFinite(length) && length > 0 ? length : null, type: (res.headers.get("content-type") || "application/octet-stream").split(";")[0] };
+}
+
 export async function downloadMedia(network: Provider, url: string, timeoutMs = 60_000): Promise<{ bytes: ArrayBuffer; type: string }> {
   let res: Response;
   try {

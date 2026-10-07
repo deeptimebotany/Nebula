@@ -11,6 +11,8 @@ import { assertBrandWritable, assertConnectionsWritable } from "@/lib/billing/tr
 import { PAST_SCHEDULE_ERROR, isPastSchedule } from "@/lib/schedule-guard";
 import { emitWebhookEvent, postPayload } from "@/lib/webhooks";
 import { tiktokOptionsProblem } from "@/lib/social/tiktok-direct-post";
+import { formatProblem, type MediaFacts } from "@/lib/social/post-format";
+import type { Network } from "@/lib/types";
 
 export interface CreatePostTarget {
   connectionId: string;
@@ -77,6 +79,27 @@ export async function createPost(userId: string, input: CreatePostInput): Promis
     for (const t of targets.filter((x) => x.network === "TIKTOK")) {
       const problem = tiktokOptionsProblem((t.metadata as { tiktok?: unknown } | undefined)?.tiktok);
       if (problem) return { ok: false, status: 400, error: problem, reason: "tiktok_options" };
+    }
+  }
+  // Format choisi (Publication, Reel, Story — 07/10/2026) : compatible avec
+  // le média (vidéo ou image, nombre, durée et sens quand on les connaît).
+  // Vérifié même pour un brouillon : le choix est affiché dans Publier.
+  const formatTargets = targets.filter((t) => typeof (t.metadata as { format?: unknown } | undefined)?.format === "string");
+  if (formatTargets.length) {
+    const assets = assetIds.length
+      ? await prisma.mediaAsset.findMany({ where: { id: { in: assetIds } }, select: { id: true, type: true, width: true, height: true, durationSeconds: true } })
+      : [];
+    const first = assets.find((a) => a.id === mediaAssetIds[0]);
+    const facts: MediaFacts = {
+      type: first ? (first.type === "VIDEO" ? "VIDEO" : "IMAGE") : null,
+      count: mediaAssetIds.length,
+      width: first?.width ?? null,
+      height: first?.height ?? null,
+      durationSeconds: first?.durationSeconds ?? null
+    };
+    for (const t of formatTargets) {
+      const problem = formatProblem(t.network as Network, (t.metadata as { format?: string }).format, facts);
+      if (problem) return { ok: false, status: 400, error: problem, reason: "post_format" };
     }
   }
   // Jamais de programmation dans le passé (voir src/lib/schedule-guard.ts).

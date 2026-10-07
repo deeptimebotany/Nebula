@@ -8,6 +8,51 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-07-format-publication",
+    date: "2026-10-07",
+    title: "Publier : choisir Publication, Reel ou Story ; savoir si YouTube en fera un Short",
+    category: "Publication",
+    links: [{ href: "/composer", label: "Publier" }],
+    result:
+      "Pour Instagram et Facebook, chaque publication a maintenant son format : Publication, Reel ou Story. Nebula propose le bon format selon le média, grise ceux qui ne sont pas possibles en disant pourquoi (vidéo trop longue pour une story, vidéo horizontale pour un Reel Facebook…) et l'aperçu montre exactement ce qui sera publié. Pour YouTube, Publier dit si la vidéo sera un Short ou une vidéo classique : c'est YouTube qui décide (verticale ou carrée, 3 minutes au plus). Facebook publie aussi enfin toutes les photos d'un carrousel, pas seulement la première.",
+    change:
+      "`src/lib/social/post-format.ts`, `src/components/composer/format-picker.tsx`, Instagram `STORIES` / `share_to_feed` / `cover_url`, Facebook `/video_reels`, `/photo_stories`, `/video_stories` et `attached_media`, vérification à la création (`post_format`), aperçu au format choisi.",
+    readme: 88,
+    migrations: []
+  },
+  {
+    id: "2026-10-07-premier-commentaire",
+    date: "2026-10-07",
+    title: "Premier commentaire : publié sur YouTube quand c'est possible, et son sort affiché partout",
+    category: "Publication",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/publications", label: "Publications" }
+    ],
+    result:
+      "Le premier commentaire n'est plus jamais ignoré en silence. Publier dit, réseau par réseau, s'il sera publié : TikTok et Pinterest ne le permettent pas, YouTube le permet avec l'autorisation de commenter (pas sur une vidéo privée ni « pour les enfants », et sans pouvoir l'épingler). Sur la fiche de la publication, chaque réseau indique « publié », « nouvel essai vers … » ou la raison de l'échec, avec « Copier le commentaire » et « Réessayer ». Un réseau pas prêt est relancé tout seul, et l'auteur est prévenu si le commentaire n'a pas pu partir.",
+    change:
+      "`src/lib/first-comment.ts` (sort noté, réservation, relances par le cron, notification), `src/lib/social/first-comment-support.ts`, `youtubeClient.postComment` (`commentThreads.insert`), `POST /api/posts/[id]/first-comment`, `firstComment` dans `/api/connections`.",
+    readme: 87,
+    migrations: ["20261015090000_first_comment_status"]
+  },
+  {
+    id: "2026-10-07-miniatures-un-clic",
+    date: "2026-10-07",
+    title: "Miniatures en un clic : l'IA regarde la vidéo et crée 3 miniatures expliquées",
+    category: "IA",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/legal", label: "Confidentialité" }
+    ],
+    result:
+      "Plus besoin de décrire la vidéo : « Générer 3 miniatures » fait regarder la vidéo importée par l'IA, image et son. Le chat dit ce qu'elle en a compris (sujet, public, promesse), puis présente 3 miniatures créées à partir de vrais moments de la vidéo, au format de la vidéo, chacune avec son accroche, l'instant d'où elle vient et pourquoi elle fera cliquer. On en choisit une en un clic, ou on demande de la retravailler. Chaque miniature créée compte dans le quota de miniatures IA (3 par clic) ; l'analyse elle-même n'est pas décomptée.",
+    change:
+      "Route `POST /api/media/[id]/thumbnails/analyze` (API Files de Google : envoi par morceaux, attente ACTIVE, suppression ; `src/lib/ai/thumbnail-analysis.ts`), images aux instants choisis (`captureVideoFramesAt`), format 9:16 dans `generateThumbnail`, cartes enrichies dans le chat, relances propres au contexte, brief avec `option`.",
+    readme: 86,
+    migrations: []
+  },
+  {
     id: "2026-10-07-diagnostic-gemini",
     date: "2026-10-07",
     title: "IA : test de connexion à Gemini et vraie cause des erreurs",

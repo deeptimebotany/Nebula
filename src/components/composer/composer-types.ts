@@ -1,5 +1,6 @@
 // Types partagés entre la page Publier (src/app/(dashboard)/composer/page.tsx)
 // et ses sous-composants (src/components/composer/*), extraits au Lot 4.
+import type { FirstCommentSupport } from "@/lib/social/first-comment-support";
 import type { Network } from "@/lib/types";
 
 export interface UploadedAsset {
@@ -20,6 +21,8 @@ export interface ConnectionRow {
   // Identifiant (@…) et photo du compte, pour l'aperçu fidèle du Composer.
   handle?: string | null;
   avatarUrl?: string | null;
+  /** Premier commentaire possible sur ce compte (07/10/2026, /api/connections). */
+  firstComment?: FirstCommentSupport;
 }
 
 export interface NetworkOverride {

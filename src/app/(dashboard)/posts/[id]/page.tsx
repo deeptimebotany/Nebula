@@ -51,6 +51,10 @@ interface Target {
   nextCheckAt?: string | null;
   /** Miniature envoyée avec la vidéo (YouTube, Réussites lot B). */
   thumbnailStatus?: string | null;
+  /** Premier commentaire sur ce réseau (07/10/2026, voir lib/first-comment.ts). */
+  firstCommentStatus?: string | null;
+  firstCommentError?: string | null;
+  firstCommentNextAt?: string | null;
   connection: { displayName: string };
   insights: Insight[];
   /** Réglages du réseau ; removedFromNetworkAt après « Supprimer aussi sur … ». */
@@ -70,11 +74,31 @@ const THUMBNAIL_NOTE: Record<string, { text: string; tone: string }> = {
   FAILED: { text: "La miniature n'a pas pu être envoyée à YouTube. Vous pouvez l'ajouter dans YouTube Studio.", tone: "text-amber-300" }
 };
 
+// Premier commentaire (PostTarget.firstCommentStatus, 07/10/2026).
+const FIRST_COMMENT_TONE: Record<string, string> = {
+  POSTED: "text-emerald-300",
+  WAITING: "text-slate-400",
+  SENDING: "text-slate-400",
+  FAILED: "text-amber-300",
+  UNSUPPORTED: "text-amber-300"
+};
+
+function firstCommentLine(status: string, error: string | null, nextAt: string | null): string {
+  if (status === "POSTED") return "Premier commentaire publié.";
+  if (status === "SENDING") return "Premier commentaire en cours d'envoi…";
+  if (status === "WAITING") {
+    const at = nextAt ? new Date(nextAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : null;
+    return `Premier commentaire : ${error ?? "le réseau n'était pas prêt."}${at ? ` Nouvel essai vers ${at}.` : ""}`;
+  }
+  return `Premier commentaire non publié : ${error ?? "raison inconnue."}`;
+}
+
 interface Post {
   id: string;
   brandId: string;
   title: string;
   caption: string;
+  firstComment?: string | null;
   status: string;
   scheduledAt: string | null;
   createdAt: string;
@@ -134,6 +158,9 @@ export default function PostDetailPage() {
   const [sharedTargetIds, setSharedTargetIds] = useState<string[]>([]);
   const [sharing, setSharing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Premier commentaire : nouvel essai en cours (cible), texte copié (cible).
+  const [commentRetry, setCommentRetry] = useState<string | null>(null);
+  const [commentCopied, setCommentCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/posts/${params.id}`);
@@ -228,6 +255,34 @@ export default function PostDetailPage() {
     }
     if (data.quota && me) patchMe({ ai: { ...me.ai, quota: data.quota } });
     load();
+  }
+
+  async function retryFirstComment(targetId: string) {
+    setCommentRetry(targetId);
+    try {
+      const res = await fetch(`/api/posts/${params.id}/first-comment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId })
+      });
+      const data = (await res.json().catch(() => ({}))) as { status?: string; error?: string | null };
+      if (!res.ok) toast.error(data.error ?? "Nouvel essai impossible.");
+      else if (data.status === "POSTED") toast.success("Premier commentaire publié.");
+      else if (data.error) toast.error(data.error);
+      await load();
+    } finally {
+      setCommentRetry(null);
+    }
+  }
+
+  async function copyFirstComment(targetId: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCommentCopied(targetId);
+      window.setTimeout(() => setCommentCopied((v) => (v === targetId ? null : v)), 2000);
+    } catch {
+      toast.error("Impossible de copier le commentaire (autorisation navigateur refusée).");
+    }
   }
 
   async function copyLink(targetId: string, url: string) {
@@ -450,6 +505,33 @@ export default function PostDetailPage() {
                   )}
                   {t.network === "YOUTUBE" && t.thumbnailStatus && THUMBNAIL_NOTE[t.thumbnailStatus] && (
                     <p className={clsx("mt-2 text-xs", THUMBNAIL_NOTE[t.thumbnailStatus].tone)}>{THUMBNAIL_NOTE[t.thumbnailStatus].text}</p>
+                  )}
+                  {/* Premier commentaire, réseau par réseau (07/10/2026). */}
+                  {t.firstCommentStatus && post.firstComment && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="first-comment-status">
+                      <span className={FIRST_COMMENT_TONE[t.firstCommentStatus] ?? "text-slate-400"}>
+                        {firstCommentLine(t.firstCommentStatus, t.firstCommentError ?? null, t.firstCommentNextAt ?? null)}
+                      </span>
+                      {t.firstCommentStatus === "FAILED" || t.firstCommentStatus === "UNSUPPORTED" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void copyFirstComment(t.id, post.firstComment as string)}
+                            className="text-aurora-300 underline hover:text-white"
+                          >
+                            {commentCopied === t.id ? "Copié ✓" : "Copier le commentaire"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void retryFirstComment(t.id)}
+                            disabled={commentRetry === t.id}
+                            className="text-aurora-300 underline hover:text-white disabled:opacity-50"
+                          >
+                            {commentRetry === t.id ? "Nouvel essai…" : "Réessayer"}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   )}
                   {t.errorMessage && (
                     <TargetError

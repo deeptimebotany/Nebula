@@ -66,6 +66,11 @@ export interface AssistantContextDef {
    *  immédiate. Formulées comme l'utilisateur les taperait (à la 1re personne
    *  ou à l'impératif), courtes, une idée par ligne. */
   suggestions: string[];
+  /** Relances proposées sous une réponse de ce contexte, quand elles
+   *  diffèrent des suggestions d'accueil (07/10/2026 : « Rends la
+   *  proposition 1 plus contrastée » n'a de sens qu'après les miniatures).
+   *  Absentes : les suggestions servent aussi de relances. */
+  followups?: string[];
 }
 
 /** Nombre de suggestions visibles à la fois à l'accueil du tiroir. */
@@ -102,16 +107,25 @@ export const ASSISTANT_CONTEXTS: Record<AssistantContextKey, AssistantContextDef
   },
   thumbnails: {
     label: "Miniatures",
-    welcome: "Vous travaillez sur la miniature. Décrivez-moi votre vidéo : je vous propose un concept, une accroche et une composition — et j'explique POURQUOI chaque choix fait cliquer.",
+    // 07/10/2026 : plus de « décrivez-moi votre vidéo » ; Nebula la regarde
+    // (bouton « Générer 3 miniatures »). Les suggestions servent surtout
+    // APRÈS les propositions (relances sous les cartes).
+    welcome: "Vous travaillez sur la miniature. Cliquez sur « Générer 3 miniatures » dans la section Miniature : je regarde votre vidéo (image et son), je crée 3 miniatures à partir de ses meilleurs moments et j'explique pourquoi chacune fera cliquer.",
     suggestions: [
-      "Crée un concept de miniature pour ma vidéo et explique tes choix",
-      "Quel texte d'accroche mettre sur ma miniature ?",
+      "Quel texte d'accroche fait le plus cliquer ?",
       "Quelles couleurs attirent le plus l'œil dans un fil d'actualité ?",
       "Visage ou objet : qu'est-ce qui fait le plus cliquer ?",
       "Analyse les erreurs classiques d'une miniature qui ne clique pas",
       "Comment adapter ma miniature YouTube pour TikTok et Instagram ?",
-      "Propose 3 variantes de miniature à tester en A/B",
-      "Quelle émotion montrer sur la miniature pour ce sujet ?"
+      "Comment tester deux miniatures en A/B ?",
+      "Quelle émotion montrer sur une miniature ?",
+      "Faut-il mettre du texte sur une miniature TikTok ?"
+    ],
+    followups: [
+      "Rends la proposition 1 plus contrastée",
+      "Propose une autre accroche pour la proposition 2",
+      "Laquelle des propositions choisir pour YouTube ?",
+      "Propose une variante de la proposition 1 à tester en A/B"
     ]
   },
   publications: {

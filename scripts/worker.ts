@@ -3,6 +3,7 @@ import cron from "node-cron";
 // Import relatif (et non l'alias "@/...") car ce script est exécuté
 // directement par tsx, hors du bundler Next.js qui résout les alias.
 import { advanceProcessingTargets, recoverInterruptedPublications, runDuePosts } from "../src/lib/publish";
+import { retryWaitingFirstComments } from "../src/lib/first-comment";
 import { upgradeFacebookPageTokens } from "../src/lib/social/meta";
 import { runDueReports } from "../src/lib/reports";
 import { checkReferralCrownStreak } from "../src/lib/referral-crown-streak";
@@ -31,6 +32,8 @@ cron.schedule("* * * * *", async () => {
     await advanceProcessingTargets();
     await recoverInterruptedPublications();
     await upgradeFacebookPageTokens();
+    // Premiers commentaires en attente (07/10/2026, src/lib/first-comment.ts).
+    await retryWaitingFirstComments();
   } catch (err) {
     console.error("[nebula-worker] erreur (suivi des publications)", err);
   }

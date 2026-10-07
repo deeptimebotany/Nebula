@@ -21,7 +21,7 @@ import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, found
 // manquait, la page l'indiquerait honnêtement plutôt que d'inventer. Ceci
 // n'est pas un avis juridique.
 
-const LAST_UPDATED = "2 octobre 2026";
+const LAST_UPDATED = "7 octobre 2026";
 
 export const metadata = pageMetadata(SEO_LEGAL);
 
@@ -35,7 +35,7 @@ const SUBPROCESSORS: { name: string; role: string; where: string }[] = [
   { name: "Cloudflare (Turnstile)", role: "Protection anti-robot des formulaires publics", where: "Réseau mondial" },
   {
     name: "Google (Gemini, API payante)",
-    role: "Fonctions IA, uniquement si vous les utilisez : titres, légendes, miniatures, assistant, conseils de l'audit de présence (rédigés à partir des chiffres du rapport), Studio IA (titres et statistiques calculées de vos publications) et Rétention IA, qui envoie l'adresse de la vidéo YouTube publique analysée (Google la regarde), sa courbe de rétention, son titre et sa description ; pour une vidéo privée ou non listée, seulement sa miniature ou des images de la vidéo. Jamais vos identifiants. Nebula utilise le palier payant de l'API : Google n'utilise pas ces contenus pour améliorer ses produits et ne les garde que pour une durée limitée, pour détecter les abus",
+    role: "Fonctions IA, uniquement si vous les utilisez : titres, légendes, miniatures (avec « Générer 3 miniatures », la vidéo importée dans Publier, image et son, est envoyée à Google qui la regarde, puis supprimée de chez Google juste après l'analyse), assistant, conseils de l'audit de présence (rédigés à partir des chiffres du rapport), Studio IA (titres et statistiques calculées de vos publications) et Rétention IA, qui envoie l'adresse de la vidéo YouTube publique analysée (Google la regarde), sa courbe de rétention, son titre et sa description ; pour une vidéo privée ou non listée, seulement sa miniature ou des images de la vidéo. Jamais vos identifiants. Nebula utilise le palier payant de l'API : Google n'utilise pas ces contenus pour améliorer ses produits et ne les garde que pour une durée limitée, pour détecter les abus",
     where: "États-Unis / Union européenne"
   }
 ];

@@ -78,7 +78,11 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
   thumbnails: {
     instruction: [
       "Contexte : l'utilisateur travaille sur la MINIATURE d'une vidéo (section « Miniature » de la page Publier). Tu es un directeur artistique spécialisé dans les miniatures YouTube/TikTok qui EXPLIQUE ses choix.",
-      "Si l'utilisateur ne décrit pas sa vidéo (sujet, cible, émotion), pose d'abord 2 questions maximum, courtes, puis attends sa réponse.",
+      // 07/10/2026 : Nebula regarde la vidéo lui-même (miniatures « en un
+      // clic ») ; plus jamais de question sur le sujet ou le public.
+      "La conversation contient souvent l'analyse de la vidéo faite par Nebula (message « J'ai regardé votre vidéo en entier… » : ce qu'elle raconte, pour qui, sa promesse) et les miniatures déjà proposées (« Option 1 (levier …, accroche …, image de la vidéo à 0:42) : … »). Appuie-toi dessus et ne redemande JAMAIS le sujet ou le public de la vidéo.",
+      "S'il n'y a ni analyse ni description de la vidéo, invite en une phrase à cliquer sur « Générer 3 miniatures » dans la section Miniature de la page Publier (Nebula regarde alors la vidéo, image et son), puis donne quand même des conseils utiles ; ne pose pas de question.",
+      "Quand on te demande de retravailler une proposition (« la 2 », « plus contrastée », « autre accroche »…), garde son image de départ et son concept, change seulement ce qui est demandé, et indique son numéro dans le bloc json (« option »).",
       "Quand tu proposes une miniature, réponds EXACTEMENT avec ces sections, dans cet ordre, en markdown « ## » :",
       "## Concept — une phrase : ce que la miniature montre et la promesse qu'elle fait.",
       "## Accroche — le texte à écrire sur l'image (2 à 4 mots MAX, en majuscules), puis « Pourquoi : » l'effet psychologique visé (curiosité, contraste, enjeu, chiffre, question…).",
@@ -87,7 +91,7 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
       "## Émotion — expression du visage ou objet mis en scène ; puis « Pourquoi : » (miroir émotionnel, identification, promesse implicite).",
       "## À éviter — 2 ou 3 erreurs classiques pour CE sujet.",
       "Chaque « Pourquoi : » est obligatoire et concret : c'est la valeur de ta réponse, pas un détail.",
-      "Termine TOUJOURS par un bloc de code ```json sur une seule ligne, sans commentaire, de la forme {\"hook\":\"TEXTE ACCROCHE\",\"imagePrompt\":\"description complète de l'image à générer, en une phrase dense : sujet, cadrage, émotion, couleurs, emplacement du texte\"} — ce bloc sert au bouton « Générer cette miniature » et n'est pas affiché tel quel."
+      "Termine TOUJOURS par un bloc de code ```json sur une seule ligne, sans commentaire, de la forme {\"hook\":\"TEXTE ACCROCHE\",\"imagePrompt\":\"description complète de l'image à générer, en une phrase dense : sujet, cadrage, émotion, couleurs, emplacement du texte\",\"option\":2} — « option » : le numéro de la proposition retravaillée, ou null pour un nouveau concept. Ce bloc sert au bouton « Générer cette miniature » et n'est pas affiché tel quel."
     ].join("\n"),
     needs: { recentPosts: true },
     maxOutputTokens: 1800
@@ -267,6 +271,8 @@ export function buildSystemInstruction(key: AssistantContextKey, data: BrandCont
 export interface ThumbnailBrief {
   hook: string;
   imagePrompt: string;
+  /** Proposition retravaillée (1, 2 ou 3) : la miniature repart de son image. */
+  option?: number | null;
 }
 
 /** Retire le bloc ```json final d'une réponse « miniature » et le renvoie
@@ -280,9 +286,10 @@ export function extractThumbnailBrief(reply: string): { text: string; brief: Thu
   try {
     const parsed = JSON.parse(match[1].trim()) as Partial<ThumbnailBrief>;
     if (typeof parsed.imagePrompt === "string" && parsed.imagePrompt.trim()) {
+      const option = typeof parsed.option === "number" && Number.isInteger(parsed.option) && parsed.option >= 1 && parsed.option <= 3 ? parsed.option : null;
       return {
         text,
-        brief: { hook: typeof parsed.hook === "string" ? parsed.hook.trim().slice(0, 60) : "", imagePrompt: parsed.imagePrompt.trim().slice(0, 1200) }
+        brief: { hook: typeof parsed.hook === "string" ? parsed.hook.trim().slice(0, 60) : "", imagePrompt: parsed.imagePrompt.trim().slice(0, 1200), option }
       };
     }
   } catch {

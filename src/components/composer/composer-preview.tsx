@@ -52,6 +52,8 @@ interface ComposerPreviewProps {
   sticky?: boolean;
   /** Collaborateurs Instagram choisis dans Publier (01/10/2026). */
   instagramCollaborators?: string[];
+  /** Format choisi par réseau (Publication, Reel, Story — 07/10/2026). */
+  formatFor?: (network: Network) => "POST" | "REEL" | "STORY" | null;
 }
 
 function aspectFor(w: number, h: number): string {
@@ -118,7 +120,8 @@ export function ComposerPreview({
   instagramGridTiles,
   gridLoading,
   sticky = false,
-  instagramCollaborators
+  instagramCollaborators,
+  formatFor
 }: ComposerPreviewProps) {
   const offeredNetworks = useAvailableNetworks();
   const [device, setDevice] = useState<PreviewDevice>("mobile");
@@ -153,7 +156,8 @@ export function ComposerPreview({
     caption,
     shape: shapeOf(aspectClass),
     onMediaShape: (w, h) => onAspectClass(aspectFor(w, h)),
-    ...(network === "INSTAGRAM" && instagramCollaborators?.length ? { coAuthors: instagramCollaborators } : {})
+    ...(network === "INSTAGRAM" && instagramCollaborators?.length ? { coAuthors: instagramCollaborators } : {}),
+    format: formatFor?.(network) ?? null
   };
 
   // Plein écran : fermeture avec Échap, défilement de la page bloqué.

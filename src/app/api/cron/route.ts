@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { advanceProcessingTargets, recoverInterruptedPublications, runDuePosts } from "@/lib/publish";
+import { retryWaitingFirstComments } from "@/lib/first-comment";
 import { upgradeFacebookPageTokens } from "@/lib/social/meta";
 import { runDueReports } from "@/lib/reports";
 import { checkReferralCrownStreak } from "@/lib/referral-crown-streak";
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const [results, reports, , , growth, account, secrets, processing, recovered, pageTokens] = await Promise.all([
+  const [results, reports, , , growth, account, secrets, processing, recovered, pageTokens, firstComments] = await Promise.all([
     runDuePosts(),
     runDueReports(),
     checkReferralCrownStreak(),
@@ -80,7 +81,13 @@ export async function GET(req: NextRequest) {
     upgradeFacebookPageTokens().catch((err) => {
       console.error("[cron] jetons de Page Facebook :", (err as Error).message);
       return null;
+    }),
+    // Premiers commentaires en attente (réseau pas prêt, limite de débit),
+    // 07/10/2026 : voir src/lib/first-comment.ts.
+    retryWaitingFirstComments().catch((err) => {
+      console.error("[cron] premiers commentaires :", (err as Error).message);
+      return null;
     })
   ]);
-  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports, growth, account, secrets, processing, recovered, pageTokens });
+  return NextResponse.json({ ranAt: new Date().toISOString(), results, reports, growth, account, secrets, processing, recovered, pageTokens, firstComments });
 }

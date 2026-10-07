@@ -843,8 +843,9 @@ export interface GeneratedThumbnail {
   mimeType: string;
 }
 
-/** Réglages d'image : taille 1K (0,067 $ l'image) et format imposé. */
-export type ImageAspect = "16:9" | "1:1";
+/** Réglages d'image : taille 1K (0,067 $ l'image) et format imposé
+ *  (9:16 depuis le 07/10/2026 : miniature d'une vidéo verticale). */
+export type ImageAspect = "16:9" | "9:16" | "1:1";
 
 /**
  * Corps possibles de la requête d'image, du plus précis au plus simple.
@@ -903,19 +904,27 @@ export async function generateThumbnail(input: {
    *  il est présent, il PRIME sur les consignes génériques — c'est le
    *  concept que l'utilisateur vient de valider en lisant le « pourquoi ». */
   brief?: { hook: string; imagePrompt: string } | null;
+  /** Format de la miniature : celui de la vidéo (16:9 par défaut, 9:16
+   *  pour une vidéo verticale). */
+  aspect?: "16:9" | "9:16";
 }): Promise<GeneratedThumbnail> {
+  const aspect = input.aspect ?? "16:9";
   const prompt = [
     "Tu vas créer une miniature vidéo accrocheuse à partir de cette image, extraite d'une vraie vidéo.",
     `Titre de la vidéo : "${input.title || "sans titre"}"${input.network ? ` (réseau : ${input.network})` : ""}.`,
     "Garde le sujet principal de l'image reconnaissable, mais rends le cadrage et le contraste plus percutants,",
     "façon miniature YouTube/TikTok qui donne envie de cliquer.",
+    // Fidélité (07/10/2026) : la miniature doit rester vraie, la personne
+    // doit pouvoir s'y reconnaître et la vidéo tenir sa promesse.
+    "Fidélité obligatoire : garde les personnes identiques (visage, traits, couleur de peau, coiffure, vêtements) et les objets réels de l'image ;",
+    "n'ajoute aucun objet, personne, logo ou marque absent de l'image ; tu peux recadrer, rapprocher le sujet, simplifier ou flouter l'arrière-plan, renforcer la lumière, le contraste et les couleurs.",
     input.brief
-      ? `Suis ce brief de direction artistique : ${input.brief.imagePrompt}${input.brief.hook ? ` Texte d'accroche à écrire sur l'image, en gros et très lisible : « ${input.brief.hook} ».` : ""}`
+      ? `Suis ce brief de direction artistique : ${input.brief.imagePrompt}${input.brief.hook ? ` Texte d'accroche à écrire sur l'image, en gros et très lisible, orthographe exacte : « ${input.brief.hook} ».` : " N'écris aucun texte sur l'image."}`
       : "Tu peux ajouter un très court texte d'accroche à l'écran si ça sert l'image, mais reste sobre et lisible.",
-    "Format 16:9."
+    aspect === "9:16" ? "Format vertical 9:16 : garde le texte et le sujet dans le tiers central (les bords sont couverts par l'interface des applications)." : "Format 16:9 : laisse le coin en bas à droite libre (durée de la vidéo affichée par YouTube)."
   ].join(" ");
 
-  return generateImage([{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }], "16:9");
+  return generateImage([{ text: prompt }, { inline_data: { mime_type: input.frameMimeType, data: input.frameBase64 } }], aspect);
 }
 
 /**
@@ -972,6 +981,237 @@ export async function generateRetentionJson(params: {
 
 export function retentionModel(): string {
   return RETENTION_MODEL;
+}
+
+// --- Vidéo envoyée chez Google : API Files (07/10/2026) ---------------------
+// Miniatures « en un clic » : Gemini regarde la vidéo importée dans Publier,
+// image ET son. Google ne lit une adresse extérieure que jusqu'à 15 Mo : la
+// vidéo (Vercel Blob) lui est donc envoyée par morceaux avec l'API Files
+// (gratuite, 2 Go maximum par fichier), lue une fois, puis supprimée tout de
+// suite (Google l'effacerait de lui-même au bout de 48 h).
+// Doc : https://ai.google.dev/gemini-api/docs/files
+
+const UPLOAD_BASE = "https://generativelanguage.googleapis.com/upload/v1beta/files";
+/** Taille d'un morceau envoyé : un multiple de la granularité annoncée par Google (8 Mio). */
+const UPLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
+/** Intervalle entre deux vérifications de l'état du fichier (PROCESSING → ACTIVE). */
+const FILE_POLL_MS = 2_000;
+
+const fileSchema = z.object({
+  name: z.string().min(1),
+  uri: z.string().min(1),
+  mimeType: textSchema,
+  state: textSchema,
+  error: soft(z.object({ message: textSchema }))
+});
+const uploadResponseSchema = z.object({ file: fileSchema });
+type GeminiFileInfo = z.output<typeof fileSchema>;
+
+export interface GeminiVideoFile {
+  /** « files/abc123 » : pour lire l'état et supprimer le fichier. */
+  name: string;
+  /** Adresse à passer dans file_data.file_uri. */
+  uri: string;
+  mimeType: string;
+}
+
+/** Type de vidéo accepté par Gemini (video/quicktime s'écrit video/mov chez Google). */
+export function geminiVideoMime(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m === "video/quicktime") return "video/mov";
+  if (m === "video/x-msvideo") return "video/avi";
+  return m.startsWith("video/") ? m : "video/mp4";
+}
+
+/** Erreur de l'API Files traduite en français (la cause détaillée part dans les journaux). */
+function filesApiError(err: unknown, step: string): Error {
+  if (!(err instanceof SocialApiError)) return err instanceof Error ? err : new Error("Erreur du service IA.");
+  const googleMessage = redactKey(err.message.replace(/^\[GEMINI\] /, ""));
+  console.error(`[gemini] API Files, ${step} : HTTP ${err.status ?? "—"} ${err.code ?? ""} — ${googleMessage.slice(0, 300)}`);
+  if (err.status === 402 || /prepayment credits are depleted/i.test(googleMessage)) {
+    return new Error("Les fonctions IA de Nebula sont momentanément indisponibles. L'équipe Nebula est prévenue ; réessayez un peu plus tard.");
+  }
+  if (err.status === 413) return new Error("Vidéo trop lourde pour être analysée (2 Go maximum).");
+  if (err.status === 400 || err.status === 401 || err.status === 403) {
+    void alertOwner({
+      title: "Gemini : envoi de vidéo refusé",
+      body: `L'API Files de Google refuse l'envoi d'une vidéo (${step}) : miniatures « en un clic » en panne. Lancez « Tester la connexion à Gemini » sur /admin/ia. Message : ${googleMessage}`,
+      dedupeKey: "gemini-files"
+    });
+    return new Error("Le service IA est momentanément indisponible (configuration). L'équipe Nebula est prévenue.");
+  }
+  if (classifyProviderError(err).category === "TIMEOUT") return new Error("L'envoi de la vidéo à Google a pris trop de temps. Réessayez dans un instant.");
+  return new Error("Google n'a pas pu recevoir la vidéo. Réessayez dans un instant.");
+}
+
+/** Lit des morceaux de taille fixe dans un flux (le dernier peut être plus court). */
+async function* fixedChunks(stream: ReadableStream<Uint8Array>, size: number): AsyncGenerator<{ bytes: Uint8Array<ArrayBuffer>; last: boolean }> {
+  const reader = stream.getReader();
+  let pending: Uint8Array[] = [];
+  let pendingBytes = 0;
+  const take = (n: number): Uint8Array<ArrayBuffer> => {
+    const out = new Uint8Array(n);
+    let filled = 0;
+    while (filled < n) {
+      const head = pending[0];
+      const need = n - filled;
+      if (head.byteLength <= need) {
+        out.set(head, filled);
+        filled += head.byteLength;
+        pending.shift();
+      } else {
+        out.set(head.subarray(0, need), filled);
+        pending[0] = head.subarray(need);
+        filled += need;
+      }
+    }
+    pendingBytes -= n;
+    return out;
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value?.byteLength) {
+      pending.push(value);
+      pendingBytes += value.byteLength;
+    }
+    // Un morceau n'est envoyé que s'il en reste après lui : le dernier envoi
+    // (« upload, finalize ») n'est ainsi jamais vide.
+    while (pendingBytes > size) yield { bytes: take(size), last: false };
+    if (done) break;
+  }
+  if (pendingBytes > 0) yield { bytes: take(pendingBytes), last: true };
+  pending = [];
+}
+
+/**
+ * Envoie une vidéo à l'API Files de Google (envoi « resumable », par
+ * morceaux de 16 Mio : jamais toute la vidéo en mémoire), puis attend que
+ * Google l'ait préparée (état ACTIVE). À supprimer après usage
+ * (deleteGeminiFile).
+ */
+export async function uploadVideoToGemini(
+  source: { body: ReadableStream<Uint8Array>; sizeBytes: number; mimeType: string; displayName: string },
+  options: { deadline: number }
+): Promise<GeminiVideoFile> {
+  const key = requireKey();
+  const left = (cap: number) => Math.max(1_000, Math.min(cap, options.deadline - Date.now()));
+  const mimeType = geminiVideoMime(source.mimeType);
+
+  // 1. Ouverture de l'envoi : Google répond avec l'adresse où envoyer les octets.
+  let uploadUrl: string;
+  let granularity = 8 * 1024 * 1024;
+  try {
+    const start = await sendRequest("GEMINI", UPLOAD_BASE, {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": key,
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": String(source.sizeBytes),
+        "X-Goog-Upload-Header-Content-Type": mimeType,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ file: { display_name: source.displayName.slice(0, 120) } }),
+      cache: "no-store",
+      timeoutMs: left(30_000)
+    });
+    const { text, json } = await readBody("GEMINI", start, "POST");
+    if (!start.ok) throw errorFromResponse("GEMINI", start, text, json);
+    const url = start.headers.get("x-goog-upload-url");
+    if (!url) throw new SocialApiError("GEMINI", "adresse d'envoi absente de la réponse de l'API Files.", 502, undefined, "UNEXPECTED_RESPONSE");
+    uploadUrl = url;
+    granularity = Number(start.headers.get("x-goog-upload-chunk-granularity")) || granularity;
+  } catch (err) {
+    throw filesApiError(err, "ouverture de l'envoi");
+  }
+
+  // 2. Les octets, morceau par morceau ; le dernier finalise le fichier.
+  const chunkSize = Math.max(granularity, Math.floor(UPLOAD_CHUNK_BYTES / granularity) * granularity);
+  let offset = 0;
+  let file: GeminiFileInfo | null = null;
+  try {
+    for await (const chunk of fixedChunks(source.body, chunkSize)) {
+      const res = await sendRequest("GEMINI", uploadUrl, {
+        method: "POST",
+        headers: { "X-Goog-Upload-Command": chunk.last ? "upload, finalize" : "upload", "X-Goog-Upload-Offset": String(offset) },
+        body: chunk.bytes,
+        cache: "no-store",
+        timeoutMs: left(120_000)
+      });
+      const { text, json } = await readBody("GEMINI", res, "POST");
+      if (!res.ok) throw errorFromResponse("GEMINI", res, text, json);
+      offset += chunk.bytes.byteLength;
+      if (chunk.last) file = checkShape("GEMINI", uploadResponseSchema, json, "POST upload/v1beta/files", res.status).file;
+    }
+  } catch (err) {
+    throw filesApiError(err, "envoi de la vidéo");
+  }
+  if (!file) throw new Error("La vidéo est vide : rien à analyser.");
+
+  // 3. Google prépare la vidéo (quelques secondes à une minute) : état ACTIVE.
+  try {
+    while (file.state !== "ACTIVE") {
+      if (file.state === "FAILED") {
+        void deleteGeminiFile(file.name);
+        throw new Error("Google n'a pas pu lire cette vidéo (format non pris en charge ?). Essayez avec un fichier MP4.");
+      }
+      if (Date.now() + FILE_POLL_MS + 5_000 > options.deadline) {
+        void deleteGeminiFile(file.name);
+        throw new Error("Google met trop de temps à préparer la vidéo. Réessayez dans un instant.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, FILE_POLL_MS));
+      file = await fetchJson("GEMINI", `${API_BASE}/${file.name}`, {
+        method: "GET",
+        headers: { "x-goog-api-key": key },
+        cache: "no-store",
+        timeoutMs: left(15_000),
+        schema: fileSchema
+      });
+    }
+  } catch (err) {
+    if (!(err instanceof SocialApiError)) throw err;
+    void deleteGeminiFile(file.name);
+    throw filesApiError(err, "préparation de la vidéo");
+  }
+  return { name: file.name, uri: file.uri, mimeType: file.mimeType || mimeType };
+}
+
+/** Supprime un fichier de l'API Files (sans jamais faire échouer l'appelant). */
+export async function deleteGeminiFile(name: string): Promise<void> {
+  try {
+    const res = await sendRequest("GEMINI", `${API_BASE}/${name}`, {
+      method: "DELETE",
+      headers: { "x-goog-api-key": requireKey() },
+      cache: "no-store",
+      timeoutMs: 10_000
+    });
+    if (!res.ok) console.error(`[gemini] API Files : suppression de ${name} refusée (HTTP ${res.status}).`);
+  } catch (err) {
+    console.error(`[gemini] API Files : suppression de ${name} impossible (${redactKey((err as Error).message)}).`);
+  }
+}
+
+/**
+ * Réponse JSON à partir d'une vidéo envoyée par l'API Files (miniatures en un
+ * clic) : modèle texte, vidéo en résolution basse (≈ 100 jetons par seconde,
+ * son compris), réponse en flux pour ne pas être coupé sur une longue vidéo.
+ */
+export async function generateVideoJson(params: {
+  systemInstruction: string;
+  parts: GenerateContentPart[];
+  thinking?: ThinkingLevel;
+  maxOutputTokens?: number;
+  deadlineMs: number;
+}): Promise<string> {
+  return callGemini({
+    systemInstruction: params.systemInstruction,
+    contents: [{ role: "user", parts: params.parts }],
+    jsonMode: true,
+    maxOutputTokens: params.maxOutputTokens ?? 2_500,
+    thinking: params.thinking ?? "medium",
+    mediaResolutionLow: true,
+    transport: { stream: true, deadlineMs: params.deadlineMs, attemptTimeoutMs: params.deadlineMs }
+  });
 }
 
 /**

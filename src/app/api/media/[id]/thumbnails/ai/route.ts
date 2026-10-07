@@ -21,12 +21,18 @@ const bodySchema = z.object({
   network: z.string().optional(),
   // Brief de l'assistant « Demander à Nebula » (bouton « Générer cette
   // miniature ») — facultatif, voir generateThumbnail().
-  brief: z.object({ hook: z.string().max(60), imagePrompt: z.string().max(1200) }).nullable().optional()
+  brief: z.object({ hook: z.string().max(60), imagePrompt: z.string().max(1200), option: z.number().int().nullable().optional() }).nullable().optional(),
+  // Format de la miniature (07/10/2026) : celui de la vidéo (verticale → 9:16).
+  aspect: z.enum(["16:9", "9:16"]).optional()
 });
 
 // POST /api/media/[id]/thumbnails/ai — à partir d'une frame réelle de la
 // vidéo (capturée côté navigateur, voir composer/page.tsx), demande à
-// Gemini de générer une variante plus accrocheuse de la miniature.
+// Gemini de générer une variante plus accrocheuse de la miniature. Depuis le
+// 07/10/2026, c'est aussi l'étape 2 des miniatures « en un clic » : une
+// requête par concept proposé par /thumbnails/analyze (image de l'instant
+// choisi par Gemini + accroche + consignes), une miniature décomptée par
+// image réussie.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -44,14 +50,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { frameBase64, frameMimeType, title, network, brief } = parsed.data;
+  const { frameBase64, frameMimeType, title, network, brief, aspect } = parsed.data;
 
   // Porte de l'IA (lot E2) : palier de la marque, quota du compte, budget.
   const gate = await gateAppAi({ userId, brandId: asset.brandId, kind: "image" });
   if (!gate.ok) return gate.response;
 
   try {
-    const generated = await gate.allowance.run(() => generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network, brief: brief ?? null }));
+    const generated = await gate.allowance.run(() => generateThumbnail({ frameBase64, frameMimeType, title: title ?? "", network, brief: brief ? { hook: brief.hook, imagePrompt: brief.imagePrompt } : null, aspect }));
     const buffer = Buffer.from(generated.base64, "base64");
     const ext = generated.mimeType.includes("png") ? "png" : "jpg";
     const file = new File([buffer], `ia-${asset.id}.${ext}`, { type: generated.mimeType });

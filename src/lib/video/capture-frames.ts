@@ -30,12 +30,22 @@ function waitFor(video: HTMLVideoElement, event: "loadedmetadata" | "seeked", ms
   });
 }
 
+export interface CapturedFrames {
+  /** Une image par instant demandé (dans l'ordre), JPEG. */
+  frames: Blob[];
+  /** Taille réelle de la vidéo (rotation du téléphone comprise). */
+  width: number;
+  height: number;
+  /** Durée en secondes (0 si inconnue). */
+  duration: number;
+}
+
 /**
- * `count` images réparties dans la vidéo (jamais la toute première ni la
- * dernière). `maxWidth` réduit les grandes vidéos (4K…) pour des images
+ * Images de la vidéo aux instants calculés par `times(duration)` (en
+ * secondes). `maxWidth` réduit les grandes vidéos (4K…) pour des images
  * légères ; par défaut, taille d'origine.
  */
-export async function captureVideoFrames(sourceUrl: string, count: number, opts: { maxWidth?: number } = {}): Promise<Blob[]> {
+async function captureAt(sourceUrl: string, times: (duration: number) => number[], opts: { maxWidth?: number }): Promise<CapturedFrames> {
   const video = document.createElement("video");
   video.muted = true;
   video.playsInline = true;
@@ -55,17 +65,56 @@ export async function captureVideoFrames(sourceUrl: string, count: number, opts:
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Capture d'image non supportée par ce navigateur.");
 
-  const blobs: Blob[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = duration > 0 ? (duration * (i + 1)) / (count + 1) : 0;
+  const frames: Blob[] = [];
+  for (const wanted of times(duration)) {
+    // Toujours dans la vidéo (jamais la toute dernière image, souvent noire).
+    const t = duration > 0 ? Math.min(Math.max(wanted, 0), Math.max(0, duration - 0.2)) : 0;
     const seeked = waitFor(video, "seeked", 10_000, "Erreur pendant l'extraction d'une image de la vidéo.");
     video.currentTime = t;
     await seeked;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-    if (blob) blobs.push(blob);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.88));
+    if (blob) frames.push(blob);
   }
   video.removeAttribute("src");
   video.load();
-  return blobs;
+  return { frames, width: srcW, height: srcH, duration };
+}
+
+/**
+ * `count` images réparties dans la vidéo (jamais la toute première ni la
+ * dernière). `maxWidth` réduit les grandes vidéos (4K…) pour des images
+ * légères ; par défaut, taille d'origine.
+ */
+export async function captureVideoFrames(sourceUrl: string, count: number, opts: { maxWidth?: number } = {}): Promise<Blob[]> {
+  const captured = await captureAt(sourceUrl, (duration) => Array.from({ length: count }, (_, i) => (duration > 0 ? (duration * (i + 1)) / (count + 1) : 0)), opts);
+  return captured.frames;
+}
+
+/**
+ * Images aux instants précis choisis par l'IA (miniatures « en un clic »,
+ * 07/10/2026), avec la taille et la durée de la vidéo.
+ */
+export function captureVideoFramesAt(sourceUrl: string, seconds: number[], opts: { maxWidth?: number } = {}): Promise<CapturedFrames> {
+  return captureAt(sourceUrl, () => seconds, opts);
+}
+
+/** Durée et taille d'une vidéo (métadonnées seulement), ou null si illisible. */
+export async function readVideoInfo(sourceUrl: string): Promise<{ duration: number; width: number; height: number } | null> {
+  const video = document.createElement("video");
+  video.muted = true;
+  video.preload = "metadata";
+  video.crossOrigin = "anonymous";
+  const loaded = waitFor(video, "loadedmetadata", 15_000, "illisible");
+  video.src = sourceUrl;
+  try {
+    await loaded;
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    return { duration, width: video.videoWidth, height: video.videoHeight };
+  } catch {
+    return null;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+  }
 }

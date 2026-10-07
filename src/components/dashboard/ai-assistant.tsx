@@ -40,6 +40,7 @@ import { IconChevronRight, IconClose, IconRefresh, IconSend } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
 import { clsx } from "@/lib/clsx";
 import { AiIcon } from "@/components/ai/ai-icon";
+import { formatTimestamp } from "@/lib/video/format-time";
 
 interface Message {
   id: string;
@@ -87,6 +88,13 @@ function saveConversation(brandId: string, messages: Message[]): void {
   }
 }
 
+/** Une proposition de miniature, en une ligne, pour l'historique envoyé à Gemini. */
+function describePick(p: FramePickCard, k: number): string {
+  const details = [p.angle ? `levier ${p.angle}` : "", p.hook ? `accroche « ${p.hook} »` : "", typeof p.second === "number" ? `image de la vidéo à ${formatTimestamp(p.second)}` : ""].filter(Boolean).join(", ");
+  const why = (p.why?.length ? p.why.join(" ") : p.reason || "image extraite de la vidéo").slice(0, 260);
+  return `Option ${k + 1}${details ? ` (${details})` : ""} : ${why}`;
+}
+
 function firstNameOf(name: string | null | undefined): string | null {
   if (!name) return null;
   const first = name.trim().split(/\s+/)[0];
@@ -96,7 +104,7 @@ function firstNameOf(name: string | null | undefined): string | null {
 export function AiAssistant() {
   const { activeBrand } = useBrand();
   const { data: bootstrap } = useBootstrap();
-  const { enabled, open, setOpen, contextKey, pendingPrompt, consumePendingPrompt, pendingInjection, consumePendingInjection, externalThinking } = useAiAssistant();
+  const { enabled, open, setOpen, contextKey, pendingPrompt, consumePendingPrompt, pendingInjection, consumePendingInjection, externalThinking, externalThinkingLabel } = useAiAssistant();
   // Miniature choisie depuis le chat (affiche « ✓ Choisie » sur sa carte).
   const [chosenPick, setChosenPick] = useState<string | null>(null);
   const pathname = usePathname();
@@ -175,11 +183,15 @@ export function AiAssistant() {
 
   // --- Envoi --------------------------------------------------------------
   const send = useCallback(
-    async (rawText?: string) => {
+    async (rawText?: string, keyOverride?: AssistantContextKey) => {
       const text = (rawText ?? input).trim();
       if (!text || !activeBrand || sending || cooldownUntil) return;
+      // Relance proposée sous une réponse : dans le contexte de cette réponse
+      // (ex. « Rends la proposition 1 plus contrastée » sous les miniatures,
+      // même si la section Miniature n'est plus à l'écran).
+      const key = keyOverride ?? contextKey;
 
-      const userMessage: Message = { id: newId(), role: "user", text, contextKey };
+      const userMessage: Message = { id: newId(), role: "user", text, contextKey: key };
       // Historique envoyé : sans les messages d'erreur (jamais utiles à Gemini,
       // et « ⚠️ » à la place d'une vraie réponse fausserait le fil).
       const history = [...messages, userMessage].filter((m) => !m.error)
@@ -187,7 +199,7 @@ export function AiAssistant() {
           role: m.role,
           // Propositions de miniatures : le « pourquoi » de chaque option
           // accompagne le texte, pour pouvoir en reparler (« et la 2 ? »).
-          text: m.framePicks?.length ? `${m.text}\n${m.framePicks.map((p, k) => `Option ${k + 1} : ${p.reason || "image extraite de la vidéo"}`).join("\n")}` : m.text
+          text: m.framePicks?.length ? `${m.text}\n${m.framePicks.map((p, k) => describePick(p, k)).join("\n")}` : m.text
         }));
 
       setMessages((prev) => [...prev, userMessage]);
@@ -199,7 +211,7 @@ export function AiAssistant() {
         const res = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brandId: activeBrand.id, contextKey, messages: history })
+          body: JSON.stringify({ brandId: activeBrand.id, contextKey: key, messages: history })
         });
         const data = (await res.json().catch(() => ({}))) as {
           reply?: string;
@@ -224,18 +236,18 @@ export function AiAssistant() {
             setCooldownUntil(Date.now() + seconds * 1000);
             setNow(Date.now());
           }
-          setMessages((prev) => [...prev, { id: newId(), role: "model", text: errorText, error: true, contextKey }]);
+          setMessages((prev) => [...prev, { id: newId(), role: "model", text: errorText, error: true, contextKey: key }]);
           return;
         }
         setMessages((prev) => [
           ...prev,
-          { id: newId(), role: "model", text: data.reply ?? "", contextKey, thumbnail: data.thumbnail ?? null }
+          { id: newId(), role: "model", text: data.reply ?? "", contextKey: key, thumbnail: data.thumbnail ?? null }
         ]);
         setFollowupBatch((b) => b + 1);
       } catch {
         setMessages((prev) => [
           ...prev,
-          { id: newId(), role: "model", text: "Connexion perdue pendant la réponse. Vérifiez votre réseau puis réessayez.", error: true, contextKey }
+          { id: newId(), role: "model", text: "Connexion perdue pendant la réponse. Vérifiez votre réseau puis réessayez.", error: true, contextKey: key }
         ]);
       } finally {
         setSending(false);
@@ -294,11 +306,16 @@ export function AiAssistant() {
 
   const suggestions = useMemo(() => pickSuggestionBatch(ctx.suggestions, batch), [ctx, batch]);
   const hasMoreSuggestions = suggestionBatchCount(ctx.suggestions) > 1;
-  const followups = useMemo(() => pickSuggestionBatch(ctx.suggestions, followupBatch, 2), [ctx, followupBatch]);
+  const lastMessage = messages[messages.length - 1];
+  // Relances : celles du contexte de la dernière réponse (07/10/2026).
+  const followupKey: AssistantContextKey = lastMessage?.contextKey ?? contextKey;
+  const followups = useMemo(() => {
+    const def = ASSISTANT_CONTEXTS[followupKey];
+    return pickSuggestionBatch(def.followups ?? def.suggestions, followupBatch, 2);
+  }, [followupKey, followupBatch]);
 
   if (!enabled) return null;
 
-  const lastMessage = messages[messages.length - 1];
   const showFollowups = messages.length > 0 && !sending && !externalThinking && lastMessage?.role === "model" && !lastMessage.error;
 
   return (
@@ -425,13 +442,37 @@ export function AiAssistant() {
                               {m.framePicks.map((p, idx) => (
                                 <div key={p.url} className={clsx("overflow-hidden rounded-xl border bg-nebula-900/40", chosenPick === p.url ? "border-aurora-400/60" : "border-white/10")}>
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={p.url} alt={`Proposition de miniature ${idx + 1}`} loading="lazy" className="aspect-video w-full object-cover" />
+                                  <img
+                                    src={p.url}
+                                    alt={`Proposition de miniature ${idx + 1}${p.hook ? ` : « ${p.hook} »` : ""}`}
+                                    loading="lazy"
+                                    className={p.aspect === "9:16" ? "mx-auto aspect-[9/16] max-h-[420px] w-auto bg-black object-cover" : "aspect-video w-full object-cover"}
+                                  />
                                   <div className="p-3">
                                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-aurora-300">
                                       Option {idx + 1}
                                       {idx === 0 ? " · recommandée" : ""}
+                                      {p.angle ? ` · ${p.angle}` : ""}
                                     </p>
-                                    {p.reason && <p className="mt-1 text-xs leading-relaxed text-slate-300">{p.reason}</p>}
+                                    {p.hook && <p className="mt-1 font-display text-sm font-semibold text-white">« {p.hook} »</p>}
+                                    {typeof p.second === "number" && (
+                                      <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                                        Image de votre vidéo à {formatTimestamp(p.second)}
+                                        {p.moment ? ` : ${p.moment}` : ""}
+                                      </p>
+                                    )}
+                                    {p.why && p.why.length > 0 ? (
+                                      <div className="mt-2">
+                                        <p className="text-[11px] font-semibold text-slate-200">Pourquoi elle fera cliquer</p>
+                                        <ul className="mt-1 list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-300">
+                                          {p.why.map((w) => (
+                                            <li key={w}>{w}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    ) : (
+                                      p.reason && <p className="mt-1 text-xs leading-relaxed text-slate-300">{p.reason}</p>
+                                    )}
                                     {p.sharpness > 0 && (
                                     <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-slate-400">
                                       <span className="rounded-full border border-white/10 px-2 py-0.5">Netteté {p.sharpness}/5</span>
@@ -486,13 +527,14 @@ export function AiAssistant() {
               })}
 
               {(sending || externalThinking) && (
-                <div className="flex items-center gap-2.5" aria-live="polite" aria-label="L'assistant rédige sa réponse">
+                <div className="flex items-center gap-2.5" aria-live="polite" aria-label={externalThinkingLabel ?? "L'assistant rédige sa réponse"}>
                   <NebulaIcon size={20} className="shrink-0" />
                   <span className="flex items-center gap-1 rounded-xl bg-white/[0.04] px-3 py-2.5">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aurora-300 [animation-delay:-0.3s]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aurora-300 [animation-delay:-0.15s]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aurora-300" />
                   </span>
+                  {externalThinking && externalThinkingLabel && <span className="text-xs text-slate-400" data-testid="assistant-thinking-label">{externalThinkingLabel}</span>}
                 </div>
               )}
 
@@ -502,7 +544,7 @@ export function AiAssistant() {
                     <button
                       key={s}
                       type="button"
-                      onClick={() => void send(s)}
+                      onClick={() => void send(s, followupKey)}
                       disabled={Boolean(cooldownUntil)}
                       className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-left text-xs text-slate-300 transition hover:border-aurora-400/40 hover:text-white disabled:opacity-50"
                     >

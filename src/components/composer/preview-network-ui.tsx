@@ -34,6 +34,8 @@ export interface PreviewPost {
   onMediaShape: (w: number, h: number) => void;
   /** Instagram : collaborateurs invités (affichés « compte et collaborateur », comme dans l'app). */
   coAuthors?: string[];
+  /** Format choisi dans Publier (Instagram, Facebook — 07/10/2026). */
+  format?: "POST" | "REEL" | "STORY" | null;
 }
 
 /** « moncompte et cafe.nova », « moncompte et 2 autres » (en-tête Instagram d'une publication en collaboration). */
@@ -245,7 +247,7 @@ function InstagramFeedPost({ post, width }: { post: PreviewPost; width?: number 
 function InstagramReel({ post, desktop = false }: { post: PreviewPost; desktop?: boolean }) {
   return (
     <div className={clsx("relative overflow-hidden bg-black text-white", desktop ? "h-full rounded-lg" : "h-full w-full")} style={desktop ? { aspectRatio: "9/16" } : undefined}>
-      <Media post={post} className="absolute inset-0 h-full w-full" />
+      <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
       {!desktop && (
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 pt-3 text-[20px] font-bold">
@@ -275,16 +277,94 @@ function InstagramReel({ post, desktop = false }: { post: PreviewPost; desktop?:
 }
 
 /**
- * Vidéo verticale : écran Reels plein écran. Vidéo en paysage ou carrée
- * (01/10/2026) : publication du fil à son format, comme Instagram l'affiche
- * (avant : toujours l'écran Reels, la vidéo 16:9 y était rognée en vertical).
+ * Reel ou publication du fil. Depuis le 07/10/2026 : le format choisi dans
+ * Publier (celui qui sera publié). Sans format : vidéo verticale → Reel,
+ * sinon publication du fil à son format.
  */
 function isInstagramReel(post: PreviewPost): boolean {
+  if (post.format) return post.format === "REEL";
   return post.asset?.type === "VIDEO" && post.shape === "portrait";
+}
+
+/**
+ * Story (Instagram, Facebook — 07/10/2026) : média plein écran 9:16, barre
+ * de progression, compte en haut ; ni légende ni commentaires.
+ */
+function StoryScreen({ post, desktop = false }: { post: PreviewPost; desktop?: boolean }) {
+  const facebook = post.network === "FACEBOOK";
+  return (
+    <div
+      data-preview-format="story"
+      className={clsx("relative overflow-hidden bg-black text-white", desktop ? "h-full rounded-lg" : "h-full w-full")}
+      style={desktop ? { aspectRatio: "9/16" } : undefined}
+    >
+      <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/40" />
+      <div className="absolute left-2 right-2 top-2 h-[3px] overflow-hidden rounded-full bg-white/35">
+        <div className="h-full w-1/3 rounded-full bg-white" />
+      </div>
+      <div className="absolute left-3 right-3 top-5 flex items-center gap-2 text-[13px] font-semibold [text-shadow:0_1px_3px_rgba(0,0,0,.6)]">
+        <Avatar post={post} size={30} ring={facebook ? "white" : "instagram"} />
+        <span className="truncate">{facebook ? post.accountName : post.handle}</span>
+        <span className="font-normal text-white/80">à l&apos;instant</span>
+        <span className="flex-1" />
+        <Dots className="h-5 w-5" />
+      </div>
+      <div className="absolute bottom-3 left-3 right-3 flex items-center gap-3">
+        <span className="flex h-10 flex-1 items-center rounded-full border border-white/70 px-4 text-[13px] text-white/90">
+          {facebook ? "Répondre…" : "Envoyer un message"}
+        </span>
+        <Heart className="h-7 w-7" />
+        <Plane className="h-7 w-7" />
+      </div>
+    </div>
+  );
+}
+
+/** Reel Facebook : vidéo plein écran, commandes à droite, texte en bas. */
+function FacebookReel({ post, desktop = false }: { post: PreviewPost; desktop?: boolean }) {
+  return (
+    <div
+      data-preview-format="reel"
+      className={clsx("relative overflow-hidden bg-black text-white", desktop ? "h-full rounded-lg" : "h-full w-full")}
+      style={desktop ? { aspectRatio: "9/16" } : undefined}
+    >
+      <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+      {!desktop && (
+        <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 pt-3 text-[20px] font-bold">
+          Reels <Search className="h-6 w-6" />
+        </div>
+      )}
+      <div className="absolute bottom-4 right-3 flex flex-col items-center gap-5 text-[12px] font-semibold [text-shadow:0_1px_3px_rgba(0,0,0,.5)]">
+        <span className="flex flex-col items-center gap-1"><Heart className="h-7 w-7" />1,2 k</span>
+        <span className="flex flex-col items-center gap-1"><Comment className="h-7 w-7" />86</span>
+        <span className="flex flex-col items-center gap-1"><Plane className="h-7 w-7" />214</span>
+        <Dots className="h-6 w-6" />
+      </div>
+      <div className="absolute bottom-4 left-3 right-16 space-y-2 [text-shadow:0_1px_3px_rgba(0,0,0,.6)]">
+        <div className="flex items-center gap-2">
+          <Avatar post={post} size={30} ring="white" />
+          <span className="truncate text-[13.5px] font-semibold">{post.accountName}</span>
+          <span className="rounded-md bg-[#0866ff] px-2.5 py-0.5 text-[12.5px] font-semibold">Suivre</span>
+        </div>
+        <p className="text-[13.5px] leading-snug">
+          <Caption text={post.caption || PLACEHOLDER_CAPTION} limit={60} tagClass="font-semibold" moreLabel="plus" />
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function InstagramMobile({ post }: { post: PreviewPost }) {
   const isReel = isInstagramReel(post);
+  if (post.format === "STORY") {
+    return (
+      <div className="flex h-full flex-col bg-black">
+        <div className="relative min-h-0 flex-1"><StoryScreen post={post} /></div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col bg-black">
       {isReel ? (
@@ -335,7 +415,11 @@ function InstagramDesktop({ post }: { post: PreviewPost }) {
         </ul>
       </aside>
       <main className="flex min-w-0 flex-1 justify-center overflow-hidden pt-6">
-        {isReel ? (
+        {post.format === "STORY" ? (
+          <div className="flex h-[calc(100%-24px)] items-end gap-4">
+            <StoryScreen post={post} desktop />
+          </div>
+        ) : isReel ? (
           <div className="flex h-[calc(100%-24px)] items-end gap-4">
             <InstagramReel post={post} desktop />
           </div>
@@ -389,6 +473,13 @@ function FacebookPostCard({ post, rounded }: { post: PreviewPost; rounded?: bool
 }
 
 function FacebookMobile({ post }: { post: PreviewPost }) {
+  if (post.format === "REEL" || post.format === "STORY") {
+    return (
+      <div className="flex h-full flex-col bg-black">
+        <div className="relative min-h-0 flex-1">{post.format === "REEL" ? <FacebookReel post={post} /> : <StoryScreen post={post} />}</div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col bg-[#18191a]">
       <div className="flex items-center justify-between bg-[#242526] px-4 py-2.5">
@@ -434,7 +525,13 @@ function FacebookDesktop({ post }: { post: PreviewPost }) {
           ))}
         </aside>
         <main tabIndex={0} className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-[500px]"><FacebookPostCard post={post} rounded /></div>
+          {post.format === "REEL" || post.format === "STORY" ? (
+            <div className="mx-auto flex h-full items-end justify-center pb-2">
+              {post.format === "REEL" ? <FacebookReel post={post} desktop /> : <StoryScreen post={post} desktop />}
+            </div>
+          ) : (
+            <div className="mx-auto w-[500px]"><FacebookPostCard post={post} rounded /></div>
+          )}
         </main>
         <aside className="w-[220px] shrink-0 space-y-3 text-[15px] text-[#b0b3b8]">
           <p className="font-semibold">Sponsorisé</p>
@@ -483,7 +580,7 @@ function TikTokMobile({ post }: { post: PreviewPost }) {
     <div className="flex h-full flex-col bg-black text-white">
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {vertical ? (
-          <Media post={post} className="absolute inset-0 h-full w-full" />
+          <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
         ) : (
           // Vidéo en paysage ou carrée (01/10/2026) : TikTok l'affiche à son
           // format, centrée sur fond noir, avec le bouton « Plein écran ».
@@ -549,7 +646,7 @@ function TikTokDesktop({ post }: { post: PreviewPost }) {
           className={clsx("relative overflow-hidden rounded-2xl bg-black", post.shape === "landscape" ? "w-full max-w-[680px]" : "h-full")}
           style={{ aspectRatio: post.shape === "landscape" ? "16/9" : post.shape === "square" ? "1/1" : "9/16" }}
         >
-          <Media post={post} className="absolute inset-0 h-full w-full" />
+          <Media post={post} className="absolute inset-0 h-full w-full" fit={post.shape === "portrait" ? "cover" : "contain"} />
           <div className="absolute inset-x-0 bottom-0 space-y-1.5 bg-gradient-to-t from-black/70 to-transparent p-4 pt-16">
             <p className="text-[15px] font-semibold">{post.accountName}</p>
             <p className="text-[14px] leading-snug"><Caption text={post.caption || PLACEHOLDER_CAPTION} limit={100} tagClass="font-semibold" moreLabel="plus" /></p>

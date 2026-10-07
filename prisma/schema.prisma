@@ -772,6 +772,16 @@ model PostTarget {
   // Réussites) : « APPLIED », « REFUSED » (chaîne non vérifiée…),
   // « UNSUPPORTED » (format ou poids refusé) ou « FAILED ». null = aucune.
   thumbnailStatus  String?
+  // Premier commentaire (07/10/2026) : sort du commentaire publié sous la
+  // publication, réseau par réseau (voir src/lib/first-comment.ts) :
+  // « POSTED », « WAITING » (nouvel essai à firstCommentNextAt : réseau pas
+  // prêt, limite de débit), « SENDING » (envoi en cours), « FAILED » ou
+  // « UNSUPPORTED » (TikTok, Pinterest, YouTube sans l'autorisation de
+  // commenter…), avec la raison en français. null = pas de premier commentaire.
+  firstCommentStatus   String?
+  firstCommentError    String?
+  firstCommentAttempts Int       @default(0)
+  firstCommentNextAt   DateTime?
   post             Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
   connection       SocialConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   insights         VideoInsight[]
@@ -782,6 +792,7 @@ model PostTarget {
   // n'indexe pas les clés étrangères tout seul.
   @@index([postId])
   @@index([connectionId, status])
+  @@index([firstCommentStatus, firstCommentNextAt])
 }
 
 // Analyse IA de la performance d'une publication vidéo (rétention YouTube +

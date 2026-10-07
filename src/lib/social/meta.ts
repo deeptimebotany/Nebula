@@ -5,7 +5,10 @@ import type { AnalyticsResult } from "@/lib/types";
 import {
   SocialApiError,
   earliest,
+  errorFromResponse,
   fetchJson,
+  readBody,
+  sendRequest,
   pollUntil,
   sameHandle,
   waitBudgetMs,
@@ -641,11 +644,27 @@ export const instagramClient: SocialClient = {
     const account = connection.externalAccountId;
 
     // Étape 1 : créer un "media container"
+    // Format (07/10/2026, social/post-format.ts) : publication, Reel ou
+    // Story ; sans choix, comme avant (vidéo → Reel, image → publication).
     const isVideo = input.mediaType === "VIDEO";
-    const params: Record<string, string | undefined> = { caption: input.caption };
-    if (isVideo) {
+    const format = input.format ?? (isVideo ? "REEL" : "POST");
+    const story = format === "STORY";
+    if (story && input.mediaUrls.length > 1) throw new SocialApiError("INSTAGRAM", "Une story ne contient qu'une image ou une vidéo.");
+    if (format === "REEL" && !isVideo) throw new SocialApiError("INSTAGRAM", "Un Reel est une vidéo : choisissez « Publication » ou « Story » pour une image.");
+    if (format === "POST" && isVideo) throw new SocialApiError("INSTAGRAM", "Instagram publie toute vidéo en Reel : choisissez « Reel » ou « Story ».");
+    // Une story n'a ni légende, ni collaborateurs, ni lieu.
+    const params: Record<string, string | undefined> = story ? {} : { caption: input.caption };
+    if (story) {
+      params.media_type = "STORIES";
+      if (isVideo) params.video_url = input.mediaUrls[0];
+      else params.image_url = input.mediaUrls[0];
+    } else if (isVideo) {
       params.media_type = "REELS";
       params.video_url = input.mediaUrls[0];
+      // Aussi dans le fil du profil (vrai par défaut) et couverture = la
+      // miniature choisie dans Publier (JPEG seulement, exigé par Instagram).
+      params.share_to_feed = String(input.instagram?.shareToFeed ?? true);
+      if (input.thumbnailUrl && /\.jpe?g(\?|$)/i.test(input.thumbnailUrl)) params.cover_url = input.thumbnailUrl;
     } else if (input.mediaUrls.length > 1) {
       // Carrousel : on crée un container "enfant" par image puis un container
       // parent de type CAROUSEL qui les référence.
@@ -670,8 +689,8 @@ export const instagramClient: SocialClient = {
     // conteneur sans eux, collaborateurs d'abord puis lieu : la publication
     // part quand même. Jamais sur un délai dépassé ou une erreur serveur : le
     // conteneur a peut-être été créé.
-    if (input.location?.id) params.location_id = input.location.id;
-    const collaborators = input.instagram?.collaborators ?? [];
+    if (input.location?.id && !story) params.location_id = input.location.id;
+    const collaborators = story ? [] : (input.instagram?.collaborators ?? []);
     if (collaborators.length) params.collaborators = JSON.stringify(collaborators.slice(0, 3));
     let container: { id: string } | null = null;
     for (;;) {
@@ -680,7 +699,10 @@ export const instagramClient: SocialClient = {
         break;
       } catch (err) {
         if (!(err instanceof SocialApiError) || !err.isRequestRejected) throw err;
-        if (params.collaborators) {
+        if (params.cover_url) {
+          console.error(`[instagram] couverture du Reel refusée, publication sans elle :`, (err as Error).message);
+          delete params.cover_url;
+        } else if (params.collaborators) {
           console.error(`[instagram] collaborateurs ${params.collaborators} refusés, publication sans eux :`, (err as Error).message);
           delete params.collaborators;
         } else if (params.location_id) {
@@ -762,6 +784,78 @@ export const instagramClient: SocialClient = {
   listRecentPosts: listInstagramRecentPosts
 };
 
+// --- Facebook : Reel, Story, plusieurs photos (07/10/2026) --------------------
+// Docs : https://developers.facebook.com/docs/video-api/guides/reels-publishing
+//        https://developers.facebook.com/docs/page-stories-api
+// Une vidéo hébergée (Vercel Blob) est envoyée par son adresse (en-tête
+// file_url) à rupload.facebook.com : Facebook la télécharge lui-même.
+const uploadSessionSchema = z.object({ video_id: idSchema, upload_url: z.string().url() });
+const finishedSchema = z.object({ success: opt(z.boolean()), post_id: opt(idSchema), id: opt(idSchema) });
+
+async function uploadHostedVideo(uploadUrl: string, token: string, fileUrl: string): Promise<void> {
+  const res = await sendRequest("FACEBOOK", uploadUrl, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${token}`, file_url: fileUrl },
+    cache: "no-store",
+    timeoutMs: 120_000
+  });
+  const { text, json } = await readBody("FACEBOOK", res, "POST");
+  if (!res.ok || (json as { success?: boolean } | undefined)?.success === false) throw errorFromResponse("FACEBOOK", res, text, json);
+}
+
+/** Reel : session (start), vidéo envoyée par son adresse, publication (finish). */
+async function publishFacebookReel(page: string, token: string, videoUrl: string, input: PublishInput): Promise<PublishOutcome> {
+  const session = await graph("FACEBOOK", `/${page}/video_reels`, token, { method: "POST", params: { upload_phase: "start" }, schema: uploadSessionSchema });
+  await uploadHostedVideo(session.upload_url, token, videoUrl);
+  const params: Record<string, string | undefined> = {
+    upload_phase: "finish",
+    video_id: session.video_id,
+    video_state: "PUBLISHED",
+    description: input.caption,
+    ...(input.location?.id ? { place: input.location.id } : {})
+  };
+  await graph("FACEBOOK", `/${page}/video_reels`, token, { method: "POST", params, timeoutMs: 60_000, schema: finishedSchema });
+  return { externalPostId: session.video_id, externalUrl: `https://www.facebook.com/reel/${session.video_id}` };
+}
+
+/** Story photo : photo envoyée sans être publiée, puis /photo_stories. */
+async function publishFacebookPhotoStory(page: string, token: string, imageUrl: string): Promise<PublishOutcome> {
+  const photo = await graph("FACEBOOK", `/${page}/photos`, token, { method: "POST", params: { url: imageUrl, published: "false" }, timeoutMs: 60_000, schema: createdSchema });
+  const story = await graph("FACEBOOK", `/${page}/photo_stories`, token, { method: "POST", params: { photo_id: photo.id }, schema: finishedSchema });
+  const id = story.post_id ?? story.id ?? photo.id;
+  return { externalPostId: id, externalUrl: `https://www.facebook.com/stories/${page}` };
+}
+
+/** Story vidéo : session (start), vidéo envoyée par son adresse, publication (finish). */
+async function publishFacebookVideoStory(page: string, token: string, videoUrl: string): Promise<PublishOutcome> {
+  const session = await graph("FACEBOOK", `/${page}/video_stories`, token, { method: "POST", params: { upload_phase: "start" }, schema: uploadSessionSchema });
+  await uploadHostedVideo(session.upload_url, token, videoUrl);
+  const story = await graph("FACEBOOK", `/${page}/video_stories`, token, { method: "POST", params: { upload_phase: "finish", video_id: session.video_id }, timeoutMs: 60_000, schema: finishedSchema });
+  return { externalPostId: story.post_id ?? session.video_id, externalUrl: `https://www.facebook.com/stories/${page}` };
+}
+
+/** Plusieurs photos : chacune envoyée sans être publiée, puis une publication qui les rassemble. */
+async function publishFacebookPhotos(page: string, token: string, input: PublishInput): Promise<PublishOutcome> {
+  const ids: string[] = [];
+  for (const url of input.mediaUrls.slice(0, 10)) {
+    const photo = await graph("FACEBOOK", `/${page}/photos`, token, { method: "POST", params: { url, published: "false" }, timeoutMs: 60_000, schema: createdSchema });
+    ids.push(photo.id);
+  }
+  const params: Record<string, string | undefined> = { message: input.caption };
+  ids.forEach((id, k) => (params[`attached_media[${k}]`] = JSON.stringify({ media_fbid: id })));
+  if (input.location?.id) params.place = input.location.id;
+  let post: { id: string };
+  try {
+    post = await graph("FACEBOOK", `/${page}/feed`, token, { method: "POST", params, schema: createdSchema });
+  } catch (err) {
+    if (!params.place || !(err instanceof SocialApiError) || !err.isRequestRejected) throw err;
+    console.error(`[facebook] lieu ${input.location?.id} refusé, publication sans lieu :`, (err as Error).message);
+    delete params.place;
+    post = await graph("FACEBOOK", `/${page}/feed`, token, { method: "POST", params, schema: createdSchema });
+  }
+  return { externalPostId: post.id, externalUrl: `https://www.facebook.com/${post.id}` };
+}
+
 // Facebook Page (partage la même app Meta que instagramClient)
 export const facebookClient: SocialClient = {
   network: "FACEBOOK",
@@ -778,14 +872,28 @@ export const facebookClient: SocialClient = {
     const token = await ensureFacebookPageToken(connection);
     const page = connection.externalAccountId;
     const first = input.mediaUrls[0];
+    // Format (07/10/2026, social/post-format.ts) : publication, Reel ou
+    // Story ; sans choix, publication comme avant.
+    const format = input.format ?? "POST";
+    const isVideo = input.mediaType === "VIDEO";
 
     // Texte seul : publication classique du fil de la Page.
     if (!first) {
+      if (format !== "POST") throw new SocialApiError("FACEBOOK", "Un Reel ou une story a besoin d'une photo ou d'une vidéo.");
       const post = await graph("FACEBOOK", `/${page}/feed`, token, { method: "POST", params: { message: input.caption }, schema: createdSchema });
       return { externalPostId: post.id, externalUrl: `https://www.facebook.com/${post.id}` };
     }
+    if (format === "REEL") {
+      if (!isVideo) throw new SocialApiError("FACEBOOK", "Un Reel est une vidéo : choisissez « Publication » ou « Story » pour une photo.");
+      return publishFacebookReel(page, token, first, input);
+    }
+    if (format === "STORY") {
+      if (input.mediaUrls.length > 1) throw new SocialApiError("FACEBOOK", "Une story ne contient qu'une photo ou une vidéo.");
+      return isVideo ? publishFacebookVideoStory(page, token, first) : publishFacebookPhotoStory(page, token, first);
+    }
+    // Plusieurs photos (07/10/2026) : avant, seule la première était publiée.
+    if (!isVideo && input.mediaUrls.length > 1) return publishFacebookPhotos(page, token, input);
 
-    const isVideo = input.mediaType === "VIDEO";
     const endpoint = isVideo ? "videos" : "photos";
     const params: Record<string, string | undefined> = isVideo
       ? { file_url: first, description: input.caption }

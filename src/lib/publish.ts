@@ -23,6 +23,8 @@ import { classifyProviderError, MAX_AUTO_RETRIES, retryDelayMs } from "@/lib/soc
 import { MAX_PAUSE_WAIT_MS, pauseMessage, publishPause, recordProviderFailure, recordProviderSuccess } from "@/lib/social/network-control";
 import { flagConnectionForReconnect } from "@/lib/social/connection-health";
 import { matchRecentPost } from "@/lib/social/reconcile";
+import { publishFirstComment } from "@/lib/first-comment";
+import { FORMAT_NETWORKS, POST_FORMATS, type PostFormat } from "@/lib/social/post-format";
 
 // Mention ajoutée à la légende Instagram/Facebook quand « Contenu généré par
 // l'IA » est coché : Meta n'offre pas de champ d'API pour l'étiquette IA.
@@ -208,16 +210,28 @@ function buildPublishInput(post: PostForPublishing, target: TargetForPublishing,
     // Publier, revérifiés par social/tiktok.ts au moment de l'envoi.
     ...(target.network === "TIKTOK" ? tiktokInputFor(post, target) : {}),
     // Instagram (01/10/2026) : collaborateurs, relus et nettoyés ici.
-    ...(target.network === "INSTAGRAM" ? instagramInputFor(target) : {})
+    ...(target.network === "INSTAGRAM" ? instagramInputFor(target) : {}),
+    // Publication, Reel ou Story (07/10/2026, social/post-format.ts).
+    ...formatInputFor(target)
   };
 }
 
 /** Collaborateurs Instagram enregistrés sur la cible (3 au plus, jamais le compte qui publie). */
 function instagramInputFor(target: TargetForPublishing): Pick<PublishInput, "instagram"> {
-  const raw = (target.metadata as { instagram?: { collaborators?: unknown } } | null)?.instagram?.collaborators;
+  const meta = (target.metadata as { instagram?: { collaborators?: unknown; shareToFeed?: unknown } } | null)?.instagram;
   const own = (target.connection as { handle?: string | null } | null)?.handle ?? null;
-  const collaborators = parseInstagramCollaborators(raw, own);
-  return collaborators.length ? { instagram: { collaborators } } : {};
+  const collaborators = parseInstagramCollaborators(meta?.collaborators, own);
+  const shareToFeed = typeof meta?.shareToFeed === "boolean" ? meta.shareToFeed : undefined;
+  return collaborators.length || shareToFeed !== undefined
+    ? { instagram: { ...(collaborators.length ? { collaborators } : {}), ...(shareToFeed !== undefined ? { shareToFeed } : {}) } }
+    : {};
+}
+
+/** Format choisi dans Publier (Instagram, Facebook), s'il est connu. */
+function formatInputFor(target: TargetForPublishing): Pick<PublishInput, "format"> {
+  if (!FORMAT_NETWORKS.has(target.network as Network)) return {};
+  const raw = (target.metadata as { format?: unknown } | null)?.format;
+  return typeof raw === "string" && (POST_FORMATS as readonly string[]).includes(raw) ? { format: raw as PostFormat } : {};
 }
 
 /** Choix TikTok et durée de la vidéo (mesurée à l'envoi du fichier, sinon dans Publier). */
@@ -346,15 +360,12 @@ async function runTarget(
       }
     });
 
-    // "Premier commentaire" (bulle du Composer/Importation) : best-effort,
-    // ne fait jamais échouer la publication elle-même. Certains réseaux ne
-    // le supportent pas encore (postComment absent du client) — on ignore
-    // simplement dans ce cas.
-    if (post.firstComment && client.postComment) {
-      await client.postComment(target.connection, result.externalPostId, post.firstComment).catch((err) => {
-        console.error(`[premier commentaire] échec sur ${target.network} pour le post ${post.id} :`, err);
-      });
-    }
+    // « Premier commentaire » : ne fait jamais échouer la publication. Depuis
+    // le 07/10/2026, son sort est noté réseau par réseau (réseau qui ne le
+    // permet pas, échec, nouvel essai prévu) : voir src/lib/first-comment.ts.
+    await publishFirstComment(post, { ...target, externalPostId: result.externalPostId }).catch((err) => {
+      console.error(`[premier commentaire] ${target.network}, publication ${post.id} :`, (err as Error).message);
+    });
     return "PUBLISHED";
   } catch (err) {
     const message = (err as Error).message;
@@ -460,6 +471,11 @@ export async function reconcileTarget(post: PostForPublishing, target: TargetFor
       nextCheckAt: null,
       startedAt: null
     }
+  });
+  // Publication retrouvée en ligne : son premier commentaire n'était pas
+  // encore parti (07/10/2026).
+  await publishFirstComment(post, { ...target, externalPostId: match.externalPostId }).catch((err) => {
+    console.error(`[premier commentaire] ${network}, publication ${post.id} :`, (err as Error).message);
   });
   return "FOUND";
 }
