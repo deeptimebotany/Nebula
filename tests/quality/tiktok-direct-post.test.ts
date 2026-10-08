@@ -129,7 +129,7 @@ describe("TikTok : section de Publier (rendu)", () => {
     const html = render(opts());
     expect(html).toContain("Café Nebula");
     expect(html).toContain("@cafe.nebula");
-    expect(html).toContain('<option value="" disabled="" class="bg-void-900" selected="">Choisir la confidentialité…</option>');
+    expect(html).toContain('<option value="" disabled="" selected="">Choisir la confidentialité…</option>');
     expect(html).not.toMatch(/<option value="[A-Z_]+"[^>]*selected/);
     // Les 4 interrupteurs (Commenter, Duo, Collage, contenu commercial) éteints.
     expect((html.match(/aria-checked="false"/g) ?? []).length).toBe(4);

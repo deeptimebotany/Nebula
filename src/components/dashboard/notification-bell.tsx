@@ -389,7 +389,7 @@ export function NotificationBell() {
                           if (e.key === "Enter") openItem(n);
                         }}
                         className={clsx(
-                          "relative flex cursor-pointer gap-3 px-4 py-2.5 transition hover:bg-white/[0.04] focus:bg-white/[0.04] focus:outline-none",
+                          "nb-menu-item relative flex cursor-pointer gap-3 px-4 py-2.5 focus:outline-none",
                           !n.read && "bg-aurora-400/[0.05]"
                         )}
                       >

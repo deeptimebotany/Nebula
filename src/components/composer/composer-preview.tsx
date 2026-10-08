@@ -2,8 +2,11 @@
 
 // Aperçu de la page Publier — refonte V2 (07/10/2026, maquettes A, B, D, E
 // de Lucas) : le téléphone reste le seul bloc « encadré » de la page.
-//   - En haut : « APERÇU » puis un onglet par réseau choisi (texte souligné),
-//     et à droite son, mobile / ordinateur, plein écran et « masquer ».
+//   - En haut : « APERÇU » puis un onglet par réseau choisi, et à droite
+//     « masquer ». Depuis le 08/10/2026 (demande de Lucas), chaque onglet
+//     montre le logo du réseau (officiel quand ses règles le permettent, voir
+//     NetworkTile) au lieu de son nom : l'onglet actif est souligné en
+//     violet, le nom reste lu par les lecteurs d'écran et affiché au survol.
 //   - Dans le cadre : l'imitation de l'interface du réseau (voir
 //     preview-network-ui.tsx), dans un téléphone plus petit qu'avant
 //     (300 px de large au plus) ou une fenêtre de navigateur.
@@ -18,6 +21,7 @@ import { m as motion, AnimatePresence } from "framer-motion";
 import { clsx } from "@/lib/clsx";
 import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NetworkTile } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { FORMAT_LABEL, type PostFormat } from "@/lib/social/post-format";
 import type { UploadedAsset } from "./composer-types";
@@ -256,13 +260,11 @@ export function ComposerPreview({
               role="tab"
               aria-selected={active}
               onClick={() => onPickNetwork(n)}
+              aria-label={NETWORK_META[n].label}
               title={selectedNetworks.includes(n) ? `Aperçu ${NETWORK_META[n].label}` : `Aperçu ${NETWORK_META[n].label} (non choisi pour cette publication)`}
-              className={clsx(
-                "relative shrink-0 px-2.5 py-2 text-[14px] transition",
-                active ? "font-semibold text-white after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-current" : "text-slate-500 hover:text-white"
-              )}
+              className={clsx("nb-preview-tab", active && "nb-preview-tab-active")}
             >
-              {NETWORK_META[n].label}
+              <NetworkTile network={n} size={22} />
             </button>
           );
         })}
@@ -357,8 +359,10 @@ export function ComposerPreview({
                       type="button"
                       onClick={() => onPickNetwork(n)}
                       aria-pressed={n === network}
-                      className={clsx("rounded-lg px-3 py-1.5 text-sm transition", n === network ? "bg-white/10 text-white" : "text-slate-400 hover:text-white")}
+                      className={clsx("flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition", n === network ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/[0.05] hover:text-white")}
                     >
+                      {/* Bandeau toujours sombre : le dessin de Nebula reste lisible (un logo officiel noir disparaîtrait). */}
+                      <NetworkTile network={n} size={20} drawn />
                       {NETWORK_META[n].label}
                     </button>
                   ))}

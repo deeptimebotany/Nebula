@@ -301,7 +301,7 @@ export function DateTimePicker({
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h} disabled={hourDisabled(h)} className="bg-void-900 text-white disabled:text-slate-600">{pad(h)}</option>
+                  <option key={h} value={h} disabled={hourDisabled(h)}>{pad(h)}</option>
                 ))}
               </select>
               <span className="text-slate-500">:</span>
@@ -311,7 +311,7 @@ export function DateTimePicker({
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm text-white outline-none focus:border-aurora-400/60"
               >
                 {MINUTE_STEPS.map((m) => (
-                  <option key={m} value={m} disabled={minuteDisabled(m)} className="bg-void-900 text-white disabled:text-slate-600">{pad(m)}</option>
+                  <option key={m} value={m} disabled={minuteDisabled(m)}>{pad(m)}</option>
                 ))}
               </select>
               <button

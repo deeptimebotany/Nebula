@@ -374,6 +374,8 @@ function ComposerPageInner() {
       .catch(() => undefined);
   }, []);
   const [uploading, setUploading] = useState(false);
+  // Fichier glissé au-dessus de la zone de dépôt : le cadre s'éclaire.
+  const [dropActive, setDropActive] = useState(false);
   // Avancement de l'envoi direct (Vercel Blob), null si inconnu (envoi
   // classique ou import depuis une URL).
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
@@ -2041,17 +2043,40 @@ function ComposerPageInner() {
               </ul>
             )}
 
-            {/* Zone de dépôt : un rectangle discret en pointillés, les sources d'import à droite. */}
+            {/* Zone de dépôt : un rectangle discret en pointillés, les sources d'import à droite.
+                Tout le cadre ouvre le choix du fichier (08/10/2026, demande de Lucas), sauf les
+                boutons d'import (Canva, Google Drive…) qui gardent leur propre action ; le
+                bouton du texte reste la cible du clavier. */}
             <div className="relative mt-4">
               <div
-                onDragOver={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  if (uploading) return;
+                  const target = e.target as HTMLElement;
+                  // Clic venu d'une fenêtre d'import (rendue ailleurs dans la page) ou d'un autre bouton : rien.
+                  if (!e.currentTarget.contains(target)) return;
+                  if (target.closest("button, a, input, label, select, textarea, [role='menu'], [role='dialog']")) return;
+                  inputRef.current?.click();
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!dropActive) setDropActive(true);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropActive(false);
+                }}
                 onDrop={(e) => {
                   e.preventDefault();
+                  setDropActive(false);
                   onFilesChosen(e.dataTransfer.files);
                 }}
-                className="nb-dropzone flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-dashed px-4 py-3"
+                data-testid="composer-dropzone"
+                className={clsx(
+                  "nb-dropzone flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-dashed px-4 py-3",
+                  uploading ? "cursor-progress" : "cursor-pointer",
+                  dropActive && "nb-dropzone-active"
+                )}
               >
-                <button type="button" onClick={() => inputRef.current?.click()} className="flex min-w-0 items-center gap-3 py-1.5 text-left text-[15px] text-slate-300">
+                <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="flex min-w-0 items-center gap-3 py-1.5 text-left text-[15px] text-slate-300">
                   <IconCloudUpload className="h-6 w-6 shrink-0 text-slate-400" />
                   <span>
                     {assets.length > 0 ? "Changer de média" : "Glissez une vidéo ou une image"}, ou <span className="font-semibold text-white underline underline-offset-2">parcourir</span>
@@ -2343,7 +2368,10 @@ function ComposerPageInner() {
                     onClick={() => setAiMenuOpen((v) => !v)}
                     aria-haspopup="menu"
                     aria-expanded={aiMenuOpen}
-                    className="ml-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white"
+                    className={clsx(
+                      "ml-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] transition active:scale-[0.97]",
+                      aiMenuOpen ? "nb-menu-item-current" : "text-slate-300 hover:bg-[color:var(--nb-hover)] hover:text-white"
+                    )}
                   >
                     <AiIcon className="h-4 w-4" active={generatingAll || generatingFields.size > 0 || repurposeLoading} />
                     {generatingAll || generatingFields.size > 0 ? "Rédaction…" : "Rédiger avec l'IA"}
@@ -2476,7 +2504,7 @@ function ComposerPageInner() {
                         className="rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-2 py-1 text-[13px] text-white outline-none focus:border-aurora-400/60"
                       >
                         {networkConnections.map((c) => (
-                          <option key={c.id} value={c.id} className="bg-void-900">
+                          <option key={c.id} value={c.id}>
                             {c.displayName}
                           </option>
                         ))}
@@ -2806,7 +2834,7 @@ function ComposerPageInner() {
 }
 
 const TOOL_BUTTON = "flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
-const AI_MENU_ITEM = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 transition hover:bg-[color:var(--nb-hover)] hover:text-white disabled:cursor-wait disabled:opacity-60";
+const AI_MENU_ITEM = "nb-menu-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 disabled:cursor-wait disabled:opacity-60";
 
 // Interrupteur général « Contenu généré par l'IA » (section Média), avec une
 // exception possible par réseau (« Par réseau »).

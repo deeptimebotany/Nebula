@@ -137,8 +137,8 @@ export function BrandList({ onDone }: { onDone?: () => void }) {
                 onNavigate?.();
               }}
               className={clsx(
-                "flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-10 text-sm",
-                b.id === activeBrand?.id ? "bg-nebula-600/30 text-white" : "text-slate-300 hover:bg-white/5"
+                "nb-menu-item flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-10 text-sm",
+                b.id === activeBrand?.id ? "nb-menu-item-current" : "text-slate-300"
               )}
             >
               <span className="flex min-w-0 items-center gap-2">

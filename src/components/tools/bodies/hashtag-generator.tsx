@@ -63,11 +63,11 @@ export function HashtagGenerator({ initialNiche = "", initialNetwork = "" }: { i
         Réseau (optionnel)
       </label>
       <select id={`${uid}-network`} value={network} onChange={(e) => setNetwork(e.target.value as Network | "")} className={INPUT}>
-        <option value="" className="bg-void-900">
+        <option value="">
           Tous
         </option>
         {NETWORKS.map((n) => (
-          <option key={n} value={n} className="bg-void-900">
+          <option key={n} value={n}>
             {NETWORK_META[n].label}
           </option>
         ))}

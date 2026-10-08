@@ -25,8 +25,42 @@ function swatchPreview(vars: Record<string, string>) {
   return `linear-gradient(135deg, ${nebula500}, ${aurora400} 55%, ${accentCyan})`;
 }
 
-export function ThemeCard({ theme, selected, locked, onPick }: { theme: ThemeDefinition; selected: boolean; locked: boolean; onPick: () => void }) {
+// Page bio (08/10/2026) : « Aube » y a son propre décor, des montagnes au
+// lever du soleil (voir aube-scenery.tsx) ; sa vignette montre ce paysage
+// en miniature au lieu de l'aperçu du tableau de bord.
+function BioCretesMini() {
+  return (
+    <>
+      <span className="aube-mini-sun" />
+      <svg viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
+        <path fill="#a24a6c" d="M0 14 L14 6 L26 11 L40 2 L54 10 L68 4 L82 12 L96 3 L110 9 L120 6 L120 40 L0 40Z" />
+        <path fill="#6e2b62" d="M0 22 L16 14 L32 20 L50 12 L66 21 L84 13 L100 19 L120 13 L120 40 L0 40Z" />
+        <path fill="#2c0f33" d="M0 31 L22 24 L44 30 L66 23 L88 30 L108 25 L120 28 L120 40 L0 40Z" />
+      </svg>
+      <span className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border border-[#fde2bd] bg-[#3a1534]" />
+      <span className="absolute left-1/2 top-[18px] h-[5px] w-[44%] -translate-x-1/2 rounded-full bg-[#3a1534]/85" />
+      <span className="absolute left-1/2 top-[26px] h-[5px] w-[44%] -translate-x-1/2 rounded-full bg-[#3a1534]/85" />
+      <span className="nebula-theme-sheen" aria-hidden="true" />
+    </>
+  );
+}
+
+export function ThemeCard({
+  theme,
+  selected,
+  locked,
+  onPick,
+  context = "app"
+}: {
+  theme: ThemeDefinition;
+  selected: boolean;
+  locked: boolean;
+  onPick: () => void;
+  /** « bio » : choix du thème de la page bio (vignette propre à Aube). */
+  context?: "app" | "bio";
+}) {
   const premium = PREMIUM[theme.key];
+  const bioCretes = context === "bio" && theme.key === "aube";
   return (
     <button
       type="button"
@@ -45,10 +79,13 @@ export function ThemeCard({ theme, selected, locked, onPick }: { theme: ThemeDef
         </span>
       )}
       <span
-        className={clsx("relative h-12 w-full overflow-hidden rounded-lg shadow-inner", premium ? premium.texture : "", locked && "opacity-60 saturate-[0.6]")}
+        className={clsx("relative h-12 w-full overflow-hidden rounded-lg shadow-inner", bioCretes ? "nebula-theme-swatch-cretes" : premium ? premium.texture : "", locked && "opacity-60 saturate-[0.6]")}
         style={premium ? undefined : { background: swatchPreview(theme.vars) }}
+        data-swatch={bioCretes ? "aube-cretes" : undefined}
       >
-        {premium && (
+        {bioCretes ? (
+          <BioCretesMini />
+        ) : premium && (
           <>
             {/* Mini aperçu : barre latérale + deux cartes, pour « voir » le thème */}
             <span className="nebula-theme-mini absolute inset-x-2 bottom-1.5 top-2 rounded-md">

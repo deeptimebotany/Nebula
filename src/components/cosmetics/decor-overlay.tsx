@@ -1,11 +1,17 @@
 "use client";
 
 // Décor de fond réservé au cosmétique « Voûte céleste » (papier-peint-succes,
-// voir src/lib/cosmetics.ts), posé par succes/page.tsx dans un parent
-// `relative isolate` — le `isolate` n'est PAS optionnel : sans lui, le
-// `-z-10` posé ci-dessous remonte jusqu'au contexte d'empilement de
-// <main class="noise-grid"> et se retrouve derrière le fond d'écran de
-// l'application (donc invisible).
+// voir src/lib/cosmetics.ts), affiché sur la page Réussites.
+//
+// 08/10/2026 (signalé par Lucas : fond « tronqué à droite ») : le décor
+// était posé dans la colonne de contenu, limitée à 1 280 px et centrée ; sur
+// un grand écran il s'arrêtait avant les bords, avec des coins arrondis. Il
+// est maintenant rendu dans <main id="contenu"> lui-même (portail), sur toute
+// la largeur et toute la hauteur de la zone de contenu, de la barre latérale
+// au bord droit. <main class="noise-grid"> est `relative isolate` et peint le
+// fond d'écran de l'application dans son ::before en z-index -1 : le décor,
+// en z-index -1 lui aussi mais placé après dans l'arbre, passe au-dessus du
+// fond d'écran et reste sous le contenu de la page.
 //
 // Refonte du 24/09/2026 : l'ancienne version était une grille de points
 // répétés en CSS (background-size 26 px), ce qui donnait « de simples
@@ -16,7 +22,8 @@
 // variés, qui scintillent chacune à leur rythme, et une poignée d'étoiles
 // plus brillantes avec leur croix de diffraction. Tout en SVG + CSS,
 // aucune boucle JavaScript.
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useCosmetics } from "@/components/cosmetics-provider";
 
 interface Star {
@@ -58,9 +65,14 @@ function makeStars(count: number, seed: number): Star[] {
 export function CosmeticDecorOverlay({ cosmeticKey }: { cosmeticKey: string }) {
   const cosmetics = useCosmetics();
   const stars = useMemo(() => makeStars(170, 20260924), []);
-  if (!cosmetics.has(cosmeticKey)) return null;
-  return (
-    <div aria-hidden="true" className="nebula-vault pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-2xl">
+  // Zone de contenu de l'application (app-shell.tsx), trouvée après le montage.
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHost(document.getElementById("contenu"));
+  }, []);
+  if (!cosmetics.has(cosmeticKey) || !host) return null;
+  return createPortal(
+    <div aria-hidden="true" data-testid="nebula-vault" className="nebula-vault pointer-events-none absolute inset-0 z-[-1] overflow-hidden">
       {/* Arcs de nébulosités (CSS, voir globals.css .nebula-vault-*) */}
       <div className="nebula-vault-arc nebula-vault-arc-1" />
       <div className="nebula-vault-arc nebula-vault-arc-2" />
@@ -87,6 +99,7 @@ export function CosmeticDecorOverlay({ cosmeticKey }: { cosmeticKey: string }) {
         {/* Fine ligne d'horizon de la voûte */}
         <path d="M-50,560 Q500,-140 1050,560" fill="none" stroke="rgba(180,205,255,0.16)" strokeWidth="1" />
       </svg>
-    </div>
+    </div>,
+    host
   );
 }

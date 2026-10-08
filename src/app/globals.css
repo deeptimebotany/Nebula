@@ -726,6 +726,11 @@ body {
   .nebula-vault {
     -webkit-mask-image: radial-gradient(ellipse 110% 95% at 50% 0%, black 55%, transparent 96%);
     mask-image: radial-gradient(ellipse 110% 95% at 50% 0%, black 55%, transparent 96%);
+    animation: nebula-vault-in 0.6s ease-out both;
+  }
+  @keyframes nebula-vault-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .nebula-vault-arc {
     position: absolute;
@@ -2385,6 +2390,16 @@ button:focus-visible > .nt-pill, a:focus-visible > .nt-pill { outline: 2px solid
 }
 .nb-dropzone:hover {
   border-color: rgb(var(--c-aurora-400) / 0.5);
+  background-color: rgb(var(--c-aurora-500) / 0.04);
+}
+.nb-dropzone:active {
+  background-color: rgb(var(--c-aurora-500) / 0.08);
+}
+/* Fichier glissé au-dessus : trait violet plein et fond teinté. */
+.nb-dropzone.nb-dropzone-active {
+  border-style: solid;
+  border-color: rgb(var(--c-aurora-400));
+  background-color: rgb(var(--c-aurora-500) / 0.08);
 }
 .nb-composer-title::placeholder {
   color: #a1a1aa;
@@ -2473,3 +2488,348 @@ button:focus-visible > .nt-pill, a:focus-visible > .nt-pill { outline: 2px solid
 @media (prefers-reduced-motion: reduce) {
   .nb-chest-bob { animation: none; }
 }
+
+/* --- Ajustements V2 (08/10/2026, retours de Lucas) ---------------------- */
+/* Onglets de l'aperçu de Publier : le logo de chaque réseau (au lieu de son
+   nom), l'onglet affiché souligné en violet. Un logo officiel ne se
+   recolore pas : l'onglet inactif garde ses couleurs, seul le trait change. */
+.nb-preview-tab {
+  position: relative;
+  display: flex;
+  height: 40px;
+  min-width: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px 10px 0 0;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.nb-preview-tab::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: rgb(var(--c-aurora-400));
+  transform: scaleX(0);
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.nb-preview-tab:hover { background-color: var(--nb-hover); }
+.nb-preview-tab:active { transform: scale(0.94); }
+.nb-preview-tab-active::after { transform: scaleX(1); }
+[data-mode="light"] .nb-preview-tab::after { background: rgb(var(--c-aurora-500)); }
+
+/* Menus déroulants (08/10/2026, demande de Lucas : « le noir et blanc
+   détonne ») : menu du profil, « Rédiger avec l'IA », marques, comptes,
+   notifications, sélecteur de date, et les listes de choix (<select>).
+   - Ouverture : le menu apparaît en fondu, légèrement agrandi (170 ms).
+   - Surface : la carte reste unie, avec un trait teinté de violet et un
+     léger reflet violet en haut.
+   - Lignes (.nb-menu-item) : survol violet doux, icône violette, léger
+     enfoncement au clic, contour violet au clavier. */
+@keyframes nb-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.nb-popover {
+  border-color: color-mix(in srgb, rgb(var(--c-aurora-400)) 24%, var(--nb-sep-strong));
+  background-image: radial-gradient(120% 90px at 50% -20px, rgb(var(--c-aurora-500) / 0.10), transparent 70%);
+  animation: nb-pop-in 0.17s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  transform-origin: top center;
+}
+[data-mode="light"] .nb-popover {
+  border-color: color-mix(in srgb, rgb(var(--c-aurora-500)) 18%, var(--nb-sep-strong));
+  background-image: radial-gradient(120% 90px at 50% -20px, rgb(var(--c-aurora-500) / 0.06), transparent 70%);
+}
+.nb-menu-item {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.nb-menu-item:hover,
+.nb-menu-item:focus-visible {
+  background-color: rgb(var(--c-aurora-500) / 0.13);
+  color: #ffffff;
+}
+.nb-menu-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px rgb(var(--c-aurora-400) / 0.7);
+}
+.nb-menu-item:active:not(:disabled) {
+  transform: scale(0.985);
+  background-color: rgb(var(--c-aurora-500) / 0.22);
+}
+.nb-menu-item .nb-menu-icon { transition: color 0.15s ease; }
+.nb-menu-item:hover .nb-menu-icon,
+.nb-menu-item:focus-visible .nb-menu-icon { color: rgb(var(--c-aurora-300)); }
+[data-mode="light"] .nb-menu-item:hover,
+[data-mode="light"] .nb-menu-item:focus-visible {
+  background-color: rgb(var(--c-aurora-500) / 0.08);
+  color: var(--l-text-1);
+}
+[data-mode="light"] .nb-menu-item:active:not(:disabled) { background-color: rgb(var(--c-aurora-500) / 0.15); }
+[data-mode="light"] .nb-menu-item:hover .nb-menu-icon,
+[data-mode="light"] .nb-menu-item:focus-visible .nb-menu-icon { color: var(--l-accent); }
+/* Ligne choisie (marque active, compte actif, mode d'apparence) : fond violet léger. */
+.nb-menu-item-current,
+.nb-menu-item-current:hover {
+  background-color: rgb(var(--c-aurora-500) / 0.18);
+  color: #ffffff;
+}
+[data-mode="light"] .nb-menu-item-current,
+[data-mode="light"] .nb-menu-item-current:hover {
+  background-color: rgb(var(--c-aurora-500) / 0.11);
+  color: var(--l-text-1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-popover { animation: none; }
+  .nb-menu-item:active:not(:disabled) { transform: none; }
+}
+
+/* Listes de choix (<select>) : jusqu'ici, la liste ouverte était celle du
+   système, noire à texte blanc même en mode clair. Les navigateurs récents
+   (Chrome, Edge : « appearance: base-select ») permettent de la dessiner :
+   même carte que les menus, survol violet, choix en cours coché en violet,
+   ouverture animée. Les autres navigateurs gardent la liste du système, aux
+   couleurs du mode clair ou sombre. Les <select multiple> ne changent pas. */
+select option {
+  background-color: var(--nb-elevated);
+  color: #f4f4f5;
+}
+[data-mode="light"] select option { color: #111827; }
+@supports (appearance: base-select) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker(select) {
+    appearance: base-select;
+  }
+  select:not([multiple]):not([size]) {
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  select:not([multiple]):not([size]):hover:not(:disabled) {
+    border-color: rgb(var(--c-aurora-400) / 0.5);
+  }
+  select:not([multiple]):not([size]):open {
+    border-color: rgb(var(--c-aurora-400) / 0.7);
+    box-shadow: 0 0 0 3px rgb(var(--c-aurora-400) / 0.15);
+  }
+  /* Flèche : celle du navigateur, en gris, qui pivote à l'ouverture. Le
+     composant Select dessine déjà la sienne (classe nb-select). */
+  select:not([multiple]):not([size])::picker-icon {
+    color: #8b8b94;
+    transition: rotate 0.2s ease;
+  }
+  select:not([multiple]):not([size]):open::picker-icon { rotate: 180deg; }
+  select.nb-select::picker-icon { display: none; }
+  select:not([multiple]):not([size])::picker(select) {
+    margin-block: 6px;
+    padding: 4px;
+    min-width: anchor-size(width);
+    max-height: min(320px, 60vh);
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, rgb(var(--c-aurora-400)) 24%, var(--nb-sep-strong));
+    background: var(--nb-elevated);
+    background-image: radial-gradient(120% 90px at 50% -20px, rgb(var(--c-aurora-500) / 0.10), transparent 70%);
+    color: #e4e4e7;
+    box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+    transition: opacity 0.17s ease, transform 0.17s cubic-bezier(0.2, 0.9, 0.25, 1), display 0.17s allow-discrete, overlay 0.17s allow-discrete;
+  }
+  select:not([multiple]):not([size]):open::picker(select) {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    select:not([multiple]):not([size]):open::picker(select) {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+    }
+  }
+  select:not([multiple]):not([size]) option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  select:not([multiple]):not([size]) option:hover,
+  select:not([multiple]):not([size]) option:focus-visible {
+    background-color: rgb(var(--c-aurora-500) / 0.13);
+    color: #ffffff;
+    outline: none;
+  }
+  select:not([multiple]):not([size]) option:active { background-color: rgb(var(--c-aurora-500) / 0.22); }
+  select:not([multiple]):not([size]) option:checked {
+    font-weight: 600;
+    color: #ffffff;
+  }
+  select:not([multiple]):not([size]) option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: rgb(var(--c-aurora-300));
+  }
+  select:not([multiple]):not([size]) option:disabled { opacity: 0.45; cursor: not-allowed; }
+  [data-mode="light"] select:not([multiple]):not([size])::picker(select) {
+    border-color: color-mix(in srgb, rgb(var(--c-aurora-500)) 18%, var(--nb-sep-strong));
+    background-image: radial-gradient(120% 90px at 50% -20px, rgb(var(--c-aurora-500) / 0.06), transparent 70%);
+    color: #1f2937;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 18px 44px -18px rgba(17, 24, 39, 0.24);
+  }
+  [data-mode="light"] select:not([multiple]):not([size]) option:hover,
+  [data-mode="light"] select:not([multiple]):not([size]) option:focus-visible {
+    background-color: rgb(var(--c-aurora-500) / 0.08);
+    color: #111827;
+  }
+  [data-mode="light"] select:not([multiple]):not([size]) option:checked { color: #111827; }
+  [data-mode="light"] select:not([multiple]):not([size]) option::checkmark { color: var(--l-accent); }
+  @media (prefers-reduced-motion: reduce) {
+    select:not([multiple]):not([size])::picker(select) { transition: none; transform: none; }
+  }
+}
+
+/* Onglets de Réussites : collés en haut sur téléphone (fond de la page,
+   flouté), posés sur la page à partir de 1 024 px — sans la bande blanche
+   qui coupait la Voûte céleste en mode clair. */
+.nb-sticky-tabs {
+  background-color: color-mix(in srgb, var(--nb-page) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+@media (min-width: 1024px) {
+  .nb-sticky-tabs {
+    background-color: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* --- Thème de page bio « Aube » : décor Crêtes (08/10/2026) ------------- */
+/* Choisi par Lucas parmi 5 propositions (voir aube-scenery.tsx et
+   src/lib/bio-look.ts) : ciel pêche et rose, soleil derrière des montagnes
+   en couches, deux oiseaux. */
+.aube-scenery {
+  background: linear-gradient(180deg, #fde2bd 0%, #f9b98a 28%, #ef8a6a 46%, #c75a6e 60%, #8e3a6e 72%);
+}
+.aube-sun {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  width: min(120px, 34%);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fff6dc 0%, #ffe2a8 60%, rgba(255, 214, 150, 0) 72%);
+  transform: translate(-50%, -50%);
+  animation: aube-breathe 6s ease-in-out infinite;
+}
+.aube-ridges {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 62%;
+}
+.aube-ridge { animation: aube-float 8s ease-in-out infinite; }
+.aube-ridge-2 { animation-duration: 10s; animation-delay: -2s; }
+.aube-ridge-3 { animation-duration: 12s; animation-delay: -4s; }
+.aube-bird {
+  position: absolute;
+  top: 44%;
+  left: -6%;
+  width: 14px;
+  height: 6px;
+  border-top: 1.5px solid #6b2a55;
+  border-radius: 50% 50% 0 0;
+  animation: aube-fly 18s linear infinite;
+}
+.aube-bird::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: -1.5px;
+  width: 14px;
+  height: 6px;
+  border-top: 1.5px solid #6b2a55;
+  border-radius: 50% 50% 0 0;
+}
+.aube-bird-2 { top: 41%; scale: 0.75; animation-duration: 22s; animation-delay: -8s; }
+@keyframes aube-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.95; }
+  50% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+}
+@keyframes aube-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+@keyframes aube-fly { from { left: -6%; } to { left: 106%; } }
+@media (prefers-reduced-motion: reduce) {
+  .aube-sun, .aube-ridge, .aube-bird { animation: none; }
+  .aube-bird { left: 30%; }
+  .aube-bird-2 { left: 62%; }
+}
+/* Vignette « Aube » du choix de thème de la page bio : le même paysage en miniature. */
+.nebula-theme-swatch-cretes {
+  background: linear-gradient(180deg, #fde2bd 0%, #f9b98a 30%, #ef8a6a 55%, #c75a6e 80%);
+}
+.nebula-theme-swatch-cretes svg { position: absolute; inset: auto 0 0 0; width: 100%; height: 70%; }
+.nebula-theme-swatch-cretes .aube-mini-sun {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fff6dc 0%, #ffe2a8 60%, rgba(255, 214, 150, 0) 72%);
+}
+
+/* --- Logo Nebula selon le thème de palier (09/10/2026, demande de Lucas) -- */
+/* Or Impérial (Pro) : le logo s'allume en blanc et or, avec un léger halo ;
+   en mode clair, un or plus profond pour rester lisible sur blanc.
+   Éclipse totale (Agence) : effet négatif noir et blanc — anneaux blancs et
+   étoile noire en mode sombre, anneaux noirs et étoile blanche en mode clair
+   (au lieu des couleurs ternes du thème). */
+[data-theme="or-imperial"] .nb-logo,
+[data-theme="or-imperial"] .nb-word {
+  --nb-logo-1: #fffaf0;
+  --nb-logo-2: #ffe9b8;
+  --nb-logo-3: #f3cf86;
+  --nb-logo-4: #e8b860;
+}
+[data-theme="or-imperial"] .nb-logo {
+  filter: drop-shadow(0 0 3px rgba(240, 200, 120, 0.7)) drop-shadow(0 0 8px rgba(214, 158, 46, 0.4));
+}
+[data-theme="or-imperial"] .nb-logo .nb-logo-star { fill: #ffffff; }
+[data-theme="or-imperial"] .nb-word { filter: drop-shadow(0 0 10px rgba(214, 158, 46, 0.45)); }
+[data-mode="light"][data-theme="or-imperial"] .nb-logo:not(.nb-logo--on-dark),
+[data-mode="light"][data-theme="or-imperial"] .nb-word:not(.nb-logo--on-dark) {
+  --nb-logo-1: #d9a640;
+  --nb-logo-2: #c48f2a;
+  --nb-logo-3: #a8751c;
+  --nb-logo-4: #8a5c12;
+  filter: none;
+}
+[data-mode="light"][data-theme="or-imperial"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star { fill: #7a5410; }
+
+[data-theme="eclipse-totale"] .nb-logo,
+[data-theme="eclipse-totale"] .nb-word {
+  --nb-logo-1: #ffffff;
+  --nb-logo-2: #ffffff;
+  --nb-logo-3: #ffffff;
+  --nb-logo-4: #ffffff;
+  filter: none;
+}
+/* Négatif : l'étoile prend la couleur de la page (noire sur les anneaux blancs, blanche sur les noirs). */
+[data-theme="eclipse-totale"] .nb-logo .nb-logo-star { fill: #050506; }
+[data-mode="light"][data-theme="eclipse-totale"] .nb-logo:not(.nb-logo--on-dark),
+[data-mode="light"][data-theme="eclipse-totale"] .nb-word:not(.nb-logo--on-dark) {
+  --nb-logo-1: #0a0a0b;
+  --nb-logo-2: #0a0a0b;
+  --nb-logo-3: #0a0a0b;
+  --nb-logo-4: #0a0a0b;
+}
+[data-mode="light"][data-theme="eclipse-totale"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star { fill: #ffffff; }

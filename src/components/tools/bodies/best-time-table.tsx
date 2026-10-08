@@ -59,7 +59,7 @@ export function BestTimeTable({ initialNetwork, initialTimezone, personal }: { i
           </label>
           <select id={`${uid}-tz`} value={tz} onChange={(e) => setTz(e.target.value)} className="mt-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60">
             {zones.map((t) => (
-              <option key={t} value={t} className="bg-void-900">
+              <option key={t} value={t}>
                 {t.replace(/_/g, " ")}
               </option>
             ))}

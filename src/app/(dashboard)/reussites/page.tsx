@@ -777,8 +777,8 @@ export default function ReussitesPage() {
   };
 
   return (
-    // « isolate » : le -z-10 de CosmeticDecorOverlay (Voûte céleste) reste
-    // dans cette page (voir decor-overlay.tsx).
+    // Voûte céleste (CosmeticDecorOverlay) : rendue dans <main> sur toute la
+    // largeur de la zone de contenu (voir decor-overlay.tsx).
     <div className="relative isolate space-y-8">
       <CosmeticDecorOverlay cosmeticKey="papier-peint-succes" />
       <PageHeader
@@ -842,7 +842,7 @@ export default function ReussitesPage() {
           </section>
           <LevelsModal open={levelsOpen} onClose={() => setLevelsOpen(false)} xp={level.xp} level={level.level} conditions={data.constellation.conditions} />
 
-          <div className="sticky top-14 z-20 -mx-4 bg-void-950/90 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:bg-transparent lg:px-0 lg:backdrop-blur-none">
+          <div className="nb-sticky-tabs sticky top-14 z-20 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:px-0">
             <Tabs items={TABS} value={tab} onChange={changeTab} variant="line" aria-label="Sections des réussites" idPrefix="reussites" />
           </div>
 

@@ -116,8 +116,8 @@ export function LinkedAccountsList({
             key={a.uid}
             onClick={() => !a.active && switchTo(a.uid)}
             className={clsx(
-              "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition",
-              a.active ? "bg-[color:var(--nb-active)] text-white" : "cursor-pointer text-slate-300 hover:bg-[color:var(--nb-hover)]",
+              "nb-menu-item group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm",
+              a.active ? "nb-menu-item-current" : "cursor-pointer text-slate-300",
               switching === a.uid && "opacity-50"
             )}
           >
@@ -151,7 +151,7 @@ export function LinkedAccountsList({
         );
       })}
       {canAddAccount && (
-        <button onClick={addLinkedAccount} className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white">
+        <button onClick={addLinkedAccount} className="nb-menu-item mt-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:text-white">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-[color:var(--nb-sep-strong)]">
             <IconPlus className="h-3.5 w-3.5" />
           </span>

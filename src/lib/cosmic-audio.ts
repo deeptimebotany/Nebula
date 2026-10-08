@@ -1,9 +1,10 @@
-// Petits sons synthétisés à la volée via WebAudio (aucun fichier audio dans
-// le projet — voir la note dans le suivi de ce lot : pas question d'en
-// fabriquer un). Chaque fonction crée son propre AudioContext à la volée et
-// le referme après usage ; les navigateurs qui bloquent l'audio sans
-// interaction utilisateur préalable échouent silencieusement (catch vide),
-// ce qui est le comportement souhaité pour un simple agrément sonore.
+// Petits sons de l'interface. La plupart sont synthétisés à la volée via
+// WebAudio : chaque fonction crée son propre AudioContext et le referme
+// après usage. Seule exception, le « Son Pulsar » des notifications : depuis
+// le 08/10/2026, c'est le son fourni par Lucas (« Nebula Mail – Arrivée et
+// départ », public/sounds/notification-pulsar.mp3, 0,9 s). Les navigateurs
+// qui bloquent l'audio sans interaction préalable échouent silencieusement
+// (catch vide), ce qui est le comportement souhaité pour un agrément sonore.
 
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 
@@ -17,24 +18,31 @@ function getCtx(): AudioContext | null {
   }
 }
 
-/** Petit carillon aigu à deux notes — cosmétique "Son Pulsar" (voir toast.tsx). */
+/** Fichier du « Son Pulsar » (servi depuis public/, même origine : CSP media-src 'self'). */
+export const PULSAR_SOUND_URL = "/sounds/notification-pulsar.mp3";
+/** Volume de lecture : discret, sous la musique ou la vidéo en cours. */
+const PULSAR_VOLUME = 0.7;
+
+let pulsarAudio: HTMLAudioElement | null = null;
+
+/**
+ * Son des notifications de succès — cosmétique « Son Pulsar » (voir
+ * toast.tsx). Le fichier est chargé une fois, puis copié à chaque lecture :
+ * deux notifications rapprochées jouent chacune leur son en entier.
+ */
 export function playPulsarChime() {
-  const ctx = getCtx();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  [880, 1320].forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, now + i * 0.09);
-    gain.gain.linearRampToValueAtTime(0.06, now + i * 0.09 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.35);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now + i * 0.09);
-    osc.stop(now + i * 0.09 + 0.4);
-  });
-  window.setTimeout(() => ctx.close().catch(() => undefined), 900);
+  try {
+    if (typeof Audio === "undefined") return;
+    if (!pulsarAudio) {
+      pulsarAudio = new Audio(PULSAR_SOUND_URL);
+      pulsarAudio.preload = "auto";
+    }
+    const sound = pulsarAudio.cloneNode(true) as HTMLAudioElement;
+    sound.volume = PULSAR_VOLUME;
+    void sound.play().catch(() => undefined);
+  } catch {
+    // agrément sonore facultatif — jamais bloquant
+  }
 }
 
 /** Souffle de décollage montant — easter egg "Son Décollage" (voir publish.ts / composer/page.tsx). */

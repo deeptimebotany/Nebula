@@ -31,6 +31,8 @@ import { isUnlimitedBioLinks, type Plan } from "@/lib/plans";
 import { BIO_CARD_SIZES, BIO_FRAMES, FRAME_NONE, frameFitsTheme, frameThemeHint, resolveBioFrame, themeFlavor, type BioCardSize, type ResolvedFrame } from "@/lib/bio-frames";
 import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
 import { ParticleCanvas, particleVariantForTheme } from "@/components/theme-particles";
+import { bioLook } from "@/lib/bio-look";
+import { AubeScenery } from "@/components/link-in-bio/aube-scenery";
 import { IconLock, IconLink } from "@/components/dashboard/icons";
 import { CampaignLinkBuilder } from "@/components/composer/campaign-link-builder";
 
@@ -289,7 +291,9 @@ export default function LinkInBioPage() {
   const activeTheme = savedTheme && (!planLoaded || canUseTheme(savedTheme, plan)) ? savedTheme : THEMES[0];
   const activeFrame = resolveBioFrame(activeTheme.key, page?.frame);
   const pageFlavor = themeFlavor(activeTheme.key);
-  const miniBackground = `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-700"]}))`;
+  // Thème avec son propre décor (Aube, voir bio-look.ts) : même rendu que la page publique.
+  const look = bioLook(activeTheme.key);
+  const miniBackground = look ? look.background : `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-700"]}))`;
 
   if (!activeBrand) {
     return (
@@ -541,7 +545,7 @@ export default function LinkInBioPage() {
             <p className="mt-1 text-sm text-slate-400">Indépendant du thème de votre tableau de bord.</p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {THEMES.filter((t) => !t.hidden || page?.theme === t.key || unlockedThemes.includes(t.key)).map((t) => (
-                <ThemeCard key={t.key} theme={t} selected={page?.theme === t.key} locked={!canUseTheme(t, plan)} onPick={() => onPickTheme(t.key)} />
+                <ThemeCard key={t.key} theme={t} selected={page?.theme === t.key} locked={!canUseTheme(t, plan)} onPick={() => onPickTheme(t.key)} context="bio" />
               ))}
             </div>
           </GlassCard>
@@ -596,9 +600,12 @@ export default function LinkInBioPage() {
               style={{ maxWidth: BIO_CARD_SIZES[cardSize].preview }}
               cardClassName="isolate flex w-full flex-col items-center gap-3 border border-white/10 p-6 shadow-2xl"
               cardStyle={{
-                background: `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-800"]}) 60%, rgb(${activeTheme.vars["--c-nebula-700"]}))`
+                background: look
+                  ? look.background
+                  : `linear-gradient(180deg, rgb(${activeTheme.vars["--c-nebula-900"]}), rgb(${activeTheme.vars["--c-nebula-800"]}) 60%, rgb(${activeTheme.vars["--c-nebula-700"]}))`
               }}
             >
+              {look?.scenery === "cretes" && <AubeScenery className="bf-layer inset-0" style={{ zIndex: -1, borderRadius: "inherit" }} />}
               {particleVariantForTheme(activeTheme.key) && (
                 // bf-layer : reste un calque de fond. Sans cette classe, un
                 // cadre actif le repassait dans le flux (règle .bf-on .bf-card >
@@ -613,16 +620,24 @@ export default function LinkInBioPage() {
               <BioAvatarFrame frame={activeFrame} className="mt-4">
                 <div
                   className="shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10"
-                  style={{ width: BIO_CARD_SIZES[cardSize].previewAvatar, height: BIO_CARD_SIZES[cardSize].previewAvatar }}
+                  style={{ width: BIO_CARD_SIZES[cardSize].previewAvatar, height: BIO_CARD_SIZES[cardSize].previewAvatar, ...look?.avatar }}
                 >
                   {page?.avatarUrl && <RemoteImage src={page.avatarUrl} className="h-full w-full" sizes="96px" />}
                 </div>
               </BioAvatarFrame>
-              <p className="text-center text-sm font-semibold text-white">{title.trim() || activeBrand.name}</p>
-              {bio.trim() && <p className="text-center text-xs text-white/70">{bio}</p>}
+              <p className="text-center text-sm font-semibold text-white" style={look?.name}>
+                {title.trim() || activeBrand.name}
+              </p>
+              {bio.trim() && (
+                <p className="text-center text-xs text-white/70" style={look?.bio}>
+                  {bio}
+                </p>
+              )}
               <div className="mt-2 w-full space-y-2">
                 {(page?.links ?? []).filter((l) => l.enabled).length === 0 ? (
-                  <p className="py-4 text-center text-xs text-white/40">Vos liens apparaîtront ici.</p>
+                  <p className="py-4 text-center text-xs text-white/40" style={look?.empty}>
+                    Vos liens apparaîtront ici.
+                  </p>
                 ) : (
                   page!.links
                     .filter((l) => l.enabled)
@@ -630,10 +645,14 @@ export default function LinkInBioPage() {
                       <div
                         key={l.id}
                         className="bf-link w-full truncate rounded-full px-4 py-2.5 text-center text-xs font-medium text-white shadow-inner"
-                        style={{
-                          background: `rgba(255,255,255,0.08)`,
-                          border: `1px solid rgb(${activeTheme.vars["--c-aurora-400"]} / 0.5)`
-                        }}
+                        style={
+                          look
+                            ? look.link
+                            : {
+                                background: `rgba(255,255,255,0.08)`,
+                                border: `1px solid rgb(${activeTheme.vars["--c-aurora-400"]} / 0.5)`
+                              }
+                        }
                       >
                         {l.label}
                       </div>

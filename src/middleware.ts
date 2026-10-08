@@ -149,5 +149,5 @@ export const config = {
   // Tout sauf les fichiers statiques (chunks, images optimisées, polices,
   // icônes, médias envoyés) : ils n'exécutent rien et n'ont pas besoin de
   // CSP ni de contrôle de session.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|uploads/|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|txt|xml|webmanifest)$).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|uploads/|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|txt|xml|webmanifest|mp3)$).*)"]
 };

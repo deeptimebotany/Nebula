@@ -4,13 +4,16 @@
 // Lucas). Tout ce qui concerne le COMPTE quitte la barre latérale et se
 // retrouve ici :
 //   - en-tête : avatar, nom, marque active et palier ;
-//   - Mon profil, Paramètres, Facturation (palier), Automatisations,
-//     Soutenir Nebula ;
+//   - Mon profil, Facturation (palier), Automatisations, Soutenir Nebula ;
 //   - ADMINISTRATION (compte propriétaire seulement) : Statistiques
 //     anonymes, Partenaires, Journal des mises à jour, puis « Toute
 //     l'administration » qui déplie les autres pages ;
 //   - apparence (clair / sombre), changer de marque, changer de compte,
-//     se déconnecter, numéro de version.
+//     Paramètres, se déconnecter, numéro de version. « Paramètres » est
+//     descendu près de « Se déconnecter » le 08/10/2026 (demande de Lucas) :
+//     les réglages du compte sont regroupés en bas, le haut est plus aéré.
+// Style (08/10/2026) : lignes .nb-menu-item (survol violet doux, léger
+// enfoncement au clic), ouverture animée de .nb-popover (globals.css).
 // « Changer de marque » et « Changer de compte » s'ouvrent dans le menu
 // lui-même (vue suivante, avec retour), sans nouvelle fenêtre.
 import Link from "next/link";
@@ -36,6 +39,10 @@ import { IconChevron, IconChevronLeft, IconChevronRight, IconLogout, IconMoon, I
 import packageJson from "../../../package.json";
 
 type View = "main" | "brands" | "accounts";
+
+/** « Paramètres » : en bas du menu, juste avant « Se déconnecter ». */
+const SETTINGS_HREF = "/settings";
+const settingsItem = ACCOUNT_NAV_ITEMS.find((item) => item.href === SETTINGS_HREF) ?? null;
 
 /** Initiales d'un nom (« Inès Martin » → « IM »), sinon de l'adresse. */
 export function initialsOf(name: string | null | undefined, email?: string | null): string {
@@ -153,8 +160,8 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
     }
   }
 
-  const rowClass = "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
-  const iconClass = "h-[18px] w-[18px] shrink-0 text-slate-400";
+  const rowClass = "nb-menu-item flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200";
+  const iconClass = "nb-menu-icon h-[18px] w-[18px] shrink-0 text-slate-400";
 
   const facturationMeta = data?.onTrial ? `${PLAN_LABEL[plan]} · ${data.trialDaysLeft} j` : PLAN_LABEL[plan];
 
@@ -262,7 +269,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                 <span className="flex-1">Mon profil</span>
                 <span className="shrink-0 text-[12px] text-slate-500">badges · parrainage</span>
               </button>
-              {ACCOUNT_NAV_ITEMS.map(accountRow)}
+              {ACCOUNT_NAV_ITEMS.filter((item) => item.href !== SETTINGS_HREF).map(accountRow)}
               {upgradeTo && (
                 <Link href="/billing" role="menuitem" onClick={close} className={clsx(rowClass, "text-aurora-300")}>
                   <UpgradeGem className="h-[18px] w-[18px] shrink-0" />
@@ -308,7 +315,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                     type="button"
                     onClick={() => handleModeClick("light")}
                     aria-pressed={mode === "light"}
-                    className={clsx("flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition", mode === "light" ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:text-white")}
+                    className={clsx("nb-menu-item flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px]", mode === "light" ? "nb-menu-item-current" : "text-slate-400")}
                   >
                     <IconSun className="h-3.5 w-3.5" /> Clair
                   </button>
@@ -316,7 +323,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                     type="button"
                     onClick={() => handleModeClick("dark")}
                     aria-pressed={mode === "dark"}
-                    className={clsx("flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition", mode === "dark" ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:text-white")}
+                    className={clsx("nb-menu-item flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px]", mode === "dark" ? "nb-menu-item-current" : "text-slate-400")}
                   >
                     <IconMoon className="h-3.5 w-3.5" /> Sombre
                   </button>
@@ -327,15 +334,16 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                 <IconSwap className={iconClass} />
                 <span className="flex-1">Changer de marque</span>
                 <span className="shrink-0 text-[12px] text-slate-500">{brands.length > 1 ? `${brands.length} marques` : "1 marque"}</span>
-                <IconChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+                <IconChevronRight className="nb-menu-icon h-4 w-4 shrink-0 text-slate-500" />
               </button>
               {showAccounts && (
                 <button type="button" role="menuitem" onClick={() => setView("accounts")} className={rowClass}>
                   <IconUsers className={iconClass} />
                   <span className="flex-1">Changer de compte</span>
-                  <IconChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+                  <IconChevronRight className="nb-menu-icon h-4 w-4 shrink-0 text-slate-500" />
                 </button>
               )}
+              {settingsItem && accountRow(settingsItem)}
               <button type="button" role="menuitem" onClick={() => signOut({ callbackUrl: "/login" })} className={rowClass}>
                 <IconLogout className={iconClass} />
                 <span className="flex-1">Se déconnecter</span>
@@ -352,7 +360,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
 
           {view !== "main" && (
             <>
-              <button type="button" onClick={() => setView("main")} className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white">
+              <button type="button" onClick={() => setView("main")} className="nb-menu-item mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-400">
                 <IconChevronLeft className="h-4 w-4" />
                 {view === "brands" ? "Changer de marque" : "Changer de compte"}
               </button>

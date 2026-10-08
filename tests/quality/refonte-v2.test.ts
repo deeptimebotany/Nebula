@@ -152,3 +152,99 @@ describe("accueil : la V2 en vedette (08/10/2026)", () => {
     expect(composer).toContain('"Changer de média"');
   });
 });
+
+describe("ajustements V2 du 08/10/2026 (retours de Lucas sur le site de test)", () => {
+  it("aperçu de Publier : le logo de chaque réseau dans les onglets, le nom pour les lecteurs d'écran", () => {
+    const preview = read("src/components/composer/composer-preview.tsx");
+    expect(preview).toContain('import { NetworkTile } from "@/components/ui/network-badge"');
+    expect(preview).toContain('className={clsx("nb-preview-tab", active && "nb-preview-tab-active")}');
+    expect(preview).toContain("aria-label={NETWORK_META[n].label}");
+    expect(preview).toMatch(/nb-preview-tab-active"\)\}\s*>\s*<NetworkTile network=\{n\} size=\{22\} \/>/);
+    expect(read("src/app/globals.css")).toContain(".nb-preview-tab-active::after { transform: scaleX(1); }");
+  });
+  it("zone d'import : tout le cadre ouvre le choix du fichier, sauf les boutons d'import", () => {
+    const composer = read("src/app/(dashboard)/composer/page.tsx");
+    expect(composer).toContain('data-testid="composer-dropzone"');
+    expect(composer).toContain("if (!e.currentTarget.contains(target)) return;");
+    expect(composer).toContain(`if (target.closest("button, a, input, label, select, textarea, [role='menu'], [role='dialog']")) return;`);
+    expect(composer).toContain('dropActive && "nb-dropzone-active"');
+  });
+  it("menus déroulants : ouverture animée, survol violet, listes de choix aux couleurs de Nebula", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toContain("@keyframes nb-pop-in");
+    expect(css).toMatch(/\.nb-menu-item:hover,\s*\.nb-menu-item:focus-visible \{\s*background-color: rgb\(var\(--c-aurora-500\) \/ 0\.13\);/);
+    expect(css).toContain("@supports (appearance: base-select)");
+    expect(css).toContain("select.nb-select::picker-icon { display: none; }");
+    expect(read("src/components/ui/input.tsx")).toContain('"nb-select appearance-none pr-9"');
+    // Plus de liste noire à texte blanc imposée (illisible avec le mode clair).
+    for (const f of ["src/components/ui/input.tsx", "src/components/ui/date-time-picker.tsx", "src/components/composer/tiktok-options.tsx", "src/app/(dashboard)/composer/page.tsx"]) {
+      expect(read(f), f).not.toMatch(/\[&>option\]:bg-void|<option[^>]*bg-void/);
+    }
+    for (const f of ["src/components/dashboard/profile-menu.tsx", "src/components/dashboard/brand-switcher.tsx", "src/components/dashboard/account-switcher.tsx", "src/app/(dashboard)/composer/page.tsx"]) {
+      expect(read(f), f).toContain("nb-menu-item");
+    }
+  });
+  it("Réussites : la Voûte céleste couvre toute la largeur de la zone de contenu", () => {
+    const overlay = read("src/components/cosmetics/decor-overlay.tsx");
+    expect(overlay).toContain('document.getElementById("contenu")');
+    expect(overlay).toContain("createPortal(");
+    expect(overlay).toContain("absolute inset-0 z-[-1] overflow-hidden");
+    expect(overlay).not.toContain("rounded-2xl");
+    expect(read("src/components/dashboard/app-shell.tsx")).toContain('<main id="contenu"');
+  });
+  it("menu du profil : « Paramètres » en bas, entre « Changer de marque » et « Se déconnecter »", () => {
+    const menu = read("src/components/dashboard/profile-menu.tsx");
+    expect(menu).toContain("ACCOUNT_NAV_ITEMS.filter((item) => item.href !== SETTINGS_HREF).map(accountRow)");
+    const brand = menu.indexOf("Changer de marque</span>");
+    const settings = menu.indexOf("{settingsItem && accountRow(settingsItem)}");
+    const logout = menu.indexOf("Se déconnecter</span>");
+    expect(brand).toBeGreaterThan(0);
+    expect(settings).toBeGreaterThan(brand);
+    expect(logout).toBeGreaterThan(settings);
+  });
+});
+
+describe("Son Pulsar des notifications (08/10/2026)", () => {
+  it("joue le son fourni par Lucas, servi depuis le site, sans passer par le middleware", () => {
+    const audio = read("src/lib/cosmic-audio.ts");
+    expect(audio).toContain('export const PULSAR_SOUND_URL = "/sounds/notification-pulsar.mp3";');
+    expect(audio).toContain("pulsarAudio.cloneNode(true)");
+    expect(readFileSync("public/sounds/notification-pulsar.mp3").length).toBeGreaterThan(10_000);
+    expect(read("src/middleware.ts")).toContain("webmanifest|mp3)$");
+    expect(read("src/components/dashboard/toast.tsx")).toContain('hasCosmetic.current("son-pulsar")');
+  });
+});
+
+describe("page bio : thème « Aube » refait en paysage « Crêtes » (08/10/2026)", () => {
+  it("décor propre à Aube sur la vraie page et dans l'aperçu, couleurs à part", async () => {
+    const { bioLook } = await import("@/lib/bio-look");
+    expect(bioLook("aube")?.scenery).toBe("cretes");
+    expect(bioLook("or-imperial")).toBeNull();
+    expect(bioLook(null)).toBeNull();
+    const pub = read("src/app/l/[slug]/link-in-bio-client.tsx");
+    expect(pub).toContain('{look?.scenery === "cretes" && <AubeScenery className="fixed inset-0" style={{ zIndex: -1 }} />}');
+    expect(pub).toContain("style={look?.name}");
+    const editor = read("src/app/(dashboard)/link-in-bio/page.tsx");
+    expect(editor).toContain('<AubeScenery className="bf-layer inset-0" style={{ zIndex: -1, borderRadius: "inherit" }} />');
+    expect(editor).toContain('context="bio"');
+    const scenery = read("src/components/link-in-bio/aube-scenery.tsx");
+    expect((scenery.match(/<path /g) ?? []).length).toBe(4);
+    expect(scenery).toContain('className="aube-bird aube-bird-2"');
+    const css = read("src/app/globals.css");
+    expect(css).toContain("@keyframes aube-fly");
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.aube-sun, \.aube-ridge, \.aube-bird \{ animation: none; \}/);
+    expect(read("src/components/settings/theme-card.tsx")).toContain('const bioCretes = context === "bio" && theme.key === "aube";');
+  });
+});
+
+describe("logo Nebula selon le thème de palier (09/10/2026)", () => {
+  it("Or Impérial : blanc et or ; Éclipse totale : négatif noir et blanc", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toMatch(/\[data-theme="or-imperial"\] \.nb-logo,\s*\[data-theme="or-imperial"\] \.nb-word \{\s*--nb-logo-1: #fffaf0;/);
+    expect(css).toContain('[data-theme="eclipse-totale"] .nb-logo .nb-logo-star { fill: #050506; }');
+    expect(css).toContain('[data-mode="light"][data-theme="eclipse-totale"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star { fill: #ffffff; }');
+    // Le thème et le mode sont posés sur <html> : les deux attributs se combinent.
+    expect(read("src/components/theme-provider.tsx")).toContain("root.dataset.theme = theme.key;");
+    expect(read("src/components/mode-provider.tsx")).toContain("document.documentElement.dataset.mode = mode;");
+  });
+});

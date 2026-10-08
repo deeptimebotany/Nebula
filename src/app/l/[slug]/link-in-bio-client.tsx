@@ -15,6 +15,8 @@ import type { PublicLinkPageData } from "@/lib/link-in-bio-public";
 import { BIO_CARD_SIZES, resolveBioFrame } from "@/lib/bio-frames";
 import { BioFrame, BioAvatarFrame } from "@/components/link-in-bio/bio-frame";
 import { safeHref } from "@/lib/safe-url";
+import { bioLook } from "@/lib/bio-look";
+import { AubeScenery } from "@/components/link-in-bio/aube-scenery";
 
 // Les données arrivent déjà rendues par le serveur (voir page.tsx) : ce
 // composant ne fait plus aucun appel réseau au chargement — il ne garde de
@@ -40,21 +42,27 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
   // plus grande, Agence encore plus, « Le million » la plus grande.
   const size = BIO_CARD_SIZES[data.cardSize ?? "base"];
   const legend = data.cardSize === "legend";
+  // Thème avec son propre décor (Aube : montagnes au lever du soleil, voir
+  // bio-look.ts) : couleurs du texte, des boutons et de la photo à part.
+  const look = bioLook(theme.key);
 
   return (
     <div
       className="relative isolate flex min-h-screen justify-center px-4 py-14"
       style={{
-        background: `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-900"]}), rgb(${theme.vars["--c-nebula-800"]}) 55%, rgb(${theme.vars["--c-nebula-700"]}))`
+        background: look
+          ? look.background
+          : `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-900"]}), rgb(${theme.vars["--c-nebula-800"]}) 55%, rgb(${theme.vars["--c-nebula-700"]}))`
       }}
     >
+      {look?.scenery === "cretes" && <AubeScenery className="fixed inset-0" style={{ zIndex: -1 }} />}
       {particles && <ParticleCanvas variant={particles} className="pointer-events-none fixed inset-0 h-full w-full" style={{ zIndex: -1 }} />}
       <div className="w-full" style={{ maxWidth: size.maxWidth }}>
         <BioFrame
           frame={frame}
           radius={frame ? 32 : 0}
           cardClassName={frame ? "flex flex-col items-center gap-4 border border-white/10 px-5 py-8 shadow-2xl sm:px-8" : "flex flex-col items-center gap-4"}
-          cardStyle={frame ? { background: `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-800"]}), rgb(${theme.vars["--c-nebula-900"]}))` } : undefined}
+          cardStyle={frame ? (look ? look.card : { background: `linear-gradient(180deg, rgb(${theme.vars["--c-nebula-800"]}), rgb(${theme.vars["--c-nebula-900"]}))` }) : undefined}
         >
           <BioAvatarFrame frame={frame}>
           <div
@@ -63,25 +71,34 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
               width: size.avatar,
               height: size.avatar,
               borderColor: `rgb(${theme.vars["--c-aurora-400"]} / 0.6)`,
-              background: "rgba(255,255,255,0.08)"
+              background: "rgba(255,255,255,0.08)",
+              ...look?.avatar
             }}
           >
             {data.avatarUrl ? (
               <RemoteImage src={data.avatarUrl} alt={`Photo de profil de ${data.brandName}`} className="h-full w-full" sizes="96px" priority />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white/70">
+              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white/70" style={look?.initial}>
                 {data.brandName.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           </BioAvatarFrame>
 
-          <h1 className={clsx("text-center font-semibold text-white", legend ? "text-2xl" : data.cardSize === "agency" ? "text-xl" : "text-lg")}>{data.brandName}</h1>
-          {data.bio && <p className="whitespace-pre-line text-center text-sm text-white/70">{data.bio}</p>}
+          <h1 className={clsx("text-center font-semibold text-white", legend ? "text-2xl" : data.cardSize === "agency" ? "text-xl" : "text-lg")} style={look?.name}>
+            {data.brandName}
+          </h1>
+          {data.bio && (
+            <p className="whitespace-pre-line text-center text-sm text-white/70" style={look?.bio}>
+              {data.bio}
+            </p>
+          )}
 
           <div className="mt-4 w-full space-y-3">
             {data.links.length === 0 ? (
-              <p className="py-8 text-center text-sm text-white/40">Aucun lien pour l&apos;instant.</p>
+              <p className="py-8 text-center text-sm text-white/40" style={look?.empty}>
+                Aucun lien pour l&apos;instant.
+              </p>
             ) : (
               data.links.map((link) => (
                 <a
@@ -91,10 +108,14 @@ export function PublicLinkInBioClient({ slug, initialData }: { slug: string; ini
                   rel="noreferrer"
                   onClick={() => onLinkClick(link.id)}
                   className="bf-link block w-full rounded-2xl px-5 py-4 text-center text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:scale-[1.02] hover:brightness-110 active:scale-[0.99]"
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: `1.5px solid rgb(${theme.vars["--c-aurora-400"]} / 0.55)`
-                  }}
+                  style={
+                    look
+                      ? look.link
+                      : {
+                          background: "rgba(255,255,255,0.08)",
+                          border: `1.5px solid rgb(${theme.vars["--c-aurora-400"]} / 0.55)`
+                        }
+                  }
                 >
                   {link.label}
                 </a>

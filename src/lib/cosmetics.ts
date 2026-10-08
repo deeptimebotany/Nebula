@@ -77,7 +77,7 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "son-pulsar",
     label: "Son Pulsar (notifications)",
-    description: "Un léger son spatial accompagne vos notifications de succès dans l'application.",
+    description: "Un petit son « arrivée et départ » accompagne vos notifications de succès dans l'application.",
     category: "son",
     requiresPlan: "PRO"
   },

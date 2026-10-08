@@ -129,6 +129,9 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & FieldChromeP
 
 // Select natif (le menu déroulant du système, fiable au clavier et sur
 // mobile) habillé comme les autres champs, avec un chevron dessiné en CSS.
+// Depuis le 08/10/2026, la liste ouverte suit la charte dans Chrome et Edge
+// (appearance: base-select, voir globals.css « Listes de choix ») ; la
+// classe nb-select masque la flèche du navigateur au profit de la nôtre.
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
   { id, label, hint, error, labelAside, wrapperClassName, className, children, ...props },
   ref
@@ -143,7 +146,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           id={fieldId}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy(fieldId, Boolean(error), Boolean(hint))}
-          className={clsx(FIELD_CLASS, "appearance-none pr-9 [&>option]:bg-void-950 [&>option]:text-white", Boolean(error) && FIELD_ERROR_CLASS, className)}
+          className={clsx(FIELD_CLASS, "nb-select appearance-none pr-9", Boolean(error) && FIELD_ERROR_CLASS, className)}
           {...props}
         >
           {children}

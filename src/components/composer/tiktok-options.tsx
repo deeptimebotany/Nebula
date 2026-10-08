@@ -201,13 +201,13 @@ export function TiktokOptions({
               aria-invalid={!value.privacyLevel}
               className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
             >
-              <option value="" disabled className="bg-void-900">
+              <option value="" disabled>
                 Choisir la confidentialité…
               </option>
               {creator.privacyLevelOptions.map((level) => {
                 const why = privacyOptionDisabledReason(level, value);
                 return (
-                  <option key={level} value={level} disabled={Boolean(why)} title={why ?? undefined} className="bg-void-900">
+                  <option key={level} value={level} disabled={Boolean(why)} title={why ?? undefined}>
                     {tiktokPrivacyLabel(level)}
                     {why ? " — indisponible pour un contenu de marque" : ""}
                   </option>

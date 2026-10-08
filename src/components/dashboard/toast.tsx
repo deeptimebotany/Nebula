@@ -40,8 +40,9 @@ const KIND_ICON: Record<ToastKind, string> = {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  // Cosmétique "Son Pulsar" (voir src/lib/cosmetics.ts) : petit carillon
-  // synthétisé qui accompagne chaque notification de succès, uniquement si
+  // Cosmétique "Son Pulsar" (voir src/lib/cosmetics.ts) : le son « Nebula
+  // Mail – Arrivée et départ » (fichier fourni par Lucas le 08/10/2026, voir
+  // cosmic-audio.ts) accompagne chaque notification de succès, uniquement si
   // le compte l'a activé (et y a droit — CosmeticsProvider ne renvoie la clé
   // dans `enabled` que dans ce cas, voir /api/settings/cosmetics).
   const cosmetics = useCosmetics();

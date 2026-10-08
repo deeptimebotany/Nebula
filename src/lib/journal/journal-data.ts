@@ -8,6 +8,56 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-logo-themes-palier",
+    date: "2026-10-09",
+    title: "Logo Nebula : doré avec Or Impérial, en négatif noir et blanc avec Éclipse totale",
+    category: "Interface",
+    links: [
+      { href: "/settings", label: "Paramètres" },
+      { href: "/dashboard", label: "Vue d'ensemble" }
+    ],
+    result:
+      "Avec le thème Or Impérial (Pro), le logo Nebula en haut à gauche s'allume en blanc et or avec un léger halo (or plus profond en mode clair). Avec Éclipse totale (Agence), il passe en négatif noir et blanc : anneaux blancs et étoile noire en mode sombre, anneaux noirs et étoile blanche en mode clair, au lieu des couleurs ternes qui le faisaient paraître un peu sale.",
+    change:
+      "`globals.css` (« Logo Nebula selon le thème de palier » : variables `--nb-logo-*` et étoile selon `[data-theme]` et `[data-mode]` posés sur `<html>`, aussi pour le mot `.nb-word`). Branche `test`.",
+    readme: 94,
+    migrations: []
+  },
+  {
+    id: "2026-10-08-page-bio-aube-cretes",
+    date: "2026-10-08",
+    title: "Page bio : le thème Aube devient un paysage de montagnes au lever du soleil",
+    category: "Page bio et media kit",
+    links: [
+      { href: "/link-in-bio", label: "Page bio" },
+      { href: "/decouvrir/page-bio", label: "Découvrir la page bio" }
+    ],
+    result:
+      "Le thème « Aube » (palier Pro) n'est plus un simple dégradé brun : la page bio s'ouvre sur un ciel pêche et rose, le soleil se lève derrière quatre rangées de montagnes, du rose au prune, qui bougent à peine, et deux oiseaux traversent le ciel. Le nom et la bio s'écrivent en prune sur le ciel, les liens deviennent des boutons prune pleins, la photo de profil prend un anneau pêche. Le décor reste en place quand on fait défiler la page. Avec un cadre (Couronne, Carrefour…), la carte devient un verre clair posé sur le paysage. L'aperçu de l'éditeur, la vignette « Aube » du choix du thème et les miniatures des cadres montrent le même paysage. Choisi par Lucas parmi 5 propositions (« Crêtes »).",
+    change:
+      "`src/lib/bio-look.ts` (couleurs propres à Aube : texte, boutons, photo, carte encadrée), `src/components/link-in-bio/aube-scenery.tsx` (ciel, soleil, oiseaux, 4 crêtes en SVG), `globals.css` (« Thème de page bio Aube », animations coupées avec « réduire les animations », vignette `.nebula-theme-swatch-cretes`), `l/[slug]/link-in-bio-client.tsx` (décor fixe derrière la page), `link-in-bio/page.tsx` (aperçu, miniatures des cadres), `theme-card.tsx` (vignette « bio » d'Aube ; le thème Aube du tableau de bord ne change pas). Branche `test`.",
+    readme: 93,
+    migrations: []
+  },
+  {
+    id: "2026-10-08-ajustements-v2",
+    date: "2026-10-08",
+    title: "V2 : logos dans l'aperçu, zone d'import entière, menus aux couleurs de Nebula, fond de Réussites, son des notifications",
+    category: "Interface",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/reussites", label: "Réussites" },
+      { href: "/settings", label: "Paramètres" },
+      { href: "/dashboard", label: "Vue d'ensemble" }
+    ],
+    result:
+      "Retours de Lucas après un premier essai de la V2 sur le site de test. Dans Publier, les onglets de l'aperçu montrent le logo de chaque réseau (officiel quand ses règles le permettent) au lieu de son nom, l'onglet affiché souligné en violet ; tout le cadre en pointillés de la zone d'import ouvre le choix du fichier, et il s'éclaire quand on y glisse un fichier. Les menus déroulants (menu du profil, « Rédiger avec l'IA », marques, comptes, notifications) s'ouvrent avec une petite animation, prennent un trait et un reflet violets, et chaque ligne s'éclaire en violet au survol et s'enfonce légèrement au clic ; les listes de choix ne s'ouvrent plus en noir et blanc : dans Chrome et Edge, même carte que les menus, choix en cours coché en violet, ouverture animée. Sur Réussites, la Voûte céleste couvre toute la largeur, de la barre latérale au bord droit, et les onglets n'ont plus de bande blanche en mode clair. Dans le menu du profil, « Paramètres » descend juste avant « Se déconnecter ». Le « Son Pulsar » des notifications devient le son « Nebula Mail – Arrivée et départ » choisi par Lucas.",
+    change:
+      "`composer-preview.tsx` (onglets `NetworkTile`, `.nb-preview-tab`), `composer/page.tsx` (clic sur tout le cadre de dépôt, sauf boutons et fenêtres d'import ; `.nb-dropzone-active` ; menu IA en `.nb-menu-item`), `globals.css` (`nb-pop-in` sur `.nb-popover`, `.nb-menu-item`, `.nb-menu-item-current`, listes `appearance: base-select` avec `::picker(select)`, `.nb-sticky-tabs`), `input.tsx` (classe `nb-select`, plus d'options noires imposées), `profile-menu.tsx`, `brand-switcher.tsx`, `account-switcher.tsx`, `notification-bell.tsx`, `decor-overlay.tsx` (portail dans `<main id=\"contenu\">`), `cosmic-audio.ts` et `public/sounds/notification-pulsar.mp3`, `middleware.ts` (fichiers .mp3 hors middleware). Branche `test` (site de test).",
+    readme: 92,
+    migrations: []
+  },
+  {
     id: "2026-10-08-accueil-v2",
     date: "2026-10-08",
     title: "Accueil : la nouvelle interface en vedette",

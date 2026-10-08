@@ -202,7 +202,7 @@ function CompetitorTab({ brandId }: { brandId: string }) {
               className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
             >
               {offeredNetworks.map((n) => (
-                <option key={n} value={n} className="bg-void-900">{NETWORK_META[n].label}</option>
+                <option key={n} value={n}>{NETWORK_META[n].label}</option>
               ))}
             </select>
             <input
