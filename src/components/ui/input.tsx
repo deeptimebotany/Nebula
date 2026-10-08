@@ -12,8 +12,9 @@
 import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { clsx } from "@/lib/clsx";
 
+// Refonte V2 (07/10/2026) : champ sans fond gris, trait fin, coins de 8 px.
 export const FIELD_CLASS =
-  "w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-aurora-400/60 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-aurora-400/60 focus:ring-2 focus:ring-aurora-400/15 disabled:cursor-not-allowed disabled:opacity-60";
 
 const FIELD_ERROR_CLASS = "border-red-400/60 focus:border-red-400";
 

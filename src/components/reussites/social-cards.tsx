@@ -71,13 +71,13 @@ export function CollectiveCard({ collective, seasons }: { collective: Collective
   const doneInSeason = cur.months.filter((m) => m.done).length;
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      <div id="collectif" className={clsx("scroll-mt-24 rounded-2xl border p-4", collective.reached ? "border-emerald-400/30 bg-emerald-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
+      <div id="collectif" className={clsx("scroll-mt-24 border-t pt-4", collective.reached ? "border-emerald-400/60" : "border-[color:var(--nb-sep)]")}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aurora-300">Défi collectif · {collective.label}</p>
         <p className="mt-1 font-display text-sm font-semibold text-white">
           Tous ensemble : {fmt(collective.target)} vidéos mises en ligne ce mois-ci
         </p>
         <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-white/[0.08]" role="progressbar" aria-valuemin={0} aria-valuemax={collective.target} aria-valuenow={Math.min(collective.total, collective.target)} aria-label="Défi collectif">
-          <div className={clsx("h-full rounded-full transition-all duration-700", collective.reached ? "bg-emerald-400" : "bg-gradient-to-r from-nebula-500 to-accent-cyan")} style={{ width: `${pct}%` }} />
+          <div className={clsx("h-full rounded-full transition-all duration-700", collective.reached ? "bg-emerald-400" : "bg-aurora-500")} style={{ width: `${pct}%` }} />
         </div>
         <p className="mt-1.5 text-xs tabular-nums text-slate-400">
           {fmt(collective.total)} / {fmt(collective.target)} vidéos · {fmt(collective.participants)} créateur{collective.participants > 1 ? "s" : ""}
@@ -94,7 +94,7 @@ export function CollectiveCard({ collective, seasons }: { collective: Collective
                 : `Une vidéo suffit pour participer : si l'objectif est atteint, badge collectif et +${collective.xp} XP pour chaque participant.`}
         </p>
       </div>
-      <div id="saisons" className={clsx("scroll-mt-24 rounded-2xl border p-4", cur.earned ? "border-amber-300/40 bg-amber-300/[0.06]" : "border-white/[0.07] bg-white/[0.02]")}>
+      <div id="saisons" className={clsx("scroll-mt-24 border-t pt-4", cur.earned ? "border-amber-300/60" : "border-[color:var(--nb-sep)]")}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300">
           <span aria-hidden="true">{cur.emoji} </span>Badge de saison · {cur.label}
         </p>

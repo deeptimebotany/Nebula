@@ -100,7 +100,10 @@ describe("menu « Outils »", () => {
     expect(resolveNav("/tools/taux-engagement")).toMatchObject({ item: { href: "/tools" }, pageLabel: "Calculateur de taux d'engagement" });
     expect(APP_PREFIXES).toContain("/tools");
     expect(APP_MAP).toMatch(/Outils \(Taux d'engagement/);
-    expect(APP_MAP).toMatch(/Présence → Comptes connectés, Commentaires, Engagements/);
+    // Refonte V2 (07/10/2026) : catégories repliables et menu du profil.
+    expect(APP_MAP).toMatch(/Analyser → Analytics, Engagements, Rétention IA, Outils/);
+    expect(APP_MAP).toMatch(/Présence → Comptes connectés, Commentaires, Page bio, Media kit/);
+    expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Paramètres, Facturation, Automatisations, Soutenir Nebula/);
   });
 });
 

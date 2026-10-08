@@ -1,13 +1,16 @@
 // Hero de la page d'accueil (refonte du 29/09/2026). Composant SERVEUR,
 // sans JavaScript : titre, texte et boutons sont dans le HTML dès le
 // premier octet, avec une entrée douce en CSS (.hero-enter). Le produit est
-// montré tel qu'il est : une VRAIE capture du tableau de bord (compte de
-// démonstration, données fictives), en clair ou en sombre selon le mode.
+// montré tel qu'il est : de VRAIES captures (compte de démonstration, données
+// fictives), en clair ou en sombre selon le mode.
+// Refonte V2 (08/10/2026) : la nouvelle page Publier en grand et
+// l'application sur téléphone, avec une pastille « Nouveau » (à retirer
+// quelques semaines après la mise en ligne de la V2).
 import { ButtonLink } from "@/components/ui/button";
-import { ProductShot, ShotCaption } from "@/components/marketing/product-shot";
+import { PhoneShot, ProductShot, ShotCaption } from "@/components/marketing/product-shot";
 import { LAUNCHED_NETWORKS, NETWORK_META, networksSentence } from "@/lib/types";
 import { NetworkLogo, networkInkStyle } from "@/components/ui/network-badge";
-import { IconCard, IconCheck, IconLock, IconTrophy } from "@/components/dashboard/icons";
+import { IconCard, IconCheck, IconLock } from "@/components/dashboard/icons";
 import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { configuredMediaSources } from "@/lib/integrations/config";
 import { MEDIA_SOURCE_KIND, MEDIA_SOURCE_LABELS } from "@/lib/media-sources";
@@ -22,26 +25,25 @@ const REASSURANCE = [
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div aria-hidden="true" className="hero-orb -left-24 top-8 h-[360px] w-[360px] bg-accent-violet/20" />
-      <div aria-hidden="true" className="hero-orb hero-orb-b -right-20 top-40 h-[420px] w-[420px] bg-accent-cyan/15" />
+      {/* Refonte V2 (08/10/2026) : fond uni, plus de halos colorés. */}
 
       <div className="relative mx-auto max-w-6xl px-6 pb-10 pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          {/* Les Réussites, dès la première ligne (30/09/2026) : c'est ce qui
-              distingue Nebula des autres outils de planification. */}
+          {/* V2 (08/10/2026) : la nouvelle interface, dès la première ligne.
+              Les Réussites suivent juste sous le hero (#reussites). */}
           <a
-            href="/#reussites"
-            className="hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/60 hover:text-white"
+            href="/#visite"
+            className="hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full border border-[color:var(--nb-sep-strong)] py-1 pl-1 pr-3.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/60 hover:text-white"
           >
-            <IconTrophy className="h-3.5 w-3.5 text-amber-300" />
-            Réussites : publier régulièrement devient un jeu
+            <span className="rounded-full bg-aurora-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Nouveau</span>
+            Une interface entièrement repensée
             <span aria-hidden="true" className="text-aurora-300">→</span>
           </a>
 
           <h1 className="hero-enter hero-enter-2 mt-6 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-6xl">
             Tous vos réseaux sociaux,
             <br />
-            <span className="text-gradient-live">dans un seul espace</span>
+            <span className="nb-accent-ink">dans un seul espace</span>
           </h1>
 
           <p className="hero-enter hero-enter-3 mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
@@ -68,23 +70,34 @@ export function Hero() {
           <ul className="hero-enter hero-enter-4 mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-400">
             {REASSURANCE.map((item) => (
               <li key={item.text} className="flex items-center gap-1.5">
-                <item.icon className="h-3.5 w-3.5 text-aurora-300" />
+                <item.icon className="h-3.5 w-3.5 text-slate-500" />
                 {item.text}
               </li>
             ))}
           </ul>
         </div>
 
+        {/* Ordinateur : Publier en grand (et le téléphone à côté dès 1 024 px) ;
+            téléphone : l'application telle qu'on la voit sur mobile. */}
         <div className="hero-enter hero-enter-4 relative mx-auto mt-14">
-          <div aria-hidden="true" className="pointer-events-none absolute -inset-x-8 -top-8 bottom-1/2 rounded-[48px] bg-gradient-to-b from-aurora-400/15 to-transparent blur-3xl" />
-          <ProductShot
-            name="tableau-de-bord"
-            priority
-            sizes="(min-width: 1200px) 1104px, calc(100vw - 48px)"
-            alt="Tableau de bord Nebula : abonnés, portée, taux d'engagement, publications du mois et meilleur créneau du jour de la marque Studio Nova (compte de démonstration)"
-            className="relative"
-          />
-          <ShotCaption />
+          <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-10">
+            <ProductShot
+              name="publier"
+              priority
+              sizes="(min-width: 1200px) 824px, (min-width: 640px) calc(100vw - 48px), 1px"
+              alt="Page Publier de Nebula : une vidéo, son titre et sa description, les réseaux cochés et l'aperçu Instagram sur téléphone (compte de démonstration Studio Nova)"
+              className="relative hidden sm:block"
+            />
+            <PhoneShot
+              name="tableau-de-bord-mobile"
+              width={240}
+              statusBar
+              priority
+              alt="Nebula sur téléphone : la Vue d'ensemble avec les abonnés, la portée et le taux d'engagement de Studio Nova (compte de démonstration)"
+              className="sm:hidden lg:block"
+            />
+          </div>
+          <ShotCaption>La nouvelle page Publier et l&apos;application sur téléphone : captures réelles de Nebula, sur un compte de démonstration aux données fictives.</ShotCaption>
         </div>
 
         <div className="mt-16 text-center">
@@ -120,12 +133,12 @@ function MediaSourcesStrip() {
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Importez vos photos et vidéos directement depuis</p>
       <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-4" aria-label="Sources d'import de photos et vidéos">
         <li className="flex items-center gap-2 text-sm font-medium text-slate-300">
-          <SourceIcon id="device" className="h-5 w-5 text-aurora-300" />
+          <SourceIcon id="device" className="h-5 w-5 text-slate-400" />
           Votre ordinateur ou téléphone
         </li>
         {sources.map((id) => (
           <li key={id} className="flex items-center gap-2 text-sm font-medium text-slate-300">
-            <SourceIcon id={id} className="h-5 w-5 text-aurora-300" />
+            <SourceIcon id={id} className="h-5 w-5 text-slate-400" />
             {MEDIA_SOURCE_LABELS[id]}
           </li>
         ))}

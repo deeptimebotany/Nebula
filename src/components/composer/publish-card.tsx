@@ -1,127 +1,171 @@
 "use client";
 
-// Étape « Publication » de la page Publier : maintenant ou à une date, dans
-// le fuseau horaire de la marque (voir src/lib/timezone.ts), avec la barre
-// d'action collante (voir ComposerActionBar) qui garde le bouton principal
-// visible où que l'on soit dans la page. Extrait de composer/page.tsx au
-// Lot 4.
+// « QUAND » de la page Publier — refonte V2 (07/10/2026, maquettes de Lucas).
+// Une ligne au bas du formulaire : à gauche le moment prévu (la date choisie,
+// sinon votre meilleur créneau tiré de vos vrais chiffres), à droite
+// « Programmer » et « Publier maintenant ». Le même duo de boutons monte dans
+// la barre du haut sur les écrans moyens (maquette E) et dans une barre
+// collée en bas sur téléphone. L'heure est celle du fuseau de la marque
+// (voir src/lib/timezone.ts).
+//
+// Avant (Lot 4) : une carte « 5. Publication » (deux boutons radio) et une
+// barre d'action collante à part.
+import { useState } from "react";
 import { clsx } from "@/lib/clsx";
-import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { localInputToUtc, timeZoneLabel } from "@/lib/timezone";
+import { DateTimePicker, firstAvailableSlot } from "@/components/ui/date-time-picker";
+import { localInputToUtc, timeZoneLabel, utcToLocalInput, utcToWallClock, wallClockToUtc } from "@/lib/timezone";
 import type { ScheduleMode } from "./composer-types";
 
-interface PublishCardProps {
-  mode: ScheduleMode;
-  onModeChange: (mode: ScheduleMode) => void;
-  scheduleDate: string;
-  onScheduleDateChange: (value: string) => void;
-  timezone: string;
-  shortcutLabel: string;
+const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+
+/** « Vendredi 9 octobre, 18 h 30 » (« 18 h » pile) pour une valeur « YYYY-MM-DDTHH:mm » du fuseau de la marque. */
+export function formatSlotLabel(localInput: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(localInput);
+  if (!m) return "";
+  const [year, month, day, hour, minute] = [+m[1], +m[2], +m[3], +m[4], +m[5]];
+  // Jour de la semaine d'une date du calendrier (sans fuseau : midi UTC).
+  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay()];
+  const time = minute === 0 ? `${hour} h` : `${hour} h ${String(minute).padStart(2, "0")}`;
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${day} ${MONTHS[month - 1]}, ${time}`;
 }
 
-export function PublishCard({ mode, onModeChange, scheduleDate, onScheduleDateChange, timezone, shortcutLabel }: PublishCardProps) {
-  const scheduledUtc = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone) : null;
-  const inPast = scheduledUtc ? scheduledUtc.getTime() < Date.now() : false;
-  const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const differentTz = browserTz && browserTz !== timezone;
+/**
+ * Prochain passage de l'heure `hour` (heure pile) dans le fuseau `tz`, au
+ * moins 30 minutes après `now` : aujourd'hui si c'est encore possible, sinon
+ * demain. Valeur « YYYY-MM-DDTHH:mm » du fuseau.
+ */
+export function nextBestSlot(hour: number, tz: string, now: Date = new Date()): string {
+  const today = utcToWallClock(now, tz);
+  let at = wallClockToUtc({ year: today.year, month: today.month, day: today.day, hour, minute: 0 }, tz);
+  if (at.getTime() - now.getTime() < 30 * 60_000) {
+    const tomorrow = utcToWallClock(new Date(now.getTime() + 24 * 3_600_000), tz);
+    at = wallClockToUtc({ year: tomorrow.year, month: tomorrow.month, day: tomorrow.day, hour, minute: 0 }, tz);
+  }
+  return utcToLocalInput(at, tz);
+}
 
+interface PublishActionsProps {
+  /** Date choisie (mode « date ») : « Programmer » devient le bouton principal. */
+  scheduled: boolean;
+  canSubmit: boolean;
+  submitting: boolean;
+  blockedReason?: string | null;
+  onSchedule: () => void;
+  onPublishNow: () => void;
+  /** Boutons plus petits (barre du haut). */
+  compact?: boolean;
+  className?: string;
+}
+
+/** « Programmer » + « Publier maintenant » (le principal est violet plein). */
+export function PublishActions({ scheduled, canSubmit, submitting, blockedReason, onSchedule, onPublishNow, compact = false, className }: PublishActionsProps) {
+  // disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton principal
+  // doit rester cliquable quand canSubmit est faux, pour l'easter egg des
+  // 20 clics (voir composer/page.tsx) — la garde reste dans l'envoi.
+  const size = compact ? "px-3 py-2 text-[13px]" : "px-5 py-2.5";
+  const muted = !canSubmit && !submitting && "cursor-not-allowed opacity-50";
+  const title = !canSubmit && blockedReason ? blockedReason : undefined;
   return (
-    <GlassCard>
-      <h2 className="mb-3 font-display text-base font-medium text-white">5. Publication</h2>
-      <div className="space-y-2" role="radiogroup" aria-label="Moment de publication">
-        {[
-          { id: "now" as const, label: "Publier immédiatement" },
-          { id: "date" as const, label: "Programmer à une date précise" }
-        ].map((opt) => (
-          <label
-            key={opt.id}
-            className={clsx(
-              "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition",
-              mode === opt.id ? "border-aurora-400/50 bg-nebula-700/30 text-white" : "border-white/10 text-slate-400 hover:border-white/20"
-            )}
-          >
-            <input type="radio" name="mode" checked={mode === opt.id} onChange={() => onModeChange(opt.id)} className="accent-aurora-500" />
-            {opt.label}
-          </label>
-        ))}
-      </div>
-
-      {mode === "date" && (
-        <div className="mt-3 space-y-2">
-          <DateTimePicker value={scheduleDate} onChange={onScheduleDateChange} timeZone={timezone} />
-          <p className="text-[11px] text-slate-500">
-            Heure de <span className="text-slate-300">{timezone.replace(/_/g, " ")}</span> ({timeZoneLabel(timezone, scheduledUtc ?? new Date())})
-            {differentTz && (
-              <>
-                {" "}
-                — différent de votre appareil ({browserTz}). Modifiable dans Paramètres → Marque.
-              </>
-            )}
-          </p>
-          {inPast && <p className="text-xs text-amber-300">Cette date est déjà passée : la publication partirait au prochain passage du planificateur.</p>}
-        </div>
-      )}
-
-      <p className="mt-3 text-[11px] text-slate-500">Astuce : {shortcutLabel}+Entrée publie sans lâcher le clavier.</p>
-    </GlassCard>
+    <div className={clsx("flex shrink-0 items-center gap-2", className)}>
+      <Button
+        variant={scheduled ? "glow" : "outline"}
+        className={clsx("whitespace-nowrap", size, scheduled && muted)}
+        disabled={submitting}
+        aria-disabled={scheduled ? !canSubmit : undefined}
+        title={scheduled ? title : undefined}
+        onClick={onSchedule}
+        data-testid="composer-schedule"
+      >
+        {submitting && scheduled ? "Envoi..." : "Programmer"}
+      </Button>
+      <Button
+        variant={scheduled ? "outline" : "glow"}
+        className={clsx("whitespace-nowrap", size, !scheduled && muted)}
+        disabled={submitting}
+        aria-disabled={!scheduled ? !canSubmit : undefined}
+        title={!scheduled ? title : undefined}
+        onClick={onPublishNow}
+        data-testid="composer-publish-now"
+      >
+        {submitting && !scheduled ? "Envoi..." : "Publier maintenant"}
+      </Button>
+    </div>
   );
 }
 
-interface ComposerActionBarProps {
+interface WhenSectionProps {
   mode: ScheduleMode;
   scheduleDate: string;
+  onScheduleDateChange: (value: string) => void;
+  /** Revenir à « maintenant » (efface la date choisie). */
+  onClearDate: () => void;
   timezone: string;
-  selectedCount: number;
-  hasMedia: boolean;
-  canSubmit: boolean;
-  submitting: boolean;
-  onSubmit: () => void;
-  /** Ce qui empêche l'envoi (ex. confidentialité TikTok non choisie), affiché sous le résumé et au survol du bouton. */
-  blockedReason?: string | null;
-  /** Ligne sous le bouton (ex. phrase de consentement de TikTok). */
+  /** Meilleur créneau à venir (« YYYY-MM-DDTHH:mm »), tiré des statistiques réelles, sinon null. */
+  bestSlot: string | null;
+  shortcutLabel: string;
+  actions: React.ReactNode;
+  /** Ce qui manque avant de pouvoir publier (média, réseau, TikTok…). */
+  missing?: string | null;
+  missingTone?: "neutral" | "warning";
   footnote?: React.ReactNode;
 }
 
-/** Barre d'action collante en bas de la page Publier : résumé + bouton principal toujours visible. */
-export function ComposerActionBar({ mode, scheduleDate, timezone, selectedCount, hasMedia, canSubmit, submitting, onSubmit, blockedReason, footnote }: ComposerActionBarProps) {
-  const scheduledUtc = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone) : null;
-  const when =
-    mode === "now"
-      ? "Publication immédiate"
-      : scheduledUtc
-        ? `Programmée le ${scheduledUtc.toLocaleString("fr-FR", { timeZone: timezone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-        : "Choisissez une date";
-  const missing = !hasMedia ? "Ajoutez un média pour continuer" : selectedCount === 0 ? "Choisissez au moins un réseau" : blockedReason ?? null;
+export function WhenSection({ mode, scheduleDate, onScheduleDateChange, onClearDate, timezone, bestSlot, shortcutLabel, actions, missing, missingTone = "neutral", footnote }: WhenSectionProps) {
+  const [picking, setPicking] = useState(false);
+  const scheduled = mode === "date" && Boolean(scheduleDate);
+  const scheduledUtc = scheduled ? localInputToUtc(scheduleDate, timezone) : null;
+  const inPast = scheduledUtc ? scheduledUtc.getTime() < Date.now() : false;
+  const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+  const differentTz = browserTz && browserTz !== timezone;
+  const shown = scheduled ? scheduleDate : bestSlot;
+  const isBest = Boolean(shown && bestSlot && shown === bestSlot);
 
   return (
-    <div className="sticky bottom-[4.75rem] z-20 lg:bottom-4">
-      <div className="glass-panel-solid rounded-2xl px-4 py-3 shadow-glow-lg">
-      <div className="flex items-center justify-between gap-3">
+    <section aria-labelledby="composer-when" className="border-t border-[color:var(--nb-sep)] pt-7">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-white">
-            {selectedCount === 0 ? "Aucun réseau sélectionné" : selectedCount === 1 ? "1 réseau" : `${selectedCount} réseaux`} · {when}
+          <h2 id="composer-when" className="nb-section-label">
+            Quand
+          </h2>
+          <p className="mt-1.5 text-[16px] text-white" data-testid="composer-when-value">
+            {shown ? (
+              <>
+                {formatSlotLabel(shown)}
+                {isBest && <span className="text-slate-500"> · votre meilleur créneau</span>}
+              </>
+            ) : (
+              <span className="text-slate-400">Maintenant, ou à la date de votre choix</span>
+            )}
           </p>
-          <p className={clsx("truncate text-xs", blockedReason && hasMedia && selectedCount > 0 ? "text-amber-200" : "text-slate-500")} title={missing ?? undefined}>
-            {missing ?? (mode === "now" ? "Envoyée dès que vous cliquez." : `Heure de ${timezone.replace(/_/g, " ")}.`)}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+            <button type="button" onClick={() => setPicking((v) => !v)} className="text-slate-400 underline-offset-2 transition hover:text-white hover:underline" aria-expanded={picking}>
+              {scheduled || bestSlot ? "Changer la date" : "Choisir une date"}
+            </button>
+            {scheduled && (
+              <button type="button" onClick={onClearDate} className="text-slate-400 underline-offset-2 transition hover:text-white hover:underline">
+                Ne pas programmer
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="hidden sm:block">{actions}</div>
+      </div>
+
+      {picking && (
+        <div className="mt-4 max-w-sm space-y-2">
+          <DateTimePicker value={scheduleDate || bestSlot || firstAvailableSlot(timezone)} onChange={onScheduleDateChange} timeZone={timezone} />
+          <p className="text-[12px] text-slate-500">
+            Heure de <span className="text-slate-300">{timezone.replace(/_/g, " ")}</span> ({timeZoneLabel(timezone, scheduledUtc ?? new Date())})
+            {differentTz && <> — différent de votre appareil ({browserTz}). Modifiable dans Paramètres → Marque.</>}
           </p>
         </div>
-        {/* disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton doit
-            rester cliquable quand canSubmit est faux, pour l'easter egg des
-            20 clics (voir composer/page.tsx) — la garde reste dans onSubmit. */}
-        <Button
-          className={clsx("shrink-0 whitespace-nowrap", !canSubmit && !submitting && "cursor-not-allowed opacity-50")}
-          disabled={submitting}
-          aria-disabled={!canSubmit}
-          title={!canSubmit && blockedReason ? blockedReason : undefined}
-          onClick={onSubmit}
-        >
-          {submitting ? "Envoi..." : mode === "now" ? "Publier maintenant" : "Programmer"}
-        </Button>
-      </div>
+      )}
+      {inPast && <p className="mt-2 text-[13px] text-amber-300">Cette date est déjà passée : choisissez une date et une heure à venir.</p>}
+      {missing && <p className={clsx("mt-3 text-[13px]", missingTone === "warning" ? "text-amber-300" : "text-slate-500")}>{missing}</p>}
       {footnote}
-      </div>
-    </div>
+      <p className="mt-3 hidden text-[12px] text-slate-500 sm:block">Astuce : {shortcutLabel}+Entrée publie sans lâcher le clavier.</p>
+    </section>
   );
 }

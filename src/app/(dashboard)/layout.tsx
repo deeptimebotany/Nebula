@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const ownerMode = isOwner ? readOwnerModeCookie() : null;
 
   // Le compte actif est mémorisé dans le sélecteur multi-compte (voir
-  // multi-account.ts) côté client, au chargement de AccountSwitcher — PAS
+  // multi-account.ts) côté client, par le menu du profil (useLinkedAccounts) — PAS
   // ici : Next.js interdit d'écrire un cookie depuis un Server Component.
   const oauth = getEnabledOAuthProviders();
 

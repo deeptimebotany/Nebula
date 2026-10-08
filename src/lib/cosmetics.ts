@@ -43,14 +43,14 @@ export const COSMETICS: CosmeticDefinition[] = [
   {
     key: "anneau-saturne-avatar",
     label: "Anneau de Saturne (avatar)",
-    description: "Un anneau animé léger autour de la pastille de marque active, en haut de l'écran. Cumulable avec le Halo doré.",
+    description: "Un anneau animé léger autour de votre avatar, dans le menu du profil (en haut à droite). Cumulable avec le Halo doré.",
     category: "profil",
     requiresPlan: "AGENCY"
   },
   {
     key: "halo-dore-avatar",
     label: "Halo doré (avatar)",
-    description: "Un halo doré autour de la pastille de marque active. Cumulable avec l'Anneau de Saturne.",
+    description: "Un halo doré autour de votre avatar, dans le menu du profil. Cumulable avec l'Anneau de Saturne.",
     category: "profil",
     requiresPlan: "PRO"
   },
@@ -88,8 +88,8 @@ export const COSMETICS: CosmeticDefinition[] = [
     category: "profil",
     requiresEgg: "greeting-unlock"
   },
-  // --- Anneaux d'avatar gagnés dans Réussites (25/09/2026) : autour de la
-  // pastille de marque (en haut), de la photo dans « Mon profil » et dans la
+  // --- Anneaux d'avatar gagnés dans Réussites (25/09/2026) : autour de
+  // l'avatar (en haut à droite, V2), de la photo dans « Mon profil » et dans la
   // Communauté. Activés automatiquement quand on les gagne ; si plusieurs
   // sont activés, seul le plus prestigieux s'affiche.
   {

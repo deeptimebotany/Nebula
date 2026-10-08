@@ -596,7 +596,8 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           </div>
         )}
 
-        <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.015] p-1">
+        {/* V2 (07/10/2026) : onglets soulignés, sur le fond de la page. */}
+        <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--nb-sep)]">
           {(
             [
               ["overview", "Vue d'ensemble"],
@@ -608,8 +609,8 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
               key={id}
               onClick={() => setTab(id)}
               className={clsx(
-                "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition",
-                tab === id ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow" : "text-slate-400 hover:text-white"
+                "-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[14px] transition",
+                tab === id ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
               )}
             >
               {label}

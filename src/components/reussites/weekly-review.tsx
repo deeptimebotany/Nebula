@@ -14,7 +14,7 @@ const fmt = (n: number) => n.toLocaleString("fr-FR");
 
 function Figure({ label, value, detail, empty }: { label: string; value: string; detail?: string | null; empty?: string }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+    <div className="min-w-0 border-t border-[color:var(--nb-sep)] pt-3.5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
       <p className="mt-1 truncate font-display text-2xl font-semibold tabular-nums text-white">{value}</p>
       {detail && <p className="mt-0.5 truncate text-xs text-slate-400">{detail}</p>}
@@ -58,7 +58,7 @@ export function WeeklyReview({ review, busy, onChoose, highlight }: { review: Re
       </div>
 
       {chosen && !editing && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-aurora-400/30 bg-aurora-500/[0.07] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-aurora-400 pt-3">
           <p className="text-sm text-white">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-aurora-300">Cap de la semaine · </span>
             {chosen.label}
@@ -84,8 +84,8 @@ export function WeeklyReview({ review, busy, onChoose, highlight }: { review: Re
                   setEditing(false);
                 }}
                 className={clsx(
-                  "min-h-[44px] rounded-xl border px-3.5 py-2.5 text-left text-sm transition disabled:opacity-60",
-                  o.key === review.focus ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+                  "min-h-[44px] rounded-lg border px-3.5 py-2.5 text-left text-sm transition disabled:opacity-60",
+                  o.key === review.focus ? "border-aurora-400/60 bg-[color:var(--nb-active)] font-semibold text-white" : "border-[color:var(--nb-sep-strong)] text-slate-300 hover:bg-[color:var(--nb-hover)] hover:text-white"
                 )}
               >
                 {o.label}

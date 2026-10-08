@@ -48,22 +48,25 @@ export interface TourStep {
   path?: string[];
 }
 
+// Refonte V2 (07/10/2026) : la marque et les Paramètres sont dans le menu du
+// profil (avatar en haut à droite) ; une page dans une catégorie repliée de
+// la barre latérale est montrée par le titre de sa catégorie.
 export const TOUR_STEPS: TourStep[] = [
-  { id: "brand", anchors: ["brand-switcher", "mobile-menu"], title: "Vos marques", text: "Chaque marque a ses comptes, son calendrier et ses statistiques." },
-  { id: "connect", anchors: ["connect-account", "mobile-menu"], title: "Comptes connectés", text: "Connectez YouTube, Instagram, Facebook ou TikTok. Nebula ne voit jamais vos mots de passe." },
-  { id: "compose", anchors: ["nav-composer"], title: "Publier", text: "Une publication, plusieurs réseaux, à l'heure de votre choix." },
-  { id: "calendar", anchors: ["nav-calendar"], title: "Calendrier", text: "Tout ce qui est prévu, déplaçable d'un glisser." },
-  { id: "analytics", anchors: ["nav-analytics"], title: "Analytics", text: "Vos chiffres de tous les réseaux au même endroit." },
-  { id: "reussites", anchors: ["nav-reussites", "mobile-menu"], title: "Réussites", text: "Chaque semaine, 3 missions pour publier régulièrement : rangs, coffres et badges suivent vos vraies publications." },
+  { id: "brand", anchors: ["brand-switcher", "mobile-menu"], title: "Vos marques", text: "Chaque marque a ses comptes, son calendrier et ses statistiques. Changez de marque depuis le menu de votre profil." },
+  { id: "connect", anchors: ["nav-accounts", "nav-group-presence", "mobile-menu"], title: "Comptes connectés", text: "Connectez YouTube, Instagram, Facebook ou TikTok. Nebula ne voit jamais vos mots de passe." },
+  { id: "compose", anchors: ["nav-composer", "nav-group-creer"], title: "Publier", text: "Une publication, plusieurs réseaux, à l'heure de votre choix." },
+  { id: "calendar", anchors: ["nav-calendar", "nav-group-creer"], title: "Calendrier", text: "Tout ce qui est prévu, déplaçable d'un glisser." },
+  { id: "analytics", anchors: ["nav-analytics", "nav-group-analyser"], title: "Analytics", text: "Vos chiffres de tous les réseaux au même endroit." },
+  { id: "reussites", anchors: ["nav-reussites", "nav-group-communaute", "mobile-menu"], title: "Réussites", text: "Chaque semaine, 3 missions pour publier régulièrement : rangs, coffres et badges suivent vos vraies publications." },
   {
     // Le Mode focus a sa propre étape (06/10/2026) : on montre OÙ il se trouve.
     id: "focus",
-    anchors: ["nav-settings", "mobile-menu"],
+    anchors: ["profile-menu", "mobile-menu"],
     title: "Mode focus",
-    text: "Vous préférez une interface neutre ? Le Mode focus coupe tout d'un clic : récompenses, sons et notifications de succès. Il se trouve dans les Paramètres\u00a0:",
+    text: "Vous préférez une interface neutre ? Le Mode focus coupe tout d'un clic : récompenses, sons et notifications de succès. Il se trouve dans les Paramètres, depuis le menu de votre profil\u00a0:",
     focusChoice: true,
     arrow: true,
-    path: ["Paramètres", "Apparence & Succès", "Mode focus"]
+    path: ["Menu du profil", "Paramètres", "Apparence & Succès", "Mode focus"]
   }
 ];
 

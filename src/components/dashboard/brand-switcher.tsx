@@ -1,77 +1,61 @@
 "use client";
 
-// Sélecteur de marque (espace de travail actif) — vit en haut de la barre
-// latérale depuis le Lot 3 (avant : ligne 2 de l'ancienne barre du haut).
-// Liste les marques du compte, bascule, et permet d'en créer une nouvelle
-// dans la limite du palier (lue dans le bootstrap /api/me).
-import { AvatarRing, useMyRing } from "@/components/reussites/avatar-ring";
+// Marques du compte (espace de travail actif). Refonte V2 (07/10/2026) : la
+// liste vit dans le menu du profil, en haut à droite (« Changer de marque »,
+// voir profile-menu.tsx) — avant, un bouton en haut de la barre latérale.
+// Liste les marques, bascule, en crée une nouvelle dans la limite du palier
+// (lue dans le bootstrap /api/me), retire ou quitte une marque.
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useBrand } from "@/components/brand-context";
 import { useUpgradeModal } from "@/components/billing/upgrade-modal";
 import { useBootstrap } from "@/components/bootstrap-provider";
-import { useCosmetics } from "@/components/cosmetics-provider";
 import { useToast } from "@/components/dashboard/toast";
-import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { PLAN_LIMITS, type Plan } from "@/lib/plans";
 import { trialBeyondFreeNote } from "@/lib/billing/trial-copy";
-import { IconAvatar, IconChevron, IconPlus, IconLogout } from "./icons";
+import { IconPlus, IconLogout } from "./icons";
 import { useConfirm } from "@/components/dashboard/confirm";
 import type { BrandSummary } from "@/components/brand-context";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { UpgradeGem } from "./upgrade-gem";
 
-const PLAN_BADGE_STYLE: Record<Plan, string> = {
+export const PLAN_BADGE_STYLE: Record<Plan, string> = {
   FREE: "border-white/15 bg-white/[0.04] text-slate-400",
   TRIAL: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
   PRO: "border-aurora-400/40 bg-aurora-400/10 text-aurora-300",
   AGENCY: "border-amber-400/40 bg-amber-400/10 text-amber-300"
 };
 
-const PLAN_LABEL: Record<Plan, string> = { FREE: PLAN_LIMITS.FREE.label, TRIAL: PLAN_LIMITS.TRIAL.label, PRO: PLAN_LIMITS.PRO.label, AGENCY: PLAN_LIMITS.AGENCY.label };
+export const PLAN_LABEL: Record<Plan, string> = { FREE: PLAN_LIMITS.FREE.label, TRIAL: PLAN_LIMITS.TRIAL.label, PRO: PLAN_LIMITS.PRO.label, AGENCY: PLAN_LIMITS.AGENCY.label };
 
-export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
+/** Pastille du palier (Gratuit, Essai, Pro, Agence). */
+export function PlanBadge({ plan, className }: { plan: Plan; className?: string }) {
+  return <span className={clsx("nb-plan-badge rounded-full border px-1.5 text-[10px] font-semibold uppercase leading-4 tracking-wide", PLAN_BADGE_STYLE[plan], className)}>{PLAN_LABEL[plan]}</span>;
+}
+
+/**
+ * Liste des marques (menu du profil) : bascule, création, retrait.
+ * `onDone` ferme le menu après un choix.
+ */
+export function BrandList({ onDone }: { onDone?: () => void }) {
   const { brands, activeBrand, setActiveBrandId, createBrand, refresh: refreshBrands } = useBrand();
   const confirmDialog = useConfirm();
   const upgrade = useUpgradeModal();
   const { data, refresh } = useBootstrap();
-  const cosmetics = useCosmetics();
-  const myRing = useMyRing();
   const toast = useToast();
 
-  const plan: Plan = data?.plan ?? "FREE";
   const maxBrands = data?.maxBrands ?? 1;
   const brandsOwned = data?.brandsOwned ?? brands.length;
   const atBrandLimit = brandsOwned >= maxBrands;
 
-  const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
-  // Easter egg : double-clic sur l'avatar (façon « like » Instagram) — un
-  // petit cœur flotte puis disparaît.
-  const [heart, setHeart] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setAdding(false);
-      }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  const setOpen = (open: boolean) => {
+    if (!open) onDone?.();
+  };
+  const onNavigate = onDone;
 
   // Retirer une marque de son espace (voir DELETE /api/brands/[id]) :
   // propriétaire → suppression définitive, confirmée en retapant le nom ;
@@ -138,69 +122,7 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        data-tour="brand-switcher"
-        onDoubleClick={() => {
-          setHeart(true);
-          reportEasterEggFound("avatar-double-tap");
-          window.setTimeout(() => setHeart(false), 700);
-        }}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={compact ? (activeBrand?.name ?? "Sélectionner une marque") : "Changer de marque"}
-        className={clsx(
-          "flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-left transition hover:border-white/20 hover:bg-white/[0.05]",
-          compact ? "justify-center p-2" : "px-3 py-2"
-        )}
-      >
-        {heart && (
-          <span className="pointer-events-none absolute -top-3 left-3 text-lg" style={{ animation: "nebula-avatar-heart 0.7s ease-out forwards" }} aria-hidden="true">
-            ❤️
-          </span>
-        )}
-        {/* Pastille de marque : logo (photo de la Page bio) ou initiale ; les
-            cosmétiques « Halo doré » et « Anneau de Saturne » sont des
-            enfants absolus, cumulables (voir globals.css). */}
-        <AvatarRing ring={myRing} shapeClassName="rounded-lg">
-        <span className="relative isolate flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-sm font-semibold text-white">
-          {cosmetics.has("halo-dore-avatar") && (
-            <>
-              <span className="nebula-avatar-halo" aria-hidden="true" />
-              <span className="nebula-avatar-halo-spark" aria-hidden="true" />
-            </>
-          )}
-          {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn" aria-hidden="true" />}
-          <span className="relative z-[1] flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-nebula-600/60 to-accent-cyan/30">
-            {activeBrand?.logoUrl ? (
-              <RemoteImage src={activeBrand.logoUrl} className="h-full w-full" sizes="32px" />
-            ) : activeBrand ? (
-              activeBrand.name.charAt(0).toUpperCase()
-            ) : (
-              <IconAvatar className="h-4 w-4 text-slate-300" />
-            )}
-          </span>
-          {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn-front" aria-hidden="true" />}
-        </span>
-        </AvatarRing>
-        {!compact && (
-          <>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-white">{activeBrand?.name ?? "Sélectionner une marque"}</span>
-              <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                <span className={clsx("nb-plan-badge rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wide leading-4", PLAN_BADGE_STYLE[plan])}>{PLAN_LABEL[plan]}</span>
-                {brands.length > 1 ? `${brands.length} marques` : "1 marque"}
-              </span>
-            </span>
-            <IconChevron className={clsx("h-3.5 w-3.5 shrink-0 text-slate-500 transition", open && "rotate-180")} />
-          </>
-        )}
-      </button>
-
-      {open && (
-        <div role="menu" className={clsx("glass-panel-solid absolute z-30 w-72 rounded-xl p-1.5", compact ? "left-full top-0 ml-2" : "left-0 top-[calc(100%+6px)]")}>
+    <div role="menu" aria-label="Vos marques">
           <p className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-wide text-slate-500">
             Vos marques · {brandsOwned}/{maxBrands}
           </p>
@@ -303,8 +225,6 @@ export function BrandSwitcher({ compact = false, onNavigate }: { compact?: boole
               </button>
             )}
           </div>
-        </div>
-      )}
     </div>
   );
 }

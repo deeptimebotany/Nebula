@@ -39,6 +39,8 @@ async function loadSharp() {
 /** Écrans capturés. `widths` : tailles WebP produites (1x et 2x de l'affichage). */
 const SCREENS = [
   { name: "tableau-de-bord", path: "/dashboard", viewport: { width: 1440, height: 900 }, widths: [1200, 2400] },
+  // L'application sur téléphone (V2, 08/10/2026) : haut de l'accueil, à côté de Publier.
+  { name: "tableau-de-bord-mobile", path: "/dashboard", viewport: { width: 390, height: 844 }, widths: [390, 780] },
   { name: "publier", path: "/composer", viewport: { width: 1440, height: 900 }, widths: [1200, 2400], prepare: fillComposer },
   { name: "calendrier", path: "/calendar", viewport: { width: 1440, height: 900 }, widths: [1200, 2400], prepare: (p) => scrollToText(p, /Aujourd'hui/, 150) },
   { name: "analytics", path: "/analytics", viewport: { width: 1440, height: 900 }, widths: [1200, 2400] },
@@ -65,14 +67,15 @@ async function fillComposer(page) {
   // Une image : Chromium sans codec H.264 n'afficherait pas l'aperçu d'une vidéo MP4.
   await page.locator('input[type=file][accept="video/*,image/*"]').first().setInputFiles(path.join(MEDIA_OUT, "latte-heart.jpg"));
   await page.waitForTimeout(2500);
-  await page.getByPlaceholder(/Titre de la publication/).fill("Latte art : le cœur parfait en 30 secondes");
-  await page.getByPlaceholder(/Légende \/ description commune/).fill(
+  // Refonte V2 (08/10/2026) : titre et description sont des zones de texte sans cadre.
+  await page.locator("textarea[aria-label^='Titre de la publication']").fill("Latte art : le cœur parfait en 30 secondes");
+  await page.locator("textarea[aria-label^='Description commune']").fill(
     "Le geste exact, au ralenti. Lait entier bien froid, pichet incliné, et on remonte d'un coup à la fin.\n\nEnregistrez pour votre prochain latte ☕ #latteart #baristaathome #cafe"
   );
-  // Instagram en premier : c'est son aperçu qui s'affiche.
+  // Instagram en premier : c'est son aperçu qui s'affiche. Pastilles « Publier sur » (V2).
   for (const label of ["Instagram", "TikTok", "Facebook"]) {
-    const btn = page.getByRole("button", { name: label, exact: true });
-    if (await btn.count()) await btn.first().click();
+    const chip = page.locator("button[aria-pressed]", { hasText: new RegExp(`^\\s*${label}`) }).first();
+    if ((await chip.count()) && (await chip.getAttribute("aria-pressed")) !== "true") await chip.click();
   }
   await page.waitForTimeout(800);
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -85,6 +88,8 @@ const CAPTURE_CSS = `
   .nebula-chat-launcher { display: none !important; }
   /* Célébration « Accomplissement débloqué » (Réussites visibles, Mode focus désactivé). */
   .nebula-achievement-card { display: none !important; }
+  /* Messages passagers (« Brouillon enregistré »…) : hors champ. */
+  .nb-toasts { display: none !important; }
   *, *::before, *::after { animation-play-state: paused !important; caret-color: transparent !important; }
   ::-webkit-scrollbar { display: none; }
 `;

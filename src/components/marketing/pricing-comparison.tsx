@@ -80,10 +80,10 @@ export function PricingComparison() {
   return (
     <>
       {/* Écrans larges : un vrai tableau, lisible d'un coup d'œil. */}
-      <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] md:block">
+      <div className="hidden overflow-hidden border-y border-[color:var(--nb-sep)] md:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/[0.06] text-left">
+            <tr className="border-b border-[color:var(--nb-sep)] text-left">
               <th scope="col" className="px-5 py-4 text-xs font-medium uppercase tracking-wider text-slate-500">
                 Fonctionnalité
               </th>
@@ -101,7 +101,7 @@ export function PricingComparison() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.06]">
+          <tbody className="divide-y divide-[color:var(--nb-sep)]">
             {ROWS.map((row) => (
               <tr key={row.label}>
                 <th scope="row" className="px-5 py-3 text-left font-normal text-slate-300">
@@ -121,14 +121,14 @@ export function PricingComparison() {
 
       {/* Mobile : une carte par fonctionnalité, les trois paliers côte à côte
           — pas de tableau à faire défiler horizontalement. */}
-      <ul className="space-y-2 md:hidden" aria-label="Comparatif des paliers">
+      <ul className="divide-y divide-[color:var(--nb-sep)] border-y border-[color:var(--nb-sep)] md:hidden" aria-label="Comparatif des paliers">
         {ROWS.map((row) => (
-          <li key={row.label} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <li key={row.label} className="py-4">
             <p className="text-sm text-slate-200">{row.label}</p>
             {row.hint && <p className="mt-0.5 text-xs text-slate-500">{row.hint}</p>}
             <dl className="mt-3 grid grid-cols-3 gap-2">
               {PLANS.map((plan) => (
-                <div key={plan} className={clsx("rounded-xl px-2 py-2 text-center", plan === "PRO" ? "bg-aurora-400/[0.08]" : "bg-white/[0.03]")}>
+                <div key={plan} className={clsx("rounded-xl px-2 py-2 text-center", plan === "PRO" ? "bg-aurora-400/[0.08]" : "bg-[color:var(--nb-hover)]")}>
                   <dt className={clsx("text-[11px] font-semibold uppercase tracking-wider", plan === "PRO" ? "text-aurora-300" : "text-slate-500")}>
                     {PLAN_LIMITS[plan].label}
                   </dt>

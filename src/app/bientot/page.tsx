@@ -49,12 +49,12 @@ export default function BientotPage() {
 
       <section className="text-center">
         <LaunchOrbit />
-        <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-aurora-300">
+        <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-[color:var(--nb-sep-strong)] px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-aurora-300 motion-safe:animate-pulse" />
           Pré-lancement
         </p>
         <h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">
-          Nebula se prépare <span className="text-gradient-live">au décollage</span>
+          Nebula se prépare <span className="nb-accent-ink">au décollage</span>
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-slate-400 sm:text-lg">
           L&apos;application est prête, mais nous faisons les derniers réglages avec les réseaux sociaux et nos premiers partenaires avant
@@ -68,7 +68,7 @@ export default function BientotPage() {
       <section className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-[1.1fr_1fr]">
         <LaunchWaitlistForm />
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div className="border-t border-[color:var(--nb-sep)] pt-6">
           <h2 className="font-display text-lg font-semibold text-white">Où en est-on ?</h2>
           <ol className="mt-4 space-y-3.5">
             {LAUNCH_STEPS.map((step) => (
@@ -96,7 +96,7 @@ export default function BientotPage() {
         </div>
       </section>
 
-      <section className="mt-14 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center sm:p-8">
+      <section className="mt-14 border-t border-[color:var(--nb-sep)] pt-10 text-center">
         <h2 className="font-display text-xl font-semibold text-white">En attendant l&apos;ouverture</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">
           Les outils gratuits sont déjà ouverts à tous, sans compte : idées de publications, hashtags, aperçu avant publication et

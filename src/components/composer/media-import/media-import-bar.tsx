@@ -4,6 +4,9 @@
 // d'envoi : Google Drive, Dropbox, OneDrive, Unsplash et Canva. Seules les
 // sources configurées sur le serveur apparaissent (voir /api/media/sources) ;
 // si aucune ne l'est, la barre ne s'affiche pas du tout.
+// Refonte V2 (07/10/2026) : variante « inline », discrète, posée dans la zone
+// de dépôt (maquettes de Lucas). Chaque source garde son nom écrit en entier
+// à côté de son logo (exigé par Canva et Google Drive) et 8 px autour du logo.
 
 import { useCallback, useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
@@ -38,10 +41,13 @@ export function MediaImportBar({
   disabled,
   onImported,
   onError,
-  onBusyChange
+  onBusyChange,
+  variant = "bar"
 }: {
   brandId: string | undefined;
   disabled?: boolean;
+  /** « inline » : boutons discrets sans cadre, dans la zone de dépôt (V2). */
+  variant?: "bar" | "inline";
   onImported: (asset: UploadedAssetResult, extra?: { credit?: UnsplashCredit | null; creditInCaption?: boolean; source: SourceId }) => void;
   onError: (message: string) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -136,10 +142,11 @@ export function MediaImportBar({
     setDialog(id === "unsplash" ? "unsplash" : id === "canva" ? "canva" : "onedrive");
   }
 
+  const inline = variant === "inline";
   return (
     <>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs text-slate-500">Importer depuis</span>
+      <div className={clsx("flex flex-wrap items-center", inline ? "gap-0.5" : "mt-3 gap-1.5")} data-testid="media-import-sources">
+        <span className={clsx("text-xs text-slate-500", inline ? "mr-1.5" : "mr-1")}>{inline ? "Importer" : "Importer depuis"}</span>
         {available.map((id) => (
           <button
             key={id}
@@ -151,8 +158,9 @@ export function MediaImportBar({
             title={`Importer depuis ${LABELS[id]}`}
             className={clsx(
               // 8 px autour du logo (consigne Canva pour son icône dans un bouton, 06/10/2026).
-              "flex items-center gap-2 rounded-full border py-2 pl-2 pr-3 text-xs transition",
-              busy === id ? "border-aurora-400/50 bg-aurora-400/10 text-white" : "border-white/10 text-slate-300 hover:border-aurora-400/40 hover:text-white",
+              inline
+                ? clsx("flex items-center gap-2 rounded-lg p-2 text-xs transition", busy === id ? "bg-[color:var(--nb-active)] text-white" : "text-slate-500 hover:bg-[color:var(--nb-hover)] hover:text-white")
+                : clsx("flex items-center gap-2 rounded-full border py-2 pl-2 pr-3 text-xs transition", busy === id ? "border-aurora-400/50 bg-aurora-400/10 text-white" : "border-white/10 text-slate-300 hover:border-aurora-400/40 hover:text-white"),
               (!brandId || disabled) && "opacity-50"
             )}
           >

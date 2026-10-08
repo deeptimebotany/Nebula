@@ -307,7 +307,8 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
 
       {!loading && activeBrand && linkPagePublished !== null && <OnboardingChecklist brandId={activeBrand.id} steps={checklistSteps} />}
 
-      <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* V2 (08/10/2026) : deux chiffres par ligne sur téléphone. */}
+      <RevealGroup className="grid grid-cols-2 gap-x-4 gap-y-1 sm:gap-4 lg:grid-cols-4">
         <RevealItem>
           <StatCard
             label="Abonnés (total)"
@@ -399,7 +400,7 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
             <h2 className="mb-3 font-display text-base font-medium text-white">Meilleur créneau du jour</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {insights.perNetwork.map((n) => (
-                <div key={n.network} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div key={n.network} className="flex items-center gap-3 py-1">
                   <LivingClock bestHour={n.bestHour} color={NETWORK_META[n.network].color} hasEnoughData={n.hasEnoughData} />
                   <div>
                     <NetworkBadge network={n.network} size="sm" />

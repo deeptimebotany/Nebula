@@ -11,6 +11,7 @@ import { clsx } from "@/lib/clsx";
 /** Écrans disponibles (voir SCREENS dans scripts/demo/capture-screens.mjs). */
 export type ScreenName =
   | "tableau-de-bord"
+  | "tableau-de-bord-mobile"
   | "publier"
   | "calendrier"
   | "analytics"
@@ -27,6 +28,8 @@ const PHONE = { width: 390, height: 844, widths: [390, 780] };
 
 const SCREENS: Record<ScreenName, { size: typeof DESKTOP; url: string }> = {
   "tableau-de-bord": { size: DESKTOP, url: "nebulahub.space/dashboard" },
+  // Application sur téléphone (V2, 08/10/2026) : haut de l'accueil.
+  "tableau-de-bord-mobile": { size: PHONE, url: "nebulahub.space/dashboard" },
   publier: { size: DESKTOP, url: "nebulahub.space/composer" },
   calendrier: { size: DESKTOP, url: "nebulahub.space/calendar" },
   analytics: { size: DESKTOP, url: "nebulahub.space/analytics" },
@@ -114,13 +117,36 @@ export function ProductShot({
   );
 }
 
-/** Capture dans un cadre de téléphone (pages publiques vues sur mobile). */
-export function PhoneShot({ name, alt, className }: { name: ScreenName; alt: string; className?: string }) {
+/** Capture dans un cadre de téléphone (pages publiques ou application vues sur mobile). */
+export function PhoneShot({
+  name,
+  alt,
+  className,
+  width = 260,
+  priority,
+  statusBar = false
+}: {
+  name: ScreenName;
+  alt: string;
+  className?: string;
+  width?: number;
+  priority?: boolean;
+  /** Barre d'état au-dessus de la capture (écrans de l'application) : l'encoche ne cache pas le titre. */
+  statusBar?: boolean;
+}) {
   return (
-    <div className={clsx("nb-phone relative mx-auto w-[260px] rounded-[42px] border border-white/10 bg-[#0b0b0d] p-2.5", className)}>
+    <div className={clsx("nb-phone relative mx-auto rounded-[42px] border border-white/10 bg-[#0b0b0d] p-2.5", className)} style={{ width }}>
       <div aria-hidden="true" className="absolute left-1/2 top-4 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-black" />
       <div className="overflow-hidden rounded-[34px]">
-        <ShotImage name={name} alt={alt} sizes="260px" />
+        {statusBar && (
+          <div aria-hidden="true" className="flex h-8 items-center justify-between bg-[color:var(--nb-page)] px-6 pt-1 text-[11px] font-semibold text-white">
+            <span>9:41</span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-3.5 rounded-[3px] border border-current opacity-80" />
+            </span>
+          </div>
+        )}
+        <ShotImage name={name} alt={alt} sizes={`${width}px`} priority={priority} />
       </div>
     </div>
   );

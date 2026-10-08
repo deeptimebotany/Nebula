@@ -318,13 +318,14 @@ export function NotificationBell() {
         aria-haspopup="dialog"
         title="Notifications"
         className={clsx(
-          "relative flex h-9 w-9 items-center justify-center rounded-lg border transition",
-          open ? "border-aurora-400/50 bg-nebula-700/40 text-white" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+          // V2 (07/10/2026) : icône seule, sans cadre, comme la maquette.
+          "relative flex h-10 w-10 items-center justify-center rounded-full transition",
+          open ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:bg-[color:var(--nb-hover)] hover:text-white"
         )}
       >
-        <BellIcon className="h-[17px] w-[17px]" />
+        <BellIcon className="h-5 w-5" />
         {badge > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-void-950 bg-aurora-500 px-1 text-[10px] font-bold leading-none text-white">
+          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[color:var(--nb-page)] bg-aurora-500 px-1 text-[10px] font-bold leading-none text-white">
             {badge > 9 ? "9+" : badge}
           </span>
         )}
@@ -334,7 +335,7 @@ export function NotificationBell() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="glass-panel-solid fixed inset-x-2 top-[60px] z-50 flex max-h-[min(72vh,560px)] flex-col overflow-hidden rounded-2xl shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[380px]"
+          className="nb-popover fixed inset-x-2 top-[64px] z-50 flex max-h-[min(72vh,560px)] flex-col overflow-hidden rounded-2xl shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[380px]"
         >
           <div className="flex items-center justify-between px-4 pb-2 pt-3">
             <p className="font-display text-sm font-semibold text-white">Notifications</p>

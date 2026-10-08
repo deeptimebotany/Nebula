@@ -24,8 +24,9 @@ describe("visite guidée (lot U4)", () => {
     expect(focus.title).toBe("Mode focus");
     expect(focus.text).toContain("Mode focus coupe tout d'un clic");
     expect(focus.text).toContain("Paramètres");
-    expect(focus.anchors).toEqual(["nav-settings", "mobile-menu"]);
-    expect(focus.path).toEqual(["Paramètres", "Apparence & Succès", "Mode focus"]);
+    // Refonte V2 (07/10/2026) : Paramètres est dans le menu du profil (avatar).
+    expect(focus.anchors).toEqual(["profile-menu", "mobile-menu"]);
+    expect(focus.path).toEqual(["Menu du profil", "Paramètres", "Apparence & Succès", "Mode focus"]);
     expect(focus.arrow).toBe(true);
     expect(TOUR_STEPS.filter((s) => s.focusChoice).map((s) => s.id)).toEqual(["focus"]);
     expect(TOUR_STEPS.filter((s) => s.arrow).map((s) => s.id)).toEqual(["focus"]);
@@ -68,13 +69,18 @@ describe("visite guidée (lot U4)", () => {
     expect(nextAvailableStep(0, () => false)).toBe(-1);
   });
   it("les cibles data-tour existent dans l'interface", async () => {
-    const src = ["src/components/dashboard/brand-switcher.tsx", "src/components/dashboard/app-header.tsx", "src/components/dashboard/sidebar-nav.tsx", "src/components/dashboard/mobile-tab-bar.tsx"]
+    const src = ["src/components/dashboard/profile-menu.tsx", "src/components/dashboard/app-header.tsx", "src/components/dashboard/sidebar-nav.tsx", "src/components/dashboard/mobile-tab-bar.tsx"]
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
+    // V2 : la marque et les Paramètres sont dans le menu du profil ; une page
+    // d'une catégorie repliée est montrée par le titre de sa catégorie.
     expect(src).toContain('data-tour="brand-switcher"');
-    expect(src).toContain('data-tour="connect-account"');
+    expect(src).toContain('data-tour="profile-menu"');
     expect(src).toContain('data-tour="mobile-menu"');
     expect(src).toContain("data-tour={`nav-${item.href.slice(1)}`}");
+    expect(src).toContain("data-tour={`nav-group-${group.key}`}");
+    const groups = readFileSync("src/components/dashboard/navigation.ts", "utf8");
+    for (const anchor of TOUR_STEPS.flatMap((s) => s.anchors).filter((a) => a.startsWith("nav-group-"))) expect(groups).toContain(`key: "${anchor.slice("nav-group-".length)}"`);
   });
 });
 

@@ -184,7 +184,7 @@ function NextActionCard({ action, onGoTo }: { action: NextActionDTO | null; onGo
     );
   }
   const inPage = action.href.startsWith("#");
-  const cls = "flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-nebula-500 px-4 text-sm font-semibold text-white transition hover:bg-nebula-400";
+  const cls = "flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg bg-aurora-500 px-4 text-sm font-semibold text-white transition hover:bg-aurora-400";
   return (
     <div className="reussites-reward-box flex flex-col gap-2.5 rounded-2xl border p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aurora-300">Prochaine action conseillée</p>
@@ -226,7 +226,7 @@ function MissionCard({
   if (!m.revealed) {
     const day = new Date(revealAt).toLocaleDateString("fr-FR", { weekday: "long" });
     return (
-      <article className="flex h-full flex-col gap-3 rounded-2xl border border-dashed border-white/[0.16] bg-white/[0.015] p-4">
+      <article className="flex h-full flex-col gap-3 border-t-2 border-dashed border-amber-300/60 pt-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300">{SLOT_LABEL.mystery}</p>
         <div className="flex h-20 items-center justify-center">
           <span className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-amber-300/50 bg-amber-300/[0.06] font-display text-3xl font-bold text-amber-300" aria-hidden="true">
@@ -245,7 +245,7 @@ function MissionCard({
     ? { title: focus.title, description: focus.description, skill: focus.skill, value: focus.value, target: focus.target, xp: focus.xp, href: focus.href, action: focus.action }
     : { title: m.title, description: m.description, skill: m.skill, value: m.value, target: m.target, xp: m.xp, href: m.href, action: m.action };
   return (
-    <article className={clsx("flex h-full flex-col gap-2.5 rounded-2xl border p-4 transition", m.done ? "border-emerald-400/35 bg-emerald-400/[0.05]" : m.slot === "progress" ? "border-aurora-400/35 bg-white/[0.02]" : "border-white/[0.08] bg-white/[0.02]")}>
+    <article className={clsx("flex h-full flex-col gap-2.5 border-t-2 pt-4 transition", m.done ? "border-emerald-400" : m.slot === "progress" ? "border-aurora-400" : "border-[color:var(--nb-sep-strong)]")}>
       <p className={clsx("text-[11px] font-semibold uppercase tracking-[0.14em]", slotTone)}>
         {SLOT_LABEL[m.slot]}
         {options ? " · au choix" : ""}
@@ -271,8 +271,8 @@ function MissionCard({
                   onChoose?.(c.key);
                 }}
                 className={clsx(
-                  "flex min-h-[36px] w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition",
-                  active ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40 hover:text-white"
+                  "flex min-h-[36px] w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition",
+                  active ? "bg-[color:var(--nb-active)] font-semibold text-white" : "text-slate-300 hover:bg-[color:var(--nb-hover)] hover:text-white"
                 )}
               >
                 <span className="min-w-0">{c.title}</span>
@@ -324,7 +324,7 @@ function ChestCard({
   const [showChances, setShowChances] = useState(false);
   const ready = chest.ready && !chest.opened;
   return (
-    <article id="coffre" className={clsx("flex h-full scroll-mt-24 flex-col gap-3 rounded-2xl border p-4", ready ? "nb-chest-ready border-amber-300/60 bg-amber-300/[0.07]" : "border-amber-300/25 bg-amber-300/[0.03]")}>
+    <article id="coffre" className={clsx("flex h-full scroll-mt-24 flex-col gap-3 border-t-2 pt-4", ready ? "border-amber-300" : "border-amber-300/40")}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300">Coffre de la semaine</p>
       {revealed || chest.opened ? (
         <div className={clsx("flex flex-col items-center justify-center gap-1 rounded-xl border border-amber-300/30 bg-amber-300/[0.06] p-3 text-center", revealed && "nb-chest-reveal")} role="status">
@@ -334,7 +334,7 @@ function ChestCard({
         </div>
       ) : (
         <div className="flex h-20 items-center justify-center">
-          <ChestIcon className={clsx("h-16 w-20", opening === chest.week && "nb-chest-shake")} />
+          <ChestIcon className={clsx("h-16 w-20", opening === chest.week ? "nb-chest-shake" : ready && "nb-chest-bob")} />
         </div>
       )}
       <div className="flex gap-1.5" role="img" aria-label={`${doneCount} mission${doneCount > 1 ? "s" : ""} sur 3`}>
@@ -414,7 +414,7 @@ function NearCard({ n, onOpen }: { n: NearDTO; onOpen: () => void }) {
   const r = 26;
   const c = 2 * Math.PI * r;
   return (
-    <button type="button" onClick={onOpen} className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 text-left transition hover:border-aurora-400/40">
+    <button type="button" onClick={onOpen} className="-mx-3 flex items-center gap-4 rounded-xl p-3 text-left transition hover:bg-[color:var(--nb-hover)]">
       <span className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center">
         <svg viewBox="0 0 64 64" className="absolute inset-0 -rotate-90" aria-hidden="true">
           <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-white/[0.08]" />
@@ -451,7 +451,7 @@ function AccomplishmentCard({ s }: { s: SeriesDTO }) {
   // et sa carte à partager.
   const record = [...s.tiers].reverse().find((t) => t.quality && t.unlockedAt);
   return (
-    <div id={`ach-${s.id}`} className={clsx("flex h-full scroll-mt-24 flex-col rounded-2xl border p-4", unlocked ? "border-amber-400/40 bg-amber-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
+    <div id={`ach-${s.id}`} className={clsx("flex h-full scroll-mt-24 flex-col border-t pt-4", unlocked ? "border-amber-400/60" : "border-[color:var(--nb-sep)]")}>
       <div className="flex items-start gap-3">
         <span className={clsx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl", unlocked ? "bg-amber-400/15" : "bg-white/[0.05]")} aria-hidden="true">
           {s.emoji}
@@ -805,7 +805,7 @@ export default function ReussitesPage() {
       ) : (
         <>
           {/* En-tête d'une ligne, toujours visible (lot U3) : emblème, rang, progression. */}
-          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden rounded-2xl border px-4 py-3 sm:px-5">
+          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <button type="button" onClick={() => setLevelsOpen(true)} className="shrink-0 rounded-full transition hover:scale-[1.04]" aria-label="Voir tous les rangs">
                 <LevelRing level={level.level} pct={level.pct} size={52} stroke={5} animated />
@@ -818,7 +818,7 @@ export default function ReussitesPage() {
                   </button>
                 </p>
                 <div className="relative mt-1.5 h-2 max-w-xl rounded-full bg-white/[0.08]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-accent-cyan via-nebula-400 to-aurora-400 transition-all duration-700" style={{ width: `${level.pct}%` }} />
+                  <div className="h-full rounded-full bg-aurora-500 transition-all duration-700" style={{ width: `${level.pct}%` }} />
                 </div>
               </div>
               <p className="text-xs tabular-nums text-slate-400">
@@ -875,7 +875,7 @@ export default function ReussitesPage() {
             {data.launch.active && !showMissions ? (
               <LaunchCard launch={data.launch} onShowMissions={() => setShowMissions(true)} />
             ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-7 sm:grid-cols-2 xl:grid-cols-4">
               {data.missions.map((m) => (
                 <MissionCard
                   key={m.slot}
@@ -910,7 +910,7 @@ export default function ReussitesPage() {
             {/* Défi du mois */}
             <div
               id="defi-mois"
-              className={clsx("flex scroll-mt-24 flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center", data.monthly.done ? "border-emerald-400/30 bg-emerald-400/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}
+              className={clsx("flex scroll-mt-24 flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center", data.monthly.done ? "border-emerald-400/60" : "border-[color:var(--nb-sep)]")}
             >
               <div className="min-w-0 flex-1">
                 <p className="font-display text-sm font-semibold text-white">
@@ -1008,7 +1008,7 @@ export default function ReussitesPage() {
                             key={x.id}
                             type="button"
                             onClick={() => openAlbumAt(x.id)}
-                            className="flex min-w-0 items-center gap-3 rounded-2xl border border-aurora-400/20 bg-aurora-500/[0.06] p-3 text-left transition hover:border-aurora-400/45"
+                            className="flex min-w-0 items-center gap-3 rounded-xl p-3 text-left transition hover:bg-[color:var(--nb-hover)]"
                           >
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg" aria-hidden="true">
                               {x.emoji}

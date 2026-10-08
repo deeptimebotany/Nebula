@@ -3,6 +3,8 @@
 // Barre d'onglets du bas, téléphone uniquement (Lot 3) : les quatre pages du
 // quotidien + « Menu » qui ouvre le tiroir complet. Avant : la barre du haut
 // réduisait les onglets à des icônes sans libellé sur petit écran.
+// Refonte V2 (07/10/2026) : barre unie, couleur de la page, trait fin ; seul
+// « Publier » reste coloré (violet plein).
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
@@ -16,7 +18,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
   return (
     <nav
       aria-label="Navigation rapide"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.08] bg-void-950/92 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="nb-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-[color:var(--nb-sep)] pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="grid grid-cols-5">
         {tabs.map((item) => {
@@ -29,15 +31,15 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
               href={item.href}
               data-tour={`nav-${item.href.slice(1)}`}
               aria-current={active ? "page" : undefined}
-              className={clsx("flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition", active ? "text-white" : "text-slate-500 hover:text-slate-300")}
+              className={clsx("flex flex-col items-center gap-1 py-2 text-[11px] transition", active ? "font-semibold text-white" : "font-medium text-slate-500 hover:text-white")}
             >
               <span
                 className={clsx(
                   "flex h-7 w-11 items-center justify-center rounded-full transition",
-                  primary ? "bg-gradient-to-r from-nebula-500 to-accent-cyan text-white shadow-glow" : active && "bg-white/[0.08]"
+                  primary ? "bg-aurora-500 text-white" : active && "bg-[color:var(--nb-active)]"
                 )}
               >
-                <Icon className={clsx("h-[18px] w-[18px]", primary ? "text-white" : active ? "text-aurora-300" : "")} />
+                <Icon className={clsx("h-[18px] w-[18px]", primary ? "text-white" : active ? "text-white" : "")} />
               </span>
               {item.shortLabel ?? item.label}
             </Link>
@@ -49,9 +51,9 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
           data-tour="mobile-menu"
           aria-label="Ouvrir le menu complet"
           aria-expanded={menuOpen}
-          className={clsx("flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition", menuOpen ? "text-white" : "text-slate-500 hover:text-slate-300")}
+          className={clsx("flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition", menuOpen ? "text-white" : "text-slate-500 hover:text-white")}
         >
-          <span className={clsx("flex h-7 w-11 items-center justify-center rounded-full", menuOpen && "bg-white/[0.08]")}>
+          <span className={clsx("flex h-7 w-11 items-center justify-center rounded-full", menuOpen && "bg-[color:var(--nb-active)]")}>
             <IconMenu className="h-[18px] w-[18px]" />
           </span>
           Menu

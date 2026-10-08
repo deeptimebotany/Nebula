@@ -34,7 +34,7 @@ export default function DecouvrirRapportsClients() {
       </Suspense>
 
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Vous venez de consulter{" "}
+        <p className="nb-eyebrow">Vous venez de consulter{" "}
           <Suspense fallback="un rapport généré">
             <OriginLabel />
           </Suspense>{" "}

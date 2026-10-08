@@ -73,7 +73,7 @@ export default async function DecouvrirMediaKit({ searchParams }: { searchParams
             </span>
           </div>
         ) : (
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Media kit</p>
+          <p className="nb-eyebrow">Media kit</p>
         )}
         <h1 className="mt-3 font-display text-3xl font-semibold text-white sm:text-5xl">Un media kit qui se met à jour tout seul</h1>
         <p className="mt-4 text-base text-slate-400 sm:text-lg">
@@ -101,7 +101,7 @@ export default async function DecouvrirMediaKit({ searchParams }: { searchParams
 
       <div className="mx-auto mt-14 max-w-4xl">
         <p className="mb-3 text-center text-xs text-slate-500">Exemple de media kit (marque et chiffres fictifs)</p>
-        <div className="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-4 sm:p-6">
+        <div className="nb-own-design rounded-3xl border border-white/[0.08] bg-white/[0.015] p-4 sm:p-6">
           {/* Page publicitaire : dessins de Nebula, jamais les logos officiels des réseaux. */}
           <KitView data={EXAMPLE} nested drawnLogos />
         </div>

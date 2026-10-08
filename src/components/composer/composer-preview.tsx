@@ -1,31 +1,31 @@
 "use client";
 
-// Carte « Aperçu » de la page Publier — refonte du 24/09/2026 : rendu
-// immersif et fidèle au réseau choisi.
-//   - En haut à gauche : tous les réseaux (Instagram, Facebook, TikTok,
-//     YouTube, Bluesky), pour passer instantanément de l'un à l'autre — même ceux qui
-//     ne sont pas cochés pour la publication (signalé sous la barre).
-//   - En haut à droite : bascule Mobile / Ordinateur, et « Agrandir ».
-//   - Dans le cadre : une imitation de l'interface native du réseau (voir
-//     preview-network-ui.tsx), dans un téléphone ou une fenêtre de
-//     navigateur. Le cadre est dessiné à sa taille réelle puis réduit pour
-//     tenir dans la colonne (ScaledFrame), comme une vraie capture d'écran.
+// Aperçu de la page Publier — refonte V2 (07/10/2026, maquettes A, B, D, E
+// de Lucas) : le téléphone reste le seul bloc « encadré » de la page.
+//   - En haut : « APERÇU » puis un onglet par réseau choisi (texte souligné),
+//     et à droite son, mobile / ordinateur, plein écran et « masquer ».
+//   - Dans le cadre : l'imitation de l'interface du réseau (voir
+//     preview-network-ui.tsx), dans un téléphone plus petit qu'avant
+//     (300 px de large au plus) ou une fenêtre de navigateur.
+//   - Deux présentations : « docked » (colonne de droite, collée en haut
+//     pendant qu'on rédige) et « floating » (carte flottante des petits
+//     écrans, maquette E, ouverte par le bouton « Aperçu »).
 // Purement présentationnel : tout l'état de la publication vit dans la page.
 
 import { useAvailableNetworks } from "@/lib/use-available-networks";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { m as motion, AnimatePresence } from "framer-motion";
 import { clsx } from "@/lib/clsx";
-import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { createPortal } from "react-dom";
-import { NetworkLogo } from "@/components/ui/network-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
+import { FORMAT_LABEL, type PostFormat } from "@/lib/social/post-format";
 import type { UploadedAsset } from "./composer-types";
 import { NETWORK_WEB_ADDRESS, NetworkPreviewUi, PreviewSoundButton, type MediaShape, type PreviewDevice, type PreviewPost } from "./preview-network-ui";
 import { MotionRoot } from "@/components/motion/motion-root";
 import { BrowserFrame, PhoneFrame, ScaledFrame } from "./preview-frames";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { IconClose, IconEyeOff } from "@/components/dashboard/icons";
 
 export interface PreviewAccount {
   name: string;
@@ -53,7 +53,15 @@ interface ComposerPreviewProps {
   /** Collaborateurs Instagram choisis dans Publier (01/10/2026). */
   instagramCollaborators?: string[];
   /** Format choisi par réseau (Publication, Reel, Story — 07/10/2026). */
-  formatFor?: (network: Network) => "POST" | "REEL" | "STORY" | null;
+  formatFor?: (network: Network) => PostFormat | null;
+  /** Présentation : colonne de droite (défaut) ou carte flottante (petit écran). */
+  variant?: "docked" | "floating";
+  /** « Masquer l'aperçu » (colonne) ou fermer la carte flottante. */
+  onHide?: () => void;
+  /** Format affiché sous le téléphone quand le réseau le décide (ex. « Short »). */
+  kindLabel?: string | null;
+  /** Proportions du média (« 9:16 »), lues par la page. */
+  ratioLabel?: string | null;
 }
 
 function aspectFor(w: number, h: number): string {
@@ -63,6 +71,8 @@ function aspectFor(w: number, h: number): string {
 function shapeOf(aspectClass: string): MediaShape {
   return aspectClass === "aspect-[9/16]" ? "portrait" : aspectClass === "aspect-video" ? "landscape" : "square";
 }
+
+const RATIO_LABEL: Record<MediaShape, string> = { portrait: "9:16", landscape: "16:9", square: "1:1" };
 
 const DEVICE_KEY = "nebula:composer-preview-device";
 
@@ -76,7 +86,7 @@ const FRAME = {
   desktopFocus: { width: 820, height: 760 }
 } as const;
 
-// Ordre des icônes de réseau de l'aperçu (24/09/2026) : TikTok en premier.
+// Ordre des onglets quand aucun réseau n'est choisi : TikTok en premier.
 const PREVIEW_ORDER: Network[] = ["TIKTOK", ...NETWORKS.filter((n) => n !== "TIKTOK")];
 
 function PhoneIcon({ className }: { className?: string }) {
@@ -105,6 +115,8 @@ function ExpandIcon({ className }: { className?: string }) {
   );
 }
 
+const ICON_BUTTON = "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
+
 export function ComposerPreview({
   network,
   selectedNetworks,
@@ -121,11 +133,16 @@ export function ComposerPreview({
   gridLoading,
   sticky = false,
   instagramCollaborators,
-  formatFor
+  formatFor,
+  variant = "docked",
+  onHide,
+  kindLabel,
+  ratioLabel
 }: ComposerPreviewProps) {
   const offeredNetworks = useAvailableNetworks();
   const [device, setDevice] = useState<PreviewDevice>("mobile");
   const [expanded, setExpanded] = useState(false);
+  const floating = variant === "floating";
 
   // Dernier mode choisi (Mobile / Ordinateur), mémorisé dans ce navigateur.
   useEffect(() => {
@@ -146,6 +163,7 @@ export function ComposerPreview({
   }
 
   const account = accountFor(network);
+  const format = formatFor?.(network) ?? null;
   const post: PreviewPost = {
     network,
     accountName: account.name,
@@ -157,7 +175,7 @@ export function ComposerPreview({
     shape: shapeOf(aspectClass),
     onMediaShape: (w, h) => onAspectClass(aspectFor(w, h)),
     ...(network === "INSTAGRAM" && instagramCollaborators?.length ? { coAuthors: instagramCollaborators } : {}),
-    format: formatFor?.(network) ?? null
+    format
   };
 
   // Plein écran : fermeture avec Échap, défilement de la page bloqué.
@@ -177,117 +195,106 @@ export function ComposerPreview({
     const focus = device === "desktop" && !fullscreen;
     const dims = focus ? FRAME.desktopFocus : FRAME[device];
     return (
-    <ScaledFrame
-      width={dims.width}
-      height={dims.height}
-      reservedHeight={fullscreen ? 120 : sticky ? 200 : undefined}
-      maxScale={fullscreen ? 1.35 : 1}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={`${network}-${device}`} className="h-full w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-          {device === "mobile" ? (
-            <PhoneFrame>
-              <NetworkPreviewUi post={post} device="mobile" />
-            </PhoneFrame>
-          ) : (
-            <BrowserFrame address={NETWORK_WEB_ADDRESS[network]}>
-              <div className={clsx("h-full", focus && "nb-preview-focus")}>
-                <NetworkPreviewUi post={post} device="desktop" />
-              </div>
-            </BrowserFrame>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </ScaledFrame>
+      <ScaledFrame width={dims.width} height={dims.height} reservedHeight={fullscreen ? 120 : floating ? 260 : sticky ? 230 : undefined} maxScale={fullscreen ? 1.35 : 1}>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={`${network}-${device}`} className="h-full w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+            {device === "mobile" ? (
+              <PhoneFrame>
+                <NetworkPreviewUi post={post} device="mobile" />
+              </PhoneFrame>
+            ) : (
+              <BrowserFrame address={NETWORK_WEB_ADDRESS[network]}>
+                <div className={clsx("h-full", focus && "nb-preview-focus")}>
+                  <NetworkPreviewUi post={post} device="desktop" />
+                </div>
+              </BrowserFrame>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </ScaledFrame>
     );
   };
 
-  const toolbar = (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex min-w-0 gap-1 overflow-x-auto" role="group" aria-label="Réseau affiché dans l'aperçu">
-        {PREVIEW_ORDER.filter((n) => offeredNetworks.includes(n) || selectedNetworks.includes(n) || n === network).map((n) => {
+  // Onglets : les réseaux choisis ; sans choix, ceux proposés (aperçu seulement).
+  const tabs = selectedNetworks.length > 0 ? PREVIEW_ORDER.filter((n) => selectedNetworks.includes(n)) : PREVIEW_ORDER.filter((n) => offeredNetworks.includes(n));
+  if (!tabs.includes(network)) tabs.push(network);
+
+  const hideButton = onHide && (
+    <button type="button" onClick={onHide} aria-label={floating ? "Fermer l'aperçu" : "Masquer l'aperçu"} title={floating ? "Fermer l'aperçu" : "Masquer l'aperçu"} className={ICON_BUTTON}>
+      {floating ? <IconClose className="h-4 w-4" /> : <IconEyeOff className="h-4 w-4" />}
+    </button>
+  );
+
+  const tools = (
+    <div className="flex shrink-0 items-center">
+      {asset?.type === "VIDEO" && <PreviewSoundButton className="!h-8 !w-8 !rounded-lg" />}
+      <button
+        type="button"
+        onClick={() => pickDevice(device === "mobile" ? "desktop" : "mobile")}
+        aria-label={device === "mobile" ? "Aperçu sur ordinateur" : "Aperçu sur mobile"}
+        title={device === "mobile" ? "Voir sur ordinateur" : "Voir sur mobile"}
+        className={ICON_BUTTON}
+      >
+        {device === "mobile" ? <DesktopIcon className="h-4 w-4" /> : <PhoneIcon className="h-4 w-4" />}
+      </button>
+      <button type="button" onClick={() => setExpanded((v) => !v)} aria-label={expanded ? "Quitter le plein écran" : "Agrandir l'aperçu en plein écran"} title="Plein écran" className={ICON_BUTTON}>
+        <ExpandIcon className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
+  const tabBar = (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="nb-section-label shrink-0">Aperçu</span>
+      <div role="tablist" aria-label="Réseau affiché dans l'aperçu" className="flex min-w-0 flex-1 overflow-x-auto">
+        {tabs.map((n) => {
           const active = n === network;
-          const selected = selectedNetworks.includes(n);
           return (
             <button
               key={n}
               type="button"
+              role="tab"
+              aria-selected={active}
               onClick={() => onPickNetwork(n)}
-              aria-pressed={active}
-              title={`Aperçu ${NETWORK_META[n].label}${selected ? "" : " (non sélectionné pour cette publication)"}`}
+              title={selectedNetworks.includes(n) ? `Aperçu ${NETWORK_META[n].label}` : `Aperçu ${NETWORK_META[n].label} (non choisi pour cette publication)`}
               className={clsx(
-                "relative flex h-8 w-8 items-center justify-center rounded-lg border transition",
-                active ? "border-aurora-400/60 bg-white/[0.08] text-white" : "border-transparent text-slate-500 hover:bg-white/[0.05] hover:text-white",
-                !selected && !active && "opacity-60"
+                "relative shrink-0 px-2.5 py-2 text-[14px] transition",
+                active ? "font-semibold text-white after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-current" : "text-slate-500 hover:text-white"
               )}
             >
-              <NetworkLogo network={n} className="h-4 w-4" />
-              {selected && <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-aurora-400" aria-hidden="true" />}
+              {NETWORK_META[n].label}
             </button>
           );
         })}
-      </div>
-      <div className="flex items-center gap-1">
-        {asset?.type === "VIDEO" && <PreviewSoundButton />}
-        <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-0.5" role="group" aria-label="Format de l'aperçu">
-          {(
-            [
-              ["mobile", "Mobile", PhoneIcon],
-              ["desktop", "Ordinateur", DesktopIcon]
-            ] as const
-          ).map(([key, label, Icon]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => pickDevice(key)}
-              aria-pressed={device === key}
-              title={`Aperçu ${label.toLowerCase()}`}
-              className={clsx("flex h-7 w-8 items-center justify-center rounded-md transition", device === key ? "bg-white/10 text-white" : "text-slate-500 hover:text-white")}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="sr-only">{label}</span>
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? "Quitter le plein écran" : "Agrandir l'aperçu en plein écran"}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/[0.05] hover:text-white"
-        >
-          <ExpandIcon className="h-4 w-4" />
-          <span className="sr-only">{expanded ? "Quitter le plein écran" : "Agrandir l'aperçu en plein écran"}</span>
-        </button>
       </div>
     </div>
   );
 
   const notSelected = !selectedNetworks.includes(network);
+  const shape = shapeOf(aspectClass);
+  const footnote = notSelected
+    ? `${NETWORK_META[network].label} n'est pas choisi pour cette publication : aperçu seulement.`
+    : [kindLabel ?? (format ? FORMAT_LABEL[format] : null), asset ? (ratioLabel ?? RATIO_LABEL[shape]) : null, device === "mobile" ? "mobile" : "ordinateur"].filter(Boolean).join(" · ");
 
   return (
     <MotionRoot>
-      <MotionGlassCard glow>
-        <h2 className="mb-2 font-display text-base font-medium text-white">Aperçu</h2>
-        {toolbar}
-        <p className="mb-3 mt-1.5 min-h-4 text-[11px] text-slate-500">
-          {notSelected
-            ? `${NETWORK_META[network].label} n'est pas coché pour cette publication — aperçu seulement.`
-            : `${NETWORK_META[network].label} · ${device === "mobile" ? "application mobile" : "sur ordinateur"}`}
-        </p>
+      <section aria-label="Aperçu de la publication" className={clsx(floating && "nb-popover rounded-2xl p-4")}>
+        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--nb-sep)]">
+          {tabBar}
+          {hideButton}
+        </div>
 
-        {!expanded && renderFrame()}
+        <div className={clsx("mx-auto mt-5", floating ? "max-w-[260px]" : "max-w-[300px]")}>{!expanded && renderFrame()}</div>
+
+        {/* Sous le téléphone : format, et les réglages de l'aperçu (son, ordinateur, plein écran). */}
+        <div className={clsx("mx-auto mt-3 flex items-center justify-between gap-2", floating ? "max-w-[260px]" : "max-w-[300px]")}>
+          <p className="min-w-0 text-[12px] leading-snug text-slate-500">{footnote}</p>
+          {tools}
+        </div>
 
         {network === "INSTAGRAM" && asset && (
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={onToggleInstagramGrid}
-              aria-pressed={showInstagramGrid}
-              className={clsx(
-                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                showInstagramGrid ? "border-aurora-400/60 bg-aurora-400/10 text-aurora-300" : "border-white/10 text-slate-400 hover:text-white"
-              )}
-            >
+          <div className="mt-2 flex justify-center">
+            <button type="button" onClick={onToggleInstagramGrid} aria-pressed={showInstagramGrid} className="text-[12px] text-slate-400 underline-offset-2 transition hover:text-white hover:underline">
               {showInstagramGrid ? "Masquer ma grille Instagram" : "Voir dans ma grille Instagram"}
             </button>
           </div>
@@ -295,17 +302,8 @@ export function ComposerPreview({
 
         <AnimatePresence>
           {showInstagramGrid && network === "INSTAGRAM" && asset && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              style={{ overflow: "hidden" }}
-              className="mt-3"
-            >
-              <p className="mb-2 text-[11px] text-slate-500">
-                Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières publications Instagram réelles.
-              </p>
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} style={{ overflow: "hidden" }} className="mx-auto mt-3 max-w-[300px]">
+              <p className="mb-2 text-[11px] text-slate-500">Votre nouveau post (en surbrillance) intégré à vos {instagramGridTiles.length} dernières publications Instagram réelles.</p>
               {gridLoading ? (
                 <div className="grid grid-cols-3 gap-1" aria-busy="true">
                   {Array.from({ length: 9 }, (_, i) => (
@@ -329,7 +327,9 @@ export function ComposerPreview({
                         <img loading="lazy" decoding="async" src={tile.imageUrl} alt="" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
                       ) : (
                         <span className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/50" aria-label="Vidéo">
-                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" /></svg>
+                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                            <path d="M8 5.5v13l10.5-6.5L8 5.5Z" />
+                          </svg>
                         </span>
                       )}
                     </motion.div>
@@ -340,22 +340,37 @@ export function ComposerPreview({
           )}
         </AnimatePresence>
 
-        <p className="mt-3 text-center text-[11px] text-slate-500">Rendu indicatif (compteurs d&apos;exemple) — la mise en page réelle peut varier légèrement.</p>
+        {!floating && <p className="mt-3 text-center text-[11px] text-slate-500">Rendu indicatif (compteurs d&apos;exemple) : la mise en page réelle peut varier légèrement.</p>}
 
-        {/* Plein écran (24/09/2026) : le cadre occupe tout l'écran disponible,
-            agrandi jusqu'à 135 % si la place le permet. */}
+        {/* Plein écran : le cadre occupe tout l'écran disponible, agrandi
+            jusqu'à 135 % si la place le permet. */}
         {expanded &&
           typeof document !== "undefined" &&
           createPortal(
             <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0b0d]/95 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Aperçu en plein écran">
               <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-6">
                 <span className="hidden font-display text-sm font-medium text-white sm:block">Aperçu · {NETWORK_META[network].label}</span>
-                <div className="min-w-0 flex-1">{toolbar}</div>
+                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="group" aria-label="Réseau affiché dans l'aperçu">
+                  {tabs.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => onPickNetwork(n)}
+                      aria-pressed={n === network}
+                      className={clsx("rounded-lg px-3 py-1.5 text-sm transition", n === network ? "bg-white/10 text-white" : "text-slate-400 hover:text-white")}
+                    >
+                      {NETWORK_META[n].label}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setExpanded(false)}
+                  onClick={() => pickDevice(device === "mobile" ? "desktop" : "mobile")}
                   className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
                 >
+                  {device === "mobile" ? "Ordinateur" : "Mobile"}
+                </button>
+                <button type="button" onClick={() => setExpanded(false)} className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm text-slate-200 transition hover:bg-white/[0.06] hover:text-white">
                   Fermer <span className="hidden text-xs text-slate-500 sm:inline">Échap</span>
                 </button>
               </div>
@@ -363,7 +378,7 @@ export function ComposerPreview({
             </div>,
             document.body
           )}
-      </MotionGlassCard>
+      </section>
     </MotionRoot>
   );
 }

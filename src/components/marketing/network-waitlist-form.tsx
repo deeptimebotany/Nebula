@@ -53,11 +53,11 @@ export function NetworkWaitlistForm({ network, label }: { network: string; label
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5" aria-label={`Être prévenu de l'arrivée de ${label}`}>
+    <form onSubmit={submit} className="border-t border-[color:var(--nb-sep)] pt-5" aria-label={`Être prévenu de l'arrivée de ${label}`}>
       <p className="text-sm font-medium text-white">Prévenez-moi quand {label} arrive</p>
       <p className="mt-1 text-xs text-slate-400">Un seul email, le jour de l&apos;ouverture. Pas de relance.</p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.fr" aria-label="Votre email" required className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60" />
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.fr" aria-label="Votre email" required className="min-w-0 flex-1 rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60" />
         <Button type="submit" disabled={busy} className="shrink-0">
           {busy ? "Enregistrement…" : "Me prévenir"}
         </Button>

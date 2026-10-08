@@ -494,3 +494,82 @@ export const IconWrench = ({ className = base }: IconProps) => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// --- Refonte V2 (07/10/2026) ---------------------------------------------------
+
+/** « ≪ » : réduire le menu. */
+export const IconChevronsLeft = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M11.5 6 5.5 12l6 6M18.5 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** « » » : déplier le menu, ranger l'aperçu. */
+export const IconChevronsRight = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="m12.5 6 6 6-6 6M5.5 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Silhouette (Mon profil). */
+export const IconUser = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="12" cy="8" r="3.75" />
+    <path d="M4.75 20c.9-3.6 3.75-5.5 7.25-5.5s6.35 1.9 7.25 5.5" strokeLinecap="round" />
+  </svg>
+);
+
+/** Deux flèches opposées (changer de marque, de compte). */
+export const IconSwap = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Œil barré (masquer l'aperçu). */
+export const IconEyeOff = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M3 3l18 18" strokeLinecap="round" />
+    <path d="M10.6 5.1A9.7 9.7 0 0 1 12 5c5 0 8.5 4.5 9.5 7a12.6 12.6 0 0 1-2.9 4.1M6.6 6.6C4.6 7.9 3.1 9.9 2.5 12c1 2.5 4.5 7 9.5 7a9.4 9.4 0 0 0 4.4-1.1" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" strokeLinecap="round" />
+  </svg>
+);
+
+/** Œil (afficher l'aperçu). */
+export const IconEye = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M2.5 12C3.5 9.5 7 5 12 5s8.5 4.5 9.5 7c-1 2.5-4.5 7-9.5 7s-8.5-4.5-9.5-7Z" strokeLinejoin="round" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+/** Téléphone (bouton « Aperçu »). */
+export const IconPhone = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+    <path d="M10.5 18.5h3" strokeLinecap="round" />
+  </svg>
+);
+
+/** Nuage avec flèche montante (zone de dépôt). */
+export const IconCloudUpload = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 20v-8M9 15l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Petit « + » de ligne (options à ajouter). */
+export const IconPlusSmall = ({ className = "h-4 w-4" }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+    <path d="M12 6v12M6 12h12" strokeLinecap="round" />
+  </svg>
+);
+
+/** Crayon (Modifier la vidéo). */
+export const IconPencilLine = ({ className = base }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" strokeLinejoin="round" />
+    <path d="M14 8l3 3" strokeLinecap="round" />
+  </svg>
+);

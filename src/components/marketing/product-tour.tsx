@@ -34,7 +34,8 @@ export function ProductTour({ panels }: { panels: TourPanel[] }) {
   return (
     <div>
       <div className="-mx-6 overflow-x-auto px-6 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
-        <div role="tablist" aria-label="Écrans de l'application" className="mx-auto flex w-max gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+        {/* V2 (08/10/2026) : onglets soulignés, comme dans l'application. */}
+        <div role="tablist" aria-label="Écrans de l'application" className="mx-auto flex w-max gap-1 border-b border-[color:var(--nb-sep)]">
           {panels.map((p, i) => (
             <button
               key={p.id}
@@ -50,8 +51,8 @@ export function ProductTour({ panels }: { panels: TourPanel[] }) {
               onClick={() => setActive(i)}
               onKeyDown={(e) => onKeyDown(e, i)}
               className={clsx(
-                "whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition",
-                active === i ? "nb-tour-tab-on bg-nebula-500 text-white shadow" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                "-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-[15px] transition",
+                active === i ? "nb-tour-tab-on border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
               )}
             >
               {p.label}

@@ -46,8 +46,9 @@ export function LivingClock({
 
   return (
     <MotionRoot>
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="shrink-0">
-        <circle cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      {/* V2 (08/10/2026) : traits en currentColor, pour que le cadran se voie aussi en mode clair. */}
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="shrink-0 text-white">
+        <circle cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
         {Array.from({ length: 24 }, (_, h) => {
           const p1 = polar(h, TICK_RADIUS - 3);
           const p2 = polar(h, TICK_RADIUS);
@@ -59,7 +60,8 @@ export function LivingClock({
               y1={p1.y}
               x2={p2.x}
               y2={p2.y}
-              stroke={isMajor ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.15)"}
+              stroke="currentColor"
+              strokeOpacity={isMajor ? 0.4 : 0.18}
               strokeWidth={isMajor ? 1.5 : 1}
             />
           );
@@ -78,8 +80,8 @@ export function LivingClock({
         )}
 
         {/* Aiguille de l'heure actuelle — repère visuel, tourne en direct. */}
-        {handTip && <line x1={CENTER} y1={CENTER} x2={handTip.x} y2={handTip.y} stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} strokeLinecap="round" />}
-        <circle cx={CENTER} cy={CENTER} r={2} fill="rgba(255,255,255,0.7)" />
+        {handTip && <line x1={CENTER} y1={CENTER} x2={handTip.x} y2={handTip.y} stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.5} strokeLinecap="round" />}
+        <circle cx={CENTER} cy={CENTER} r={2} fill="currentColor" fillOpacity={0.75} />
       </svg>
     </MotionRoot>
   );

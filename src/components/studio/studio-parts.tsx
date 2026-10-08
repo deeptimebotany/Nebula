@@ -78,9 +78,9 @@ export function FactsPanel({ facts, connectHref = "/accounts" }: { facts: Studio
       </div>
 
       {facts.topPosts.length > 0 ? (
-        <ol className="space-y-2">
+        <ol className="divide-y divide-[color:var(--nb-sep)]">
           {facts.topPosts.slice(0, 5).map((p) => (
-            <li key={p.ref} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+            <li key={p.ref} className="flex items-center gap-3 py-2.5">
               <span className="w-5 shrink-0 text-center font-display text-sm font-semibold tabular-nums text-slate-500">{p.ref}</span>
               <span className="min-w-0 flex-1">
                 {p.permalink ? (
@@ -109,12 +109,12 @@ export function FactsPanel({ facts, connectHref = "/accounts" }: { facts: Studio
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+        <div className="border-t border-[color:var(--nb-sep)] pt-2">
           <p className="text-[11px] text-slate-500">Meilleures heures</p>
           <p className="text-slate-200">{facts.bestSlots.length ? facts.bestSlots.map((s) => `${NETWORK_META[s.network].label} ${s.hour} h`).join(" · ") : "Pas encore assez de relevés"}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+        <div className="border-t border-[color:var(--nb-sep)] pt-2">
           <p className="text-[11px] text-slate-500">Rétention (vidéos analysées)</p>
           <p className="text-slate-200">
             {facts.retention
@@ -128,7 +128,7 @@ export function FactsPanel({ facts, connectHref = "/accounts" }: { facts: Studio
               )}
           </p>
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+        <div className="border-t border-[color:var(--nb-sep)] pt-2">
           <p className="text-[11px] text-slate-500">Rythme</p>
           <p className="text-slate-200">
             {facts.rhythm.postsLast30Days} publication{facts.rhythm.postsLast30Days > 1 ? "s" : ""} en 30 jours
@@ -171,7 +171,7 @@ export function IdeaCard({
         <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Accroches (3 premières secondes)</p>
         <ul className="space-y-1.5">
           {idea.hooks.map((h, i) => (
-            <li key={i} className="flex items-start justify-between gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-sm text-slate-200">
+            <li key={i} className="flex items-start justify-between gap-2 border-l-2 border-[color:var(--nb-sep-strong)] py-1 pl-3 text-sm text-slate-200">
               <span className="min-w-0">« {h} »</span>
               <CopyButton text={h} />
             </li>
@@ -223,7 +223,7 @@ export function ScriptView({ script, composerHref }: { script: StudioScript; com
       </div>
       <ol className="space-y-2">
         {script.sections.map((s, i) => (
-          <li key={i} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+          <li key={i} className="border-t border-[color:var(--nb-sep)] pt-3">
             <p className="text-sm font-medium text-white">
               <span className="mr-1.5 text-slate-500">{i + 1}.</span>
               {s.label}
@@ -238,12 +238,12 @@ export function ScriptView({ script, composerHref }: { script: StudioScript; com
           </li>
         ))}
       </ol>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        <div className="border-t border-[color:var(--nb-sep)] pt-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Appel à l&apos;action</p>
           <p className="mt-1 text-sm text-slate-200">{script.cta}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+        <div className="border-t border-[color:var(--nb-sep)] pt-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Description</p>
           <p className="mt-1 text-sm text-slate-200">{script.description}</p>
           {script.hashtags.length > 0 && <p className="mt-1 text-xs text-aurora-200">{script.hashtags.join(" ")}</p>}

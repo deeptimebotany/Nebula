@@ -11,13 +11,11 @@ import { IconApple, IconFacebook, IconGoogle } from "@/components/dashboard/icon
 
 export function AuthShell({ title, subtitle, children, wide = false }: { title: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
   return (
-    <main id="contenu" className="relative flex min-h-screen flex-col overflow-hidden px-4 py-8">
-      <div aria-hidden="true" className="hero-stars pointer-events-none absolute inset-0 opacity-40" />
-      <div aria-hidden="true" className="hero-orb pointer-events-none -left-24 top-10 h-[360px] w-[360px] bg-accent-violet/25" />
-      <div aria-hidden="true" className="hero-orb hero-orb-b pointer-events-none -right-24 bottom-10 h-[420px] w-[420px] bg-accent-cyan/15" />
+    // Refonte V2 (08/10/2026) : fond uni, formulaire posé sur la page, sans carte.
+    <main id="contenu" className="nb-site relative flex min-h-screen flex-col overflow-hidden px-4 py-8">
 
       <div className="relative z-10 flex flex-1 items-center justify-center">
-        <GlassCard className={wide ? "w-full max-w-md p-8" : "w-full max-w-sm p-8"} hover={false}>
+        <GlassCard className={wide ? "nb-plain w-full max-w-md p-8" : "nb-plain w-full max-w-sm p-8"} hover={false}>
           <Link href="/" aria-label="Nebula — accueil" className="mb-6 inline-flex">
             <NebulaBrandMark iconSize={44} wordHeight={40} />
           </Link>
@@ -81,7 +79,7 @@ function OAuthButton({ onClick, icon, label }: { onClick: () => void; icon: Reac
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/[0.06]"
+      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--nb-sep-strong)] py-2.5 text-sm font-medium text-white transition hover:bg-[color:var(--nb-hover)]"
     >
       {icon} {label}
     </button>

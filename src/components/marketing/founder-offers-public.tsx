@@ -69,7 +69,7 @@ export function FounderOffersPublic({ initialOpen = true }: { initialOpen?: bool
   return (
     <div className="mt-10" id="fondateurs">
       <div className="mx-auto mb-5 max-w-2xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Offres de lancement</p>
+        <p className="nb-eyebrow">Offres de lancement</p>
         <h3 className="mt-2 font-display text-2xl font-semibold text-white">Devenez fondateur</h3>
         <p className="mt-2 text-sm text-slate-400">
           Places limitées, pour celles et ceux qui nous rejoignent dès le début.{" "}

@@ -45,9 +45,10 @@
      ci-dessous = le fond "mesh" par défaut, pour que le premier rendu (avant
      que le JS client n'ait lu la préférence) corresponde déjà à ce que verra
      un compte qui n'a jamais changé de fond. */
-  --app-bg: radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), #0e0e10;
+  /* Refonte V2 (07/10/2026) : le fond par défaut est vraiment uni. */
+  --app-bg: #0e0e10;
   /* Déclinaison claire du fond par défaut (remplacée par background-provider). */
-  --app-bg-light: radial-gradient(ellipse 90% 45% at 50% -10%, rgb(var(--c-aurora-400) / 0.068), transparent 70%), var(--l-page);
+  --app-bg-light: var(--l-page);
 }
 
 * {
@@ -94,8 +95,9 @@ body {
 [data-mode="light"] {
   color-scheme: light;
 
-  /* Fond de page et panneaux */
-  --l-page: #f0f2f5;
+  /* Fond de page et panneaux — V2 (07/10/2026) : gris très clair uniforme
+     #F9FAFB demandé par Lucas (maquette A), au lieu du gris bleuté de Meta. */
+  --l-page: #f9fafb;
   --l-panel: #ffffff;
   --l-panel-border: #dadde1;
   --l-panel-border-hover: #ccd0d5;
@@ -2172,4 +2174,302 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
 }
 [data-mode="light"] .group:is(:hover, :focus-visible) .nb-ai-nav {
   color: rgb(var(--c-aurora-500));
+}
+
+
+/* ==========================================================================
+   Refonte V2 (07/10/2026, maquettes A à E de Lucas)
+   « Canvas fluide et respirant » : fond uni (page, barre latérale et barre du
+   haut de la même couleur), plus de cadres ni d'ombres sur les blocs du
+   contenu, des traits de séparation de 1 px à faible opacité, des titres de
+   section en majuscules 12 px sans numéro. Le contraste est réservé à
+   l'essentiel : bouton principal (violet plein) et pastilles des réseaux.
+   ========================================================================== */
+:root {
+  --nb-page: #0e0e10;
+  --nb-elevated: #18181b;
+  --nb-sep: rgba(255, 255, 255, 0.07);
+  --nb-sep-strong: rgba(255, 255, 255, 0.13);
+  --nb-hover: rgba(255, 255, 255, 0.05);
+  --nb-active: rgba(255, 255, 255, 0.085);
+  --nb-label: #8b8b94;
+  --nb-tip-bg: #f4f4f5;
+  --nb-tip-ink: #111113;
+  --nb-avatar-bg: #2a2a2f;
+  --nb-avatar-ink: #ededef;
+  --nb-dashed: rgba(255, 255, 255, 0.16);
+}
+[data-mode="light"] {
+  --nb-page: #f9fafb;
+  --nb-elevated: #ffffff;
+  --nb-sep: rgba(17, 24, 39, 0.08);
+  --nb-sep-strong: rgba(17, 24, 39, 0.14);
+  --nb-hover: rgba(17, 24, 39, 0.04);
+  --nb-active: rgba(17, 24, 39, 0.065);
+  --nb-label: #6b7280;
+  --nb-tip-bg: #111827;
+  --nb-tip-ink: #f9fafb;
+  --nb-avatar-bg: #e5e7eb;
+  --nb-avatar-ink: #111827;
+  --nb-dashed: rgba(17, 24, 39, 0.16);
+}
+
+/* --- Cadre de l'application -------------------------------------------- */
+.nb-sidebar {
+  background-color: var(--nb-page);
+}
+.nb-topbar,
+.nb-tabbar {
+  background-color: color-mix(in srgb, var(--nb-page) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+/* Menus flottants (profil, notifications) : seule surface « posée ». */
+.nb-popover {
+  background-color: var(--nb-elevated);
+  border: 1px solid var(--nb-sep-strong);
+  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.7);
+}
+[data-mode="light"] .nb-popover {
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 18px 44px -18px rgba(17, 24, 39, 0.24);
+}
+.nb-nav-item:hover {
+  background-color: var(--nb-hover);
+}
+.nb-nav-item-active,
+.nb-nav-item-active:hover {
+  background-color: var(--nb-active);
+}
+.nb-rail-tip {
+  background-color: var(--nb-tip-bg);
+  color: var(--nb-tip-ink);
+}
+.nb-avatar-initials {
+  background-color: var(--nb-avatar-bg);
+  color: var(--nb-avatar-ink);
+}
+/* Titre de la page dans la barre du haut (voir page-header.tsx). */
+.nb-title-slot:empty {
+  display: none;
+}
+.nb-title-slot:not(:empty) + .nb-title-fallback {
+  display: none;
+}
+.nb-header-actions:empty {
+  display: none;
+}
+
+/* --- Contenu : des blocs sans cadre ------------------------------------ */
+/* Un bloc (GlassCard, .glass-panel) n'est plus une carte : ni fond, ni
+   bordure, ni ombre — un trait fin au-dessus le sépare du précédent. Les
+   alertes (ambre, rouge, vert) gardent leur teinte, sans ombre ; .nb-box
+   garde un vrai cadre là où il le faut. */
+.nb-site .glass-panel:not(:where(.nb-box, [class*="bg-amber"], [class*="bg-red"], [class*="bg-emerald"], [class*="border-amber"], [class*="border-red"], [class*="border-emerald"], .nb-own-design *)),
+.nb-main .glass-panel:not(:where(.nb-box, [class*="bg-amber"], [class*="bg-red"], [class*="bg-emerald"], [class*="border-amber"], [class*="border-red"], [class*="border-emerald"])) {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--nb-sep);
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+.nb-site .glass-panel:is([class*="bg-amber"], [class*="bg-red"], [class*="bg-emerald"], [class*="border-amber"], [class*="border-red"], [class*="border-emerald"]),
+.nb-main .glass-panel:is([class*="bg-amber"], [class*="bg-red"], [class*="bg-emerald"], [class*="border-amber"], [class*="border-red"], [class*="border-emerald"]) {
+  box-shadow: none;
+}
+/* Tuiles cliquables (lien ou bouton) : pas de trait, un léger fond au survol.
+   Un bloc simplement « survolable » mais pas cliquable reste à plat. */
+.nb-site :is(a, button).glass-panel.glass-panel-hover:not(:where(.nb-box)),
+.nb-site :is(a, button) > .glass-panel.glass-panel-hover:not(:where(.nb-box)),
+.nb-main :is(a, button).glass-panel.glass-panel-hover:not(:where(.nb-box)),
+.nb-main :is(a, button) > .glass-panel.glass-panel-hover:not(:where(.nb-box)) {
+  border-top-color: transparent;
+  border-radius: 0.875rem;
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+}
+.nb-site .glass-panel.glass-panel-hover:not(:where(.nb-box)):hover,
+.nb-main .glass-panel.glass-panel-hover:not(:where(.nb-box)):hover {
+  transform: none;
+  box-shadow: none;
+}
+.nb-site :is(a, button).glass-panel.glass-panel-hover:not(:where(.nb-box)):hover,
+.nb-site :is(a, button):hover > .glass-panel.glass-panel-hover:not(:where(.nb-box)),
+.nb-main :is(a, button).glass-panel.glass-panel-hover:not(:where(.nb-box)):hover,
+.nb-main :is(a, button):hover > .glass-panel.glass-panel-hover:not(:where(.nb-box)) {
+  background: var(--nb-hover);
+}
+/* Bloc qui garde son cadre (aperçus, téléphone…). */
+.nb-main .nb-box {
+  box-shadow: none;
+}
+
+/* Titres de section : majuscules 12 px, sans numéro, discrets. */
+.nb-main h2:not(.nb-keep-heading):not(:where(.nb-own-design *, .nb-keep-headings *, a *, button *)),
+.nb-section-label {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nb-label);
+}
+
+/* Champs : plus de fond gris, un trait fin suffit. */
+.nb-site :is(input, textarea, select)[class*="bg-white/"],
+.nb-main :is(input, textarea, select)[class*="bg-white/"] {
+  background-color: transparent;
+}
+
+/* Trait fin réutilisable entre deux sections. */
+.nb-sep {
+  border-color: var(--nb-sep);
+}
+/* Bordure lumineuse tournante : plus de cadre, donc plus de bordure animée. */
+.nb-site .glow-border-spin::before,
+.nb-main .glow-border-spin::before {
+  display: none;
+}
+
+/* Pastilles « Publier sur » (V2, voir NetworkPill dans network-badge.tsx). */
+.nt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--nb-sep-strong);
+  padding: 5px 16px 5px 6px;
+  font-size: 15px;
+  line-height: 20px;
+  color: #ededef;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+[data-mode="light"] .nt-pill { color: #1f2937; }
+.nt-pill:hover { border-color: rgba(255, 255, 255, 0.28); }
+[data-mode="light"] .nt-pill:hover { border-color: rgba(17, 24, 39, 0.28); }
+.nt-pill-connect { border-style: dashed; color: #8b8b94; }
+[data-mode="light"] .nt-pill-connect { color: #6b7280; }
+.nt-pill-selected {
+  border-color: transparent;
+  background-color: var(--pill-bg);
+  color: #ffffff;
+  font-weight: 600;
+}
+[data-mode="light"] .nt-pill-selected { color: #ffffff; }
+.nt-pill-selected:hover { border-color: transparent; box-shadow: 0 0 0 3px color-mix(in srgb, var(--pill-bg) 22%, transparent); }
+.nt-pill-glyph {
+  display: inline-flex;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+/* TikTok, Threads (marque noire) : pastille claire en mode sombre. */
+:root:not([data-mode="light"]) .nt-pill-selected.nt-pill-ink { background-color: #f4f4f5; color: #111111; }
+:root:not([data-mode="light"]) .nt-pill-selected.nt-pill-ink .nt-pill-glyph { background: #111111; color: #ffffff; }
+button:focus-visible > .nt-pill, a:focus-visible > .nt-pill { outline: 2px solid rgb(var(--c-aurora-400)); outline-offset: 2px; }
+
+/* --- Publier (V2) ------------------------------------------------------- */
+.nb-dropzone {
+  border-color: var(--nb-dashed);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.nb-dropzone:hover {
+  border-color: rgb(var(--c-aurora-400) / 0.5);
+}
+.nb-composer-title::placeholder {
+  color: #a1a1aa;
+  opacity: 0.75;
+}
+[data-mode="light"] .nb-composer-title::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+.nb-composer-caption::placeholder {
+  color: #8b8b94;
+}
+[data-mode="light"] .nb-composer-caption::placeholder {
+  color: #9ca3af;
+}
+/* Réglages posés dans un panneau « + » : sans leur propre cadre. */
+.nb-addon-body > :first-child {
+  margin-top: 0 !important;
+  border-width: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+/* Bouton « Aperçu » flottant (maquette E). */
+.nb-preview-fab {
+  background-color: #111827;
+  color: #ffffff;
+}
+:root:not([data-mode="light"]) .nb-preview-fab {
+  background-color: #f4f4f5;
+  color: #111113;
+}
+
+/* --- Site public (V2, 08/10/2026) -------------------------------------- */
+/* Même langage que l'application sur l'accueil, les tarifs, les outils et
+   les pages de connexion (classe .nb-site sur leur <main>) : fond uni, blocs
+   à plat séparés par un trait fin, petits sur-titres gris en majuscules. Les
+   pages partagées avec des tiers (/l, /kit, /rapport, /calendrier, /approve)
+   gardent leur propre dessin. */
+.nb-eyebrow {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nb-label);
+}
+/* Mot mis en avant dans un grand titre : violet plein, sans dégradé animé. */
+.nb-accent-ink {
+  color: rgb(var(--c-aurora-300));
+}
+[data-mode="light"] .nb-accent-ink {
+  color: var(--l-accent);
+}
+/* Bloc posé directement sur la page, sans trait au-dessus (formulaire de connexion). */
+.nb-site .glass-panel.nb-plain {
+  border-top: 0;
+}
+/* Palier mis en avant (Pro) : un trait violet à la place du cadre lumineux. */
+.nb-site .glass-panel.nb-plan-featured {
+  border-top: 2px solid rgb(var(--c-aurora-500));
+}
+
+/* --- Réussites (V2, 08/10/2026) ----------------------------------------- */
+/* Bandeau de rang et « Prochaine action conseillée » posés sur la page ; les
+   missions et le coffre deviennent des colonnes soulignées d'un trait de
+   couleur (vert réussie, violet progression, ambre mystère et coffre). */
+.nb-main .reussites-banner,
+[data-mode="light"] .nb-main .reussites-banner {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.nb-main .reussites-reward-box,
+[data-mode="light"] .nb-main .reussites-reward-box {
+  background: transparent;
+  border-width: 1px 0 0;
+  border-color: var(--nb-sep);
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* Coffre prêt : il se soulève doucement (à la place du halo autour de la carte). */
+@keyframes nb-chest-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.nb-chest-bob { animation: nb-chest-bob 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .nb-chest-bob { animation: none; }
 }

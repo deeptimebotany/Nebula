@@ -283,7 +283,7 @@ export default function CommunityPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_272px]">
         {/* ---------- Flux central ---------- */}
         <div className="min-w-0 space-y-4">
-          <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.015] p-1" role="tablist" aria-label="Sections de la communauté">
+          <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--nb-sep)]" role="tablist" aria-label="Sections de la communauté">
             {(
               [
                 ["forum", "Forum", threads.length],
@@ -298,12 +298,12 @@ export default function CommunityPage() {
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={clsx(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition",
-                  tab === id ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow" : "text-slate-400 hover:text-white"
+                  "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[14px] transition",
+                  tab === id ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
                 )}
               >
                 {label}
-                {!loading && count > 0 && <span className={clsx("rounded-full px-1.5 text-[10px]", tab === id ? "bg-white/10 text-white" : "bg-white/[0.05] text-slate-500")}>{count}</span>}
+                {!loading && count > 0 && <span className="text-[12px] font-normal tabular-nums text-slate-500">{count}</span>}
               </button>
             ))}
           </div>

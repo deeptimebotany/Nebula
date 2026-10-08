@@ -29,16 +29,16 @@ export function CompetitorTable({ competitor }: { competitor: Competitor }) {
   ];
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+    <div className="overflow-x-auto border-y border-[color:var(--nb-sep)]">
       <table className="w-full min-w-[560px] text-sm">
         <thead>
-          <tr className="border-b border-white/[0.06] text-left text-[11px] uppercase tracking-wide text-slate-500">
+          <tr className="border-b border-[color:var(--nb-sep)] text-left text-[11px] uppercase tracking-wide text-slate-500">
             <th scope="col" className="px-4 py-3 font-semibold">&nbsp;</th>
             <th scope="col" className="px-4 py-3 font-semibold text-slate-300">{competitor.name}</th>
             <th scope="col" className="px-4 py-3 font-semibold text-aurora-200">Nebula</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/[0.06]">
+        <tbody className="divide-y divide-[color:var(--nb-sep)]">
           {rows.map((r) => (
             <tr key={r.label}>
               <th scope="row" className="px-4 py-3 text-left font-medium text-white">{r.label}</th>

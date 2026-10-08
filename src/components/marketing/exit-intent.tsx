@@ -106,7 +106,7 @@ export function ExitIntentModal({ page = "tarifs" }: { page?: string }) {
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="exit-intent-title" className="glass-panel-solid max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl p-6 sm:p-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Avant de partir</p>
+            <p className="nb-eyebrow">Avant de partir</p>
             <h2 id="exit-intent-title" className="mt-2 font-display text-2xl font-semibold text-white">Combien Nebula vous ferait-il économiser ?</h2>
           </div>
           <button type="button" onClick={close} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white">

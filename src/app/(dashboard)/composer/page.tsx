@@ -26,7 +26,10 @@ import { useFocusMode } from "@/components/bootstrap-provider";
 import type { PreviewAccount } from "@/components/composer/composer-preview";
 // Aperçu, panneaux et voile d'envoi chargés à la demande (lot 5).
 import { CampaignLinkBuilder, ComposerPreview, LoadingMiniGame, LocationPicker, PublishOverlay, RepurposePanel, VideoEditor } from "@/components/composer/lazy";
-import { PublishCard, ComposerActionBar } from "@/components/composer/publish-card";
+import { PublishActions, WhenSection, formatSlotLabel, nextBestSlot } from "@/components/composer/publish-card";
+import { firstAvailableSlot } from "@/components/ui/date-time-picker";
+import { HEADER_ACTIONS_SLOT_ID } from "@/components/dashboard/app-header";
+import { Input, Select } from "@/components/ui/input";
 import { ComposerTips } from "@/components/composer/composer-tips";
 import type { UploadedAsset, ConnectionRow, NetworkOverride, ScheduleMode, YoutubeComposerOptions } from "@/components/composer/composer-types";
 import { DEFAULT_YOUTUBE_OPTIONS, YOUTUBE_CATEGORIES } from "@/components/composer/composer-types";
@@ -40,12 +43,11 @@ import { TiktokConsent, TiktokOptions, type TiktokSectionStatus } from "@/compon
 import { DEFAULT_TIKTOK_OPTIONS, type TiktokPostOptions } from "@/lib/social/tiktok-direct-post";
 import { Toggle } from "@/components/ui/toggle";
 import { DEFAULT_TIMEZONE, localInputToUtc } from "@/lib/timezone";
-import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { NetworkBadge, NetworkLogo, NetworkTargetChip, NetworkTile } from "@/components/ui/network-badge";
+import { NetworkLogo, NetworkPill, NetworkTile } from "@/components/ui/network-badge";
 import { NETWORKS, NETWORK_META, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
-import { IconUpload, IconMessage, IconEmoji, IconHash, IconBell, IconLink, IconUsers } from "@/components/dashboard/icons";
+import { IconMessage, IconEmoji, IconHash, IconBell, IconLink, IconUsers, IconClose, IconCloudUpload, IconPhone, IconPlusSmall } from "@/components/dashboard/icons";
 import { FeedbackRequestDialog, type FeedbackPrefill } from "@/components/community/feedback/feedback-request-dialog";
 import { NebulaIcon } from "@/components/dashboard/nebula-brandmark";
 import type { RepurposedContent } from "@/lib/ai/gemini";
@@ -61,13 +63,15 @@ import { loadComposerDraft, saveComposerDraft, saveComposerDraftNow } from "@/li
 import { captureVideoFrames, captureVideoFramesAt, readVideoInfo } from "@/lib/video/capture-frames";
 import { formatDuration } from "@/lib/video/format-time";
 import { firstCommentLength, firstCommentSupport, type FirstCommentSupport } from "@/lib/social/first-comment-support";
-import { FORMAT_NETWORKS, POST_FORMATS, defaultFormat, formatProblem, type MediaFacts, type PostFormat } from "@/lib/social/post-format";
+import { FORMAT_NETWORKS, POST_FORMATS, defaultFormat, formatProblem, youtubeKind, type MediaFacts, type PostFormat } from "@/lib/social/post-format";
 import { FormatPicker } from "@/components/composer/format-picker";
 import { useUiSounds } from "@/components/use-ui-sounds";
 import { AiIcon } from "@/components/ai/ai-icon";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
+// Aperçu rangé (V2, 07/10/2026) : « 1 » quand on a masqué la colonne de droite.
+const PREVIEW_HIDDEN_KEY = "nebula:composer-preview-hidden";
 
 // Large sélection d'émojis organisée par catégorie pour l'insertion rapide
 // dans le titre / la description (voir insertIntoField ci-dessous). Curatée
@@ -513,7 +517,7 @@ function ComposerPageInner() {
   const [emojiPickerFor, setEmojiPickerFor] = useState<"title" | "caption" | null>(null);
   const [emojiAnchor, setEmojiAnchor] = useState<{ top: number; right: number } | null>(null);
   const emojiPopoverRef = useRef<HTMLDivElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
   const captionInputRef = useRef<HTMLTextAreaElement>(null);
 
   function toggleEmojiPicker(which: "title" | "caption", e: React.MouseEvent<HTMLButtonElement>) {
@@ -1508,7 +1512,12 @@ function ComposerPageInner() {
   const disabledClicks = useRef(0);
   const disabledClicksResetTimer = useRef<number | null>(null);
 
-  const onSubmit = useCallback(async () => {
+  // Mode d'envoi retenu au clic (V2 : « Programmer » ou « Publier
+  // maintenant », sans passer par un choix préalable).
+  const [submittingMode, setSubmittingMode] = useState<ScheduleMode>("now");
+  const onSubmit = useCallback(async (override?: { mode: ScheduleMode; scheduleDate?: string }) => {
+    const submitMode = override?.mode ?? mode;
+    const submitDate = override?.scheduleDate ?? scheduleDate;
     if (!canSubmit) {
       // TikTok : dire ce qui manque (confidentialité, contenu commercial…).
       if (publishBlocked) toast.error(publishBlocked);
@@ -1525,6 +1534,7 @@ function ComposerPageInner() {
       return;
     }
     if (!activeBrand) return;
+    setSubmittingMode(submitMode);
     setSubmitting(true);
 
     const targets = selectedNetworks
@@ -1587,7 +1597,7 @@ function ComposerPageInner() {
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
     // L'heure saisie est celle du fuseau de la marque, pas de l'appareil.
-    const scheduledAt = mode === "date" && scheduleDate ? localInputToUtc(scheduleDate, timezone)?.toISOString() : undefined;
+    const scheduledAt = submitMode === "date" && submitDate ? localInputToUtc(submitDate, timezone)?.toISOString() : undefined;
     // Horaire dépassé pendant que la page était ouverte : on bloque ici
     // (le serveur refuse aussi, voir src/lib/schedule-guard.ts).
     if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
@@ -1607,7 +1617,7 @@ function ComposerPageInner() {
         scheduledAt,
         mediaAssetIds: assets.map((a) => a.id),
         targets,
-        publishNow: mode === "now"
+        publishNow: submitMode === "now"
       })
     });
     const data = await res.json();
@@ -1634,7 +1644,7 @@ function ComposerPageInner() {
     // qui a réellement réussi (status "PUBLISHED") — jamais pour un post
     // programmé (personne ne regarde l'écran quand il partira plus tard, même
     // rationnel que dans milestone-celebration.tsx) ni pour un échec partiel.
-    if (mode === "now" && data.status === "PUBLISHED" && publishSoundEnabled && uiSoundsEnabled) {
+    if (submitMode === "now" && data.status === "PUBLISHED" && publishSoundEnabled && uiSoundsEnabled) {
       try {
         playLaunchWhoosh();
       } catch {
@@ -1719,6 +1729,199 @@ function ComposerPageInner() {
   const previewCaption = useDeferredValue(previewOverride?.open && previewOverride.caption ? previewOverride.caption : caption);
   const previewAsset = assets[0];
 
+  // --- Refonte V2 (07/10/2026) : présentation de la page ------------------
+  // Boutons dans la barre du haut sur les écrans moyens (maquette E).
+  const [headerActionsSlot, setHeaderActionsSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHeaderActionsSlot(document.getElementById(HEADER_ACTIONS_SLOT_ID));
+  }, []);
+  // Aperçu : collé à droite à partir de 1 360 px (sauf s'il est rangé),
+  // flottant en dessous (bouton « Aperçu »).
+  const [wideScreen, setWideScreen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1360px)");
+    const apply = () => setWideScreen(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  const [previewHidden, setPreviewHidden] = useState(false);
+  useEffect(() => {
+    try {
+      setPreviewHidden(getPref(PREVIEW_HIDDEN_KEY) === "1");
+    } catch {
+      // stockage indisponible : aperçu affiché
+    }
+  }, []);
+  const setPreviewHiddenPref = useCallback((hidden: boolean) => {
+    setPreviewHidden(hidden);
+    try {
+      setPref(PREVIEW_HIDDEN_KEY, hidden ? "1" : "0");
+    } catch {
+      // sans gravité
+    }
+  }, []);
+  const [floatingPreviewOpen, setFloatingPreviewOpen] = useState(false);
+
+  // Brouillon : « Brouillon enregistré il y a 2 min » à côté du titre.
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeBrand || duplicateId) return;
+    if (!draftReady && !(publicDraftId || studioId)) return;
+    setDraftSavedAt(title.trim() || caption.trim() ? Date.now() : null);
+  }, [activeBrand, duplicateId, publicDraftId, studioId, draftReady, title, caption]);
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const draftStatus = draftSavedAt
+    ? (() => {
+        const minutes = Math.floor(Math.max(0, clock - draftSavedAt) / 60_000);
+        return minutes < 1 ? "Brouillon enregistré" : `Brouillon enregistré il y a ${minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h`}`;
+      })()
+    : null;
+
+  // Meilleur créneau à venir (statistiques réelles, /api/analytics/insights).
+  const [insightHours, setInsightHours] = useState<{ bestHour: number | null; perNetwork: { network: Network; bestHour: number | null; hasEnoughData: boolean }[] } | null>(null);
+  useEffect(() => {
+    if (!activeBrand) return;
+    let alive = true;
+    fetch(`/api/analytics/insights?brandId=${activeBrand.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d) setInsightHours({ bestHour: typeof d.bestHour === "number" ? d.bestHour : null, perNetwork: Array.isArray(d.perNetwork) ? d.perNetwork : [] });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [activeBrand]);
+  const bestHour = useMemo(() => {
+    if (!insightHours) return null;
+    const forSelected = insightHours.perNetwork.find((n) => selectedNetworks.includes(n.network) && n.hasEnoughData && n.bestHour !== null);
+    return forSelected?.bestHour ?? insightHours.bestHour;
+  }, [insightHours, selectedNetworks]);
+  const bestSlot = useMemo(() => (bestHour === null ? null : nextBestSlot(bestHour, timezone, new Date(clock))), [bestHour, timezone, clock]);
+
+  // « Programmer » : la date choisie, sinon le meilleur créneau, sinon le
+  // choix de la date. « Publier maintenant » : tout de suite.
+  const scheduledChosen = mode === "date" && Boolean(scheduleDate);
+  const canSubmitBasics = assets.length > 0 && selectedNetworks.length > 0;
+  const submitMissing = !assets.length ? "Ajoutez un média pour continuer." : selectedNetworks.length === 0 ? "Choisissez au moins un réseau." : publishBlocked;
+  function onScheduleClick() {
+    const date = scheduledChosen ? scheduleDate : bestSlot;
+    if (!date) {
+      setScheduleDate(firstAvailableSlot(timezone));
+      setMode("date");
+      toast.info("Choisissez la date et l'heure dans « Quand », puis cliquez sur Programmer.");
+      return;
+    }
+    if (!scheduledChosen) {
+      setScheduleDate(date);
+      setMode("date");
+    }
+    void onSubmit({ mode: "date", scheduleDate: date });
+  }
+  function onPublishNowClick() {
+    void onSubmit({ mode: "now" });
+  }
+
+  // Barre d'outils du texte : # et émoji vont dans le dernier champ utilisé.
+  const lastField = useRef<"title" | "caption">("caption");
+  // Titre et description qui grandissent avec le texte.
+  useEffect(() => {
+    const el = captionInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(el.scrollHeight, 84)}px`;
+  }, [caption]);
+  useEffect(() => {
+    const el = titleInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
+  // Menu « Rédiger avec l'IA ».
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const aiMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aiMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) setAiMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAiMenuOpen(false);
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [aiMenuOpen]);
+  function runAi(fn: () => unknown) {
+    setAiMenuOpen(false);
+    void fn();
+  }
+
+  // Options « + » sous les réseaux : fermées tant qu'on n'en a pas besoin.
+  // TikTok et Pinterest s'ouvrent quand on choisit le réseau (réglages
+  // obligatoires : confidentialité TikTok, tableau Pinterest).
+  const [openAddons, setOpenAddons] = useState<string[]>([]);
+  const addonOpen = (key: string) => openAddons.includes(key);
+  function toggleAddon(key: string) {
+    if (key === "first-comment") return setFirstCommentOpen((v) => !v);
+    if (key === "youtube") return setYoutubeOptionsOpen((v) => !v);
+    setOpenAddons((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+  const previousNetworks = useRef<Network[]>([]);
+  useEffect(() => {
+    const added = selectedNetworks.filter((n) => !previousNetworks.current.includes(n));
+    previousNetworks.current = selectedNetworks;
+    const auto = added.flatMap((n) => (n === "TIKTOK" ? ["tiktok"] : n === "PINTEREST" ? ["pinterest"] : []));
+    if (auto.length) setOpenAddons((prev) => Array.from(new Set([...prev, ...auto])));
+  }, [selectedNetworks]);
+  // Un lieu ou des collaborateurs déjà choisis (duplication) : panneau ouvert.
+  useEffect(() => {
+    if (location) setOpenAddons((prev) => (prev.includes("location") ? prev : [...prev, "location"]));
+  }, [location]);
+  const addons: { key: string; label: string; open: boolean; filled: boolean }[] = [
+    { key: "first-comment", label: "Premier commentaire", open: firstCommentOpen, filled: firstComment.trim() !== "" },
+    ...(selectedNetworks.some((n) => LOCATION_NETWORKS.has(n)) ? [{ key: "location", label: "Lieu", open: addonOpen("location"), filled: Boolean(location) }] : []),
+    ...(selectedNetworks.includes("INSTAGRAM") ? [{ key: "collaborators", label: "Collaborateurs", open: addonOpen("collaborators"), filled: instagramOptions.collaborators.length > 0 }] : []),
+    ...(selectedNetworks.includes("TIKTOK") ? [{ key: "tiktok", label: "Options TikTok", open: addonOpen("tiktok"), filled: Boolean(tiktokOptions.privacyLevel) }] : []),
+    ...(selectedNetworks.includes("YOUTUBE") ? [{ key: "youtube", label: "Options YouTube", open: youtubeOptionsOpen, filled: false }] : []),
+    ...(selectedNetworks.includes("PINTEREST") ? [{ key: "pinterest", label: "Options Pinterest", open: addonOpen("pinterest"), filled: Boolean(pinterestOptions.boardId) }] : []),
+    ...(selectedNetworks.length > 0 ? [{ key: "per-network", label: "Texte par réseau", open: addonOpen("per-network"), filled: selectedNetworks.some((n) => overrides[n]?.open) }] : [])
+  ];
+
+  /** « 0:48 · vertical 9:16 » sous le nom du média. */
+  function mediaMetaLine(a: UploadedAsset, index: number): string {
+    const kind = a.type === "VIDEO" ? "Vidéo" : "Image";
+    if (index !== 0 || !mediaSize || mediaSize.assetId !== a.id) return kind;
+    const shape = mediaSize.height > mediaSize.width ? "vertical 9:16" : mediaSize.width > mediaSize.height ? "horizontal 16:9" : "carré 1:1";
+    return [a.type === "VIDEO" && mediaSize.duration ? formatDuration(mediaSize.duration) : kind, shape].join(" · ");
+  }
+
+  const previewProps = {
+    network: effectivePreviewNetwork,
+    accountFor: previewAccountFor,
+    instagramCollaborators: instagramOptions.collaborators,
+    // Format choisi (07/10/2026).
+    formatFor: assets.length > 0 ? formatFor : undefined,
+    selectedNetworks,
+    onPickNetwork: setPreviewNetwork,
+    asset: previewAsset,
+    title: previewTitle,
+    caption: previewCaption,
+    aspectClass: previewAspectClass,
+    onAspectClass: setPreviewAspectClass,
+    showInstagramGrid,
+    onToggleInstagramGrid,
+    instagramGridTiles,
+    gridLoading,
+    ratioLabel: mediaSize ? (mediaSize.height > mediaSize.width ? "9:16" : mediaSize.width > mediaSize.height ? "16:9" : "1:1") : null,
+    kindLabel: effectivePreviewNetwork === "YOUTUBE" && assets.length > 0 ? ({ SHORT: "Short (choisi par YouTube)", VIDEO: "Vidéo (choisie par YouTube)" } as const)[youtubeKind(mediaFacts) ?? "SHORT"] : null
+  };
   const noConnections = connections.length === 0;
   const tightestLimit =
     selectedNetworks.length > 0
@@ -1726,87 +1929,145 @@ function ComposerPageInner() {
       : null;
 
   return (
-    // Page normale, comme les autres pages du tableau de bord — plus de
-    // popup fixe en plein écran avec fond assombri/flouté : la création de
-    // publication se fait directement ici, à la demande explicite (retour
-    // "je veux que ça devienne comme toutes les pages du site").
-    <div className="space-y-6">
-      <PageHeader
-        title="Publier"
-        description={
-          <>
-            Un média (ou un carrousel), une légende, vos réseaux cibles — publiez ou programmez en un clic.
-            <span className="mt-0.5 block text-xs text-slate-500">
-              Votre brouillon (titre + description) est sauvegardé automatiquement dans ce navigateur pendant que vous rédigez.
-            </span>
-          </>
-        }
-        actions={
-          <>
-            {aiStatus?.enabled && (title.trim() || caption.trim()) && (
-              <Button variant="outline" onClick={onRepurpose}>
-                <AiIcon className="h-4 w-4" active={repurposeOpen || repurposeLoading} /> Recycler ce contenu
-              </Button>
-            )}
-            {aiStatus?.enabled && (
-              <Button variant="outline" onClick={onGenerateAll} disabled={generatingAll}>
-                <AiIcon className="h-4 w-4" active={generatingAll} /> {generatingAll ? "Génération..." : "Générer tout avec l'IA"}
-              </Button>
-            )}
-          </>
-        }
-      />
+    // Refonte V2 (07/10/2026, maquettes de Lucas) : un document fluide sur
+    // le fond de la page — MÉDIA, TEXTE, PUBLIER SUR, QUAND — séparés par des
+    // traits fins, sans cartes ni numéros. L'aperçu reste à droite, collé en
+    // haut pendant qu'on rédige (masquable) ; sur les écrans plus petits, il
+    // flotte (bouton « Aperçu ») et les boutons montent dans la barre du haut.
+    <div className="nb-composer">
+      <PageHeader title="Publier" status={draftStatus} />
+
+      {/* Boutons dans la barre du haut (écrans moyens, maquette E) */}
+      {headerActionsSlot &&
+        createPortal(
+          <div className="hidden sm:block min-[1360px]:hidden">
+            <PublishActions
+              compact
+              scheduled={scheduledChosen}
+              canSubmit={canSubmit}
+              submitting={submitting}
+              blockedReason={publishBlocked}
+              onSchedule={onScheduleClick}
+              onPublishNow={onPublishNowClick}
+            />
+          </div>,
+          headerActionsSlot
+        )}
 
       {repurposeUsed && (
         <RepurposePanel open={repurposeOpen} loading={repurposeLoading} result={repurposeResult} onClose={() => setRepurposeOpen(false)} onApply={applyRepurposed} />
       )}
 
       {activeBrand && aiStatus && !aiStatus.enabled && (
-        <GlassCard className="border-white/10 bg-white/[0.02]">
-          <p className="text-sm text-slate-400">
-            {aiStatus.keyConfigured
-              ? "L'assistant IA fait partie des paliers Pro/Agence."
-              : "L'assistant IA n'est pas configuré sur cette instance (clé Gemini absente)."}{" "}
-            {aiStatus.keyConfigured && (
-              <Link href="/billing" className="text-aurora-300 underline">
-                Voir les paliers
-              </Link>
-            )}
-          </p>
-        </GlassCard>
+        <p className="mb-6 text-[13px] text-slate-500">
+          {aiStatus.keyConfigured
+            ? "L'assistant IA fait partie des paliers Pro/Agence."
+            : "L'assistant IA n'est pas configuré sur cette instance (clé Gemini absente)."}{" "}
+          {aiStatus.keyConfigured && (
+            <Link href="/billing" className="text-aurora-300 underline">
+              Voir les paliers
+            </Link>
+          )}
+        </p>
       )}
 
       {noConnections && (
-        <Link href="/accounts" className="block">
-          <GlassCard className="border-amber-500/30 bg-amber-500/[0.04] transition hover:border-amber-400/50 hover:bg-amber-500/[0.07]">
-            <p className="text-sm text-amber-200">
-              Aucun réseau connecté. <span className="underline">Cliquez ici pour connecter un compte</span> et
-              pouvoir publier — vous pouvez tout de même préparer votre import ci-dessous.
-            </p>
-          </GlassCard>
+        <Link href="/accounts" className="mb-6 block rounded-xl border border-amber-500/30 bg-amber-500/[0.05] px-4 py-3 text-sm text-amber-200 transition hover:border-amber-400/50">
+          Aucun réseau connecté. <span className="underline">Connectez un compte</span> pour pouvoir publier — vous pouvez tout de même préparer votre publication ci-dessous.
         </Link>
       )}
 
-      {/* Aperçu agrandi (24/09/2026) : ~45 % de la largeur (moitié sur grand
-          écran) au lieu d'un tiers, et collé en haut pendant qu'on remplit
-          le formulaire. */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] 2xl:grid-cols-2">
-        <div className="min-w-0 space-y-5">
-          <GlassCard>
-            <h2 className="mb-3 font-display text-base font-medium text-white">1. Média</h2>
-            <div className="relative">
+      <div className={clsx("grid grid-cols-1", !previewHidden && "min-[1360px]:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]")}>
+        <div className={clsx("min-w-0", previewHidden ? "mx-auto w-full max-w-[780px]" : "min-[1360px]:pr-12")}>
+          {/* ------------------------------------------------------ MÉDIA */}
+          <section aria-labelledby="composer-media" className="pb-8">
+            <h2 id="composer-media" className="nb-section-label">
+              Média
+            </h2>
+
+            {assets.length > 0 && (
+              <ul className="mt-4 space-y-4">
+                {assets.map((a, i) => (
+                  <li key={a.id} className="nb-media-row flex flex-wrap items-center gap-4 sm:flex-nowrap">
+                    <div className="h-[84px] w-[64px] shrink-0 overflow-hidden rounded-lg bg-black">
+                      {a.type === "VIDEO" ? (
+                        <video src={a.previewUrl} poster={a.thumbnailUrl} preload="metadata" playsInline className="h-full w-full object-cover" muted />
+                      ) : (
+                        // Aperçu local (blob:) : next/image ne s'applique pas.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-full w-full object-cover" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-semibold text-white" title={a.filename}>
+                        {a.filename}
+                      </p>
+                      <p className="mt-0.5 text-[13px] text-slate-500">{mediaMetaLine(a, i)}</p>
+                      {/* Origine du média (03/10/2026) : « Image importée depuis Canva »… */}
+                      <ImportSourceBadge source={a.importSource} type={a.type} variant="inline" className="mt-1" />
+                    </div>
+                    <div className="flex w-full shrink-0 items-center justify-end gap-1 sm:w-auto">
+                      {a.type === "VIDEO" && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingVideo(a)}
+                          disabled={uploading}
+                          className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-[14px] text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white disabled:opacity-50"
+                        >
+                          <IcPencil className="h-4 w-4" /> Modifier la vidéo
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        disabled={uploading}
+                        className="whitespace-nowrap rounded-lg px-2.5 py-2 text-[14px] text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white disabled:opacity-50"
+                      >
+                        Remplacer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void confirmRemoveAsset(a)}
+                        disabled={uploading}
+                        aria-label={`Supprimer ${a.filename}`}
+                        title="Retirer ce média"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                      >
+                        <IconClose className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Zone de dépôt : un rectangle discret en pointillés, les sources d'import à droite. */}
+            <div className="relative mt-4">
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   onFilesChosen(e.dataTransfer.files);
                 }}
-                onClick={() => inputRef.current?.click()}
-                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02] py-10 text-center transition hover:border-aurora-400/40"
+                className="nb-dropzone flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-dashed px-4 py-3"
               >
-                <IconUpload className="h-6 w-6 text-aurora-400" />
-                <p className="text-sm text-slate-300">Glissez-déposez une vidéo/image, ou cliquez pour sélectionner</p>
-                <p className="text-xs text-slate-500">MP4, MOV, JPG, PNG — un seul fichier à la fois</p>
+                <button type="button" onClick={() => inputRef.current?.click()} className="flex min-w-0 items-center gap-3 py-1.5 text-left text-[15px] text-slate-300">
+                  <IconCloudUpload className="h-6 w-6 shrink-0 text-slate-400" />
+                  <span>
+                    {assets.length > 0 ? "Changer de média" : "Glissez une vidéo ou une image"}, ou <span className="font-semibold text-white underline underline-offset-2">parcourir</span>
+                  </span>
+                </button>
+                <MediaImportBar
+                  variant="inline"
+                  brandId={activeBrand?.id}
+                  disabled={uploading}
+                  onImported={onMediaImported}
+                  onError={(message) => {
+                    setUploadError(message);
+                    toast.error(message);
+                  }}
+                  onBusyChange={setUploading}
+                />
                 <input
                   ref={inputRef}
                   type="file"
@@ -1825,44 +2086,21 @@ function ComposerPageInner() {
                   }}
                 />
               </div>
-              {/* Voile flouté + logo animé pendant l'envoi : le logo Nebula
-                  (nebula-brandmark.tsx) a déjà ses anneaux en rotation
-                  perpétuelle en SVG, donc pas besoin d'une animation séparée
-                  ici — juste le poser par-dessus la zone d'import. */}
+              {/* Voile pendant l'envoi : le logo Nebula (anneaux en rotation
+                  perpétuelle, nebula-brandmark.tsx) et l'avancement. */}
               {uploading && (
-                <div
-                  aria-live="polite"
-                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-void-950/70 backdrop-blur-sm"
-                >
-                  <NebulaIcon size={44} tone="onDark" />
-                  <p className="text-sm font-medium text-aurora-300">
-                    Envoi en cours{uploadPercent !== null ? ` : ${uploadPercent} %` : "..."}
-                  </p>
+                <div aria-live="polite" className="absolute inset-0 flex items-center justify-center gap-3 rounded-xl bg-[color:var(--nb-page)]/90 backdrop-blur-sm">
+                  <NebulaIcon size={32} />
+                  <p className="text-sm font-medium text-white">Envoi en cours{uploadPercent !== null ? ` : ${uploadPercent} %` : "..."}</p>
                   {uploadPercent !== null && (
-                    <div
-                      role="progressbar"
-                      aria-label="Avancement de l'envoi"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={uploadPercent}
-                      className="h-1.5 w-40 overflow-hidden rounded-full bg-white/10"
-                    >
+                    <div role="progressbar" aria-label="Avancement de l'envoi" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadPercent} className="h-1.5 w-32 overflow-hidden rounded-full bg-[color:var(--nb-active)]">
                       <div className="h-full rounded-full bg-aurora-400 transition-[width] duration-200" style={{ width: `${uploadPercent}%` }} />
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <MediaImportBar
-              brandId={activeBrand?.id}
-              disabled={uploading}
-              onImported={onMediaImported}
-              onError={(message) => {
-                setUploadError(message);
-                toast.error(message);
-              }}
-              onBusyChange={setUploading}
-            />
+            <p className="mt-2 text-[12px] text-slate-500">MP4, MOV, JPG, PNG — un fichier à la fois.</p>
             {!focusMode && uploading && <LoadingMiniGame active />}
             {uploadError && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-sm text-red-300">
@@ -1871,104 +2109,45 @@ function ComposerPageInner() {
               </div>
             )}
 
-            {assets.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {assets.map((a) => (
-                  // Carte du média (01/10/2026) : contour plus marqué, actions
-                  // sous l'aperçu (plus rien par-dessus l'image), espacées.
-                  <div key={a.id} className="nb-media-card flex flex-col overflow-hidden rounded-xl border bg-black/40">
-                    {a.type === "VIDEO" ? (
-                      <video src={a.previewUrl} poster={a.thumbnailUrl} preload="metadata" playsInline className="h-40 w-full bg-black object-cover" muted />
-                    ) : (
-                      <img loading="lazy" decoding="async" src={a.previewUrl} alt={a.filename} className="h-40 w-full bg-black object-cover" />
-                    )}
-                    <p className="truncate border-t border-white/10 px-2.5 pt-2 text-[11px] text-slate-400" title={a.filename}>
-                      {a.filename}
-                    </p>
-                    {/* Origine du média (03/10/2026) : « Image importée depuis Canva »… */}
-                    <ImportSourceBadge source={a.importSource} type={a.type} variant="inline" className="px-2.5 pt-1" />
-                    <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-2">
-                      {a.type === "VIDEO" && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingVideo(a)}
-                          disabled={uploading}
-                          className="flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
-                        >
-                          <IcPencil className="h-3.5 w-3.5" /> Modifier la vidéo
-                        </button>
-                      )}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => inputRef.current?.click()}
-                          disabled={uploading}
-                          className="whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-200 transition hover:border-aurora-400/50 hover:text-white disabled:opacity-50"
-                        >
-                          Remplacer
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void confirmRemoveAsset(a)}
-                          disabled={uploading}
-                          aria-label={`Supprimer ${a.filename}`}
-                          className="whitespace-nowrap rounded-lg border border-white/15 px-2 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {videoAsset && (
-              <div ref={thumbSectionRef} className="mt-4 border-t border-white/[0.06] pt-4">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-medium text-white">Miniature</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {/* Un seul bouton (07/10/2026) : l'ancien « Demander à
-                        l'assistant », qui faisait remplir le sujet et le
-                        public de la vidéo, est retiré. L'IA regarde la vidéo
-                        elle-même ; on discute ensuite des propositions dans
-                        le chat, où elles arrivent. */}
-                    <Button
-                      variant="outline"
-                      onClick={() => void onGenerateThumbnails({ viaChat: true })}
-                      disabled={thumbLoading || aiThumbLoading}
-                      data-testid="generate-thumbnails"
-                      title={aiStatus?.enabled ? "L'IA regarde votre vidéo et crée 3 miniatures, expliquées dans le chat" : "3 images extraites de votre vidéo"}
-                    >
-                      {aiStatus?.enabled && <AiIcon className={clsx("h-4 w-4", thumbLoading && "animate-pulse")} active={thumbLoading} />}
-                      {thumbLoading
-                        ? thumbStep === "analyse"
-                          ? "Analyse de la vidéo…"
-                          : thumbStep === "creation"
-                            ? "Création des miniatures…"
-                            : aiStatus?.enabled
-                              ? "Analyse…"
-                              : "Extraction…"
-                        : aiStatus?.enabled
-                          ? "Générer 3 miniatures"
-                          : "Générer des miniatures"}
-                    </Button>
-                    <input
-                      ref={thumbFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => onThumbFileChosen(e.target.files?.[0] ?? null)}
-                    />
-                  </div>
+              <div ref={thumbSectionRef} className="mt-7">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-[14px] font-medium text-white">Miniature{selectedNetworks.includes("YOUTUBE") ? " YouTube" : ""}</h3>
+                  {/* Un seul bouton (07/10/2026) : l'ancien « Demander à
+                      l'assistant », qui faisait remplir le sujet et le
+                      public de la vidéo, est retiré. L'IA regarde la vidéo
+                      elle-même ; on discute ensuite des propositions dans
+                      le chat, où elles arrivent. */}
+                  <Button
+                    variant="outline"
+                    className="px-3 py-2"
+                    onClick={() => void onGenerateThumbnails({ viaChat: true })}
+                    disabled={thumbLoading || aiThumbLoading}
+                    data-testid="generate-thumbnails"
+                    title={aiStatus?.enabled ? "L'IA regarde votre vidéo et crée 3 miniatures, expliquées dans le chat" : "3 images extraites de votre vidéo"}
+                  >
+                    {aiStatus?.enabled && <AiIcon className={clsx("h-4 w-4", thumbLoading && "animate-pulse")} active={thumbLoading} />}
+                    {thumbLoading
+                      ? thumbStep === "analyse"
+                        ? "Analyse de la vidéo…"
+                        : thumbStep === "creation"
+                          ? "Création des miniatures…"
+                          : aiStatus?.enabled
+                            ? "Analyse…"
+                            : "Extraction…"
+                      : aiStatus?.enabled
+                        ? "Générer 3 miniatures"
+                        : "Générer des miniatures"}
+                  </Button>
+                  <input ref={thumbFileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onThumbFileChosen(e.target.files?.[0] ?? null)} />
                 </div>
-                <p className="mb-2 text-xs text-slate-500">
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
                   {aiStatus?.enabled
-                    ? "En un clic, l'IA regarde votre vidéo (image et son), crée 3 miniatures à partir de ses meilleurs moments et vous explique dans le chat pourquoi chacune fera cliquer. Choisissez-en une, ou demandez-lui de la retravailler. Chaque miniature créée compte dans votre quota de miniatures IA."
+                    ? "En un clic, l'IA regarde votre vidéo (image et son), crée 3 miniatures à partir de ses meilleurs moments et vous explique dans le chat pourquoi chacune fera cliquer. Chaque miniature créée compte dans votre quota de miniatures IA."
                     : "3 images extraites de votre vidéo : choisissez celle qui donne le plus envie de cliquer."}
                 </p>
                 {assistantBrief && (
-                  <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-aurora-400/25 bg-nebula-900/40 px-3 py-2 text-xs">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
                     <AiIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 text-slate-300">
                       Brief de l&apos;assistant
@@ -1978,13 +2157,12 @@ function ComposerPageInner() {
                         </>
                       )}
                     </span>
-                    <span className="flex-1" />
                     {/* Remplace l'ancien bouton « Générer avec l'IA (brief) ». */}
                     <button
                       type="button"
                       onClick={() => void onGenerateThumbnailWithAi()}
                       disabled={aiThumbLoading || thumbLoading}
-                      className="inline-flex items-center gap-1 rounded-lg bg-aurora-400/15 px-2.5 py-1 font-medium text-aurora-200 transition hover:bg-aurora-400/25 disabled:cursor-wait disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-aurora-300 transition hover:bg-[color:var(--nb-hover)] disabled:cursor-wait disabled:opacity-60"
                     >
                       <AiIcon className={clsx("h-3 w-3", aiThumbLoading && "animate-pulse")} active={aiThumbLoading} />
                       {aiThumbLoading ? "Génération…" : "Générer"}
@@ -1997,50 +2175,41 @@ function ComposerPageInner() {
                       }}
                       aria-label="Retirer le brief de l'assistant"
                       title="Retirer le brief"
-                      className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-white/5 hover:text-white"
+                      className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-[color:var(--nb-hover)] hover:text-white"
                     >
                       ✕
                     </button>
                   </div>
                 )}
-                {/* Miniatures proposées + case « Votre image » (01/10/2026 : remplace
-                    le bouton « Depuis mon ordinateur », cliquer ou déposer une image). */}
-                <div className="grid grid-cols-3 gap-2">
-                    {thumbOptions.map((url) => (
-                      <button
-                        key={url}
-                        onClick={() => pickThumbnail(url)}
-                        title={thumbReasons[url] || undefined}
-                        className={clsx(
-                          "overflow-hidden rounded-lg border-2 transition",
-                          videoAsset.thumbnailUrl === url ? "border-aurora-400" : "border-white/10 hover:border-white/30"
-                        )}
-                      >
-                        <img
-                          loading="lazy"
-                          decoding="async"
-                          src={url}
-                          alt="Miniature"
-                          className={clsx("aspect-video w-full", thumbAspect === "9:16" ? "bg-black object-contain" : "object-cover")}
-                        />
-                      </button>
-                    ))}
+                {/* Miniatures proposées + case « Votre image » (cliquer ou déposer une image). */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {thumbOptions.map((url) => (
                     <button
-                      type="button"
-                      onClick={() => thumbFileInputRef.current?.click()}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
-                        if (file) void onThumbFileChosen(file);
-                      }}
-                      disabled={thumbUploading}
-                      title="Choisir ou déposer une image de votre ordinateur"
-                      className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-white/15 text-[11px] text-slate-400 transition hover:border-aurora-400/50 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                      key={url}
+                      onClick={() => pickThumbnail(url)}
+                      title={thumbReasons[url] || undefined}
+                      aria-pressed={videoAsset.thumbnailUrl === url}
+                      className={clsx("w-[112px] overflow-hidden rounded-lg ring-2 transition", videoAsset.thumbnailUrl === url ? "ring-white" : "ring-transparent hover:ring-[color:var(--nb-sep-strong)]")}
                     >
-                      <IconUpload className="h-4 w-4" />
-                      {thumbUploading ? "Envoi…" : "Votre image"}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img loading="lazy" decoding="async" src={url} alt="Miniature" className={clsx("aspect-video w-full", thumbAspect === "9:16" ? "bg-black object-contain" : "object-cover")} />
                     </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => thumbFileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+                      if (file) void onThumbFileChosen(file);
+                    }}
+                    disabled={thumbUploading}
+                    title="Choisir ou déposer une image de votre ordinateur"
+                    className="nb-dropzone flex aspect-video w-[112px] flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed text-[12px] text-slate-400 transition hover:text-white disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {thumbUploading ? "Envoi…" : "Votre image"}
+                  </button>
                 </div>
                 {thumbOptions.length > 0 && (
                   <button
@@ -2050,499 +2219,305 @@ function ComposerPageInner() {
                       const urls = [...chosen, ...thumbOptions.filter((u) => !chosen.includes(u))].slice(0, 3);
                       setFeedbackPrefill({ kind: "THUMBNAIL", imageUrls: urls, network: selectedNetworks.includes("YOUTUBE") ? "YOUTUBE" : selectedNetworks.length === 1 ? selectedNetworks[0] : null });
                     }}
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-aurora-300 transition hover:text-white"
+                    className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-slate-400 transition hover:text-white"
                   >
                     <IconUsers className="h-3.5 w-3.5" />
                     Hésitation ? Demander l&apos;avis de la communauté
                   </button>
                 )}
                 {videoAsset.thumbnailUrl && selectedNetworks.includes("YOUTUBE") && (
-                  <p className="mt-2 text-[11px] text-slate-500">
-                    La miniature choisie est envoyée à YouTube avec la vidéo (JPEG ou PNG de 2 Mo au plus ; chaîne vérifiée par téléphone requise par YouTube).
-                  </p>
+                  <p className="mt-2 text-[12px] text-slate-500">La miniature choisie est envoyée à YouTube avec la vidéo (JPEG ou PNG de 2 Mo au plus ; chaîne vérifiée par téléphone requise par YouTube).</p>
                 )}
               </div>
             )}
 
-            {/* Étiquette IA : interrupteur général, placé ici (juste après le
-                choix du média, en haut de page) pour qu'on y pense avant de
-                descendre jusqu'aux réseaux. Il active/désactive l'option sur
-                TOUS les réseaux ; chaque réseau garde son propre interrupteur
-                pour une exception (section « 4. Réseaux cibles »). */}
+            {/* Étiquette IA : interrupteur général, en haut de page pour qu'on
+                y pense avant les réseaux ; une exception possible par réseau. */}
             <AiContentMaster
               checked={aiContentAll}
               onChange={setAiContentEverywhere}
               exceptions={selectedNetworks.filter((n) => aiContentFor(n) !== aiContentAll)}
+              networks={selectedNetworks}
+              valueFor={aiContentFor}
+              onNetworkChange={(n, next) => setAiContentOverrides((prev) => ({ ...prev, [n]: next }))}
             />
-          </GlassCard>
+          </section>
 
-          <GlassCard>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-base font-medium text-white">2. Titre</h2>
-              <div className="relative flex items-center gap-3">
-                <button
-                  onClick={() => insertIntoField("title", "#")}
-                  title="Insérer un hashtag"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconHash className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={(e) => toggleEmojiPicker("title", e)}
-                  title="Insérer un émoji"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconEmoji className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFeedbackPrefill({ kind: "TITLE", titles: title.trim() ? [title.trim()] : [], network: selectedNetworks.length === 1 ? selectedNetworks[0] : null })}
-                  title="Demander l'avis de la communauté sur plusieurs versions du titre"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconUsers className="h-3.5 w-3.5" />
-                  Avis
-                </button>
-                {aiStatus?.enabled && (
-                  <button
-                    onClick={() => onGenerateOne("title")}
-                    disabled={generatingFields.has("title")}
-                    title={generatingFields.has("title") ? "Génération en cours..." : "Générer avec l'IA"}
-                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
-                  >
-                    <AiIcon className={clsx("h-3.5 w-3.5", generatingFields.has("title") && "animate-pulse")} active={generatingFields.has("title")} />
-                    {generatingFields.has("title") ? "Génération..." : "IA"}
-                  </button>
-                )}
-              </div>
-            </div>
-            <input
+          {/* ------------------------------------------------------ TEXTE */}
+          <section aria-labelledby="composer-text" className="border-t border-[color:var(--nb-sep)] py-8">
+            <h2 id="composer-text" className="nb-section-label">
+              Texte
+            </h2>
+            {/* Titre sur une seule ligne logique, qui passe à la ligne à
+                l'écran au lieu de défiler (Entrée → description). */}
+            <textarea
               ref={titleInputRef}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Titre de la publication (utilisé notamment comme titre YouTube)..."
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
+              onChange={(e) => setTitle(e.target.value.replace(/[\r\n]+/g, " "))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+                  e.preventDefault();
+                  captionInputRef.current?.focus();
+                }
+              }}
+              onFocus={() => (lastField.current = "title")}
+              rows={1}
+              placeholder="Titre de votre publication…"
+              aria-label="Titre de la publication (utilisé notamment comme titre YouTube)"
+              title="Utilisé notamment comme titre YouTube"
+              className="nb-composer-title mt-3 w-full resize-none overflow-hidden bg-transparent font-display text-[24px] font-semibold leading-tight text-white outline-none sm:text-[32px]"
             />
-          </GlassCard>
-
-          <GlassCard>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-base font-medium text-white">3. Description</h2>
-              <div className="relative flex items-center gap-3">
-                <button
-                  onClick={() => insertIntoField("caption", "#")}
-                  title="Insérer un hashtag"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconHash className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={(e) => toggleEmojiPicker("caption", e)}
-                  title="Insérer un émoji"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconEmoji className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setCampaignLinkOpen(true)}
-                  title="Lien de campagne (UTM) : suivez les visites et les ventes venues de cette publication"
-                  className="flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-                >
-                  <IconLink className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Lien suivi</span>
-                </button>
-                {aiStatus?.enabled && (
-                  <button
-                    onClick={() => onGenerateOne("description")}
-                    disabled={generatingFields.has("description")}
-                    title={generatingFields.has("description") ? "Génération en cours..." : "Générer avec l'IA"}
-                    className="flex items-center gap-1 text-xs text-aurora-300 transition hover:underline disabled:cursor-wait disabled:opacity-60 disabled:no-underline"
-                  >
-                    <AiIcon className={clsx("h-3.5 w-3.5", generatingFields.has("description") && "animate-pulse")} active={generatingFields.has("description")} />
-                    {generatingFields.has("description") ? "Génération..." : "IA"}
-                  </button>
-                )}
-              </div>
-            </div>
             <textarea
               ref={captionInputRef}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              rows={4}
-              placeholder="Légende / description commune à tous les réseaux sélectionnés..."
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
+              onFocus={() => (lastField.current = "caption")}
+              rows={3}
+              placeholder="Décrivez votre publication… Tapez # pour un hashtag."
+              aria-label="Description commune à tous les réseaux choisis"
+              className="nb-composer-caption mt-3 w-full resize-none overflow-hidden bg-transparent text-[16px] leading-relaxed text-slate-200 outline-none"
             />
             {campaignLinkUsed && (
-            <CampaignLinkBuilder
-              open={campaignLinkOpen}
-              onClose={() => setCampaignLinkOpen(false)}
-              brandId={activeBrand?.id}
-              defaultSource={selectedNetworks.length === 1 ? selectedNetworks[0].toLowerCase() : undefined}
-              defaultMedium="social"
-              tip={
-                selectedNetworks.includes("INSTAGRAM")
-                  ? "Instagram ne rend pas les liens cliquables dans les légendes : placez ce lien dans votre Page bio, ou en premier commentaire sur Facebook."
-                  : undefined
-              }
-              actions={[
-                {
-                  label: "Ajouter en premier commentaire",
-                  onApply: (url) => {
-                    setFirstComment((prev) => (prev.trim() ? `${prev.trimEnd()} ${url}` : url));
-                    setFirstCommentOpen(true);
-                    toast.success("Lien ajouté au premier commentaire.");
-                  }
-                },
-                {
-                  label: "Insérer dans la description",
-                  primary: true,
-                  onApply: (url) => {
-                    setCaption((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${url}` : url));
-                    toast.success("Lien ajouté à la fin de la description.");
-                  }
+              <CampaignLinkBuilder
+                open={campaignLinkOpen}
+                onClose={() => setCampaignLinkOpen(false)}
+                brandId={activeBrand?.id}
+                defaultSource={selectedNetworks.length === 1 ? selectedNetworks[0].toLowerCase() : undefined}
+                defaultMedium="social"
+                tip={
+                  selectedNetworks.includes("INSTAGRAM")
+                    ? "Instagram ne rend pas les liens cliquables dans les légendes : placez ce lien dans votre Page bio, ou en premier commentaire sur Facebook."
+                    : undefined
                 }
-              ]}
-            />
+                actions={[
+                  {
+                    label: "Ajouter en premier commentaire",
+                    onApply: (url) => {
+                      setFirstComment((prev) => (prev.trim() ? `${prev.trimEnd()} ${url}` : url));
+                      setFirstCommentOpen(true);
+                      toast.success("Lien ajouté au premier commentaire.");
+                    }
+                  },
+                  {
+                    label: "Insérer dans la description",
+                    primary: true,
+                    onApply: (url) => {
+                      setCaption((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${url}` : url));
+                      toast.success("Lien ajouté à la fin de la description.");
+                    }
+                  }
+                ]}
+              />
             )}
-            <div className="mt-1.5 flex items-center justify-between text-xs">
-              <span className={clsx(tightestLimit && caption.length > tightestLimit ? "text-red-400" : "text-slate-500")}>
-                {caption.length} caractère{caption.length !== 1 ? "s" : ""}
-                {tightestLimit ? ` / ${tightestLimit} (limite la plus stricte des réseaux sélectionnés)` : ""}
+
+            {/* Barre d'outils du bloc de rédaction */}
+            <div className="mt-4 flex flex-wrap items-center gap-1">
+              <button type="button" onClick={() => insertIntoField(lastField.current, "#")} title="Insérer un hashtag" aria-label="Insérer un hashtag" className={TOOL_BUTTON}>
+                <IconHash className="h-[18px] w-[18px]" />
+              </button>
+              <button type="button" onClick={(e) => toggleEmojiPicker(lastField.current, e)} title="Insérer un émoji" aria-label="Insérer un émoji" className={TOOL_BUTTON}>
+                <IconEmoji className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCampaignLinkOpen(true)}
+                title="Lien de campagne (UTM) : suivez les visites et les ventes venues de cette publication"
+                aria-label="Ajouter un lien suivi"
+                className={TOOL_BUTTON}
+              >
+                <IconLink className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedbackPrefill({ kind: "TITLE", titles: title.trim() ? [title.trim()] : [], network: selectedNetworks.length === 1 ? selectedNetworks[0] : null })}
+                title="Demander l'avis de la communauté sur plusieurs versions du titre"
+                aria-label="Demander l'avis de la communauté sur le titre"
+                className={TOOL_BUTTON}
+              >
+                <IconMessage className="h-[18px] w-[18px]" />
+              </button>
+              {aiStatus?.enabled && (
+                <div className="relative" ref={aiMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setAiMenuOpen((v) => !v)}
+                    aria-haspopup="menu"
+                    aria-expanded={aiMenuOpen}
+                    className="ml-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white"
+                  >
+                    <AiIcon className="h-4 w-4" active={generatingAll || generatingFields.size > 0 || repurposeLoading} />
+                    {generatingAll || generatingFields.size > 0 ? "Rédaction…" : "Rédiger avec l'IA"}
+                  </button>
+                  {aiMenuOpen && (
+                    <div role="menu" className="nb-popover absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl p-1.5">
+                      <button type="button" role="menuitem" onClick={() => runAi(onGenerateAll)} disabled={generatingAll} className={AI_MENU_ITEM}>
+                        <AiIcon className="h-4 w-4" active={generatingAll} /> {generatingAll ? "Génération..." : "Titre et description"}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("title"))} disabled={generatingFields.has("title")} className={AI_MENU_ITEM}>
+                        <AiIcon className={clsx("h-4 w-4", generatingFields.has("title") && "animate-pulse")} active={generatingFields.has("title")} />
+                        {generatingFields.has("title") ? "Génération..." : "Le titre seulement"}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("description"))} disabled={generatingFields.has("description")} className={AI_MENU_ITEM}>
+                        <AiIcon className={clsx("h-4 w-4", generatingFields.has("description") && "animate-pulse")} active={generatingFields.has("description")} />
+                        {generatingFields.has("description") ? "Génération..." : "La description seulement"}
+                      </button>
+                      {(title.trim() || caption.trim()) && (
+                        <button type="button" role="menuitem" onClick={() => runAi(onRepurpose)} className={AI_MENU_ITEM}>
+                          <AiIcon className="h-4 w-4" active={repurposeOpen || repurposeLoading} /> Recycler ce contenu
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <span className={clsx("ml-auto text-[13px] tabular-nums", tightestLimit && caption.length > tightestLimit ? "text-red-400" : "text-slate-500")} title={tightestLimit ? "Limite la plus stricte des réseaux choisis" : undefined}>
+                {caption.length.toLocaleString("fr-FR")}
+                {tightestLimit ? ` / ${tightestLimit.toLocaleString("fr-FR")}` : ` caractère${caption.length !== 1 ? "s" : ""}`}
               </span>
             </div>
             {captionHashtags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
                 {captionHashtags.map((tag) => {
                   const count = hashtagCounts[tag];
                   return (
-                    <span
-                      key={tag}
-                      className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400"
-                    >
-                      #{tag}
-                      <span className="text-aurora-300">
-                        {count === undefined ? "…" : count === 0 ? "jamais utilisé" : `utilisé ${count}×`}
-                      </span>
+                    <span key={tag} className="text-[12px] text-slate-500">
+                      #{tag} <span className="text-slate-400">{count === undefined ? "…" : count === 0 ? "jamais utilisé" : `utilisé ${count}×`}</span>
                     </span>
                   );
                 })}
               </div>
             )}
-          </GlassCard>
+          </section>
 
-          <GlassCard>
-              <h2 className="mb-3 font-display text-base font-medium text-white">4. Réseaux cibles</h2>
-              <div className="space-y-3">
-                <NetworkPauseNotice networks={selectedNetworks} />
-                <div className="flex flex-wrap gap-2">
-                  {NETWORKS.filter((n) => offeredNetworks.includes(n) || availableNetworks.includes(n)).map((n) => {
-                    const connected = availableNetworks.includes(n);
-                    if (!connected) {
-                      return (
-                        <a
-                          key={n}
-                          href={activeBrand ? `/api/connections/${n.toLowerCase()}/start?brandId=${activeBrand.id}` : "/accounts"}
-                          title={`Connecter ${NETWORK_META[n].label}`}
-                          className="rounded-full"
-                        >
-                          <NetworkTargetChip network={n} state="connect" />
-                        </a>
-                      );
-                    }
+          {/* ------------------------------------------------ PUBLIER SUR */}
+          <section aria-labelledby="composer-networks" className="border-t border-[color:var(--nb-sep)] py-8">
+            <h2 id="composer-networks" className="nb-section-label">
+              Publier sur
+            </h2>
+            <div className="mt-4 space-y-3">
+              <NetworkPauseNotice networks={selectedNetworks} />
+              <div className="flex flex-wrap gap-2.5">
+                {NETWORKS.filter((n) => offeredNetworks.includes(n) || availableNetworks.includes(n)).map((n) => {
+                  const connected = availableNetworks.includes(n);
+                  if (!connected) {
                     return (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => toggleNetwork(n)}
-                        aria-pressed={selectedNetworks.includes(n)}
-                        aria-label={`${NETWORK_META[n].label}${selectedNetworks.includes(n) ? " (choisi)" : ""}`}
-                        className="rounded-full"
-                      >
-                        <NetworkTargetChip network={n} state={selectedNetworks.includes(n) ? "selected" : "idle"} />
-                      </button>
+                      <a key={n} href={activeBrand ? `/api/connections/${n.toLowerCase()}/start?brandId=${activeBrand.id}` : "/accounts"} title={`Connecter ${NETWORK_META[n].label}`} className="rounded-full">
+                        <NetworkPill network={n} state="connect" />
+                      </a>
                     );
-                  })}
-                </div>
-
-                {!noConnections && selectedNetworks.length > 0 && (
-                  <LocationPicker
-                    brandId={activeBrand?.id}
-                    value={location}
-                    onChange={setLocation}
-                    networks={selectedNetworks}
-                    mediaType={assets[0]?.type ?? null}
-                  />
-                )}
-
-                {/* Bluesky (25/09/2026) : 300 caractères et pas encore de vidéo —
-                    prévenir ici plutôt qu'à l'échec de la publication. */}
-                {selectedNetworks.includes("BLUESKY") &&
-                  (() => {
-                    const ov = overrides.BLUESKY;
-                    const blueskyText = ov?.open && ov.caption ? ov.caption : caption;
-                    const tooLong = blueskyText.trim().length > NETWORK_META.BLUESKY.maxCaption;
-                    const hasVideo = assets.some((a) => a.type === "VIDEO");
-                    if (!tooLong && !hasVideo) return null;
-                    return (
-                      <p className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-200">
-                        {hasVideo
-                          ? "Bluesky : la vidéo n'est pas encore prise en charge dans Nebula. Retirez Bluesky des cibles ou publiez une image."
-                          : `Bluesky : ${blueskyText.trim().length} caractères, 300 maximum. Utilisez « Personnaliser pour Bluesky » ci-dessous pour écrire une version plus courte.`}
-                      </p>
-                    );
-                  })()}
-
-                {noConnections ? (
-                  <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>
-                ) : (
-                  <>
-
-                  {selectedNetworks.map((n) => {
-                    const networkConnections = connections.filter((c) => c.network === n);
-                    return (
-                    <div key={n} className="rounded-xl border border-white/[0.06] bg-white/[0.015] p-3">
-                      {assets.length > 0 && (
-                        <FormatPicker
-                          network={n}
-                          facts={mediaFacts}
-                          value={formatFor(n)}
-                          onChange={(f) => setFormats((prev) => ({ ...prev, [n]: f }))}
-                          shareToFeed={igShareToFeed}
-                          onShareToFeedChange={setIgShareToFeed}
-                        />
-                      )}
-                      {networkConnections.length > 1 && (
-                        <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
-                          <span>Compte {NETWORK_META[n].label} :</span>
-                          <select
-                            value={selectedConnectionByNetwork[n] ?? networkConnections[0].id}
-                            onChange={(e) => setNetworkConnection(n, e.target.value)}
-                            className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white outline-none focus:border-aurora-400/60"
-                          >
-                            {networkConnections.map((c) => (
-                              <option key={c.id} value={c.id} className="bg-void-900">
-                                {c.displayName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      <button
-                        onClick={() => toggleOverride(n)}
-                        className="flex w-full items-center justify-between text-left text-xs text-slate-400"
-                      >
-                        <span>
-                          Personnaliser pour{" "}
-                          <span className="ml-1 inline-flex items-center gap-1.5 align-middle font-medium text-slate-200">
-                            <NetworkTile network={n} size={16} />
-                            {NETWORK_META[n].label}
-                          </span>
-                        </span>
-                        <span>{overrides[n]?.open ? "▲ réduire" : "▼ adapter le texte"}</span>
-                      </button>
-                      {overrides[n]?.open && (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={overrides[n]?.title ?? ""}
-                              onChange={(e) => setOverrideField(n, "title", e.target.value)}
-                              placeholder={`Titre spécifique à ${NETWORK_META[n].label} (optionnel)`}
-                              className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <textarea
-                              value={overrides[n]?.caption ?? ""}
-                              onChange={(e) => setOverrideField(n, "caption", e.target.value)}
-                              rows={2}
-                              placeholder={`Texte spécifique à ${NETWORK_META[n].label} (optionnel, max ${NETWORK_META[n].maxCaption} caractères)`}
-                              className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Options de diffusion communes, présentées pareil pour
-                          chaque réseau : interrupteur + bulle d'aide. */}
-                      <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <AiIcon className="h-3.5 w-3.5" />
-                            Contenu généré par l&apos;IA
-                            <InfoTip label={`À quoi sert « Contenu généré par l'IA » sur ${NETWORK_META[n].label} ?`}>{AI_CONTENT_HELP[n]}</InfoTip>
-                          </span>
-                          <Toggle
-                            size="sm"
-                            checked={aiContentFor(n)}
-                            onChange={(next) => setAiContentOverrides((prev) => ({ ...prev, [n]: next }))}
-                            aria-label={`Contenu généré par l'IA sur ${NETWORK_META[n].label}`}
-                          />
-                        </div>
-                        {n === "YOUTUBE" && (
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                              <IconBell className="h-3.5 w-3.5 text-aurora-300" />
-                              Notifier les abonnés
-                              <InfoTip label="À quoi sert « Notifier les abonnés » ?">{NOTIFY_SUBSCRIBERS_HELP}</InfoTip>
-                            </span>
-                            <Toggle
-                              size="sm"
-                              checked={youtubeOptions.notifySubscribers}
-                              onChange={(next) => setYoutubeOptions((o) => ({ ...o, notifySubscribers: next }))}
-                              aria-label="Notifier les abonnés YouTube"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {n === "TIKTOK" && (
-                        <TiktokOptions
-                          connectionId={selectedConnectionByNetwork.TIKTOK || networkConnections[0]?.id}
-                          value={tiktokOptions}
-                          onChange={setTiktokOptions}
-                          video={assets[0] ? { url: assets[0].previewUrl, type: assets[0].type } : null}
-                          onStatus={setTiktokStatus}
-                          onPreview={() => setPreviewNetwork("TIKTOK")}
-                        />
-                      )}
-
-                      {n === "INSTAGRAM" && <InstagramOptions value={instagramOptions} onChange={setInstagramOptions} />}
-
-                      {n === "PINTEREST" && (
-                        <PinterestOptions
-                          connectionId={selectedConnectionByNetwork.PINTEREST || networkConnections[0]?.id}
-                          value={pinterestOptions}
-                          onChange={setPinterestOptions}
-                        />
-                      )}
-
-                      {n === "YOUTUBE" && (
-                        <div className="mt-3 border-t border-white/[0.06] pt-3">
-                          <button
-                            type="button"
-                            onClick={() => setYoutubeOptionsOpen((v) => !v)}
-                            className="flex w-full items-center justify-between text-left text-xs text-slate-400"
-                          >
-                            <span>Préréglages YouTube</span>
-                            <span>{youtubeOptionsOpen ? "▲ réduire" : "▼ configurer"}</span>
-                          </button>
-                          {youtubeOptionsOpen && (
-                            <div className="mt-3 space-y-3">
-                              <div>
-                                <label className="mb-1 block text-[11px] text-slate-500">Configuration de l&apos;audience</label>
-                                <select
-                                  value={youtubeOptions.madeForKids ? "kids" : "not-kids"}
-                                  onChange={(e) =>
-                                    setYoutubeOptions((o) => ({ ...o, madeForKids: e.target.value === "kids" }))
-                                  }
-                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                                >
-                                  <option value="not-kids" className="bg-void-900">
-                                    Non, cette vidéo n&apos;est pas destinée aux enfants
-                                  </option>
-                                  <option value="kids" className="bg-void-900">
-                                    Oui, cette vidéo est destinée aux enfants
-                                  </option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="mb-1 block text-[11px] text-slate-500">Confidentialité</label>
-                                <select
-                                  value={youtubeOptions.privacyStatus}
-                                  onChange={(e) =>
-                                    setYoutubeOptions((o) => ({
-                                      ...o,
-                                      privacyStatus: e.target.value as YoutubeComposerOptions["privacyStatus"]
-                                    }))
-                                  }
-                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                                >
-                                  <option value="public" className="bg-void-900">
-                                    Publique
-                                  </option>
-                                  <option value="unlisted" className="bg-void-900">
-                                    Non répertoriée
-                                  </option>
-                                  <option value="private" className="bg-void-900">
-                                    Privée
-                                  </option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="mb-1 block text-[11px] text-slate-500">Catégorie</label>
-                                <select
-                                  value={youtubeOptions.categoryId}
-                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, categoryId: e.target.value }))}
-                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                                >
-                                  <option value="" className="bg-void-900">
-                                    Non précisée
-                                  </option>
-                                  {YOUTUBE_CATEGORIES.map((c) => (
-                                    <option key={c.id} value={c.id} className="bg-void-900">
-                                      {c.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="mb-1 block text-[11px] text-slate-500">Tags (séparés par des virgules)</label>
-                                <input
-                                  value={youtubeOptions.tags}
-                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, tags: e.target.value }))}
-                                  placeholder="ex : vlog, tutoriel, gaming"
-                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="mb-1 block text-[11px] text-slate-500">Ajouter à la playlist (optionnel)</label>
-                                <input
-                                  value={youtubeOptions.playlistId}
-                                  onChange={(e) => setYoutubeOptions((o) => ({ ...o, playlistId: e.target.value }))}
-                                  placeholder="Identifiant de la playlist YouTube"
-                                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white outline-none focus:border-aurora-400/60"
-                                />
-                              </div>
-
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  }
+                  const selected = selectedNetworks.includes(n);
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => toggleNetwork(n)}
+                      aria-pressed={selected}
+                      aria-label={`${NETWORK_META[n].label}${selected ? " (choisi)" : ""}`}
+                      className="rounded-full"
+                    >
+                      <NetworkPill network={n} state={selected ? "selected" : "idle"} label={n === "YOUTUBE" && selected && youtubeKind(mediaFacts) === "SHORT" ? "YouTube Shorts" : undefined} />
+                    </button>
                   );
-                  })}
-                  </>
-                )}
+                })}
               </div>
-            </GlassCard>
+              {noConnections && <p className="text-sm text-slate-500">Connectez au moins un réseau pour choisir une cible.</p>}
 
-          <GlassCard>
-            <button
-              onClick={() => setFirstCommentOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-                <IconMessage className="h-4 w-4 text-slate-400" /> Premier commentaire
-                <span className="text-xs font-normal text-slate-500">(option)</span>
-              </h2>
-              <span className="text-xs text-slate-400">{firstCommentOpen ? "▲ réduire" : "▼ ajouter"}</span>
-            </button>
+              {/* Bluesky (25/09/2026) : 300 caractères et pas encore de vidéo —
+                  prévenir ici plutôt qu'à l'échec de la publication. */}
+              {selectedNetworks.includes("BLUESKY") &&
+                (() => {
+                  const ov = overrides.BLUESKY;
+                  const blueskyText = ov?.open && ov.caption ? ov.caption : caption;
+                  const tooLong = blueskyText.trim().length > NETWORK_META.BLUESKY.maxCaption;
+                  const hasVideo = assets.some((a) => a.type === "VIDEO");
+                  if (!tooLong && !hasVideo) return null;
+                  return (
+                    <p className="text-[13px] text-amber-300">
+                      {hasVideo
+                        ? "Bluesky : la vidéo n'est pas encore prise en charge dans Nebula. Retirez Bluesky des cibles ou publiez une image."
+                        : `Bluesky : ${blueskyText.trim().length} caractères, 300 maximum. Utilisez « Texte par réseau » ci-dessous pour écrire une version plus courte.`}
+                    </p>
+                  );
+                })()}
+            </div>
+
+            {/* Format par réseau (Publication, Reel, Story ; Short ou vidéo pour YouTube) */}
+            {assets.length > 0 && selectedNetworks.some((n) => FORMAT_NETWORKS.has(n) || n === "YOUTUBE") && (
+              <div className="mt-6 space-y-3">
+                {selectedNetworks
+                  .filter((n) => FORMAT_NETWORKS.has(n) || n === "YOUTUBE")
+                  .map((n) => (
+                    <FormatPicker
+                      key={n}
+                      network={n}
+                      facts={mediaFacts}
+                      value={formatFor(n)}
+                      onChange={(f) => setFormats((prev) => ({ ...prev, [n]: f }))}
+                      shareToFeed={igShareToFeed}
+                      onShareToFeedChange={setIgShareToFeed}
+                    />
+                  ))}
+              </div>
+            )}
+
+            {/* Compte utilisé, quand un réseau en a plusieurs */}
+            {selectedNetworks.some((n) => connections.filter((c) => c.network === n).length > 1) && (
+              <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+                {selectedNetworks.map((n) => {
+                  const networkConnections = connections.filter((c) => c.network === n);
+                  if (networkConnections.length < 2) return null;
+                  return (
+                    <label key={n} className="flex items-center gap-2 text-[13px] text-slate-400">
+                      Compte {NETWORK_META[n].label} :
+                      <select
+                        value={selectedConnectionByNetwork[n] ?? networkConnections[0].id}
+                        onChange={(e) => setNetworkConnection(n, e.target.value)}
+                        className="rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-2 py-1 text-[13px] text-white outline-none focus:border-aurora-400/60"
+                      >
+                        {networkConnections.map((c) => (
+                          <option key={c.id} value={c.id} className="bg-void-900">
+                            {c.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Options en plus (« + ») : rien d'ouvert tant qu'on n'en a pas besoin */}
+            {!noConnections && (
+              <div className="mt-5 flex flex-wrap items-center gap-x-1 gap-y-1" data-testid="composer-addons">
+                {addons.map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    onClick={() => toggleAddon(a.key)}
+                    aria-expanded={a.open}
+                    className={clsx("flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[14px] transition hover:bg-[color:var(--nb-hover)]", a.open ? "font-medium text-white" : "text-slate-400 hover:text-white")}
+                  >
+                    {a.open ? <span aria-hidden="true" className="w-4 text-center">−</span> : <IconPlusSmall className="h-4 w-4" />}
+                    {a.label}
+                    {a.filled && !a.open && <span className="h-1.5 w-1.5 rounded-full bg-aurora-400" aria-label="(rempli)" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {firstCommentOpen && (
-              <div className="mt-3 animate-fade-in-up rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                <p className="mb-2 text-xs text-slate-400">
-                  Publié automatiquement juste après la publication, en commentaire sous le post, sur chaque réseau qui le
-                  permet. Son sort, réseau par réseau, est indiqué sur la fiche de la publication.
+              <div className="nb-addon mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <h3 className="text-[14px] font-medium text-white">Premier commentaire</h3>
+                <p className="mt-1 text-[13px] text-slate-500">
+                  Publié automatiquement juste après la publication, en commentaire sous le post, sur chaque réseau qui le permet. Son sort, réseau par réseau, est indiqué sur la fiche de la publication.
                 </p>
                 <textarea
                   value={firstComment}
                   onChange={(e) => setFirstComment(e.target.value)}
                   rows={2}
                   placeholder="Ex : Lien en bio 👇"
-                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition-all duration-200 focus:scale-[1.01] focus:border-aurora-400/60 focus:shadow-[0_0_0_5px_rgb(var(--c-aurora-400)/0.16)]"
+                  className="mt-3 w-full resize-none rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-aurora-400/60"
                 />
                 {/* Où il sera publié (07/10/2026) : avant, TikTok, Pinterest et
                     YouTube l'ignoraient sans rien dire. */}
@@ -2580,59 +2555,231 @@ function ComposerPageInner() {
                   </ul>
                 ) : (
                   <p className="mt-2 text-xs text-slate-500">
-                    Possible sur Instagram, Facebook, Threads, LinkedIn, Bluesky et YouTube (avec l&apos;autorisation de commenter). Pas sur
-                    TikTok ni Pinterest : leurs API ne permettent pas de commenter.
+                    Possible sur Instagram, Facebook, Threads, LinkedIn, Bluesky et YouTube (avec l&apos;autorisation de commenter). Pas sur TikTok ni Pinterest : leurs API ne permettent pas de commenter.
                   </p>
                 )}
               </div>
             )}
-          </GlassCard>
 
-          <ComposerTips />
-        </div>
+            {addonOpen("location") && selectedNetworks.length > 0 && (
+              <div className="nb-addon nb-addon-body mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <LocationPicker brandId={activeBrand?.id} value={location} onChange={setLocation} networks={selectedNetworks} mediaType={assets[0]?.type ?? null} />
+              </div>
+            )}
 
-        <div className="min-w-0 space-y-5">
-          <PublishCard mode={mode} onModeChange={setMode} scheduleDate={scheduleDate} onScheduleDateChange={setScheduleDate} timezone={timezone} shortcutLabel={shortcutLabel} />
+            {addonOpen("collaborators") && selectedNetworks.includes("INSTAGRAM") && (
+              <div className="nb-addon nb-addon-body mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <InstagramOptions value={instagramOptions} onChange={setInstagramOptions} />
+              </div>
+            )}
 
-          {/* Place de la barre de défilement toujours réservée (02/10/2026) : sans
-              elle, la barre apparaissait quand l'aperçu dépassait, la colonne
-              rétrécissait, l'aperçu rapetissait, la barre disparaissait… et
-              l'aperçu tremblait en boucle à certaines tailles de fenêtre. */}
-          <div className="nb-thin-scroll lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
-          <ComposerPreview
-            network={effectivePreviewNetwork}
-            accountFor={previewAccountFor}
-            instagramCollaborators={instagramOptions.collaborators}
-            formatFor={assets.length > 0 ? formatFor : undefined}
-            selectedNetworks={selectedNetworks}
-            onPickNetwork={setPreviewNetwork}
-            asset={previewAsset}
-            title={previewTitle}
-            caption={previewCaption}
-            aspectClass={previewAspectClass}
-            onAspectClass={setPreviewAspectClass}
-            showInstagramGrid={showInstagramGrid}
-            onToggleInstagramGrid={onToggleInstagramGrid}
-            instagramGridTiles={instagramGridTiles}
-            gridLoading={gridLoading}
-            sticky
+            {addonOpen("tiktok") && selectedNetworks.includes("TIKTOK") && (
+              <div className="nb-addon mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <h3 className="text-[14px] font-medium text-white">Options TikTok</h3>
+                <div className="nb-addon-body mt-3">
+                  <TiktokOptions
+                    connectionId={selectedConnectionByNetwork.TIKTOK || connections.find((c) => c.network === "TIKTOK")?.id}
+                    value={tiktokOptions}
+                    onChange={setTiktokOptions}
+                    video={assets[0] ? { url: assets[0].previewUrl, type: assets[0].type } : null}
+                    onStatus={setTiktokStatus}
+                    onPreview={() => setPreviewNetwork("TIKTOK")}
+                  />
+                </div>
+              </div>
+            )}
+
+            {addonOpen("pinterest") && selectedNetworks.includes("PINTEREST") && (
+              <div className="nb-addon mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <h3 className="text-[14px] font-medium text-white">Options Pinterest</h3>
+                <div className="nb-addon-body mt-3">
+                  <PinterestOptions connectionId={selectedConnectionByNetwork.PINTEREST || connections.find((c) => c.network === "PINTEREST")?.id} value={pinterestOptions} onChange={setPinterestOptions} />
+                </div>
+              </div>
+            )}
+
+            {youtubeOptionsOpen && selectedNetworks.includes("YOUTUBE") && (
+              <div className="nb-addon mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <h3 className="text-[14px] font-medium text-white">Options YouTube</h3>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[13px] text-slate-300">
+                    <IconBell className="h-4 w-4 text-slate-400" />
+                    Notifier les abonnés
+                    <InfoTip label="À quoi sert « Notifier les abonnés » ?">{NOTIFY_SUBSCRIBERS_HELP}</InfoTip>
+                  </span>
+                  <Toggle size="sm" checked={youtubeOptions.notifySubscribers} onChange={(next) => setYoutubeOptions((o) => ({ ...o, notifySubscribers: next }))} aria-label="Notifier les abonnés YouTube" />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Select label="Configuration de l'audience" value={youtubeOptions.madeForKids ? "kids" : "not-kids"} onChange={(e) => setYoutubeOptions((o) => ({ ...o, madeForKids: e.target.value === "kids" }))}>
+                    <option value="not-kids">Non, cette vidéo n&apos;est pas destinée aux enfants</option>
+                    <option value="kids">Oui, cette vidéo est destinée aux enfants</option>
+                  </Select>
+                  <Select
+                    label="Confidentialité"
+                    value={youtubeOptions.privacyStatus}
+                    onChange={(e) => setYoutubeOptions((o) => ({ ...o, privacyStatus: e.target.value as YoutubeComposerOptions["privacyStatus"] }))}
+                  >
+                    <option value="public">Publique</option>
+                    <option value="unlisted">Non répertoriée</option>
+                    <option value="private">Privée</option>
+                  </Select>
+                  <Select label="Catégorie" value={youtubeOptions.categoryId} onChange={(e) => setYoutubeOptions((o) => ({ ...o, categoryId: e.target.value }))}>
+                    <option value="">Non précisée</option>
+                    {YOUTUBE_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input label="Tags (séparés par des virgules)" value={youtubeOptions.tags} onChange={(e) => setYoutubeOptions((o) => ({ ...o, tags: e.target.value }))} placeholder="ex : vlog, tutoriel, gaming" />
+                  <Input
+                    label="Ajouter à la playlist (optionnel)"
+                    wrapperClassName="sm:col-span-2"
+                    value={youtubeOptions.playlistId}
+                    onChange={(e) => setYoutubeOptions((o) => ({ ...o, playlistId: e.target.value }))}
+                    placeholder="Identifiant de la playlist YouTube"
+                  />
+                </div>
+              </div>
+            )}
+
+            {addonOpen("per-network") && selectedNetworks.length > 0 && (
+              <div className="nb-addon mt-5 border-t border-[color:var(--nb-sep)] pt-5">
+                <h3 className="text-[14px] font-medium text-white">Texte par réseau</h3>
+                <p className="mt-1 text-[13px] text-slate-500">Un titre ou un texte différent sur un réseau ; laissé vide, le texte commun est utilisé.</p>
+                <div className="mt-3 divide-y divide-[color:var(--nb-sep)]">
+                  {selectedNetworks.map((n) => (
+                    <div key={n} className="py-3">
+                      <button type="button" onClick={() => toggleOverride(n)} aria-expanded={Boolean(overrides[n]?.open)} className="flex w-full items-center justify-between text-left text-[14px] text-slate-300">
+                        <span className="flex items-center gap-2">
+                          <NetworkTile network={n} size={18} />
+                          Personnaliser pour {NETWORK_META[n].label}
+                        </span>
+                        <span className="text-[13px] text-slate-500">{overrides[n]?.open ? "Réduire" : "Adapter le texte"}</span>
+                      </button>
+                      {overrides[n]?.open && (
+                        <div className="mt-3 space-y-2">
+                          <input
+                            value={overrides[n]?.title ?? ""}
+                            onChange={(e) => setOverrideField(n, "title", e.target.value)}
+                            placeholder={`Titre spécifique à ${NETWORK_META[n].label} (optionnel)`}
+                            className="w-full rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3 py-2 text-[13px] text-white outline-none focus:border-aurora-400/60"
+                          />
+                          <textarea
+                            value={overrides[n]?.caption ?? ""}
+                            onChange={(e) => setOverrideField(n, "caption", e.target.value)}
+                            rows={2}
+                            placeholder={`Texte spécifique à ${NETWORK_META[n].label} (optionnel, max ${NETWORK_META[n].maxCaption} caractères)`}
+                            className="w-full resize-none rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3 py-2 text-[13px] text-white outline-none focus:border-aurora-400/60"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ------------------------------------------------------ QUAND */}
+          <WhenSection
+            mode={mode}
+            scheduleDate={scheduleDate}
+            onScheduleDateChange={(value) => {
+              setScheduleDate(value);
+              setMode("date");
+            }}
+            onClearDate={() => {
+              setMode("now");
+              setScheduleDate("");
+            }}
+            timezone={timezone}
+            bestSlot={bestSlot}
+            shortcutLabel={shortcutLabel}
+            missing={submitMissing}
+            missingTone={publishBlocked && assets.length > 0 && selectedNetworks.length > 0 ? "warning" : "neutral"}
+            footnote={selectedNetworks.includes("TIKTOK") ? <TiktokConsent options={tiktokOptions} className="mt-3" /> : null}
+            actions={
+              <PublishActions
+                scheduled={scheduledChosen}
+                canSubmit={canSubmit}
+                submitting={submitting}
+                blockedReason={publishBlocked}
+                onSchedule={onScheduleClick}
+                onPublishNow={onPublishNowClick}
+              />
+            }
           />
+
+          <div className="mt-10">
+            <ComposerTips />
           </div>
+          {/* Place pour la barre d'action collée en bas (téléphone). */}
+          <div className="h-24 sm:hidden" aria-hidden="true" />
         </div>
+
+        {/* Aperçu collé à droite (grands écrans), masquable. */}
+        {!previewHidden && (
+          <aside className="hidden border-l border-[color:var(--nb-sep)] pl-10 min-[1360px]:block" aria-label="Aperçu">
+            {/* Sans conteneur défilant : il coupait l'ombre du téléphone en
+                rectangle gris. Le cadre tient déjà dans la hauteur (ScaledFrame). */}
+            <div className="sticky top-[88px] pb-4">
+              {wideScreen && (
+                <ComposerPreview
+                  {...previewProps}
+                  sticky
+                  onHide={() => {
+                    setPreviewHiddenPref(true);
+                    setFloatingPreviewOpen(false);
+                  }}
+                />
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
-      <ComposerActionBar
-        mode={mode}
-        scheduleDate={scheduleDate}
-        timezone={timezone}
-        selectedCount={selectedNetworks.length}
-        hasMedia={assets.length > 0}
-        canSubmit={canSubmit}
-        submitting={submitting}
-        onSubmit={onSubmit}
-        blockedReason={publishBlocked}
-        footnote={selectedNetworks.includes("TIKTOK") ? <TiktokConsent options={tiktokOptions} className="mt-2 border-t border-white/[0.06] pt-2" /> : null}
-      />
+      {/* Aperçu flottant (petits écrans, ou aperçu rangé) : maquette E. */}
+      {(!wideScreen || previewHidden) && (
+        <>
+          {floatingPreviewOpen && (
+            <div className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] top-20 z-40 overflow-y-auto sm:inset-x-auto sm:bottom-24 sm:right-6 sm:top-auto sm:max-h-[calc(100vh-140px)] sm:w-[340px]">
+              <ComposerPreview {...previewProps} variant="floating" onHide={() => setFloatingPreviewOpen(false)} />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (wideScreen && previewHidden) {
+                setPreviewHiddenPref(false);
+                return;
+              }
+              setFloatingPreviewOpen((v) => !v);
+            }}
+            aria-expanded={floatingPreviewOpen}
+            className="nb-preview-fab fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-[14px] font-semibold shadow-lg sm:bottom-6 sm:right-6"
+          >
+            <IconPhone className="h-[18px] w-[18px]" />
+            {wideScreen && previewHidden ? "Afficher l'aperçu" : "Aperçu"}
+          </button>
+        </>
+      )}
+
+      {/* Téléphone : barre d'action collée en bas, au-dessus des onglets. */}
+      <div className="nb-tabbar fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 border-t border-[color:var(--nb-sep)] px-4 py-2.5 sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <p className={clsx("min-w-0 truncate text-[12px]", publishBlocked && canSubmitBasics ? "text-amber-300" : "text-slate-500")}>{submitMissing ?? (scheduledChosen ? formatSlotLabel(scheduleDate) : "Prêt à publier")}</p>
+          <PublishActions
+            compact
+            scheduled={scheduledChosen}
+            canSubmit={canSubmit}
+            submitting={submitting}
+            blockedReason={publishBlocked}
+            onSchedule={onScheduleClick}
+            onPublishNow={onPublishNowClick}
+          />
+        </div>
+      </div>
 
       <FeedbackRequestDialog
         open={feedbackPrefill !== null}
@@ -2640,61 +2787,85 @@ function ComposerPageInner() {
         onClose={() => setFeedbackPrefill(null)}
         onCreated={() => {
           setFeedbackPrefill(null);
-          toast.success("Demande d'avis publiée dans la Communauté (onglet Avis) : le résultat arrive dans vos notifications d'ici 72\u00a0h.");
+          toast.success("Demande d'avis publiée dans la Communauté (onglet Avis) : le résultat arrive dans vos notifications d'ici 72 h.");
         }}
       />
 
       {/* Voile plein écran pendant l'envoi : toute la page grisée/floutée et
           inutilisable tant que « Envoi... » tourne — voir publish-overlay.tsx. */}
-      {submitting && <PublishOverlay active networks={selectedNetworks} mode={mode} mediaType={assets[0]?.type} />}
+      {submitting && <PublishOverlay active networks={selectedNetworks} mode={submittingMode} mediaType={assets[0]?.type} />}
       {editingVideo && (
         <VideoEditor source={editingVideo.previewUrl} fileName={editingVideo.filename} logoUrl={activeBrand?.logoUrl ?? null} onClose={() => setEditingVideo(null)} onSave={saveEditedVideo} />
       )}
 
       {emojiPickerFor && emojiAnchor && typeof document !== "undefined"
-        ? createPortal(
-            <EmojiPicker
-              anchor={emojiAnchor}
-              panelRef={emojiPopoverRef}
-              onPick={(e) => insertIntoField(emojiPickerFor, e)}
-            />,
-            document.body
-          )
+        ? createPortal(<EmojiPicker anchor={emojiAnchor} panelRef={emojiPopoverRef} onPick={(e) => insertIntoField(emojiPickerFor, e)} />, document.body)
         : null}
     </div>
   );
 }
 
-// Interrupteur général « Contenu généré par l'IA » (carte « 1. Média »).
-function AiContentMaster({ checked, onChange, exceptions }: { checked: boolean; onChange: (next: boolean) => void; exceptions: Network[] }) {
+const TOOL_BUTTON = "flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
+const AI_MENU_ITEM = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 transition hover:bg-[color:var(--nb-hover)] hover:text-white disabled:cursor-wait disabled:opacity-60";
+
+// Interrupteur général « Contenu généré par l'IA » (section Média), avec une
+// exception possible par réseau (« Par réseau »).
+function AiContentMaster({
+  checked,
+  onChange,
+  exceptions,
+  networks,
+  valueFor,
+  onNetworkChange
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  exceptions: Network[];
+  networks: Network[];
+  valueFor: (n: Network) => boolean;
+  onNetworkChange: (n: Network, next: boolean) => void;
+}) {
+  const [perNetwork, setPerNetwork] = useState(false);
   return (
-    <div
-      className={clsx(
-        "mt-4 rounded-xl border px-3.5 py-3 transition",
-        checked ? "border-aurora-400/40 bg-aurora-400/[0.06]" : "border-white/10 bg-white/[0.02]"
-      )}
-    >
+    <div className="mt-7">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+          <p className="flex items-center gap-1.5 text-[14px] text-white">
             <AiIcon className="h-4 w-4 shrink-0" />
             Contenu généré par l&apos;IA
             <InfoTip label="À quoi sert « Contenu généré par l'IA » ?">
-              À activer si ce média contient des images, des voix ou des scènes réalistes créées ou modifiées par l&apos;IA. Un seul clic l&apos;active sur tous vos réseaux : YouTube et TikTok affichent leur propre étiquette IA, et pour Instagram et Facebook (qui ne le permettent pas depuis une application) Nebula ajoute une courte mention à la fin de la légende. Pas besoin de l&apos;activer si l&apos;IA a seulement aidé à écrire le texte. Vous pouvez faire une exception réseau par réseau, plus bas dans « 4. Réseaux cibles ».
+              À activer si ce média contient des images, des voix ou des scènes réalistes créées ou modifiées par l&apos;IA. Un seul clic l&apos;active sur tous vos réseaux : YouTube et TikTok affichent leur propre étiquette IA, et pour Instagram et Facebook (qui ne le permettent pas depuis une application) Nebula ajoute une courte mention à la fin de la légende. Pas besoin de l&apos;activer si l&apos;IA a seulement aidé à écrire le texte. Une exception est possible réseau par réseau (« Par réseau »).
             </InfoTip>
           </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {checked ? "Activé sur tous les réseaux sélectionnés" : "S'applique d'un coup à tous les réseaux sélectionnés"}
-            {exceptions.length > 0 && (
-              <span className="text-amber-300/90">
-                {" "}
-                · sauf {exceptions.map((n) => NETWORK_META[n].label).join(", ")}
-              </span>
+          <p className="mt-0.5 text-[12px] text-slate-500">
+            {checked ? "Activé sur tous les réseaux choisis" : "S'applique d'un coup à tous les réseaux choisis"}
+            {exceptions.length > 0 && <span className="text-amber-300/90"> · sauf {exceptions.map((n) => NETWORK_META[n].label).join(", ")}</span>}
+            {networks.length > 0 && (
+              <>
+                {" · "}
+                <button type="button" onClick={() => setPerNetwork((v) => !v)} aria-expanded={perNetwork} className="underline-offset-2 hover:text-white hover:underline">
+                  Par réseau
+                </button>
+              </>
             )}
           </p>
         </div>
         <Toggle checked={checked} onChange={onChange} aria-label="Contenu généré par l'IA, sur tous les réseaux" />
       </div>
+      {perNetwork && networks.length > 0 && (
+        <ul className="mt-3 space-y-2 border-l border-[color:var(--nb-sep)] pl-4">
+          {networks.map((n) => (
+            <li key={n} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-[13px] text-slate-300">
+                <NetworkTile network={n} size={16} />
+                {NETWORK_META[n].label}
+                <InfoTip label={`À quoi sert « Contenu généré par l'IA » sur ${NETWORK_META[n].label} ?`}>{AI_CONTENT_HELP[n]}</InfoTip>
+              </span>
+              <Toggle size="sm" checked={valueFor(n)} onChange={(next) => onNetworkChange(n, next)} aria-label={`Contenu généré par l'IA sur ${NETWORK_META[n].label}`} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

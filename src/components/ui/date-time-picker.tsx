@@ -209,7 +209,7 @@ export function DateTimePicker({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-left text-sm text-white outline-none transition focus:border-aurora-400/60"
+        className="flex w-full items-center gap-2 rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-left text-sm text-white outline-none transition focus:border-aurora-400/60"
       >
         <IconCalendar className="h-4 w-4 shrink-0 text-slate-400" />
         <span className={clsx(!value && "text-slate-500", valueIsPast && "text-red-300")}>{label}</span>
@@ -226,7 +226,7 @@ export function DateTimePicker({
         createPortal(
           <div
             ref={panelRef}
-            className="glass-panel-solid fixed z-[100] overflow-y-auto rounded-xl p-3"
+            className="nb-popover fixed z-[100] overflow-y-auto rounded-xl p-3"
             style={{
               top: pos.openUpward ? undefined : pos.top,
               bottom: pos.openUpward ? window.innerHeight - pos.top : undefined,
@@ -284,7 +284,7 @@ export function DateTimePicker({
                       inMonth && !isSelected && !isPast && "text-slate-300 hover:bg-white/5",
                       isPast && "cursor-not-allowed text-slate-700 opacity-40",
                       isToday && !isSelected && "today-glow ring-1 ring-aurora-400/50 text-aurora-300",
-                      isSelected && "bg-nebula-500 text-white"
+                      isSelected && "bg-aurora-500 text-white"
                     )}
                   >
                     {d.getDate()}
@@ -317,7 +317,7 @@ export function DateTimePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="ml-auto rounded-lg bg-gradient-to-r from-nebula-500 to-accent-cyan px-3 py-1.5 text-xs font-medium text-white"
+                className="ml-auto rounded-lg bg-aurora-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-aurora-400"
               >
                 OK
               </button>

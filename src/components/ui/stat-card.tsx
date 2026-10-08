@@ -28,7 +28,7 @@ export function StatCard({
   return (
     <GlassCard className={clsx("flex flex-col gap-3", glow && "nebula-cosmetic-gold-statcard")}>
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-400">
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400 sm:text-xs">
           {label}
           {badge && (
             <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-amber-300">
@@ -36,10 +36,10 @@ export function StatCard({
             </span>
           )}
         </span>
-        {icon && <div className="text-aurora-400">{icon}</div>}
+        {icon && <div className="shrink-0 text-aurora-400">{icon}</div>}
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="font-display text-3xl font-medium text-white">{value}</span>
+        <span className="font-display text-2xl font-medium text-white sm:text-3xl">{value}</span>
         {suffix && <span className="text-sm text-slate-400">{suffix}</span>}
       </div>
       {delta !== undefined && (

@@ -46,10 +46,10 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
   return (
     <GlassCard
       hover={false}
-      className={clsx("relative flex h-full flex-col", highlighted && "border-aurora-400/40 shadow-glow")}
+      className={clsx("relative flex h-full flex-col", highlighted && "nb-plan-featured")}
     >
       {highlighted && (
-        <span className="absolute -top-3 left-5 rounded-full bg-gradient-to-r from-nebula-500 to-accent-cyan px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+        <span className="absolute -top-2.5 left-0 rounded-full bg-aurora-500 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
           Le plus choisi
         </span>
       )}
@@ -72,7 +72,7 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
         <div
           role="radiogroup"
           aria-label={`Nombre de marques pour le palier ${plan.label}`}
-          className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1"
+          className="grid grid-cols-3 gap-1 rounded-lg border border-[color:var(--nb-sep-strong)] p-1"
         >
           {plan.tiers.map((t, i) => (
             <button
@@ -83,7 +83,7 @@ function PaidPlanCard({ planId, interval }: { planId: Plan; interval: BillingInt
               onClick={() => setTierIndex(i)}
               className={clsx(
                 "rounded-lg px-2 py-1.5 text-xs font-medium transition",
-                i === tierIndex ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                i === tierIndex ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:text-white"
               )}
             >
               {t.maxBrands}
@@ -131,7 +131,7 @@ export function PricingSection({
       {showHeading && (
         <Reveal>
           <div className="mx-auto mb-10 max-w-2xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Tarifs</p>
+            <p className="nb-eyebrow">Tarifs</p>
             <h2 className="mt-3 font-display text-3xl font-semibold text-white sm:text-4xl">Simple, sans surprise</h2>
             <p className="mt-3 text-base text-slate-400">
               Commencez gratuitement, sans carte bancaire. Passez à Pro ou Agence quand vous gérez plusieurs marques ou
@@ -151,11 +151,11 @@ export function PricingSection({
           aria-checked={yearly}
           aria-label="Facturation annuelle"
           onClick={() => setInterval((v) => (v === "month" ? "year" : "month"))}
-          className="relative h-7 w-14 rounded-full border border-white/10 bg-white/[0.05] transition"
+          className="relative h-7 w-14 rounded-full border border-[color:var(--nb-sep-strong)] transition"
         >
           <span
             className={clsx(
-              "absolute top-0.5 h-5 w-5 rounded-full bg-gradient-to-br from-nebula-500 to-accent-cyan transition-all",
+              "absolute top-0.5 h-5 w-5 rounded-full bg-aurora-500 transition-all",
               yearly ? "left-[calc(100%-1.5rem)]" : "left-0.5"
             )}
           />

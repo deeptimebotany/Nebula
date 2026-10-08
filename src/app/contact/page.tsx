@@ -34,13 +34,13 @@ export default function ContactPage() {
         </GlassCard>
         <div className="space-y-4">
           {SIDE.map((item) => (
-            <div key={item.title} className="rounded-2xl border border-white/[0.06] p-5">
-              <item.icon className="h-5 w-5 text-aurora-300" />
+            <div key={item.title} className="border-t border-[color:var(--nb-sep)] pt-5">
+              <item.icon className="h-5 w-5 text-slate-400" />
               <h2 className="mt-3 text-base font-medium text-white">{item.title}</h2>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{item.body}</p>
             </div>
           ))}
-          <p className="px-1 text-xs text-slate-500">
+          <p className="text-xs text-slate-500">
             Vous préférez votre messagerie ?{" "}
             <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
               {SITE_CONTACT_EMAIL}

@@ -36,7 +36,7 @@ function PrelaunchBanner() {
   return (
     <Link
       href={PRELAUNCH_PAGE}
-      className="group flex items-center justify-center gap-2 border-b border-white/[0.06] bg-gradient-to-r from-accent-violet/15 via-aurora-400/10 to-nebula-500/15 px-4 py-2 text-center text-xs text-slate-200 transition hover:text-white sm:text-sm"
+      className="group flex items-center justify-center gap-2 border-b border-[color:var(--nb-sep)] px-4 py-2 text-center text-xs text-slate-300 transition hover:text-white sm:text-sm"
     >
       <span aria-hidden="true" className="relative flex h-2 w-2 shrink-0">
         <span className="absolute inline-flex h-full w-full rounded-full bg-aurora-300 opacity-60 motion-safe:animate-ping" />
@@ -72,10 +72,10 @@ export function MarketingNav() {
   return (
     <header
       className={clsx(
-        "sticky top-0 z-40 border-b transition-colors",
-        scrolled || open
-          ? "border-white/[0.06] bg-void-950/85 backdrop-blur"
-          : "border-transparent bg-transparent"
+        // Refonte V2 (08/10/2026) : fond de la page (même barre que dans
+        // l'application), un trait fin dès qu'on fait défiler.
+        "nb-topbar sticky top-0 z-40 border-b transition-colors",
+        scrolled || open ? "border-[color:var(--nb-sep)]" : "border-transparent"
       )}
     >
       {!SITE_OPEN && pathname !== PRELAUNCH_PAGE && <PrelaunchBanner />}
@@ -89,7 +89,7 @@ export function MarketingNav() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+              className="rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white"
             >
               {link.label}
             </Link>
@@ -120,7 +120,7 @@ export function MarketingNav() {
       </div>
 
       {open && (
-        <div id="menu-mobile" className="border-t border-white/[0.06] px-6 pb-5 pt-3 md:hidden">
+        <div id="menu-mobile" className="border-t border-[color:var(--nb-sep)] px-6 pb-5 pt-3 md:hidden">
           <nav aria-label="Navigation principale (mobile)" className="flex flex-col">
             {LINKS.map((link) => (
               <Link

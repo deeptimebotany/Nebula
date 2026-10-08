@@ -25,7 +25,7 @@ import {
   type TiktokPostOptions
 } from "@/lib/social/tiktok-direct-post";
 import { TiktokOptions, primeTiktokCreatorCache } from "@/components/composer/tiktok-options";
-import { ComposerActionBar } from "@/components/composer/publish-card";
+import { PublishActions, WhenSection } from "@/components/composer/publish-card";
 
 const MB = 1024 * 1024;
 const CREATOR: TiktokCreatorInfo = {
@@ -154,21 +154,24 @@ describe("TikTok : section de Publier (rendu)", () => {
   });
 
   it("bouton Publier désactivé avec la raison au survol, phrase de consentement dessous", () => {
+    // Refonte V2 (07/10/2026) : « Quand » au bas du formulaire, avec ses deux boutons.
+    const reason = "TikTok : choisissez qui peut voir la vidéo.";
     const html = renderToStaticMarkup(
-      createElement(ComposerActionBar, {
+      createElement(WhenSection, {
         mode: "now",
         scheduleDate: "",
+        onScheduleDateChange: () => undefined,
+        onClearDate: () => undefined,
         timezone: "Europe/Paris",
-        selectedCount: 1,
-        hasMedia: true,
-        canSubmit: false,
-        submitting: false,
-        onSubmit: () => undefined,
-        blockedReason: "TikTok : choisissez qui peut voir la vidéo.",
+        bestSlot: null,
+        shortcutLabel: "Ctrl",
+        missing: reason,
+        missingTone: "warning",
+        actions: createElement(PublishActions, { scheduled: false, canSubmit: false, submitting: false, blockedReason: reason, onSchedule: () => undefined, onPublishNow: () => undefined }),
         footnote: createElement("p", null, "En publiant, vous acceptez …")
       })
     );
-    expect(html).toMatch(/aria-disabled="true" title="TikTok : choisissez qui peut voir la vidéo."/);
+    expect(html).toMatch(/aria-disabled="true" title="TikTok : choisissez qui peut voir la vidéo."[^>]*>Publier maintenant</);
     expect(html).toContain("En publiant, vous acceptez …");
   });
 });

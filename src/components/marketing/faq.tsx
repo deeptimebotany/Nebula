@@ -49,17 +49,17 @@ export function Faq() {
   return (
     <section id="faq" className="relative z-10 mx-auto max-w-3xl scroll-mt-24 px-6 py-24">
       <div className="mb-10 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">FAQ</p>
+        <p className="nb-eyebrow">FAQ</p>
         <h2 className="mt-3 font-display text-3xl font-semibold text-white sm:text-4xl">Questions fréquentes</h2>
       </div>
-      <div className="divide-y divide-white/[0.06] rounded-2xl border border-white/10 bg-white/[0.02]">
+      <div className="divide-y divide-[color:var(--nb-sep)] border-y border-[color:var(--nb-sep)]">
         {FAQ.map((item) => (
-          <details key={item.q} className="group px-5 py-4 open:bg-white/[0.02]">
+          <details key={item.q} className="group py-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-white marker:content-none [&::-webkit-details-marker]:hidden">
               {item.q}
               <span
                 aria-hidden="true"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition group-open:rotate-45 group-open:text-white"
+                className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-slate-400 transition group-open:rotate-45 group-open:text-white"
               >
                 +
               </span>

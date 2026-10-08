@@ -20,7 +20,10 @@ export const UI_PREF_KEYS = [
   "nebula:achievement-sound",
   "nebula:reussites-succes-collapsed",
   "nebula:theme-nova-unlocked",
-  "nebula:minigame-best"
+  "nebula:minigame-best",
+  // Refonte V2 (07/10/2026) : catégories dépliées du menu, aperçu de Publier rangé.
+  "nebula:nav-groups-open",
+  "nebula:composer-preview-hidden"
 ] as const;
 
 /** Clés suivies d'un identifiant (marque, compte connecté). */

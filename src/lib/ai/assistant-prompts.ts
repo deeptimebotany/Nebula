@@ -12,7 +12,7 @@
 // un client de réécrire le prompt.
 
 import type { AssistantContextKey } from "./assistant-contexts";
-import { NAV_GROUPS } from "@/components/dashboard/navigation";
+import { ACCOUNT_NAV_ITEMS, NAV_GROUPS } from "@/components/dashboard/navigation";
 import { engagementPresets, type ToolContextDTO } from "@/lib/tools/app-context-shared";
 import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/engagement-rate";
 
@@ -24,7 +24,9 @@ import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/eng
 export const APP_MAP =
   "Menu latéral de Nebula : " +
   NAV_GROUPS.map((g) => (g.label ? `${g.label} → ` : "") + g.items.map((i) => (i.href === "/tools" ? `${i.label} (${i.description})` : i.label)).join(", ")).join(" ; ") +
-  ". Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
+  ". Menu du profil (photo en haut à droite) → Mon profil, " +
+  ACCOUNT_NAV_ITEMS.map((i) => i.label).join(", ") +
+  ", changer de marque, se déconnecter. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
 
 /** Socle commun, volontairement court : le ton, la langue, les garde-fous.
  *  Tout ce qui est spécifique à un onglet est dans son module. */
@@ -62,7 +64,7 @@ export interface ContextPromptModule {
 }
 
 const HOWTO_HINT =
-  "Quand la question porte sur l'utilisation de Nebula, donne le chemin exact dans l'interface (menu latéral → page → bouton) en 2 à 4 étapes.";
+  "Quand la question porte sur l'utilisation de Nebula, donne le chemin exact dans l'interface (menu latéral ou menu du profil en haut à droite → page → bouton) en 2 à 4 étapes.";
 
 export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> = {
   overview: {

@@ -257,7 +257,8 @@ function PublicationsPageInner() {
         />
       ) : (
         <div className={clsx("space-y-3 transition-opacity", refreshing && "opacity-60")} aria-busy={refreshing || undefined}>
-          <ul className="space-y-2" aria-label="Liste des publications">
+          {/* V2 (07/10/2026) : une liste à plat, lignes séparées par un trait fin. */}
+          <ul className="divide-y divide-[color:var(--nb-sep)] border-y border-[color:var(--nb-sep)]" aria-label="Liste des publications">
             {posts.map((post) => (
               <PublicationRow key={post.id} post={post} />
             ))}
@@ -291,7 +292,7 @@ function PublicationRow({ post }: { post: ApiPost }) {
     <li>
       <Link
         href={`/posts/${post.id}`}
-        className="group/row glass-panel glass-panel-hover flex items-center gap-4 rounded-2xl p-3 pr-3 transition focus-visible:border-aurora-400/60"
+        className="group/row -mx-3 my-1 flex items-center gap-4 rounded-xl px-3 py-2.5 transition hover:bg-[color:var(--nb-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-aurora-400/60"
       >
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
           {thumb ? (
@@ -339,7 +340,7 @@ function PublicationRow({ post }: { post: ApiPost }) {
             s'allume au survol de la ligne, sur mobile aussi. */}
         <span
           aria-hidden="true"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition group-hover/row:border-aurora-400/50 group-hover/row:bg-aurora-500/15 group-hover/row:text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition group-hover/row:text-white"
         >
           <IconChevron className="h-4 w-4 -rotate-90" />
         </span>
@@ -352,7 +353,7 @@ function PublicationsSkeleton() {
   return (
     <div className="space-y-2" aria-busy="true" aria-live="polite">
       {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className="glass-panel flex items-center gap-4 rounded-2xl p-3">
+        <div key={i} className="flex items-center gap-4 border-t border-[color:var(--nb-sep)] py-3">
           <Skeleton className="h-14 w-14 rounded-xl" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-1/2" />

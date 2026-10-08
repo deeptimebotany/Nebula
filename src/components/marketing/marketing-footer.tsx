@@ -58,7 +58,7 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="relative z-10 border-t border-white/[0.06] bg-void-950/60">
+    <footer className="relative z-10 border-t border-[color:var(--nb-sep)]">
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_repeat(5,1fr)]">
           <div className="col-span-2 md:col-span-1">
@@ -97,7 +97,7 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.06] pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-3 border-t border-[color:var(--nb-sep)] pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {year} {SITE_NAME}. Publication via les API officielles de chaque réseau.
           </p>

@@ -32,8 +32,8 @@ export default async function AuditReportPage({ params }: { params: { token: str
   const found = await load(params.token);
   if (found.state === "missing") notFound();
   return (
-    <main id="contenu" className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
+    // Refonte V2 (08/10/2026) : fond uni, blocs à plat (.nb-site).
+    <main id="contenu" className="nb-site relative overflow-hidden">
       <div className="relative z-10 mx-auto max-w-4xl px-4 pb-20 pt-10 sm:px-6">
         {found.state === "expired" ? (
           <div className="mx-auto max-w-lg space-y-4 py-16 text-center">

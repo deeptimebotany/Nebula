@@ -66,16 +66,37 @@ export const SUCCESS_NAV_ITEM: NavItem = {
   keywords: ["succès", "easter eggs", "trophées", "récompenses", "niveau", "rang", "missions", "coffre", "défis", "accomplissements", "xp", "constellation", "étoiles", "compétences", "bilan", "vitrine", "carte de créateur", "leçons"]
 };
 
+// Refonte V2 (07/10/2026, maquettes de Lucas) : « Vue d'ensemble » seule en
+// haut, puis cinq catégories repliables (accordéons) — Créer, Analyser,
+// Présence, Clients, Communauté. Tout ce qui concerne le COMPTE (Paramètres,
+// Facturation, Automatisations, Soutenir Nebula) et l'administration quitte
+// la barre latérale pour le menu du profil, en haut à droite (voir
+// ACCOUNT_NAV_ITEMS plus bas et profile-menu.tsx).
 export const NAV_GROUPS: NavGroup[] = [
   {
-    key: "work",
+    key: "home",
+    items: [{ href: "/dashboard", label: "Vue d'ensemble", shortLabel: "Accueil", icon: IconHome, description: "Vos chiffres et vos prochaines publications", keywords: ["accueil", "home", "tableau de bord"] }]
+  },
+  {
+    key: "creer",
+    label: "Créer",
     items: [
-      { href: "/dashboard", label: "Vue d'ensemble", shortLabel: "Accueil", icon: IconHome, description: "Vos chiffres et vos prochaines publications", keywords: ["accueil", "home", "tableau de bord"] },
       { href: "/composer", label: "Publier", icon: IconUpload, description: "Créer et programmer une publication", keywords: ["nouveau post", "composer", "importation", "créer"] },
       { href: "/studio", label: "Studio IA", icon: IconSparkle, description: "Idées, accroches et scripts tirés de vos chiffres", keywords: ["idées", "script", "accroche", "hook", "ia", "inspiration", "vidéo"] },
       { href: "/publications", label: "Publications", icon: IconList, description: "Toutes vos publications, filtrables par statut et réseau", keywords: ["posts", "liste", "historique", "échecs"] },
-      { href: "/calendar", label: "Calendrier", icon: IconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] },
+      { href: "/calendar", label: "Calendrier", icon: IconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] }
+    ]
+  },
+  {
+    key: "analyser",
+    label: "Analyser",
+    items: [
       { href: "/analytics", label: "Analytics", icon: IconChart, description: "Abonnés, portée, engagement", keywords: ["statistiques", "stats", "audience"] },
+      // Deux onglets distincts depuis la séparation de l'ancien
+      // « Interactions » (fourre-tout) : le TEXTE des commentaires à modérer
+      // (Présence) d'un côté, les CHIFFRES d'engagement de l'autre (ici).
+      { href: "/engagements", label: "Engagements", icon: IconThumbUp, description: "Likes, partages, enregistrements et vues par publication", keywords: ["réactions", "likes", "partages", "stories", "vues", "interactions"] },
+      { href: "/retention", label: "Rétention IA", icon: IconRetention, description: "Analyse de rétention de vos vidéos YouTube", keywords: ["vidéo", "youtube", "analyse", "ia"] },
       // 02/10/2026 : les outils gratuits du site, préremplis avec la marque.
       {
         href: "/tools",
@@ -91,13 +112,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Présence",
     items: [
       { href: "/accounts", label: "Comptes connectés", icon: IconLink, description: "Instagram, Facebook, TikTok, YouTube", keywords: ["réseaux", "connexion", "oauth"] },
-      // Deux onglets distincts depuis la séparation de l'ancien
-      // « Interactions » (fourre-tout) : le TEXTE des commentaires à modérer
-      // d'un côté, les CHIFFRES d'engagement de l'autre — l'application a
-      // vocation à accueillir d'autres plateformes (blogs…), le vocabulaire
-      // doit rester clair.
       { href: "/comments", label: "Commentaires", icon: IconMessage, description: "Modérer les commentaires reçus sur vos publications", keywords: ["interactions", "messages", "modération", "réponses"] },
-      { href: "/engagements", label: "Engagements", icon: IconThumbUp, description: "Likes, partages, enregistrements et vues par publication", keywords: ["réactions", "likes", "partages", "stories", "vues", "interactions"] },
       { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
       { href: "/media-kit", label: "Media kit", icon: IconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] }
     ]
@@ -107,23 +122,32 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Clients",
     items: [
       { href: "/reports", label: "Rapports", icon: IconReport, description: "Page de reporting partageable et envoi automatique", keywords: ["reporting", "client", "email"] },
-      { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] },
-      { href: "/retention", label: "Rétention IA", icon: IconRetention, description: "Analyse de rétention de vos vidéos YouTube", keywords: ["vidéo", "youtube", "analyse", "ia"] }
+      { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] }
     ]
   },
   {
-    key: "account",
-    label: "Compte",
-    items: [
-      { href: "/community", label: "Communauté", icon: IconUsers, description: "Entraide, guides et partages", keywords: ["forum", "guides"] },
-      SUCCESS_NAV_ITEM,
-      { href: "/billing", label: "Facturation", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "plan", "stripe", "prix", "tarif"] },
-      { href: "/automatisations", label: "Automatisations", icon: IconPlug, description: "API, webhooks, n8n, Make, Zapier (Agence)", keywords: ["api", "webhook", "zapier", "make", "n8n", "intégrations", "clé"] },
-      { href: "/settings", label: "Paramètres", icon: IconSettings, description: "Marque, apparence, compte", keywords: ["réglages", "préférences", "thème", "mode focus"] },
-      { href: "/support", label: "Soutenir Nebula", icon: IconHeart, description: "Donner un coup de pouce au projet", keywords: ["don", "soutien"] }
-    ]
+    key: "communaute",
+    label: "Communauté",
+    items: [{ href: "/community", label: "Communauté", icon: IconUsers, description: "Entraide, guides et partages", keywords: ["forum", "guides"] }, SUCCESS_NAV_ITEM]
   }
 ];
+
+/**
+ * Compte (V2) : dans le menu du profil, en haut à droite — plus dans la
+ * barre latérale. Toujours dans la palette Cmd/Ctrl+K et le fil d'Ariane.
+ */
+export const ACCOUNT_NAV_ITEMS: NavItem[] = [
+  { href: "/settings", label: "Paramètres", icon: IconSettings, description: "Marque, apparence, compte", keywords: ["réglages", "préférences", "thème", "mode focus"] },
+  { href: "/billing", label: "Facturation", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "plan", "stripe", "prix", "tarif"] },
+  { href: "/automatisations", label: "Automatisations", icon: IconPlug, description: "API, webhooks, n8n, Make, Zapier (Agence)", keywords: ["api", "webhook", "zapier", "make", "n8n", "intégrations", "clé"] },
+  { href: "/support", label: "Soutenir Nebula", icon: IconHeart, description: "Donner un coup de pouce au projet", keywords: ["don", "soutien"] }
+];
+
+/** Groupe de la barre latérale qui contient `pathname` (accordéon ouvert d'office), ou null. */
+export function navGroupKeyFor(pathname: string): string | null {
+  const group = NAV_GROUPS.find((g) => g.items.some((i) => isNavActive(i.href, pathname)));
+  return group?.key ?? null;
+}
 
 /** Lien privé du compte propriétaire (voir dev-preview.ts) — jamais dans NAV_GROUPS. */
 export const OWNER_NAV_ITEM: NavItem = { href: "/dev-preview", label: "Test / QA", icon: IconFlask, description: "Aperçu de palier et tests" };
@@ -145,10 +169,13 @@ export const OWNER_NAV_ITEMS: NavItem[] = [
 ];
 
 
+/** Pages d'administration mises en avant dans le menu du profil (les autres sont sous « Toute l'administration »). */
+export const OWNER_MENU_FEATURED = ["/admin/statistiques", "/admin/partenaires", "/admin/journal"] as const;
+
 /** Onglets de la barre du bas sur téléphone (4 + le bouton Menu). */
 export const MOBILE_TAB_HREFS = ["/dashboard", "/calendar", "/composer", "/analytics"] as const;
 
-export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), ...OWNER_NAV_ITEMS];
+export const ALL_NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), ...ACCOUNT_NAV_ITEMS, ...OWNER_NAV_ITEMS];
 
 /** Pages secondaires (sans entrée de menu) rattachées à une entrée parente pour le fil d'Ariane. */
 const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] = [

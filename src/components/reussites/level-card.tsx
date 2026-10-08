@@ -45,7 +45,7 @@ export function LevelCard({ initial }: { initial?: ReussitesSummaryDTO }) {
   return (
     <MotionGlassCard className="h-full">
       <Link href="/reussites" className="flex h-full flex-col" aria-label="Rang de créateur — voir mes réussites">
-        <h2 className="mb-3 font-display text-base font-medium text-white">Rang de créateur</h2>
+        <h2 className="nb-section-label mb-3">Rang de créateur</h2>
         {failed ? (
           <p className="text-sm text-slate-500">Indisponible pour le moment.</p>
         ) : !data ? (

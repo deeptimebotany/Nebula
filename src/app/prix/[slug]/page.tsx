@@ -68,17 +68,17 @@ export default function PrixPage({ params }: { params: { slug: string } }) {
 
       <section aria-labelledby="grille">
         <h2 id="grille" className="mb-4 font-display text-2xl font-semibold text-white">La grille officielle, résumée</h2>
-        <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div className="overflow-x-auto border-y border-[color:var(--nb-sep)]">
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] text-left text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-[color:var(--nb-sep)] text-left text-[11px] uppercase tracking-wide text-slate-500">
                 <th scope="col" className="px-4 py-3 font-semibold">Palier</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">Par mois (annuel)</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">Par mois (mensuel)</th>
                 <th scope="col" className="px-4 py-3 font-semibold">Ce qu&apos;il comprend</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.06]">
+            <tbody className="divide-y divide-[color:var(--nb-sep)]">
               {c.plans.map((p) => (
                 <tr key={p.name}>
                   <th scope="row" className="px-4 py-3 text-left font-medium text-white">{p.name}</th>
@@ -114,7 +114,7 @@ export default function PrixPage({ params }: { params: { slug: string } }) {
         <GlassCard hover={false}>
           <h2 className="font-display text-xl font-semibold text-white">Coût réel pour {REFERENCE_SCENARIO.brands} marques et {REFERENCE_SCENARIO.accounts} comptes</h2>
           <dl className="mt-3 space-y-3 text-sm">
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+            <div className="rounded-lg bg-[color:var(--nb-hover)] px-4 py-3">
               <dt className="text-xs text-slate-400">{c.name}</dt>
               <dd className="mt-1 font-display text-xl text-white">{refEur === null ? "Non publié" : `≈ ${formatEur(refEur)} / mois`}</dd>
               <dd className="mt-1 text-xs text-slate-500">{ref.how}</dd>

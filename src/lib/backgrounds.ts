@@ -117,13 +117,10 @@ function def(
 // le plus proche (LEGACY_BACKGROUNDS plus bas) : un compte qui en avait
 // choisi un voit automatiquement son remplaçant, sans rien perdre.
 export const BACKGROUNDS: BackgroundDefinition[] = [
-  // Fond par défaut « Dark UI » : un noir neutre uni, à peine éclairé en haut
-  // (en clair : un gris très clair, à peine teinté en haut).
-  def("mesh", "Uni (défaut)", ({ i, alpha }) =>
-    i === DARK_INK
-      ? `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(255 255 255 / 0.035), transparent 70%), ${i.BASE}`
-      : `radial-gradient(ellipse 90% 45% at 50% -10%, rgb(${i.AURORA} / ${alpha(0.08)}), transparent 70%), ${i.BASE}`
-  ),
+  // Fond par défaut : vraiment uni depuis la refonte V2 (07/10/2026, « fond
+  // unique » demandé par Lucas) — noir neutre en sombre, #F9FAFB en clair.
+  // Avant : à peine éclairé en haut.
+  def("mesh", "Uni (défaut)", ({ i }) => i.BASE),
   def("nebuleuse", "Nébuleuse", ({ i, blob, dots }) => `${blob("15%", "10%", i.NEBULA, "55%")}, ${blob("85%", "90%", i.AURORA, "60%", 0.16)}, ${dots(i.AURORA, "28px")}, ${i.BASE}`),
   def("aurora-polaire", "Aurore polaire", ({ i, blob }) => `${blob("20%", "0%", i.AURORA, "70%", 0.2)}, ${blob("80%", "20%", i.CYAN, "60%", 0.14)}, ${blob("50%", "100%", i.VIOLET, "65%", 0.12)}, ${i.BASE}`),
   def("horizon", "Horizon", ({ i, alpha }) => `linear-gradient(180deg, transparent 0%, rgb(${i.NEBULA} / ${alpha(0.18)}) 70%, rgb(${i.AURORA} / ${alpha(0.1)}) 100%), ${i.BASE}`),

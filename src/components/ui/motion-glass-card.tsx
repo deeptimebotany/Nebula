@@ -30,7 +30,9 @@ export function tiltAmplitude(width: number): number {
 export function MotionGlassCard({
   className,
   glow = false,
-  still = false,
+  // Refonte V2 (07/10/2026) : les blocs sont à plat, sans cadre — ils ne
+  // bougent plus au survol par défaut.
+  still = true,
   children,
   ...props
 }: HTMLAttributes<HTMLDivElement> & {

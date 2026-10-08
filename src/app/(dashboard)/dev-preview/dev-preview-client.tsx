@@ -36,8 +36,8 @@ import type { Plan } from "@/lib/plans";
 // (src/lib/cosmetics.ts) qui n'a pas besoin de cette info pour fonctionner,
 // donc renseigné ici, uniquement pour cette page de référence.
 const COSMETIC_LOCATION: Record<string, string> = {
-  "anneau-saturne-avatar": "Pastille de marque active, en haut à gauche (barre du haut).",
-  "halo-dore-avatar": "Pastille de marque active, en haut à gauche (barre du haut) — cumulable avec l'anneau de Saturne.",
+  "anneau-saturne-avatar": "Avatar, dans le menu du profil (en haut à droite).",
+  "halo-dore-avatar": "Avatar, dans le menu du profil (en haut à droite) — cumulable avec l'anneau de Saturne.",
   "eclat-dore-statcard": "Contour des cartes de statistiques, sur Analytics, une fois le palier d'abonnés dépassé.",
   "police-cosmique": "Tous les titres de page (h1) et les onglets de la barre du haut, sur tout le site.",
   "papier-peint-succes": "Fond de la page Réussites.",

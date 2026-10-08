@@ -1,18 +1,17 @@
 // Conseils et fonctionnement de la page Publier, repliés par défaut (Lot 4)
 // — avant : deux cartes toujours ouvertes dans la colonne de droite.
-import { GlassCard } from "@/components/ui/glass-card";
-
+// Refonte V2 (07/10/2026) : une simple ligne repliable, sans cadre.
 export function ComposerTips() {
   return (
-    <GlassCard hover={false} className="p-0">
+    <div className="border-t border-[color:var(--nb-sep)]">
       <details className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-[14px] text-slate-400 transition hover:text-white [&::-webkit-details-marker]:hidden">
           Conseils et ce qui se passe ensuite
-          <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition group-open:rotate-45 group-open:text-white">
+          <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-slate-400 transition group-open:rotate-45 group-open:text-white">
             +
           </span>
         </summary>
-        <div className="space-y-3 border-t border-white/[0.06] px-5 py-4 text-xs text-slate-400">
+        <div className="space-y-3 pb-4 text-[13px] leading-relaxed text-slate-500">
           <p>
             Les publications programmées en fin d&apos;après-midi en semaine (17 h – 19 h) obtiennent souvent le plus
             d&apos;engagement — à ajuster selon vos propres statistiques une fois synchronisées (la Vue d&apos;ensemble
@@ -25,6 +24,6 @@ export function ComposerTips() {
           </ul>
         </div>
       </details>
-    </GlassCard>
+    </div>
   );
 }

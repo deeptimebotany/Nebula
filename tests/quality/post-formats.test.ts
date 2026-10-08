@@ -19,7 +19,7 @@ describe("format de la publication", () => {
     expect(composer).toContain("<FormatPicker");
     expect(composer).toMatch(/format: formatFor\(network\)/);
     expect(composer).toMatch(/const publishBlocked = tiktokBlocked \?\? formatBlocked/);
-    expect(composer).toMatch(/formatFor=\{assets\.length > 0 \? formatFor : undefined\}/);
+    expect(composer).toMatch(/formatFor: assets\.length > 0 \? formatFor : undefined/);
     // Le format est lu au moment de l'envoi (dépendance du useCallback).
     expect(composer).toMatch(/\/\/ Format choisi \(07\/10\/2026\)\.\n\s+formatFor,/);
     const preview = read("src/components/composer/preview-network-ui.tsx");

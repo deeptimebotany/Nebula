@@ -1,34 +1,40 @@
 "use client";
 
-// Contenu de la barre latérale (Lot 3) : le même composant sert la colonne
-// fixe sur ordinateur et le tiroir sur téléphone (voir app-shell.tsx). Il
-// lit la navigation dans navigation.ts — l'unique source, partagée avec la
-// barre d'onglets mobile et la palette Cmd/Ctrl+K.
+// Barre latérale — refonte V2 (07/10/2026, maquettes A et B de Lucas).
+//   - « Vue d'ensemble » seule en haut, puis cinq catégories repliables
+//     (accordéons) : Créer, Analyser, Présence, Clients, Communauté. La
+//     catégorie de la page ouverte se déplie d'office ; les autres gardent
+//     l'état choisi, mémorisé sur cet appareil.
+//   - Mode réduit (icônes seules, maquette B) : les catégories deviennent de
+//     simples séparateurs, chaque icône a une infobulle (nom + une ligne).
+//   - Plus de compte ici : Paramètres, Facturation, Automatisations, Soutenir
+//     Nebula, l'administration, la marque, le mode clair/sombre et la
+//     déconnexion sont dans le menu du profil (profile-menu.tsx).
+// Le même composant sert la colonne fixe (ordinateur) et le tiroir
+// (téléphone). La navigation vient de navigation.ts, source unique partagée
+// avec la barre d'onglets mobile et la palette Cmd/Ctrl+K.
 import Link from "next/link";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { signOut } from "next-auth/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
-import { useMode } from "@/components/mode-provider";
-import { useToast } from "@/components/dashboard/toast";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
-import { NAV_GROUPS, OWNER_NAV_ITEMS, isNavActive, type NavItem } from "./navigation";
-import { BrandSwitcher } from "./brand-switcher";
-import { LevelRing } from "@/components/reussites/level-ring";
+import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { NAV_GROUPS, isNavActive, navGroupKeyFor, type NavGroup, type NavItem } from "./navigation";
 import { NebulaIcon } from "./nebula-brandmark";
-import { IconChevronLeft, IconChevronRight, IconClose, IconLogout, IconMoon, IconSun } from "./icons";
-// Import JSON direct (resolveJsonModule dans tsconfig.json) : juste pour
-// afficher le numéro de version en pied de menu, jamais recopié à la main.
-import packageJson from "../../../package.json";
+import { IconChevron, IconChevronsLeft, IconChevronsRight, IconClose } from "./icons";
 
 // Easter egg « logo-spin » : appui long sur le logo → rotation accélérée.
 const LOGO_SPIN_HOLD_MS = 3000;
 const LOGO_SPIN_DURATION_MS = 3200;
 const LOGO_SPIN_TOTAL_DEGREES = 2200;
+
+/** Catégories dépliées, mémorisées sur cet appareil (clés de NAV_GROUPS). */
+const OPEN_GROUPS_KEY = "nebula:nav-groups-open";
+const DEFAULT_OPEN_GROUPS = ["creer"];
 
 interface SidebarNavProps {
   /** Colonne repliée (icônes seules) — ordinateur uniquement. */
@@ -36,22 +42,64 @@ interface SidebarNavProps {
   onToggleCollapsed?: () => void;
   /** Tiroir mobile : bouton de fermeture + fermeture après un clic. */
   onClose?: () => void;
-  isOwner?: boolean;
   brandName: string;
   logoUrl?: string | null;
 }
 
-export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOwner, brandName, logoUrl }: SidebarNavProps) {
+interface Tip {
+  label: string;
+  description?: string;
+  top: number;
+  left: number;
+}
+
+export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, brandName, logoUrl }: SidebarNavProps) {
   const pathname = usePathname();
-  const { mode, setMode } = useMode();
-  const toast = useToast();
-  // Progression des easter eggs (bootstrap /api/me, tenue à jour en direct
-  // par bootstrap-provider.tsx à chaque nouvelle découverte).
+  // Compteur « Réussites » (bootstrap /api/me, tenu à jour en direct).
   const { data: bootstrap } = useBootstrap();
   const reussites = bootstrap?.reussites ?? null;
-  // Mini-jauge de niveau (Réussites) : masquée en Mode focus, choix de Lucas.
-  const showLevelGauge = Boolean(reussites) && bootstrap?.focusMode === false;
   const cosmetics = useCosmetics();
+
+  // --- Accordéons -----------------------------------------------------------
+  const activeGroup = navGroupKeyFor(pathname);
+  const [openGroups, setOpenGroups] = useState<string[]>(() => DEFAULT_OPEN_GROUPS);
+  useEffect(() => {
+    try {
+      const saved = getPref(OPEN_GROUPS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setOpenGroups(parsed.filter((k): k is string => typeof k === "string"));
+      }
+    } catch {
+      // stockage indisponible : catégories par défaut
+    }
+  }, []);
+  // La catégorie de la page ouverte est toujours dépliée.
+  useEffect(() => {
+    if (!activeGroup) return;
+    setOpenGroups((prev) => (prev.includes(activeGroup) ? prev : [...prev, activeGroup]));
+  }, [activeGroup]);
+  const toggleGroup = useCallback((key: string) => {
+    setOpenGroups((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      try {
+        setPref(OPEN_GROUPS_KEY, JSON.stringify(next));
+      } catch {
+        // sans gravité
+      }
+      return next;
+    });
+  }, []);
+
+  // --- Infobulles du mode réduit (position fixe : la colonne défile) --------
+  const [tip, setTip] = useState<Tip | null>(null);
+  const showTip = (el: HTMLElement, label: string, description?: string) => {
+    if (!collapsed) return;
+    const r = el.getBoundingClientRect();
+    setTip({ label, description, top: r.top + r.height / 2, left: r.right + 10 });
+  };
+  const hideTip = () => setTip(null);
+  useEffect(() => setTip(null), [pathname, collapsed]);
 
   // --- Easter egg : appui long (3 s) sur le logo ---------------------------
   const [logoSpinAngle, setLogoSpinAngle] = useState(0);
@@ -96,54 +144,31 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
     []
   );
 
-  // --- Easter egg « keyboard-nav » : atteindre Déconnexion au clavier -----
+  // --- Easter egg « keyboard-nav » : atteindre le bas du menu au clavier ----
   const lastFocusWasMouse = useRef(false);
-
-  // --- Easter egg « version-click » : 5 clics sur le numéro de version ----
-  const versionClicks = useRef(0);
-  const versionClicksResetTimer = useRef<number | null>(null);
-  const [versionPulse, setVersionPulse] = useState(false);
-  function onVersionClick() {
-    versionClicks.current += 1;
-    if (versionClicksResetTimer.current) window.clearTimeout(versionClicksResetTimer.current);
-    if (versionClicks.current >= 5) {
-      versionClicks.current = 0;
-      setVersionPulse(true);
-      reportEasterEggFound("version-click");
-      window.setTimeout(() => setVersionPulse(false), 1600);
-    } else {
-      versionClicksResetTimer.current = window.setTimeout(() => {
-        versionClicks.current = 0;
-      }, 4000);
+  const keyboardNavProps = {
+    onFocus: () => {
+      // Dernier élément focusable du menu : l'atteindre au clavier (Tab)
+      // prouve qu'on a parcouru tout le menu sans souris. Pas sur un clic.
+      if (!lastFocusWasMouse.current) reportEasterEggFound("keyboard-nav");
+    },
+    onMouseDown: () => {
+      lastFocusWasMouse.current = true;
+    },
+    onBlur: () => {
+      lastFocusWasMouse.current = false;
     }
-  }
+  };
 
-  // --- Easter egg « theme-toggle-10x » ------------------------------------
-  const modeToggleCount = useRef(0);
-  const modeToggleResetTimer = useRef<number | null>(null);
-  function handleModeClick(next: "dark" | "light") {
-    setMode(next);
-    modeToggleCount.current += 1;
-    if (modeToggleResetTimer.current) window.clearTimeout(modeToggleResetTimer.current);
-    if (modeToggleCount.current >= 10) {
-      modeToggleCount.current = 0;
-      toast.info("Vous hésitez ? Le mode sombre reste notre préféré 🌙");
-      reportEasterEggFound("theme-toggle-10x");
-    } else {
-      modeToggleResetTimer.current = window.setTimeout(() => {
-        modeToggleCount.current = 0;
-      }, 3000);
-    }
-  }
+  // Compteur Réussites : défis et accomplissements validés depuis la
+  // dernière visite (rien en Mode focus, ni quand tout a été vu).
+  const unseen = reussites && reussites.unseen > 0 && bootstrap?.focusMode === false ? reussites.unseen : 0;
+  const eggBadge = unseen > 0 ? String(unseen > 99 ? "99+" : unseen) : null;
 
-  function renderItem(item: NavItem) {
+  function renderItem(item: NavItem, extra?: React.HTMLAttributes<HTMLAnchorElement>) {
     const active = isNavActive(item.href, pathname);
     const Icon = item.icon;
-    // Compteur « Réussites » : défis et accomplissements validés depuis la
-    // dernière visite de la page (rien quand tout a été vu).
-    // Mode focus (30/09/2026) : pas de pastille.
-    const unseen = item.href === "/reussites" && reussites && reussites.unseen > 0 && bootstrap?.focusMode === false ? reussites.unseen : 0;
-    const eggBadge = unseen > 0 ? String(unseen > 99 ? "99+" : unseen) : null;
+    const badge = item.href === "/reussites" ? eggBadge : null;
     return (
       <Link
         key={item.href}
@@ -151,25 +176,79 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
         onClick={onClose}
         data-tour={`nav-${item.href.slice(1)}`}
         aria-current={active ? "page" : undefined}
-        title={collapsed ? (eggBadge ? `${item.label} — ${eggBadge} nouveauté(s)` : item.label) : undefined}
+        aria-label={collapsed ? (badge ? `${item.label} — ${badge} nouveauté(s)` : item.label) : undefined}
+        onMouseEnter={(e) => showTip(e.currentTarget, item.label, item.description)}
+        onMouseLeave={hideTip}
+        onFocus={(e) => showTip(e.currentTarget, item.label, item.description)}
+        onBlur={hideTip}
         className={clsx(
-          "group flex items-center gap-3 rounded-xl text-sm font-medium transition",
-          collapsed ? "justify-center px-0 py-2" : "px-3 py-1.5",
-          active ? "bg-gradient-to-r from-nebula-700/60 to-nebula-600/20 text-white shadow-glow" : "text-slate-400 hover:bg-white/5 hover:text-white"
+          "nb-nav-item group relative flex items-center rounded-lg text-[14px] transition",
+          collapsed ? "mx-auto h-11 w-11 justify-center" : "gap-3 px-3 py-2",
+          active ? "nb-nav-item-active font-semibold text-white" : "text-slate-300 hover:text-white"
         )}
+        {...extra}
       >
-        {/* Studio IA : son étoile prend la couleur de l'IA au survol (voir ai-icon.tsx). */}
-        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-aurora-300" : item.href === "/studio" ? "nb-ai-nav text-slate-500" : "text-slate-500 group-hover:text-slate-300")} />
+        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-white" : item.href === "/studio" ? "nb-ai-nav text-slate-400" : "text-slate-400 group-hover:text-white")} />
         {!collapsed && <span className="truncate">{item.label}</span>}
-        {!collapsed && eggBadge && (
-          <span
-            className="ml-auto shrink-0 rounded-full border border-amber-400/40 bg-amber-400/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-amber-200"
-            aria-label={`${eggBadge} nouveauté(s) dans Réussites`}
-          >
-            {eggBadge}
-          </span>
-        )}
+        {badge &&
+          (collapsed ? (
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400" aria-hidden="true" />
+          ) : (
+            <span
+              className="ml-auto shrink-0 rounded-full border border-amber-400/40 bg-amber-400/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-amber-200"
+              aria-label={`${badge} nouveauté(s) dans Réussites`}
+            >
+              {badge}
+            </span>
+          ))}
       </Link>
+    );
+  }
+
+  function renderGroup(group: NavGroup, index: number) {
+    if (!group.label) {
+      return (
+        <div key={group.key} className="space-y-0.5">
+          {group.items.map((item) => renderItem(item))}
+        </div>
+      );
+    }
+    if (collapsed) {
+      // Mode réduit : un séparateur fin entre catégories, toutes les icônes.
+      return (
+        <div key={group.key} className="space-y-1">
+          <div className="mx-auto my-2 h-px w-8 bg-[color:var(--nb-sep)]" aria-hidden="true" />
+          {group.items.map((item) => renderItem(item))}
+        </div>
+      );
+    }
+    const open = openGroups.includes(group.key);
+    const groupBadge = !open && group.items.some((i) => i.href === "/reussites") ? eggBadge : null;
+    const panelId = `nav-group-${group.key}`;
+    const isLastGroup = index === NAV_GROUPS.length - 1;
+    return (
+      <div key={group.key} className="pt-3">
+        <button
+          type="button"
+          onClick={() => toggleGroup(group.key)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          data-tour={`nav-group-${group.key}`}
+          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500 transition hover:text-white"
+        >
+          <span className="flex items-center gap-2">
+            {group.label}
+            {groupBadge && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label={`${groupBadge} nouveauté(s) dans Réussites`} />}
+          </span>
+          <IconChevron className={clsx("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")} />
+        </button>
+        <div id={panelId} hidden={!open} className="mt-1 space-y-0.5">
+          {group.items.map((item, i) =>
+            // Tiroir (téléphone) : le dernier lien porte l'easter egg « keyboard-nav ».
+            onClose && isLastGroup && i === group.items.length - 1 ? renderItem(item, keyboardNavProps) : renderItem(item)
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -177,20 +256,9 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
     <div className="relative flex h-full flex-col">
       {cosmetics.has("sidebar-poussiere-etoiles") && <SidebarShootingStars />}
 
-      {/* Logo + repli / fermeture.
-          Un seul bouton fait maintenant les deux actions (replier ET
-          déplier), plutôt que deux boutons séparés à deux endroits
-          différents (l'un en haut pour replier, l'autre tout en bas de la
-          colonne pour déplier — pas évident à retrouver une fois replié).
-          Ce bouton reste toujours en haut, juste à côté du logo : icône
-          "◀" (replier) en colonne dépliée, "▶" (déplier) en colonne repliée. */}
-      <div className={clsx("flex h-14 shrink-0 items-center border-b border-white/[0.06]", collapsed ? "justify-center gap-1 px-2" : "justify-between px-4")}>
-        <Link
-          href="/dashboard"
-          onClick={onClose}
-          className={clsx("flex min-w-0 items-center gap-2", collapsed && onToggleCollapsed && "sr-only")}
-          aria-label={`${brandName} — vue d'ensemble`}
-        >
+      {/* Logo (+ fermeture du tiroir sur téléphone) */}
+      <div className={clsx("flex h-16 shrink-0 items-center", collapsed ? "justify-center" : "justify-between px-5")}>
+        <Link href="/dashboard" onClick={onClose} className="flex min-w-0 items-center gap-2.5" aria-label={`${brandName} — vue d'ensemble`}>
           {logoUrl ? (
             <RemoteImage src={logoUrl} className="h-8 w-8 shrink-0 rounded-lg" sizes="32px" />
           ) : (
@@ -208,142 +276,65 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, isOw
               <NebulaIcon size={30} />
             </span>
           )}
-          {!collapsed && <span className="truncate font-display text-base font-semibold text-white">{brandName}</span>}
+          {!collapsed && <span className="truncate font-display text-[19px] font-semibold text-white">{brandName}</span>}
         </Link>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
             aria-label="Fermer le menu"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white"
           >
             <IconClose className="h-4 w-4" />
           </button>
         )}
-        {onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-            title={collapsed ? "Déplier le menu" : "Replier le menu"}
-            className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white lg:flex"
-          >
-            {collapsed ? <IconChevronRight className="h-4 w-4" /> : <IconChevronLeft className="h-4 w-4" />}
-          </button>
-        )}
-      </div>
-
-      {/* Marque active */}
-      <div className={clsx("shrink-0 border-b border-white/[0.06]", collapsed ? "p-2" : "p-3")}>
-        <BrandSwitcher compact={collapsed} onNavigate={onClose} />
       </div>
 
       {/* Navigation */}
-      <nav aria-label="Navigation principale" className={clsx("flex-1 overflow-y-auto py-3", collapsed ? "px-2" : "px-3")}>
-        {NAV_GROUPS.map((group) => (
-          <div key={group.key} className={clsx(group.label && "mt-3")}>
-            {group.label && !collapsed && (
-              <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{group.label}</p>
-            )}
-            {group.label && collapsed && <div className="mx-2 mb-2 border-t border-white/[0.06]" aria-hidden="true" />}
-            <div className="space-y-0.5">
-              {group.items.map(renderItem)}
-              {group.key === "account" && isOwner && OWNER_NAV_ITEMS.map((item) => renderItem(item))}
-            </div>
-          </div>
-        ))}
+      <nav aria-label="Navigation principale" className={clsx("nb-thin-scroll flex-1 overflow-y-auto pb-4 pt-2", collapsed ? "px-2" : "px-3")}>
+        {NAV_GROUPS.map(renderGroup)}
       </nav>
 
-      {/* Pied : rang de créateur, mode clair/sombre, déconnexion, version */}
-      <div className={clsx("shrink-0 border-t border-white/[0.06] py-2", collapsed ? "px-2" : "px-3")}>
-        {showLevelGauge && reussites && (
-          <Link
-            href="/reussites"
-            onClick={onClose}
-            title={collapsed ? `${reussites.name} — ${reussites.pct} %` : "Voir mes réussites"}
-            className={clsx(
-              "mb-2 block rounded-xl border border-white/[0.07] bg-white/[0.02] transition hover:border-aurora-400/40",
-              collapsed ? "flex justify-center py-1.5" : "px-3 py-2"
-            )}
-          >
-            {collapsed ? (
-              <LevelRing level={reussites.level} pct={reussites.pct} size={30} stroke={3} label={false} />
-            ) : (
-              <>
-                <span className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="truncate text-slate-300">
-                    Rang · <span className="font-medium text-white">{reussites.name}</span>
-                  </span>
-                  <span className="tabular-nums text-slate-400">{reussites.pct} %</span>
-                </span>
-                <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-white/[0.07]">
-                  <span className="block h-full rounded-full bg-gradient-to-r from-nebula-500 to-aurora-400" style={{ width: `${reussites.pct}%` }} />
-                </span>
-              </>
-            )}
-          </Link>
-        )}
-        {collapsed ? (
+      {/* Pied : réduire / déplier (ordinateur) */}
+      {onToggleCollapsed && (
+        <div className={clsx("shrink-0 border-t border-[color:var(--nb-sep)] py-3", collapsed ? "px-2" : "px-3")}>
           <button
             type="button"
-            onClick={() => handleModeClick(mode === "dark" ? "light" : "dark")}
-            aria-label={mode === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
-            title={mode === "dark" ? "Mode clair" : "Mode sombre"}
-            className="flex w-full items-center justify-center rounded-xl py-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Déplier le menu" : "Réduire le menu"}
+            onMouseEnter={(e) => showTip(e.currentTarget, "Déplier le menu")}
+            onMouseLeave={hideTip}
+            {...keyboardNavProps}
+            onFocus={(e) => {
+              keyboardNavProps.onFocus();
+              showTip(e.currentTarget, "Déplier le menu");
+            }}
+            onBlur={() => {
+              keyboardNavProps.onBlur();
+              hideTip();
+            }}
+            className={clsx(
+              "flex items-center rounded-lg text-[14px] text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white",
+              collapsed ? "mx-auto h-11 w-11 justify-center" : "w-full gap-3 px-3 py-2"
+            )}
           >
-            {mode === "dark" ? <IconSun className="h-[18px] w-[18px]" /> : <IconMoon className="h-[18px] w-[18px]" />}
+            {collapsed ? <IconChevronsRight className="h-[18px] w-[18px]" /> : <IconChevronsLeft className="h-[18px] w-[18px]" />}
+            {!collapsed && "Réduire le menu"}
           </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-0.5" role="group" aria-label="Apparence">
-            <button
-              type="button"
-              onClick={() => handleModeClick("light")}
-              aria-pressed={mode === "light"}
-              className={clsx("flex items-center justify-center gap-1.5 rounded-md py-1 text-xs transition", mode === "light" ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white")}
-            >
-              <IconSun className="h-3.5 w-3.5" /> Clair
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeClick("dark")}
-              aria-pressed={mode === "dark"}
-              className={clsx("flex items-center justify-center gap-1.5 rounded-md py-1 text-xs transition", mode === "dark" ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white")}
-            >
-              <IconMoon className="h-3.5 w-3.5" /> Sombre
-            </button>
-          </div>
-        )}
+        </div>
+      )}
 
-        <button
-          type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          onFocus={() => {
-            // Easter egg « keyboard-nav » : dernier élément focusable du menu —
-            // l'atteindre au clavier (Tab) prouve qu'on a parcouru tout le menu
-            // sans souris. Ne se déclenche PAS sur un simple clic.
-            if (!lastFocusWasMouse.current) reportEasterEggFound("keyboard-nav");
-          }}
-          onMouseDown={() => {
-            lastFocusWasMouse.current = true;
-          }}
-          onBlur={() => {
-            lastFocusWasMouse.current = false;
-          }}
-          title={collapsed ? "Déconnexion" : undefined}
-          className={clsx(
-            "mt-1 flex w-full items-center gap-3 rounded-xl text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white",
-            collapsed ? "justify-center py-2" : "px-3 py-1.5 text-left"
-          )}
+      {/* Infobulle du mode réduit (maquette B) */}
+      {collapsed && tip && (
+        <div
+          role="tooltip"
+          className="nb-rail-tip pointer-events-none fixed z-[60] max-w-[260px] -translate-y-1/2 rounded-lg px-3 py-2 shadow-lg"
+          style={{ top: tip.top, left: tip.left }}
         >
-          <IconLogout className="h-[18px] w-[18px] shrink-0" /> {!collapsed && "Déconnexion"}
-        </button>
-
-        {!collapsed && (
-          <button type="button" onClick={onVersionClick} className={clsx("w-full px-3 pt-1 text-left text-[11px] text-slate-500 transition", versionPulse && "text-aurora-300")}>
-            v{packageJson.version}
-          </button>
-        )}
-      </div>
+          <p className="text-[13px] font-semibold">{tip.label}</p>
+          {tip.description && <p className="mt-0.5 text-[12px] opacity-75">{tip.description}</p>}
+        </div>
+      )}
     </div>
   );
 }

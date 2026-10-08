@@ -15,13 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function PreviewSkeleton() {
   return (
-    <div aria-hidden="true" className="glass-panel space-y-3 rounded-2xl p-4">
-      <div className="flex gap-1">
-        {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-8 w-8 rounded-lg" />
+    <div aria-hidden="true" className="space-y-5">
+      <div className="flex gap-2 border-b border-[color:var(--nb-sep)] pb-2">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="h-6 w-20 rounded-md" />
         ))}
       </div>
-      <Skeleton className="mx-auto aspect-[9/16] max-h-[60vh] w-full max-w-[320px] rounded-2xl" />
+      <Skeleton className="mx-auto aspect-[9/16] max-h-[60vh] w-full max-w-[300px] rounded-[40px]" />
     </div>
   );
 }

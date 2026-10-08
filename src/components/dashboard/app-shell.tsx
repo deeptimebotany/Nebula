@@ -4,6 +4,13 @@
 // ordinateur (repliable en icônes), tiroir + barre d'onglets du bas sur
 // téléphone, en-tête d'une seule ligne. Remplace l'ancienne barre du haut à
 // deux lignes (topnav.tsx) et son menu latéral déroulant (sidebar.tsx).
+//
+// Refonte V2 (07/10/2026, maquettes de Lucas) : fond uni partout (page,
+// barre latérale et barre du haut de la même couleur, séparées par un trait
+// fin), barre latérale en accordéons, réduite en icônes par défaut sur les
+// écrans de moins de 1 360 px (tant qu'on n'a rien choisi), menu du profil
+// en haut à droite. Le contenu porte la classe .nb-main : les blocs y
+// perdent cadre et ombre (voir globals.css, « Refonte V2 »).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
@@ -12,6 +19,7 @@ import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { SidebarNav } from "./sidebar-nav";
 import { AppHeader } from "./app-header";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { InShellContext } from "./shell-context";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import dynamic from "next/dynamic";
 import { useBrand } from "@/components/brand-context";
@@ -96,7 +104,9 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
 
   useEffect(() => {
     try {
-      setCollapsed(getPref(COLLAPSED_KEY) === "1");
+      const saved = getPref(COLLAPSED_KEY);
+      // Rien de choisi : réduite (icônes) sur les écrans de moins de 1 360 px.
+      setCollapsed(saved === "1" || (saved !== "0" && window.innerWidth < 1360));
     } catch {
       // stockage indisponible — colonne dépliée
     }
@@ -158,11 +168,11 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       {/* Colonne fixe — ordinateur */}
       <aside
         className={clsx(
-          "glass-panel-solid fixed inset-y-0 left-0 z-40 hidden flex-col border-y-0 border-l-0 transition-[width] duration-200 lg:flex",
-          collapsed ? "w-[72px]" : "w-64"
+          "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[color:var(--nb-sep)] transition-[width] duration-200 lg:flex",
+          collapsed ? "w-[72px]" : "w-60"
         )}
       >
-        <SidebarNav collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} isOwner={isOwner} brandName={brandName} logoUrl={whiteLabel.logoUrl} />
+        <SidebarNav collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} brandName={brandName} logoUrl={whiteLabel.logoUrl} />
       </aside>
 
       {/* Tiroir — téléphone / tablette */}
@@ -180,26 +190,28 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
         aria-label="Menu de navigation"
         aria-hidden={!drawerOpen}
         className={clsx(
-          "glass-panel-solid fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col rounded-r-2xl border-l-0 transition-transform duration-200 ease-out lg:hidden",
+          "nb-sidebar fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-[color:var(--nb-sep)] shadow-2xl transition-transform duration-200 ease-out lg:hidden",
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Contenu monté seulement quand ouvert : pas de doublon focusable
             (deux menus identiques) pour le clavier et les lecteurs d'écran. */}
-        {drawerOpen && <SidebarNav onClose={() => setDrawerOpen(false)} isOwner={isOwner} brandName={brandName} logoUrl={whiteLabel.logoUrl} />}
+        {drawerOpen && <SidebarNav onClose={() => setDrawerOpen(false)} brandName={brandName} logoUrl={whiteLabel.logoUrl} />}
       </aside>
 
       {/* Colonne de contenu */}
       <div
         ref={columnRef}
-        className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding,margin] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-64", assistantDocked && "lg:h-screen lg:overflow-y-auto")}
+        className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding,margin] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60", assistantDocked && "lg:h-screen lg:overflow-y-auto")}
         style={assistantDocked ? { marginRight: ASSISTANT_WIDTH } : undefined}
       >
-        <AppHeader oauth={oauth} onOpenMenu={openDrawer} menuOpen={drawerOpen} whiteLabel={whiteLabel} />
+        <AppHeader oauth={oauth} isOwner={isOwner} />
         <TrialBanner />
         {activeBrand?.dormant && <DormantBrandBanner />}
-        <main id="contenu" tabIndex={-1} className="noise-grid flex-1 px-4 pb-24 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-10">
-          <div className="mx-auto max-w-7xl">{children}</div>
+        <main id="contenu" tabIndex={-1} className="nb-main noise-grid flex-1 px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">
+          <InShellContext.Provider value={true}>
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </InShellContext.Provider>
         </main>
         <MobileTabBar onOpenMenu={openDrawer} menuOpen={drawerOpen} />
         {/* Âge (18 ans et plus) confirmé une fois, avant tout le reste ; puis

@@ -248,7 +248,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           </button>
         )}
 
-        <label className={clsx("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition", fieldErrors.adult ? "border-red-400/40 bg-red-400/[0.06]" : "border-white/10 bg-white/[0.02]")}>
+        <label className={clsx("flex cursor-pointer items-start gap-3 rounded-lg border text-sm transition", fieldErrors.adult ? "border-red-400/40 bg-red-400/[0.06] p-3" : "border-transparent py-1")}>
           <input
             type="checkbox"
             name="isAdult"
@@ -266,7 +266,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           </p>
         )}
 
-        <label className={clsx("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition", fieldErrors.terms ? "border-red-400/40 bg-red-400/[0.06]" : "border-white/10 bg-white/[0.02]")}>
+        <label className={clsx("flex cursor-pointer items-start gap-3 rounded-lg border text-sm transition", fieldErrors.terms ? "border-red-400/40 bg-red-400/[0.06] p-3" : "border-transparent py-1")}>
           <input
             type="checkbox"
             name="acceptTerms"
@@ -294,7 +294,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           </p>
         )}
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm transition">
+        <label className="flex cursor-pointer items-start gap-3 py-1 text-sm transition">
           <input
             type="checkbox"
             name="statsConsent"

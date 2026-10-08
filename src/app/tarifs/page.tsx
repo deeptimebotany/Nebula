@@ -114,7 +114,7 @@ export default function TarifsPage() {
 
       <section className="mt-6">
         <div className="mx-auto mb-10 max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Comparatif</p>
+          <p className="nb-eyebrow">Comparatif</p>
           <h2 className="mt-3 font-display text-3xl font-semibold text-white">Ce que chaque palier inclut</h2>
         </div>
         <PricingComparison />
@@ -126,15 +126,15 @@ export default function TarifsPage() {
 
       <section id="faq-tarifs" className="mx-auto mt-24 max-w-3xl scroll-mt-24">
         <div className="mb-8 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Questions sur les tarifs</p>
+          <p className="nb-eyebrow">Questions sur les tarifs</p>
           <h2 className="mt-3 font-display text-3xl font-semibold text-white">Avant de choisir</h2>
         </div>
-        <div className="divide-y divide-white/[0.06] rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div className="divide-y divide-[color:var(--nb-sep)] border-y border-[color:var(--nb-sep)]">
           {PRICING_FAQ.map((item) => (
-            <details key={item.q} className="group px-5 py-4 open:bg-white/[0.02]">
+            <details key={item.q} className="group py-4">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
                 {item.q}
-                <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition group-open:rotate-45 group-open:text-white">
+                <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-slate-400 transition group-open:rotate-45 group-open:text-white">
                   +
                 </span>
               </summary>

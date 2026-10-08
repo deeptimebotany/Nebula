@@ -62,7 +62,8 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
       onKeyDown={onKeyDown}
       className={clsx(
         "flex items-center gap-1 overflow-x-auto",
-        isLine ? "border-b border-white/[0.06]" : "rounded-xl border border-white/10 bg-white/[0.03] p-1",
+        // V2 (07/10/2026) : trait fin, sans fond gris.
+        isLine ? "border-b border-[color:var(--nb-sep)]" : "rounded-lg border border-[color:var(--nb-sep-strong)] p-0.5",
         className
       )}
     >
@@ -84,11 +85,11 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
               isLine
                 ? clsx(
                     "-mb-px border-b-2 px-3 py-2.5",
-                    active ? "border-aurora-400 text-white" : "border-transparent text-slate-400 hover:text-white"
+                    active ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
                   )
                 : clsx(
-                    "rounded-lg px-3 py-1.5",
-                    active ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    "rounded-md px-3 py-1.5",
+                    active ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:bg-[color:var(--nb-hover)] hover:text-white"
                   )
             )}
           >

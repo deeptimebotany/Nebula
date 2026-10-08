@@ -17,10 +17,12 @@ export interface AttentionItem {
   href: string;
 }
 
+// V2 (08/10/2026) : des lignes, plus des encadrés — la couleur reste sur
+// l'icône et le titre (rouge échec, ambre à reconnecter).
 const TONE_CLASS: Record<AttentionItem["tone"], string> = {
-  danger: "border-red-400/30 bg-red-400/[0.06] text-red-200",
-  warning: "border-amber-400/30 bg-amber-400/[0.06] text-amber-200",
-  neutral: "border-white/10 bg-white/[0.02] text-slate-200"
+  danger: "text-red-300",
+  warning: "text-amber-300",
+  neutral: "text-slate-200"
 };
 
 const TONE_ICON: Record<AttentionItem["tone"], (p: { className?: string }) => JSX.Element> = {
@@ -43,21 +45,21 @@ export function AttentionWidget({ items, loading }: { items: AttentionItem[]; lo
           Rien à signaler : aucun échec, aucun compte à reconnecter.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="-mx-2 space-y-0.5">
           {items.map((item) => {
             const Icon = TONE_ICON[item.tone];
             return (
               <li key={item.key}>
                 <Link
                   href={item.href}
-                  className={clsx("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition hover:brightness-110", TONE_CLASS[item.tone])}
+                  className={clsx("flex items-center gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-[color:var(--nb-hover)]", TONE_CLASS[item.tone])}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{item.label}</span>
-                    <span className="block text-xs">{item.description}</span>
+                    <span className="block text-xs text-slate-500">{item.description}</span>
                   </span>
-                  <span aria-hidden="true">→</span>
+                  <span aria-hidden="true" className="text-slate-500">→</span>
                 </Link>
               </li>
             );

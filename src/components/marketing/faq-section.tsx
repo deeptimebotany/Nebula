@@ -23,15 +23,15 @@ export function FaqSection({ items, title = "Questions fréquentes", eyebrow, cl
   return (
     <section className={clsx("mx-auto max-w-3xl", className)}>
       <div className="mb-6 text-center">
-        {eyebrow && <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">{eyebrow}</p>}
+        {eyebrow && <p className="nb-eyebrow">{eyebrow}</p>}
         <h2 className="mt-2 font-display text-2xl font-semibold text-white sm:text-3xl">{title}</h2>
       </div>
-      <div className="divide-y divide-white/[0.06] rounded-2xl border border-white/10 bg-white/[0.02]">
+      <div className="divide-y divide-[color:var(--nb-sep)] border-y border-[color:var(--nb-sep)]">
         {items.map((item) => (
-          <details key={item.q} className="group px-5 py-4 open:bg-white/[0.02]">
+          <details key={item.q} className="group py-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
               {item.q}
-              <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition group-open:rotate-45 group-open:text-white">
+              <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-slate-400 transition group-open:rotate-45 group-open:text-white">
                 +
               </span>
             </summary>

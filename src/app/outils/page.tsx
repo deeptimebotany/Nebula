@@ -36,13 +36,12 @@ const HUB_LD = [
 // publications est retiré le 06/10/2026 (il refaisait la page Publier).
 export default function OutilsHubPage() {
   return (
-    <main id="contenu" className="relative overflow-hidden">
+    // Refonte V2 (08/10/2026) : fond uni, outils en liste à plat.
+    <main id="contenu" className="nb-site relative overflow-hidden">
       <JsonLd nodes={HUB_LD} />
-      <div className="pointer-events-none absolute inset-0 bg-nebula-mesh" />
-      <div className="noise-grid grain-overlay pointer-events-none absolute inset-x-0 top-0 h-[600px]" />
 
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-10 pt-16 text-center sm:pt-20">
-        <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-aurora-400/30 bg-white/[0.03] px-4 py-1.5 text-xs text-aurora-200">
+        <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-[color:var(--nb-sep-strong)] px-4 py-1.5 text-xs text-slate-300">
           <AiIcon className="h-3.5 w-3.5" />
           Gratuit, sans carte bancaire
         </div>
@@ -60,8 +59,8 @@ export default function OutilsHubPage() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {TOOL_CATALOG.map((tool) => (
             <Link key={tool.publicHref} href={tool.publicHref}>
-              <GlassCard className="h-full transition hover:border-aurora-400/30">
-                <tool.icon className="h-6 w-6 text-aurora-300" />
+              <GlassCard className="h-full">
+                <tool.icon className="h-5 w-5 text-slate-400" />
                 <h2 className="mt-3 font-display text-lg font-medium text-white">{tool.title}</h2>
                 <p className="mt-2 text-sm text-slate-400">{tool.desc}</p>
                 <span className="mt-4 inline-block text-sm font-medium text-aurora-300">Essayer →</span>

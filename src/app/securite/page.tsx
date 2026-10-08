@@ -104,9 +104,7 @@ export default function SecuritePage() {
       <div className="grid gap-5 md:grid-cols-2">
         {PILLARS.map((p) => (
           <GlassCard key={p.title} hover={false} className="h-full">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-aurora-400/30 bg-aurora-400/10 text-aurora-300">
-              <p.icon className="h-5 w-5" />
-            </div>
+            <p.icon className="h-5 w-5 text-slate-400" />
             <h2 className="mt-5 font-display text-lg font-medium text-white">{p.title}</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">{p.body}</p>
           </GlassCard>
@@ -115,12 +113,12 @@ export default function SecuritePage() {
 
       <section className="mt-20">
         <div className="mx-auto mb-10 max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">En détail</p>
+          <p className="nb-eyebrow">En détail</p>
           <h2 className="mt-3 font-display text-3xl font-semibold text-white">Les mesures en place</h2>
         </div>
         <div className="grid gap-5 md:grid-cols-2">
           {MEASURES.map((group) => (
-            <div key={group.title} className="rounded-2xl border border-white/[0.06] p-6">
+            <div key={group.title} className="border-t border-[color:var(--nb-sep)] pt-6">
               <h3 className="font-display text-base font-medium text-white">{group.title}</h3>
               <ul className="mt-4 space-y-2.5">
                 {group.items.map((item) => (

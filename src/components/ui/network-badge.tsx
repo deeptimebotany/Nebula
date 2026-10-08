@@ -163,3 +163,41 @@ export function NetworkTargetChip({ network, state }: { network: Network; state:
     </span>
   );
 }
+
+// --- Pastilles « Publier sur » (refonte V2, 07/10/2026, maquettes de Lucas) --
+// Un réseau choisi est la seule chose colorée du formulaire avec le bouton
+// principal : pastille pleine de la couleur du réseau, pictogramme blanc de
+// Nebula dans un rond translucide (jamais un logo officiel recoloré). Pas
+// choisi : pastille neutre au trait fin, avec le logo du réseau. Pas
+// connecté : pointillés et « + connecter ».
+const PILL_BG: Record<Network, string> = {
+  INSTAGRAM: "#D62976",
+  FACEBOOK: "#1877F2",
+  TIKTOK: "#111111",
+  YOUTUBE: "#FF0000",
+  BLUESKY: "#1185FE",
+  THREADS: "#111111",
+  PINTEREST: "#E60023",
+  LINKEDIN: "#0A66C2"
+};
+
+export function NetworkPill({ network, state, label }: { network: Network; state: "selected" | "idle" | "connect"; label?: string }) {
+  const meta = NETWORK_META[network];
+  const selected = state === "selected";
+  return (
+    <span
+      className={clsx("nt-pill", `nt-pill-${state}`, selected && DARK_BRAND.has(network) && "nt-pill-ink")}
+      style={selected ? ({ "--pill-bg": PILL_BG[network] } as CSSProperties) : undefined}
+    >
+      {selected ? (
+        <span className="nt-pill-glyph" aria-hidden="true">
+          <NetworkLogo network={network} className="h-[15px] w-[15px]" />
+        </span>
+      ) : (
+        <NetworkTile network={network} size={22} muted={state === "connect"} />
+      )}
+      <span className="nt-pill-label">{label ?? meta.label}</span>
+      {state === "connect" && <span className="nt-chip-cta">+ connecter</span>}
+    </span>
+  );
+}

@@ -7,7 +7,7 @@ import { useMode } from "@/components/mode-provider";
 import { useBrand } from "@/components/brand-context";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import { NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
+import { ACCOUNT_NAV_ITEMS, NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun, IconTrophy } from "./icons";
 import { restartGuidedTour } from "@/lib/tour-events";
 import { findEasterEgg, secretEggFor } from "@/lib/easter-eggs-registry";
@@ -45,16 +45,15 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands: Command[] = useMemo(() => {
-    const nav: Command[] = NAV_GROUPS.flatMap((g) =>
-      g.items.map((item) => ({
+    // V2 : les pages du compte (menu du profil) restent dans la palette.
+    const nav: Command[] = [...NAV_GROUPS.flatMap((g) => g.items), ...ACCOUNT_NAV_ITEMS].map((item) => ({
         id: item.href,
         label: item.label,
         hint: item.description,
         icon: item.icon,
         keywords: item.keywords,
         run: () => router.push(item.href)
-      }))
-    );
+      }));
     if (isOwner) {
       for (const item of OWNER_NAV_ITEMS) nav.push({ id: item.href, label: item.label, hint: item.description, icon: item.icon, run: () => router.push(item.href) });
     }
@@ -81,7 +80,7 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
           setFocusMode(!focusMode);
         }
       },
-      // « Succès » fait maintenant partie de NAV_GROUPS (menu, section Compte).
+      // « Réussites » fait partie de NAV_GROUPS (menu, catégorie Communauté).
       // Onglets de Réussites (lot U3) et collection des Easter eggs.
       ...(
         [

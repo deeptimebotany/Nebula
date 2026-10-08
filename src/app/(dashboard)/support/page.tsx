@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,8 @@ export default function SupportPage() {
         >
           <IconHeart className="h-6 w-6" />
         </button>
-        <h1 className="font-display text-2xl font-semibold text-white">Soutenir Nebula</h1>
+        {/* V2 : le titre est dans la barre du haut. */}
+        <PageHeader title="Soutenir Nebula" />
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           Nebula est développé et hébergé par une seule personne. Si le site vous est utile, un petit coup de pouce
           aide à financer l&apos;hébergement, les API et le temps passé à l&apos;améliorer. Un immense merci à celles

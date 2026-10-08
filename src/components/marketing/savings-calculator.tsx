@@ -44,7 +44,7 @@ export function SavingsCalculator({ defaultCompetitors = ["hootsuite", "metricoo
   }
 
   return (
-    <div className={clsx("rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6", className)}>
+    <div className={clsx("border-t border-[color:var(--nb-sep)] pt-6", className)}>
       <h2 className="font-display text-lg font-semibold text-white sm:text-xl">{title}</h2>
       <p className="mt-1 text-xs text-slate-400">Estimation à partir des grilles publiques (facturation annuelle), pour la configuration que vous indiquez et un utilisateur.</p>
 

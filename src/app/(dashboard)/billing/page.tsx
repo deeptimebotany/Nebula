@@ -95,12 +95,12 @@ function RoiCalculator() {
           </div>
         ))}
       </div>
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        <div className="border-t border-[color:var(--nb-sep)] pt-3">
           <p className="text-xs text-slate-400">Temps estimé sans Nebula (par réseau, un par un)</p>
           <p className="mt-1 font-display text-xl text-white">{Math.round(manualMinutes / 60)} h / mois</p>
         </div>
-        <div className="rounded-xl border border-aurora-400/30 bg-aurora-400/[0.06] px-4 py-3">
+        <div className="border-t-2 border-aurora-400 pt-3">
           <p className="text-xs text-aurora-200">Temps économisé estimé avec Nebula</p>
           <p className="mt-1 font-display text-xl text-white">≈ {Math.round(savedHours)} h / mois</p>
         </div>

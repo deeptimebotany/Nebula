@@ -4,9 +4,12 @@
 // Reel ou Story pour Instagram et Facebook ; pour YouTube, le format que
 // YouTube choisira lui-même (Short ou vidéo), dit clairement plutôt qu'un
 // faux choix. Règles : src/lib/social/post-format.ts.
+// Refonte V2 (07/10/2026) : une ligne compacte par réseau sous « Publier
+// sur » — nom du réseau, choix segmenté, explication en dessous.
 import { clsx } from "@/lib/clsx";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Toggle } from "@/components/ui/toggle";
+import { NetworkTile } from "@/components/ui/network-badge";
 import { FORMAT_NETWORKS, formatOptions, formatProblem, youtubeKind, youtubeKindText, type MediaFacts, type PostFormat } from "@/lib/social/post-format";
 import type { Network } from "@/lib/types";
 
@@ -36,13 +39,17 @@ export function FormatPicker({
   if (network === "YOUTUBE") {
     const kind = youtubeKind(facts);
     return (
-      <div className="mb-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2" data-testid="youtube-kind">
-        <p className="flex items-center gap-2 text-xs text-slate-300">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="youtube-kind">
+        <span className="flex w-28 shrink-0 items-center gap-2 text-[13px] text-slate-400">
+          <NetworkTile network="YOUTUBE" size={18} />
+          YouTube
+        </span>
+        <p className="flex items-center gap-2 text-[13px] text-slate-300">
           <span className="text-slate-400">Format :</span>
-          <span className="rounded-full border border-white/10 px-2 py-0.5 font-medium text-white">{kind === "SHORT" ? "Short" : kind === "VIDEO" ? "Vidéo" : "Short ou vidéo"}</span>
+          <span className="font-medium text-white">{kind === "SHORT" ? "Short" : kind === "VIDEO" ? "Vidéo" : "Short ou vidéo"}</span>
           <span className="text-slate-500">(choisi par YouTube)</span>
         </p>
-        <p className="mt-1 text-[11px] leading-snug text-slate-500">{youtubeKindText(facts)}</p>
+        <p className="basis-full text-[12px] leading-snug text-slate-500 sm:pl-[124px]">{youtubeKindText(facts)}</p>
       </div>
     );
   }
@@ -51,13 +58,14 @@ export function FormatPicker({
   const options = formatOptions(network, facts);
   const selected = options.find((o) => o.format === value);
   const problem = formatProblem(network, value, facts);
+  const name = network === "INSTAGRAM" ? "Instagram" : "Facebook";
   return (
-    <div className="mb-3" data-testid={`format-${network}`}>
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        Format
-        <InfoTip label={`Formats possibles sur ${network === "INSTAGRAM" ? "Instagram" : "Facebook"}`}>{HELP[network]}</InfoTip>
-      </div>
-      <div role="radiogroup" aria-label={`Format sur ${network === "INSTAGRAM" ? "Instagram" : "Facebook"}`} className="mt-1.5 grid grid-cols-3 gap-1.5">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-testid={`format-${network}`}>
+      <span className="flex w-28 shrink-0 items-center gap-2 text-[13px] text-slate-400">
+        <NetworkTile network={network} size={18} />
+        {name}
+      </span>
+      <div role="radiogroup" aria-label={`Format sur ${name}`} className="inline-flex rounded-lg border border-[color:var(--nb-sep-strong)] p-0.5">
         {options.map((o) => {
           const active = o.format === value;
           return (
@@ -70,12 +78,12 @@ export function FormatPicker({
               title={o.unavailable ? o.unavailable.charAt(0).toUpperCase() + o.unavailable.slice(1) : o.hint}
               onClick={() => onChange(o.format)}
               className={clsx(
-                "rounded-lg border px-2 py-1.5 text-xs font-medium transition",
+                "rounded-md px-3 py-1 text-[13px] transition",
                 active
                   ? o.unavailable
-                    ? "border-amber-400/60 bg-amber-400/10 text-amber-200"
-                    : "border-aurora-400/70 bg-aurora-400/15 text-white"
-                  : "border-white/10 text-slate-300 hover:border-aurora-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:text-slate-300"
+                    ? "bg-amber-400/15 font-medium text-amber-200"
+                    : "bg-[color:var(--nb-active)] font-medium text-white"
+                  : "text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-slate-400"
               )}
             >
               {o.label}
@@ -83,13 +91,14 @@ export function FormatPicker({
           );
         })}
       </div>
-      <p className={clsx("mt-1.5 text-[11px] leading-snug", problem ? "text-amber-300" : "text-slate-500")}>{problem ?? selected?.hint}</p>
+      <InfoTip label={`Formats possibles sur ${name}`}>{HELP[network]}</InfoTip>
       {network === "INSTAGRAM" && value === "REEL" && onShareToFeedChange && (
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-400">Aussi sur votre profil (fil)</span>
+        <span className="flex items-center gap-2 text-[13px] text-slate-400">
+          Aussi sur votre profil
           <Toggle size="sm" checked={shareToFeed ?? true} onChange={onShareToFeedChange} aria-label="Afficher aussi le Reel sur votre profil Instagram" />
-        </div>
+        </span>
       )}
+      <p className={clsx("basis-full text-[12px] leading-snug sm:pl-[124px]", problem ? "text-amber-300" : "text-slate-500")}>{problem ?? selected?.hint}</p>
     </div>
   );
 }

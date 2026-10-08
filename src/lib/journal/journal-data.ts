@@ -8,6 +8,59 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-08-accueil-v2",
+    date: "2026-10-08",
+    title: "Accueil : la nouvelle interface en vedette",
+    category: "Site public",
+    links: [
+      { href: "/", label: "Accueil du site" },
+      { href: "/composer", label: "Publier" },
+      { href: "/dashboard", label: "Vue d'ensemble" }
+    ],
+    result:
+      "Le haut de l'accueil montre maintenant la nouvelle page Publier en grand et, à côté, l'application sur téléphone, avec une pastille « Nouveau : une interface entièrement repensée ». Sur téléphone, c'est la Vue d'ensemble mobile qui s'affiche. La visite de l'application commence par la Vue d'ensemble. Dans l'application, la Vue d'ensemble affiche deux chiffres par ligne sur téléphone, le sélecteur de date de Publier prend le nouveau style, et la zone d'import dit « Changer de média » quand un fichier est déjà là (un nouveau fichier remplace le précédent).",
+    change:
+      "`hero.tsx` (ProductShot « publier » + PhoneShot « tableau-de-bord-mobile » avec barre d'état), `product-shot.tsx` (nouvel écran, `PhoneShot` : largeur et barre d'état), `page.tsx` (visite : Vue d'ensemble en premier), `scripts/demo/capture-screens.mjs` (capture mobile de la Vue d'ensemble), `dashboard-client.tsx` et `stat-card.tsx` (2 colonnes sur téléphone), `date-time-picker.tsx` (style V2), `composer/page.tsx` (libellés de la zone d'import). Branche `refonte-v2`.",
+    readme: 91,
+    migrations: []
+  },
+  {
+    id: "2026-10-08-refonte-v2-site",
+    date: "2026-10-08",
+    title: "Refonte V2 : le site public et les dernières cartes de l'application",
+    category: "Site public",
+    links: [
+      { href: "/", label: "Accueil du site" },
+      { href: "/tarifs", label: "Tarifs" },
+      { href: "/outils", label: "Outils gratuits" },
+      { href: "/reussites", label: "Réussites" }
+    ],
+    result:
+      "Le site public parle maintenant le même langage que l'application : fond uni, plus d'étoiles, de halos ni de dégradés, des blocs posés sur la page et séparés par un trait fin, des sur-titres gris discrets. Accueil, tarifs (le palier Pro est souligné d'un trait violet), offres fondateurs, sécurité, contact, outils gratuits, comparatifs et pages de connexion suivent ; les questions fréquentes deviennent une simple liste. Les captures de l'application montrées sur l'accueil et les pages « Découvrir » ont été refaites avec la nouvelle interface. Dans l'application, les missions, le coffre et le bilan des Réussites, « À traiter » sur la Vue d'ensemble, l'aperçu des Rapports, le Studio IA, le Media kit et le calcul du temps gagné (Facturation) perdent leurs derniers encadrés ; le cadran du meilleur créneau se voit enfin en mode clair. Les pages partagées avec vos abonnés et vos clients (page bio, media kit, rapport, calendrier, validation) gardent leur propre dessin.",
+    change:
+      "Classe `.nb-site` sur le `<main>` des pages publiques (`public-shell.tsx`, `auth-shell.tsx`, `page.tsx`, `outils/page.tsx`, `tool-page.tsx`, `audit/[token]/page.tsx`) avec les mêmes règles que `.nb-main` ; `.nb-eyebrow`, `.nb-accent-ink`, `.nb-plain`, `.nb-plan-featured` (`globals.css`). Réussites : colonnes soulignées (`reussites/page.tsx`, `weekly-review.tsx`, `social-cards.tsx`), coffre prêt qui se soulève (`nb-chest-bob`). `attention-widget.tsx`, `reports/page.tsx`, `studio-parts.tsx`, `media-kit/page.tsx`, `billing/page.tsx`, `living-clock.tsx` (traits en `currentColor`). `scripts/demo/capture-screens.mjs` suit la nouvelle page Publier et masque les messages passagers ; `public/screens/*.webp` refaites. Toujours sur la branche `refonte-v2`.",
+    readme: 90,
+    migrations: []
+  },
+  {
+    id: "2026-10-08-refonte-v2",
+    date: "2026-10-08",
+    title: "Refonte V2 : menu en catégories, compte dans le menu du profil, pages sans cartes, Publier en document",
+    category: "Interface",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/analytics", label: "Analytics" },
+      { href: "/settings", label: "Paramètres" }
+    ],
+    result:
+      "Toute l'application prend le style des maquettes de Lucas. La barre latérale ne garde que « Vue d'ensemble » et cinq catégories repliables (Créer, Analyser, Présence, Clients, Communauté) ; réduite, elle n'affiche que des icônes avec une infobulle. Paramètres, Facturation, Automatisations, Soutenir Nebula, l'administration, la marque, le mode clair ou sombre et la déconnexion passent dans le menu du profil, en haut à droite, où s'affiche aussi le titre de chaque page. Les pages sont posées sur un fond uni (#F9FAFB en clair, noir neutre en sombre) : plus de cartes ni d'ombres, des traits fins entre les sections et des titres de section discrets, sans numéro. Publier devient un document fluide (Média, Texte, Publier sur, Quand) avec l'aperçu collé à droite, plus petit et masquable ; sur les écrans moyens il flotte et les boutons montent en haut, sur téléphone ils restent en bas.",
+    change:
+      "Jetons `--nb-*` et blocs à plat dans `.nb-main` (`globals.css`), `navigation.ts` (catégories, `ACCOUNT_NAV_ITEMS`), `sidebar-nav.tsx`, `profile-menu.tsx`, `app-header.tsx` (titre posé par `PageHeader` dans la barre du haut), `composer/page.tsx`, `composer-preview.tsx`, `publish-card.tsx` (« Quand », meilleur créneau réel), pastilles `NetworkPill`. Version à part (branche `refonte-v2`), non déployée tant que Google et Meta n'ont pas validé l'application.",
+    readme: 89,
+    migrations: []
+  },
+  {
     id: "2026-10-07-format-publication",
     date: "2026-10-07",
     title: "Publier : choisir Publication, Reel ou Story ; savoir si YouTube en fera un Short",

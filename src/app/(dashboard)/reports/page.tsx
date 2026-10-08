@@ -282,25 +282,25 @@ export default function ReportsPage() {
 
           <GlassCard>
             <h2 className="font-display text-base font-medium text-white">Aperçu du rapport</h2>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+              <div className="border-t border-[color:var(--nb-sep)] pt-3">
                 <p className="text-xs text-slate-500">Abonnés</p>
-                <p className="mt-1 font-display text-lg font-semibold text-white">{preview.totals.followers.toLocaleString("fr-FR")}</p>
+                <p className="mt-1 font-display text-2xl font-semibold text-white">{preview.totals.followers.toLocaleString("fr-FR")}</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+              <div className="border-t border-[color:var(--nb-sep)] pt-3">
                 <p className="text-xs text-slate-500">Évolution</p>
-                <p className={`mt-1 font-display text-lg font-semibold ${preview.totals.followersDelta >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                <p className={`mt-1 font-display text-2xl font-semibold ${preview.totals.followersDelta >= 0 ? "text-emerald-300" : "text-red-300"}`}>
                   {preview.totals.followersDelta >= 0 ? "+" : ""}
                   {preview.totals.followersDelta.toLocaleString("fr-FR")}
                 </p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+              <div className="border-t border-[color:var(--nb-sep)] pt-3">
                 <p className="text-xs text-slate-500">Engagement moyen</p>
-                <p className="mt-1 font-display text-lg font-semibold text-white">{preview.totals.avgEngagementRate.toFixed(1)}%</p>
+                <p className="mt-1 font-display text-2xl font-semibold text-white">{preview.totals.avgEngagementRate.toFixed(1)}%</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+              <div className="border-t border-[color:var(--nb-sep)] pt-3">
                 <p className="text-xs text-slate-500">Impressions</p>
-                <p className="mt-1 font-display text-lg font-semibold text-white">{preview.totals.impressions.toLocaleString("fr-FR")}</p>
+                <p className="mt-1 font-display text-2xl font-semibold text-white">{preview.totals.impressions.toLocaleString("fr-FR")}</p>
               </div>
             </div>
 
@@ -314,13 +314,13 @@ export default function ReportsPage() {
               </p>
             )}
 
-            <h3 className="mt-6 font-display text-sm font-medium text-white">Publications de la période</h3>
+            <h3 className="nb-section-label mt-6">Publications de la période</h3>
             {preview.postsPublished.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Aucune publication publiée sur cette période.</p>
             ) : (
-              <ul className="mt-2 space-y-2">
+              <ul className="mt-2 divide-y divide-[color:var(--nb-sep)]">
                 {preview.postsPublished.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm">
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <span className="truncate text-slate-300">{p.title}</span>
                     <span className="shrink-0 text-xs text-slate-500">{NETWORK_LABELS[p.network] ?? p.network}</span>
                   </li>

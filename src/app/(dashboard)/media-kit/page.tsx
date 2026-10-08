@@ -308,11 +308,11 @@ export default function MediaKitPage() {
                     </Link>
                   </p>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="divide-y divide-[color:var(--nb-sep)]">
                     {dto.connections.map((c) => {
                       const off = c.status === "DISCONNECTED";
                       return (
-                        <li key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+                        <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
                           <span className="flex min-w-0 items-center gap-2.5">
                             <NetworkTile network={c.network} size={24} muted={off} />
                             <span className="min-w-0">
@@ -327,7 +327,7 @@ export default function MediaKitPage() {
                   </ul>
                 )}
                 {noNumbers && dto.connections.length > 0 && (
-                  <p className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-xs text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Pas encore de chiffres : ouvrez{" "}
                     <Link href="/analytics" className="text-aurora-300 hover:text-white">
                       Analytics
@@ -435,7 +435,7 @@ export default function MediaKitPage() {
                   <p className="mt-0.5 text-xs text-slate-400">Facultatif : ce que vous proposez aux marques, avec un prix ou « sur devis ».</p>
                 </div>
                 {offers.map((o, i) => (
-                  <div key={i} className="space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                  <div key={i} className="space-y-2 border-t border-[color:var(--nb-sep)] pt-3">
                     <Input
                       label={`Offre ${i + 1}`}
                       placeholder="ex. Reel sponsorisé"

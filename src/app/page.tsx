@@ -57,7 +57,18 @@ interface TourScreen {
   plan?: string;
 }
 
+// V2 (08/10/2026) : Publier est en grand dans le hero ; la visite commence
+// par la Vue d'ensemble, puis Publier pour le détail.
 const TOUR: TourScreen[] = [
+  {
+    id: "vue-ensemble",
+    label: "Vue d'ensemble",
+    shot: "tableau-de-bord",
+    alt: "Vue d'ensemble de Nebula : abonnés, portée, taux d'engagement, publications du mois, éléments à traiter et meilleur créneau du jour de la marque Studio Nova",
+    title: "Toute votre marque sur un écran",
+    desc: "Abonnés, portée et engagement de tous vos comptes, ce qui demande votre attention et le meilleur moment pour publier aujourd'hui : l'essentiel, dès l'ouverture.",
+    points: ["Publications en échec et comptes à reconnecter signalés tout de suite", "Meilleur créneau du jour, réseau par réseau, tiré de vos chiffres", "Votre rang et vos missions de la semaine"]
+  },
   {
     id: "publier",
     label: "Publier",
@@ -198,7 +209,7 @@ const TRUST = [
 function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: string; desc?: string }) {
   return (
     <div className="mx-auto mb-12 max-w-2xl text-center">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">{eyebrow}</p>
+      <p className="nb-eyebrow">{eyebrow}</p>
       <h2 className="mt-3 font-display text-3xl font-semibold text-white sm:text-4xl">{title}</h2>
       {desc && <p className="mt-4 text-base leading-relaxed text-slate-400">{desc}</p>}
     </div>
@@ -240,11 +251,10 @@ export default function LandingPage() {
   return (
     <>
       <MarketingNav />
-      <main id="contenu" className="relative overflow-hidden">
+      <main id="contenu" className="nb-site relative overflow-hidden">
         {/* Données structurées de l'accueil (SEO, 29/09/2026) : l'éditeur, le
             site et l'application avec ses prix réels. */}
         <JsonLd nodes={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
-        <div aria-hidden="true" className="hero-stars pointer-events-none absolute inset-0 opacity-20" />
         <Hero />
 
         {/* Réussites : mises en avant dès l'introduction (30/09/2026) */}
@@ -262,7 +272,7 @@ export default function LandingPage() {
                 {REUSSITES.map((r) => (
                   <RevealItem key={r.title}>
                     <div className="flex gap-4">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/[0.08] text-amber-300">
+                      <span className="flex h-10 w-6 shrink-0 items-start justify-center pt-0.5 text-slate-400">
                         <r.icon className="h-5 w-5" />
                       </span>
                       <div>
@@ -273,7 +283,7 @@ export default function LandingPage() {
                   </RevealItem>
                 ))}
               </RevealGroup>
-              <p className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-slate-400">
+              <p className="mt-8 border-t border-[color:var(--nb-sep)] pt-5 text-sm leading-relaxed text-slate-400">
                 Tout est calculé à partir de vos vraies publications, et aucune récompense n&apos;a de valeur marchande. Vous préférez une interface
                 neutre ? Le <span className="font-medium text-slate-200">Mode focus</span> coupe tout d&apos;un clic : récompenses, sons et notifications de
                 succès.
@@ -302,7 +312,7 @@ export default function LandingPage() {
         </section>
 
         {/* Pour qui */}
-        <section id="fonctionnalites" className="relative z-10 border-y border-white/[0.06] bg-white/[0.015] py-24">
+        <section id="fonctionnalites" className="relative z-10 border-t border-[color:var(--nb-sep)] py-24">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal>
               <SectionHeading eyebrow="Pour qui" title="Pensé pour ceux qui publient chaque semaine" />
@@ -340,8 +350,8 @@ export default function LandingPage() {
               {MORE.map((f) => (
                 <RevealItem key={f.title}>
                   <div className="flex gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-aurora-300">
-                      <f.icon className="h-4 w-4" />
+                    <span className="flex h-6 w-5 shrink-0 items-start justify-center pt-0.5 text-slate-400">
+                      <f.icon className="h-[18px] w-[18px]" />
                     </span>
                     <div>
                       <h4 className="text-sm font-semibold text-white">{f.title}</h4>
@@ -355,15 +365,15 @@ export default function LandingPage() {
         </section>
 
         {/* Comment ça marche */}
-        <section id="comment-ca-marche" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
+        <section id="comment-ca-marche" className="relative z-10 mx-auto max-w-6xl scroll-mt-24 border-t border-[color:var(--nb-sep)] px-6 py-24">
           <Reveal>
             <SectionHeading eyebrow="Démarrer" title="Prêt en trois étapes" desc="Créez votre espace, connectez vos comptes, programmez votre première publication." />
           </Reveal>
           <RevealGroup className="grid gap-8 md:grid-cols-3">
             {STEPS.map((step, i) => (
               <RevealItem key={step.title}>
-                <div className="relative border-t border-white/10 pt-6">
-                  <span className="font-display text-sm font-semibold text-aurora-300">Étape {i + 1}</span>
+                <div className="relative border-t border-[color:var(--nb-sep)] pt-6">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Étape {i + 1}</span>
                   <h3 className="mt-2 font-display text-lg font-semibold text-white">{step.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-400">{step.desc}</p>
                 </div>
@@ -373,7 +383,7 @@ export default function LandingPage() {
         </section>
 
         {/* Confiance */}
-        <section id="confiance" className="relative z-10 border-y border-white/[0.06] bg-white/[0.015] py-24">
+        <section id="confiance" className="relative z-10 border-t border-[color:var(--nb-sep)] py-24">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal>
               <SectionHeading
@@ -385,8 +395,8 @@ export default function LandingPage() {
             <RevealGroup className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {TRUST.map((t) => (
                 <RevealItem key={t.title}>
-                  <div className="h-full rounded-2xl border border-white/[0.06] p-5">
-                    <t.icon className="h-6 w-6 text-aurora-300" />
+                  <div className="h-full border-t border-[color:var(--nb-sep)] pt-5">
+                    <t.icon className="h-5 w-5 text-slate-400" />
                     <h3 className="mt-4 text-base font-medium text-white">{t.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-slate-400">{t.desc}</p>
                   </div>
@@ -408,9 +418,9 @@ export default function LandingPage() {
         {/* Appel final */}
         <section className="relative z-10 mx-auto max-w-6xl px-6 pb-28">
           <Reveal>
-            <GlassCard hover={false} className="relative overflow-hidden p-0">
-              <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-                <div className="p-8 sm:p-12">
+            <GlassCard hover={false} className="relative p-0">
+              <div className="grid items-center gap-8 py-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14">
+                <div>
                   <h2 className="font-display text-3xl font-semibold text-white sm:text-4xl">Essayez Nebula sur vos propres comptes</h2>
                   <p className="mt-4 text-base text-slate-400">
                     Créez votre espace en une minute, connectez un premier compte et programmez votre première publication. Gratuit,
@@ -431,13 +441,8 @@ export default function LandingPage() {
                     </ButtonLink>
                   </div>
                 </div>
-                <div className="hidden translate-x-8 translate-y-8 lg:block">
-                  <ProductShot
-                    name="calendrier"
-                    alt="Calendrier éditorial de Nebula (compte de démonstration)"
-                    sizes="560px"
-                    className="rounded-br-none"
-                  />
+                <div className="hidden lg:block">
+                  <ProductShot name="calendrier" alt="Calendrier éditorial de Nebula (compte de démonstration)" sizes="560px" />
                 </div>
               </div>
             </GlassCard>

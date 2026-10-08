@@ -46,7 +46,7 @@ export default async function DecouvrirPageBio({ searchParams }: { searchParams:
             </span>
           </div>
         ) : (
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aurora-300">Page bio</p>
+          <p className="nb-eyebrow">Page bio</p>
         )}
         <h1 className="mt-3 font-display text-3xl font-semibold text-white sm:text-5xl">Votre page bio, prête en deux minutes</h1>
         <p className="mt-4 text-base text-slate-400 sm:text-lg">
