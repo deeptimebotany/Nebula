@@ -478,7 +478,7 @@ export default function MediaKitPage() {
             </div>
 
             {/* Aperçu */}
-            <section aria-labelledby="kit-preview-title" className="space-y-3 xl:sticky xl:top-20">
+            <section aria-labelledby="kit-preview-title" className="space-y-3 xl:sticky xl:top-[calc(var(--nb-topbar-offset)_+_16px)]">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="kit-preview-title" className="font-display text-base font-semibold text-white">
                   Aperçu

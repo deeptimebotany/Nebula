@@ -1197,12 +1197,26 @@ body {
 }
 
 /* Assistant « Demander à Nebula » ancré sur ordinateur (voir app-shell.tsx) :
-   la page ne défile plus derrière le tiroir — c'est la colonne de contenu
-   qui défile, avec sa barre juste à gauche du panneau. */
+   la page ne défile plus derrière le tiroir — c'est la zone sous la barre du
+   haut qui défile, avec sa barre juste à gauche du panneau. La barre du haut
+   ne bouge pas : la place de la barre de défilement de la fenêtre reste
+   réservée (nebula-assistant-gutter, posée seulement si la page en avait une).
+   --nb-topbar-offset : hauteur de la barre du haut au-dessus de la zone qui
+   défile, pour les blocs « collés » en haut (aperçu de Publier, etc.) ; 0
+   quand la zone qui défile commence déjà sous la barre. */
+:root {
+  --nb-topbar-offset: 64px;
+}
 @media (min-width: 1024px) {
   html.nebula-assistant-docked,
   html.nebula-assistant-docked body {
     overflow: hidden;
+  }
+  html.nebula-assistant-docked {
+    --nb-topbar-offset: 0px;
+  }
+  html.nebula-assistant-gutter {
+    scrollbar-gutter: stable;
   }
 }
 
@@ -2835,12 +2849,14 @@ select option {
 [data-mode="light"][data-theme="eclipse-totale"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star { fill: #ffffff; }
 
 /* --- Assistant « Demander à Nebula » : tiroir aux coins arrondis (09/10/2026) */
-/* Le tiroir d'avant, à droite (sur ordinateur, la page se décale pour lui
-   faire de la place : voir app-shell.tsx), mais détaché de 12 px des bords
-   de l'écran, avec de grands coins arrondis et un contour fin, au lieu d'un
-   rectangle collé au bord. Fond et ombre : .glass-panel-solid. Plein écran
-   sur téléphone. (Une fenêtre flottante par-dessus la page, sans décaler
-   la page, a été essayée puis abandonnée à la demande de Lucas.) */
+/* Le tiroir d'avant, à droite (sur ordinateur, le contenu sous la barre du
+   haut se décale pour lui faire de la place : voir app-shell.tsx), mais
+   posé SOUS la barre du haut (65 px, trait compris), qui garde toute sa
+   largeur, et détaché de 12 px des bords, avec de grands coins arrondis et
+   un contour fin, au lieu d'un rectangle collé au bord. Fond et ombre :
+   .glass-panel-solid. Plein écran sur téléphone. (Une fenêtre flottante
+   par-dessus la page, sans décaler la page, a été essayée puis abandonnée
+   à la demande de Lucas.) */
 .nb-assistant-window {
   inset: 0;
   border-width: 0;
@@ -2853,7 +2869,7 @@ select option {
 @media (min-width: 640px) {
   .nb-assistant-window {
     inset: auto;
-    top: 12px;
+    top: 77px;
     right: 12px;
     bottom: 12px;
     width: 420px;

@@ -591,7 +591,7 @@ export default function LinkInBioPage() {
         {/* Aperçu façon téléphone, dans le thème choisi — mêmes couleurs que
             la vraie page publique (/l/[slug]), pour un retour immédiat. */}
         <div>
-          <div className="sticky top-20">
+          <div className="sticky top-[calc(var(--nb-topbar-offset)_+_16px)]">
             <p className="mb-2 text-center text-xs uppercase tracking-wide text-slate-500">Aperçu</p>
             <BioFrame
               frame={activeFrame}

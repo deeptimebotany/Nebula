@@ -485,7 +485,7 @@ export default function CommunityPage() {
         </div>
 
         {/* ---------- Colonne droite ---------- */}
-        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-[calc(var(--nb-topbar-offset)_+_16px)] lg:self-start">
           {/* Mini-carte profil */}
           <GlassCard hover={false} className="p-4">
             <div className="flex items-center gap-3">

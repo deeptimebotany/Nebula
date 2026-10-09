@@ -2753,7 +2753,7 @@ function ComposerPageInner() {
           <aside className="hidden border-l border-[color:var(--nb-sep)] pl-10 min-[1360px]:block" aria-label="Aperçu">
             {/* Sans conteneur défilant : il coupait l'ombre du téléphone en
                 rectangle gris. Le cadre tient déjà dans la hauteur (ScaledFrame). */}
-            <div className="sticky top-[88px] pb-4">
+            <div className="sticky top-[calc(var(--nb-topbar-offset)_+_24px)] pb-4">
               {wideScreen && (
                 <ComposerPreview
                   {...previewProps}

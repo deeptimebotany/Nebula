@@ -20,9 +20,10 @@
 // miniatures proposées restaient dans le chat). « Nouvelle conversation » la
 // vide aussi.
 //
-// Présentation (09/10/2026) : le tiroir d'avant (sur ordinateur, la page se
-// décale pour lui faire de la place, voir app-shell.tsx), mais aux coins
-// arrondis, détaché de 12 px des bords (.nb-assistant-window, globals.css).
+// Présentation (09/10/2026) : le tiroir d'avant (sur ordinateur, le contenu
+// se décale pour lui faire de la place, voir app-shell.tsx), mais posé sous
+// la barre du haut — qui ne bouge plus —, aux coins arrondis, détaché de
+// 12 px des bords (.nb-assistant-window, globals.css).
 // Une fenêtre flottante par-dessus la page a été essayée puis abandonnée à
 // la demande de Lucas (« c'était mieux avant, garde juste les bords
 // arrondis »). Plein écran sur téléphone.

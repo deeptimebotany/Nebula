@@ -8,6 +8,19 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-inscription-mot-de-passe-confirme",
+    date: "2026-10-09",
+    title: "Inscription : le mot de passe se tape deux fois",
+    category: "Sécurité",
+    links: [{ href: "/register", label: "Créer un compte" }],
+    result:
+      "À l'inscription avec une adresse e-mail, un second champ « Confirmez le mot de passe » demande de retaper le mot de passe. Si les deux ne correspondent pas, le compte n'est pas créé et un message l'indique sous le champ : plus de compte bloqué par une faute de frappe invisible.",
+    change:
+      "`register-form.tsx` (champ `register-password-confirm`, vérification avant l'envoi ; seul le mot de passe part au serveur). Test : `tests/quality/inscription-mot-de-passe.test.ts`.",
+    readme: 97,
+    migrations: []
+  },
+  {
     id: "2026-10-09-assistant-fenetre",
     date: "2026-10-09",
     title: "Assistant IA : panneau aux coins arrondis, conversation remise à zéro à chaque page",
@@ -17,9 +30,9 @@ const NEW_ENTRIES: JournalEntry[] = [
       { href: "/dashboard", label: "Vue d'ensemble" }
     ],
     result:
-      "« Demander à Nebula » garde sa place à droite (sur ordinateur, la page se décale pour lui laisser la place), mais son panneau a maintenant de grands coins arrondis et un contour fin, détaché des bords de l'écran, au lieu d'un rectangle collé au bord. Et la conversation repart de zéro dès qu'on change de page, qu'on change de marque, qu'on recharge ou qu'on quitte le site : les miniatures proposées pour une vidéo déjà publiée ne restent plus dans le chat.",
+      "« Demander à Nebula » garde sa place à droite (sur ordinateur, le contenu se décale pour lui laisser la place), mais son panneau a maintenant de grands coins arrondis et un contour fin, posé sous la barre du haut et détaché des bords de l'écran, au lieu d'un rectangle collé au bord. La barre du haut (titre, recherche, notifications, profil) ne bouge plus quand on l'ouvre. Et la conversation repart de zéro dès qu'on change de page, qu'on change de marque, qu'on recharge ou qu'on quitte le site : les miniatures proposées pour une vidéo déjà publiée ne restent plus dans le chat.",
     change:
-      "`ai-assistant.tsx` (plus de sessionStorage, anciennes conversations effacées, remise à zéro au changement de page ou de marque ; panneau `.nb-assistant-window`), `globals.css` (panneau : 420 px, 12 px des bords, coins de 28 px, contour fin ; plein écran sur téléphone), `app-shell.tsx` (colonne rétrécie de 444 px quand le panneau est ouvert). Branche `test`.",
+      "`ai-assistant.tsx` (plus de sessionStorage, anciennes conversations effacées, remise à zéro au changement de page ou de marque ; panneau `.nb-assistant-window`), `globals.css` (panneau : 420 px, sous la barre du haut, 12 px des bords, coins de 28 px, contour fin ; plein écran sur téléphone ; place de la barre de défilement gardée), `app-shell.tsx` (seule la zone sous la barre du haut est rétrécie de 444 px quand le panneau est ouvert), blocs collés en haut de Publier, Page bio, Communauté et Media kit (`--nb-topbar-offset`). Branche `test`.",
     readme: 96,
     migrations: []
   },

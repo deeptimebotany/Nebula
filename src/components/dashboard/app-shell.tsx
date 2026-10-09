@@ -11,7 +11,7 @@
 // écrans de moins de 1 360 px (tant qu'on n'a rien choisi), menu du profil
 // en haut à droite. Le contenu porte la classe .nb-main : les blocs y
 // perdent cadre et ombre (voir globals.css, « Refonte V2 »).
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { useBootstrap } from "@/components/bootstrap-provider";
@@ -36,10 +36,11 @@ import { useAiAssistant } from "./ai-assistant-context";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 
 // Tiroir « Demander à Nebula » sur ordinateur (voir ai-assistant.tsx et
-// .nb-assistant-window dans globals.css) : 420 px de large, détaché de 12 px
-// du bord de l'écran (coins arrondis). La colonne de contenu se rétrécit
-// d'autant quand il est ouvert, façon YouTube Studio, en gardant 12 px
-// d'écart avec lui.
+// .nb-assistant-window dans globals.css) : 420 px de large, sous la barre du
+// haut, détaché de 12 px des bords (coins arrondis). Le contenu SOUS la barre
+// du haut se rétrécit d'autant quand il est ouvert, façon YouTube Studio, en
+// gardant 12 px d'écart avec lui ; la barre du haut, elle, ne bouge pas
+// (demande de Lucas, 09/10/2026).
 const ASSISTANT_WIDTH = 420;
 const ASSISTANT_GAP = 12;
 const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;
@@ -69,40 +70,56 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
   // Tiroir (téléphone)
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Assistant IA ouvert sur ordinateur : la colonne de contenu devient son
-  // propre conteneur de défilement, rétréci de la largeur du tiroir — la
-  // barre de défilement de la page se retrouve donc juste à GAUCHE du
-  // panneau (modèle YouTube Studio), et la page ne défile plus derrière
-  // (plus de double barre). Le défilement est transféré dans les deux sens
-  // pour ne pas perdre la position à l'ouverture et à la fermeture.
+  // Assistant IA ouvert sur ordinateur : la zone SOUS la barre du haut
+  // devient son propre conteneur de défilement, rétrécie de la largeur du
+  // tiroir — sa barre de défilement se retrouve juste à GAUCHE du panneau
+  // (modèle YouTube Studio) et la page ne défile plus derrière (plus de
+  // double barre). La barre du haut reste sur toute la largeur, à la même
+  // place : la place de la barre de défilement de la fenêtre est gardée
+  // (classe nebula-assistant-gutter) pour que ses boutons ne glissent pas.
+  // Le défilement est transféré dans les deux sens pour ne pas perdre la
+  // position à l'ouverture et à la fermeture.
   const assistant = useAiAssistant();
-  const columnRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [assistantDocked, setAssistantDocked] = useState(false);
+  // Position de défilement à reporter une fois la mise en page changée.
+  const pendingScroll = useRef<number | null>(null);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1024px)");
     function apply() {
       const dock = assistant.open && desktop.matches;
-      const column = columnRef.current;
       if (dock === assistantDocked) return;
+      const root = document.documentElement;
       if (dock) {
-        const y = window.scrollY;
-        setAssistantDocked(true);
-        document.documentElement.classList.add("nebula-assistant-docked");
-        requestAnimationFrame(() => {
-          if (column) column.scrollTop = y;
-        });
+        pendingScroll.current = window.scrollY;
+        // Barre de défilement de la fenêtre présente (Windows…) : sa place
+        // reste réservée, sinon la barre du haut s'élargirait d'autant.
+        root.classList.toggle("nebula-assistant-gutter", window.innerWidth > root.clientWidth);
       } else {
-        const y = column?.scrollTop ?? 0;
-        setAssistantDocked(false);
-        document.documentElement.classList.remove("nebula-assistant-docked");
-        requestAnimationFrame(() => window.scrollTo({ top: y }));
+        pendingScroll.current = bodyRef.current?.scrollTop ?? 0;
       }
+      setAssistantDocked(dock);
     }
     apply();
     desktop.addEventListener("change", apply);
     return () => desktop.removeEventListener("change", apply);
   }, [assistant.open, assistantDocked]);
-  useEffect(() => () => document.documentElement.classList.remove("nebula-assistant-docked"), []);
+  // Après le changement de mise en page (avant l'affichage) : classes de la
+  // page et report du défilement, quand les nouvelles hauteurs existent.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("nebula-assistant-docked", assistantDocked);
+    if (!assistantDocked) root.classList.remove("nebula-assistant-gutter");
+    const y = pendingScroll.current;
+    pendingScroll.current = null;
+    if (y === null) return;
+    if (assistantDocked) {
+      if (bodyRef.current) bodyRef.current.scrollTop = y;
+    } else {
+      window.scrollTo(0, y);
+    }
+  }, [assistantDocked]);
+  useEffect(() => () => document.documentElement.classList.remove("nebula-assistant-docked", "nebula-assistant-gutter"), []);
   // Colonne repliée (ordinateur), mémorisée sur cet appareil
   const [collapsed, setCollapsed] = useState(false);
 
@@ -204,19 +221,23 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       </aside>
 
       {/* Colonne de contenu */}
-      <div
-        ref={columnRef}
-        className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding,margin] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60", assistantDocked && "lg:h-screen lg:overflow-y-auto")}
-        style={assistantDocked ? { marginRight: ASSISTANT_SPACE } : undefined}
-      >
+      <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60", assistantDocked && "lg:h-screen")}>
         <AppHeader oauth={oauth} isOwner={isOwner} />
-        <TrialBanner />
-        {activeBrand?.dormant && <DormantBrandBanner />}
-        <main id="contenu" tabIndex={-1} className="nb-main noise-grid flex-1 px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">
-          <InShellContext.Provider value={true}>
-            <div className="mx-auto max-w-7xl">{children}</div>
-          </InShellContext.Provider>
-        </main>
+        {/* Tout ce qui est sous la barre du haut : c'est cette zone (et elle
+            seule) qui se rétrécit et défile quand l'assistant est ouvert. */}
+        <div
+          ref={bodyRef}
+          className={clsx("flex min-w-0 flex-1 flex-col transition-[margin] duration-200", assistantDocked && "lg:min-h-0 lg:overflow-y-auto")}
+          style={assistantDocked ? { marginRight: ASSISTANT_SPACE } : undefined}
+        >
+          <TrialBanner />
+          {activeBrand?.dormant && <DormantBrandBanner />}
+          <main id="contenu" tabIndex={-1} className="nb-main noise-grid flex-1 px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">
+            <InShellContext.Provider value={true}>
+              <div className="mx-auto max-w-7xl">{children}</div>
+            </InShellContext.Provider>
+          </main>
+        </div>
         <MobileTabBar onOpenMenu={openDrawer} menuOpen={drawerOpen} />
         {/* Âge (18 ans et plus) confirmé une fois, avant tout le reste ; puis
             la visite guidée à la première connexion (lot U4). */}
