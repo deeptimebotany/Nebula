@@ -7,7 +7,8 @@ import { useMode } from "@/components/mode-provider";
 import { useBrand } from "@/components/brand-context";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
-import { ACCOUNT_NAV_ITEMS, NAV_GROUPS, OWNER_NAV_ITEMS, type NavIcon } from "./navigation";
+import { ACCOUNT_NAV_ITEMS, OWNER_NAV_ITEMS, PUBLISH_NAV_ITEM, SIDEBAR_NAV_ITEMS, type NavIcon } from "./navigation";
+import { openSettings } from "@/components/settings/settings-events";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun, IconTrophy } from "./icons";
 import { restartGuidedTour } from "@/lib/tour-events";
 import { findEasterEgg, secretEggFor } from "@/lib/easter-eggs-registry";
@@ -45,14 +46,16 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands: Command[] = useMemo(() => {
-    // V2 : les pages du compte (menu du profil) restent dans la palette.
-    const nav: Command[] = [...NAV_GROUPS.flatMap((g) => g.items), ...ACCOUNT_NAV_ITEMS].map((item) => ({
+    // V2 : les pages du compte (menu du profil) restent dans la palette, et
+    // « Publier » aussi (plus dans le menu latéral depuis le 10/10/2026).
+    // Paramètres (10/10/2026) : fenêtre au centre de l'écran, pas une page.
+    const nav: Command[] = [...SIDEBAR_NAV_ITEMS, PUBLISH_NAV_ITEM, ...ACCOUNT_NAV_ITEMS].map((item) => ({
         id: item.href,
         label: item.label,
         hint: item.description,
         icon: item.icon,
         keywords: item.keywords,
-        run: () => router.push(item.href)
+        run: item.href === "/settings" ? () => openSettings() : () => router.push(item.href)
       }));
     if (isOwner) {
       for (const item of OWNER_NAV_ITEMS) nav.push({ id: item.href, label: item.label, hint: item.description, icon: item.icon, run: () => router.push(item.href) });
@@ -80,7 +83,7 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
           setFocusMode(!focusMode);
         }
       },
-      // « Réussites » fait partie de NAV_GROUPS (menu, catégorie Communauté).
+      // « Réussites » fait partie du menu latéral (onglets secondaires).
       // Onglets de Réussites (lot U3) et collection des Easter eggs.
       ...(
         [

@@ -72,7 +72,7 @@ export function playLaunchWhoosh() {
  * Arpège « succès débloqué » (choisi le 24/09/2026, proposition n° 3) :
  * quatre notes montantes (do, mi, sol, do) puis une petite cloche — joué
  * avec l'animation de achievement-toast-listener.tsx. Désactivable dans
- * Paramètres → Apparence & Succès (voir isAchievementSoundOn).
+ * Paramètres → Sons (voir isAchievementSoundOn).
  */
 export function playAchievementArpeggio() {
   const ctx = getCtx();

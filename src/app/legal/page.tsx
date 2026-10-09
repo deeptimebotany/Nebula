@@ -292,7 +292,7 @@ export default function LegalPage() {
 
         <Section title="9. Résiliation et suppression du compte">
           <p>
-            Vous pouvez supprimer votre compte à tout moment depuis Paramètres → Compte &amp; confidentialité. Cette
+            Vous pouvez supprimer votre compte à tout moment depuis Paramètres → Compte. Cette
             action est définitive et efface vos données conformément à la politique de confidentialité ci-dessous.
           </p>
           <p>
@@ -575,7 +575,7 @@ export default function LegalPage() {
           <p>
             Vous disposez d&apos;un droit d&apos;accès, de rectification, d&apos;effacement, de limitation,
             d&apos;opposition et de portabilité de vos données. La plupart s&apos;exercent directement depuis
-            Paramètres → Compte &amp; confidentialité (export de vos données au format JSON, suppression définitive
+            Paramètres → Compte (export de vos données au format JSON, suppression définitive
             du compte, déconnexion de chaque réseau). Une demande de suppression envoyée par e-mail est traitée sous
             7 jours au plus. Pour toute autre demande, écrivez à{" "}
             <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">

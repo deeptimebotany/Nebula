@@ -8,13 +8,19 @@
 //   - ADMINISTRATION (compte propriétaire seulement) : Statistiques
 //     anonymes, Partenaires, Journal des mises à jour, puis « Toute
 //     l'administration » qui déplie les autres pages ;
-//   - apparence (clair / sombre), changer de marque, changer de compte,
-//     Paramètres, se déconnecter, numéro de version. « Paramètres » est
-//     descendu près de « Se déconnecter » le 08/10/2026 (demande de Lucas) :
-//     les réglages du compte sont regroupés en bas, le haut est plus aéré.
+//   - changer de compte, Paramètres, apparence (clair / sombre, juste sous
+//     Paramètres depuis le 10/10/2026, demande de Lucas), se déconnecter,
+//     numéro de version.
+// Marque (10/10/2026, demande de Lucas : « plus accessible ») : une petite
+// pastille avec le logo (ou l'initiale) de la marque active, dans le coin de
+// la photo — sur l'avatar de la barre du haut et dans l'en-tête du menu. Un
+// clic ouvre directement la liste des marques. Plus de ligne « Changer de
+// marque » dans le menu.
+// Paramètres (10/10/2026) : ouvre la fenêtre Paramètres au milieu de l'écran
+// (settings-dialog.tsx), plus une page.
 // Style (08/10/2026) : lignes .nb-menu-item (survol violet doux, léger
 // enfoncement au clic), ouverture animée de .nb-popover (globals.css).
-// « Changer de marque » et « Changer de compte » s'ouvrent dans le menu
+// La liste des marques et « Changer de compte » s'ouvrent dans le menu
 // lui-même (vue suivante, avec retour), sans nouvelle fenêtre.
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -30,19 +36,20 @@ import { AvatarRing, useMyRing } from "@/components/reussites/avatar-ring";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { limitsOf } from "@/lib/plans";
 import { ACCOUNT_NAV_ITEMS, OWNER_MENU_FEATURED, OWNER_NAV_ITEMS, type NavItem } from "./navigation";
+import type { BrandSummary } from "@/components/brand-context";
+import { openSettings } from "@/components/settings/settings-events";
 import { BrandList, PLAN_LABEL, PlanBadge } from "./brand-switcher";
 import { LinkedAccountsList, useLinkedAccounts } from "./account-switcher";
 import { openProfilePanel } from "./profile-panel-events";
 import { UpgradeGem } from "./upgrade-gem";
-import { IconChevron, IconChevronLeft, IconChevronRight, IconLogout, IconMoon, IconSun, IconSwap, IconUser, IconUsers } from "./icons";
+import { IconChevron, IconChevronLeft, IconChevronRight, IconLogout, IconMoon, IconSettings, IconSun, IconUser, IconUsers } from "./icons";
 // Import JSON direct (resolveJsonModule) : le numéro de version, jamais recopié à la main.
 import packageJson from "../../../package.json";
 
 type View = "main" | "brands" | "accounts";
 
-/** « Paramètres » : en bas du menu, juste avant « Se déconnecter ». */
+/** « Paramètres » : en bas du menu (fenêtre au milieu de l'écran), pas dans la liste du compte. */
 const SETTINGS_HREF = "/settings";
-const settingsItem = ACCOUNT_NAV_ITEMS.find((item) => item.href === SETTINGS_HREF) ?? null;
 
 /** Initiales d'un nom (« Inès Martin » → « IM »), sinon de l'adresse. */
 export function initialsOf(name: string | null | undefined, email?: string | null): string {
@@ -66,6 +73,33 @@ function UserAvatar({ image, initials, size, className }: { image: string | null
     >
       {initials}
     </span>
+  );
+}
+
+/**
+ * Pastille de la marque active, dans le coin de la photo (10/10/2026) : son
+ * logo, sinon son initiale. Bouton à part entière : un clic ouvre la liste
+ * des marques.
+ */
+function BrandBubble({ brand, size, onClick, className }: { brand: BrandSummary; size: number; onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-label={`Marque active : ${brand.name}. Changer de marque`}
+      title={`${brand.name} · changer de marque`}
+      data-testid="brand-bubble"
+      className={clsx(
+        "nb-brand-bubble absolute z-[2] flex items-center justify-center overflow-hidden rounded-full font-bold leading-none transition hover:scale-110 focus-visible:scale-110",
+        className
+      )}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.46) }}
+    >
+      {brand.logoUrl ? <RemoteImage src={brand.logoUrl} className="h-full w-full" sizes={`${size}px`} /> : brand.name.charAt(0).toUpperCase()}
+    </button>
   );
 }
 
@@ -119,6 +153,15 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
     }
   }, [open]);
   const close = () => setOpen(false);
+  // Pastille de la marque : ouvre le menu directement sur la liste des marques.
+  function openBrands() {
+    if (open && view === "brands") {
+      setOpen(false);
+      return;
+    }
+    setView("brands");
+    setOpen(true);
+  }
 
   // --- Easter egg « avatar-double-tap » : double-clic sur l'avatar du menu --
   const [heart, setHeart] = useState(false);
@@ -196,6 +239,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
           <UserAvatar image={image} initials={initials} size={36} />
         </AvatarRing>
       </button>
+      {activeBrand && <BrandBubble brand={activeBrand} size={20} onClick={openBrands} className="-bottom-1 -right-1" />}
 
       {open && (
         <div
@@ -226,6 +270,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                     <UserAvatar image={image} initials={initials} size={44} className="relative z-[1]" />
                   </AvatarRing>
                   {cosmetics.has("anneau-saturne-avatar") && <span className="nebula-avatar-saturn-front" aria-hidden="true" />}
+                  {activeBrand && <BrandBubble brand={activeBrand} size={22} onClick={openBrands} className="-bottom-1 -right-1.5" />}
                   {heart && (
                     <span className="pointer-events-none absolute -top-3 left-3 z-10 text-lg" style={{ animation: "nebula-avatar-heart 0.7s ease-out forwards" }} aria-hidden="true">
                       ❤️
@@ -234,7 +279,13 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-white">{name}</span>
-                  <span className="block truncate text-[13px] text-slate-500">{activeBrand ? `Marque : ${activeBrand.name}` : (email ?? "")}</span>
+                  {activeBrand ? (
+                    <button type="button" onClick={openBrands} className="block max-w-full truncate text-left text-[13px] text-slate-500 transition hover:text-white">
+                      Marque : {activeBrand.name}
+                    </button>
+                  ) : (
+                    <span className="block truncate text-[13px] text-slate-500">{email ?? ""}</span>
+                  )}
                 </span>
                 <PlanBadge plan={plan} className="shrink-0" />
               </div>
@@ -307,8 +358,29 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
 
               <div className="my-1 h-px bg-[color:var(--nb-sep)]" />
 
-              {/* Apparence */}
+              {showAccounts && (
+                <button type="button" role="menuitem" onClick={() => setView("accounts")} className={rowClass}>
+                  <IconUsers className={iconClass} />
+                  <span className="flex-1">Changer de compte</span>
+                  <IconChevronRight className="nb-menu-icon h-4 w-4 shrink-0 text-slate-500" />
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  close();
+                  openSettings();
+                }}
+                className={rowClass}
+                data-testid="profile-open-settings"
+              >
+                <IconSettings className={iconClass} />
+                <span className="flex-1">Paramètres</span>
+              </button>
+              {/* Apparence : tout en bas, juste sous Paramètres (10/10/2026, demande de Lucas). */}
               <div className="flex items-center gap-3 px-2.5 py-1.5">
+                {mode === "light" ? <IconSun className={iconClass} /> : <IconMoon className={iconClass} />}
                 <span className="flex-1 text-[14px] text-slate-200">Apparence</span>
                 <div className="grid grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--nb-sep)] p-0.5" role="group" aria-label="Apparence">
                   <button
@@ -329,21 +401,7 @@ export function ProfileMenu({ oauth, isOwner }: { oauth?: { google: boolean; app
                   </button>
                 </div>
               </div>
-
-              <button type="button" role="menuitem" onClick={() => setView("brands")} className={rowClass} data-testid="profile-switch-brand">
-                <IconSwap className={iconClass} />
-                <span className="flex-1">Changer de marque</span>
-                <span className="shrink-0 text-[12px] text-slate-500">{brands.length > 1 ? `${brands.length} marques` : "1 marque"}</span>
-                <IconChevronRight className="nb-menu-icon h-4 w-4 shrink-0 text-slate-500" />
-              </button>
-              {showAccounts && (
-                <button type="button" role="menuitem" onClick={() => setView("accounts")} className={rowClass}>
-                  <IconUsers className={iconClass} />
-                  <span className="flex-1">Changer de compte</span>
-                  <IconChevronRight className="nb-menu-icon h-4 w-4 shrink-0 text-slate-500" />
-                </button>
-              )}
-              {settingsItem && accountRow(settingsItem)}
+              <div className="my-1 h-px bg-[color:var(--nb-sep)]" />
               <button type="button" role="menuitem" onClick={() => signOut({ callbackUrl: "/login" })} className={rowClass}>
                 <IconLogout className={iconClass} />
                 <span className="flex-1">Se déconnecter</span>

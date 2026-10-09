@@ -82,7 +82,7 @@ export interface MeResponse {
   reschedulable: number;
   /** Visite guidée : terminée (ou passée), sinon étape où la reprendre. */
   tour: { completed: boolean; step: number };
-  /** Sons de l'interface (Paramètres → Apparence & Succès). */
+  /** Sons de l'interface (Paramètres → Sons). */
   uiSounds: boolean;
   /**
    * Offres fondateurs (02/10/2026) : badge « Fondateur » (since), année

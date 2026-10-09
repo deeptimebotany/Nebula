@@ -7,7 +7,7 @@
 // Konami…) ni les toasts « succès débloqué » ne sont montés. Les découvertes
 // faites par ailleurs (double-clic sur l'avatar, appui long sur le logo…)
 // restent enregistrées et visibles sur la page Réussites. Se désactive dans
-// Paramètres → Apparence & Succès, ou depuis la palette Cmd/Ctrl+K.
+// Paramètres → Focus et réussites, ou depuis la palette Cmd/Ctrl+K.
 //
 // Les trois modules sont chargés à la demande (audit performance, lot 4) :
 // en Mode focus, ils ne sont jamais téléchargés.

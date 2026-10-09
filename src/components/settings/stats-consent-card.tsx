@@ -11,7 +11,8 @@ import { useToast } from "@/components/dashboard/toast";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { ANON_MIN_ACCOUNTS } from "@/lib/anon-stats/aggregate";
 
-export function StatsConsentCard() {
+/** `bare` : sans carte (fenêtre Paramètres, 10/10/2026). */
+export function StatsConsentCard({ bare = false }: { bare?: boolean } = {}) {
   const { data, loaded, patch } = useBootstrap();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
@@ -32,11 +33,12 @@ export function StatsConsentCard() {
 
   const since = data?.statsConsentAt ? new Date(data.statsConsentAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : null;
 
+  const Wrapper = bare ? "div" : GlassCard;
   return (
-    <GlassCard>
+    <Wrapper>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="font-display text-base font-medium text-white">Statistiques anonymes (facultatif)</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className={bare ? "text-[15px] font-semibold text-white" : "font-display text-base font-medium text-white"}>Statistiques anonymes (facultatif)</h2>
           <p className="mt-1 text-sm text-slate-400">
             Acceptez-vous que votre usage de Nebula contribue à des statistiques de groupe anonymes (par exemple : les
             créneaux et les formats les plus programmés par réseau) ? Uniquement des chiffres calculés sur au moins{" "}
@@ -51,6 +53,6 @@ export function StatsConsentCard() {
         </div>
         <Toggle checked={consent} onChange={onChange} disabled={!loaded || saving} aria-label="Contribuer aux statistiques anonymes" className="mt-1 shrink-0" />
       </div>
-    </GlassCard>
+    </Wrapper>
   );
 }

@@ -8,6 +8,60 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-10-zoom-chevauchement",
+    date: "2026-10-10",
+    title: "Zoom à 130 % et plus : plus rien ne se chevauche",
+    category: "Interface",
+    links: [
+      { href: "/community", label: "Communauté" },
+      { href: "/analytics", label: "Analytics" }
+    ],
+    result:
+      "En zoomant la page (130 % et plus) ou dans une petite fenêtre, le contenu garde toujours assez de place : le menu se réduit tout seul en icônes (« Déplier » l'ouvre par-dessus la page), et « Demander à Nebula » flotte par-dessus la page au lieu de la rétrécir quand il manque de la place. Avant, colonnes et textes se superposaient.",
+    change: "Règles de largeur dans `shell-layout.ts` (900 px de contenu au minimum), `app-shell.tsx` (largeur de la fenêtre suivie, menu réduit d'office et dépliable par-dessus, assistant posé à côté ou flottant). Branche `test`.",
+    readme: 119,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-parametres-fenetre",
+    date: "2026-10-10",
+    title: "Paramètres : une fenêtre au milieu de l'écran",
+    category: "Compte et facturation",
+    links: [{ href: "/settings", label: "Paramètres" }],
+    result:
+      "Les Paramètres s'ouvrent dans une fenêtre au milieu de l'écran, le site flouté derrière, avec des onglets à gauche : Marque, Apparence, Focus et réussites, Sons, Notifications, Parrainage, Compte. Chaque réglage tient sur une ligne avec un interrupteur. Échap, la croix ou un clic à côté la ferment.",
+    change: "Nouvelle fenêtre `settings-dialog.tsx`, ouverture `settings-events.ts` et `settings-host.tsx` (menu du profil, recherche, notifications, liens « /settings ») ; `/settings` ouvre la fenêtre par-dessus la vue d'ensemble. Branche `test`.",
+    readme: 118,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-profil-pastille-marque",
+    date: "2026-10-10",
+    title: "Menu du profil : pastille de la marque, Apparence sous Paramètres",
+    category: "Interface",
+    links: [{ href: "/dashboard", label: "Vue d'ensemble" }],
+    result:
+      "Une petite pastille avec le logo de la marque active est posée dans le coin de votre photo, en haut à droite et dans le menu du profil : un clic ouvre directement la liste des marques. Dans le menu, « Apparence » (clair ou sombre) est maintenant juste sous « Paramètres ».",
+    change: "`profile-menu.tsx` (pastille `BrandBubble`, Paramètres ouvre la fenêtre, Apparence déplacée), `globals.css`. Branche `test`.",
+    readme: 117,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-menu-sans-categories",
+    date: "2026-10-10",
+    title: "Menu sans catégories et nouvelle icône Vue d'ensemble",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/calendar", label: "Calendrier" }
+    ],
+    result:
+      "Le menu n'a plus de catégories : les onglets principaux en haut (Vue d'ensemble, Calendrier, Publications, Analytics, Interactions, Communauté), un trait, puis les autres. « Publier » quitte le menu (le bouton est en haut à droite). La Vue d'ensemble a une nouvelle icône : trois tuiles et une planète.",
+    change: "`navigation.ts` (groupes principal et secondaire, `PUBLISH_NAV_ITEM`), `sidebar-nav.tsx` (plus d'accordéons, un trait de séparation), `nav-icons.tsx`, `command-palette.tsx`, visite guidée, plan donné à l'assistant. Branche `test`.",
+    readme: 116,
+    migrations: []
+  },
+  {
     id: "2026-10-09-menu-icones-police",
     date: "2026-10-09",
     title: "Nouvelles icônes du menu, police Inter partout",

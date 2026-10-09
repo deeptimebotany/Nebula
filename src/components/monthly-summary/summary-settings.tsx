@@ -1,7 +1,7 @@
 "use client";
 
 // Réglages du bilan du mois par e-mail (03/10/2026) : l'activer, choisir ses
-// marques, s'envoyer un aperçu. Dans Paramètres → Compte et sur la page
+// marques, s'envoyer un aperçu. Dans Paramètres → Notifications et sur la page
 // « Bilan du mois » d'Analytics (variante compacte).
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -52,7 +52,8 @@ export function useSummarySettings() {
   return { settings, saving, save };
 }
 
-export function MonthlySummarySettings({ compact = false }: { compact?: boolean }) {
+/** `dialog` : dans la fenêtre Paramètres (10/10/2026), titre comme les autres réglages. */
+export function MonthlySummarySettings({ compact = false, dialog = false }: { compact?: boolean; dialog?: boolean }) {
   const { settings, saving, save } = useSummarySettings();
   const [previewing, setPreviewing] = useState(false);
   const toast = useToast();
@@ -80,9 +81,9 @@ export function MonthlySummarySettings({ compact = false }: { compact?: boolean 
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className={compact ? "font-display text-base font-medium text-white" : "text-sm font-medium text-white"}>Bilan du mois par e-mail</h3>
-          <p className="mt-1 text-sm text-slate-400">
+        <div className="min-w-0 flex-1">
+          <h3 className={dialog ? "text-[15px] font-semibold text-white" : compact ? "font-display text-base font-medium text-white" : "text-sm font-medium text-white"}>Bilan du mois par e-mail</h3>
+          <p className={dialog ? "mt-1 text-[13px] leading-relaxed text-slate-400" : "mt-1 text-sm text-slate-400"}>
             Le 3 de chaque mois, les chiffres du mois écoulé : abonnés, vues, interactions, publications, vos meilleures publications et ce qui a marché. Un
             e-mail par marque.{" "}
             {!compact && (

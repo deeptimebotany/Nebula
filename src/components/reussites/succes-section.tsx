@@ -82,7 +82,7 @@ export function EggCollection() {
         </h2>
         <p className="mt-1 text-sm text-slate-400">
           Des easter eggs sont cachés un peu partout dans Nebula. Chacun se révèle ici dès que vous le trouvez : pas d&apos;indice, juste le plaisir de tomber dessus. En Mode
-          focus (activé par défaut), les surprises ambiantes sont en pause : désactivez-le dans Paramètres → Apparence &amp; Succès pour les retrouver.
+          focus (activé par défaut), les surprises ambiantes sont en pause : désactivez-le dans Paramètres → Focus et réussites pour les retrouver.
         </p>
       </div>
       {!eggs ? (

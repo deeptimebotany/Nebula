@@ -100,11 +100,11 @@ describe("menu « Outils »", () => {
     expect(resolveNav("/tools/taux-engagement")).toMatchObject({ item: { href: "/tools" }, pageLabel: "Calculateur de taux d'engagement" });
     expect(APP_PREFIXES).toContain("/tools");
     expect(APP_MAP).toMatch(/Outils \(Taux d'engagement/);
-    // Refonte V2 (07/10/2026) : catégories repliables et menu du profil.
     // 09/10/2026 : Rétention IA dans Analytics, Commentaires + Engagements = Interactions.
-    expect(APP_MAP).toMatch(/Analyser → Analytics \(onglets Vue d'ensemble, Rétention IA, Concurrence, Publicité\), Outils/);
-    expect(APP_MAP).toMatch(/Présence → Comptes connectés, Interactions \(onglets Commentaires et Engagement\), Page bio, Media kit/);
-    expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Paramètres, Facturation, Automatisations, Soutenir Nebula/);
+    // 10/10/2026 : menu sans catégories (principaux, puis secondaires), Paramètres en fenêtre.
+    expect(APP_MAP).toMatch(/Analytics \(onglets Vue d'ensemble, Rétention IA, Concurrence, Publicité\), Interactions \(onglets Commentaires et Engagement\), Communauté/);
+    expect(APP_MAP).toMatch(/onglets secondaires → Studio IA, Outils \(Taux d'engagement[^)]*\), Comptes connectés, Page bio, Media kit/);
+    expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Facturation, Automatisations, Soutenir Nebula, changer de compte, Paramètres/);
   });
 });
 

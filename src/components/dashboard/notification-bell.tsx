@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
 import { useFocusMode } from "@/components/bootstrap-provider";
+import { openSettings, settingsTabFromHash } from "@/components/settings/settings-events";
 
 interface NotificationItem {
   id: string;
@@ -273,7 +274,9 @@ export function NotificationBell() {
     if (!n.read) markRead([n.id]);
     if (n.href) {
       setOpen(false);
-      router.push(n.href);
+      // Paramètres (10/10/2026) : une fenêtre, pas une page.
+      if (n.href === "/settings" || n.href.startsWith("/settings#")) openSettings(settingsTabFromHash(n.href.slice("/settings".length)));
+      else router.push(n.href);
     }
   }
 

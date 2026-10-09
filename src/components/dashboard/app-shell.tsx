@@ -35,16 +35,7 @@ const AgeGate = dynamic(() => import("@/components/age-gate").then((m) => m.AgeG
 const DormantBrandBanner = dynamic(() => import("@/components/billing/dormant-brand").then((m) => m.DormantBrandBanner), { ssr: false });
 import { useAiAssistant } from "./ai-assistant-context";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
-
-// Tiroir « Demander à Nebula » sur ordinateur (voir ai-assistant.tsx et
-// .nb-assistant-window dans globals.css) : 420 px de large, sous la barre du
-// haut, détaché de 12 px des bords (coins arrondis). Le contenu SOUS la barre
-// du haut se rétrécit d'autant quand il est ouvert, façon YouTube Studio, en
-// gardant 12 px d'écart avec lui ; la barre du haut, elle, ne bouge pas
-// (demande de Lucas, 09/10/2026).
-const ASSISTANT_WIDTH = 420;
-const ASSISTANT_GAP = 12;
-const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;
+import { ASSISTANT_SPACE, shellLayout } from "./shell-layout";
 
 const COLLAPSED_KEY = "nebula:sidebar-collapsed";
 
@@ -82,29 +73,32 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
   // position à l'ouverture et à la fermeture.
   const assistant = useAiAssistant();
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Largeur de la fenêtre en px CSS (le zoom la réduit) ; 0 avant le montage.
+  const [viewport, setViewport] = useState(0);
+  useEffect(() => {
+    const onResize = () => setViewport(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const layout = shellLayout(viewport, assistant.open);
   const [assistantDocked, setAssistantDocked] = useState(false);
   // Position de défilement à reporter une fois la mise en page changée.
   const pendingScroll = useRef<number | null>(null);
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
-    function apply() {
-      const dock = assistant.open && desktop.matches;
-      if (dock === assistantDocked) return;
-      const root = document.documentElement;
-      if (dock) {
-        pendingScroll.current = window.scrollY;
-        // Barre de défilement de la fenêtre présente (Windows…) : sa place
-        // reste réservée, sinon la barre du haut s'élargirait d'autant.
-        root.classList.toggle("nebula-assistant-gutter", window.innerWidth > root.clientWidth);
-      } else {
-        pendingScroll.current = bodyRef.current?.scrollTop ?? 0;
-      }
-      setAssistantDocked(dock);
+    const dock = layout.docked;
+    if (dock === assistantDocked) return;
+    const root = document.documentElement;
+    if (dock) {
+      pendingScroll.current = window.scrollY;
+      // Barre de défilement de la fenêtre présente (Windows…) : sa place
+      // reste réservée, sinon la barre du haut s'élargirait d'autant.
+      root.classList.toggle("nebula-assistant-gutter", window.innerWidth > root.clientWidth);
+    } else {
+      pendingScroll.current = bodyRef.current?.scrollTop ?? 0;
     }
-    apply();
-    desktop.addEventListener("change", apply);
-    return () => desktop.removeEventListener("change", apply);
-  }, [assistant.open, assistantDocked]);
+    setAssistantDocked(dock);
+  }, [layout.docked, assistantDocked]);
   // Après le changement de mise en page (avant l'affichage) : classes de la
   // page et report du défilement, quand les nouvelles hauteurs existent.
   useLayoutEffect(() => {
@@ -133,6 +127,27 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       // stockage indisponible — colonne dépliée
     }
   }, []);
+
+  // Barre latérale réduite d'office (place insuffisante) : « Déplier »
+  // l'ouvre par-dessus la page, le temps d'y choisir une page.
+  const forcedRail = layout.forcedRail;
+  const railShown = forcedRail || collapsed;
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const sidebarOverlay = forcedRail && overlayOpen;
+  useEffect(() => {
+    if (!forcedRail) setOverlayOpen(false);
+  }, [forcedRail]);
+  useEffect(() => {
+    setOverlayOpen(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!sidebarOverlay) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOverlayOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sidebarOverlay]);
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((v) => {
@@ -182,24 +197,29 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
   }
   function onToggleCollapsed() {
     countMenuOpen();
-    toggleCollapsed();
+    if (forcedRail) setOverlayOpen((v) => !v);
+    else toggleCollapsed();
   }
 
   return (
     <div className="flex min-h-screen">
       {/* Colonne fixe — ordinateur */}
       <aside
+        data-testid="app-sidebar"
         className={clsx(
           // Sans trait à droite (09/10/2026, demande de Lucas : « épurer ») :
           // barre latérale et page ont le même fond uni.
           // Dès 768 px (09/10/2026, retour de Lucas : fenêtre coupée en deux,
           // plus de menu) : la colonne reste là, en icônes sous 1 360 px.
           "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 md:flex",
-          collapsed ? "w-[72px]" : "w-60"
+          railShown && !sidebarOverlay ? "w-[72px]" : "w-60",
+          // Dépliée par-dessus la page (place insuffisante, voir shellLayout).
+          sidebarOverlay && "z-50 shadow-2xl"
         )}
       >
-        <SidebarNav collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} brandName={brandName} logoUrl={whiteLabel.logoUrl} />
+        <SidebarNav collapsed={railShown && !sidebarOverlay} onToggleCollapsed={onToggleCollapsed} brandName={brandName} logoUrl={whiteLabel.logoUrl} />
       </aside>
+      {sidebarOverlay && <div aria-hidden="true" onClick={() => setOverlayOpen(false)} className="fixed inset-0 z-40 hidden bg-black/40 md:block" />}
 
       {/* Tiroir — téléphone / tablette */}
       <div
@@ -226,7 +246,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       </aside>
 
       {/* Colonne de contenu */}
-      <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "md:pl-[72px]" : "md:pl-60", assistantDocked && "lg:h-screen")}>
+      <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", railShown ? "md:pl-[72px]" : "md:pl-60", assistantDocked && "lg:h-screen")}>
         <AppHeader oauth={oauth} isOwner={isOwner} onOpenMenu={openDrawer} />
         {/* Tout ce qui est sous la barre du haut : c'est cette zone (et elle
             seule) qui se rétrécit et défile quand l'assistant est ouvert. */}

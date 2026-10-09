@@ -6,6 +6,7 @@ import { AppShell } from "@/components/dashboard/app-shell";
 import { AiAssistantLazy } from "@/components/dashboard/ai-assistant-lazy";
 import { AiAssistantProvider } from "@/components/dashboard/ai-assistant-context";
 import { ProfilePanelLazy } from "@/components/dashboard/profile-panel-lazy";
+import { SettingsHost } from "@/components/settings/settings-host";
 import { UpgradeModalProvider } from "@/components/billing/upgrade-modal";
 import { TrialEndedNotice } from "@/components/billing/trial-banner";
 import { FounderEndModal } from "@/components/billing/founder-end-modal";
@@ -106,6 +107,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 {/* Panneau « Mon profil » (badges, easter eggs, parrainage) —
                     ouvert depuis la Communauté ou le menu du compte. */}
                 <ProfilePanelLazy />
+                {/* Fenêtre Paramètres (10/10/2026), téléchargée à la première ouverture. */}
+                <SettingsHost />
                 <TrialEndedNotice />
                 <FounderEndModal />
               </UpgradeModalProvider>

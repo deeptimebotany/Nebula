@@ -26,14 +26,14 @@ describe("visite guidée (lot U4)", () => {
     expect(focus.text).toContain("Paramètres");
     // Refonte V2 (07/10/2026) : Paramètres est dans le menu du profil (avatar).
     expect(focus.anchors).toEqual(["profile-menu", "mobile-menu"]);
-    expect(focus.path).toEqual(["Menu du profil", "Paramètres", "Apparence & Succès", "Mode focus"]);
+    expect(focus.path).toEqual(["Menu du profil", "Paramètres", "Focus et réussites", "Mode focus"]);
     expect(focus.arrow).toBe(true);
     expect(TOUR_STEPS.filter((s) => s.focusChoice).map((s) => s.id)).toEqual(["focus"]);
     expect(TOUR_STEPS.filter((s) => s.arrow).map((s) => s.id)).toEqual(["focus"]);
     // Le chemin affiché correspond aux vrais libellés : onglet des Paramètres et interrupteur.
-    const settings = readFileSync("src/app/(dashboard)/settings/page.tsx", "utf8");
-    expect(settings).toContain('{ value: "apparence", label: "Apparence & Succès" }');
-    expect(settings).toContain('aria-label="Mode focus"');
+    // Paramètres (10/10/2026) : une fenêtre au milieu de l'écran, avec des onglets.
+    expect(readFileSync("src/components/settings/settings-events.ts", "utf8")).toContain('{ value: "focus", label: "Focus et réussites"');
+    expect(readFileSync("src/components/settings/settings-dialog.tsx", "utf8")).toContain('aria-label="Mode focus"');
     expect(readFileSync("src/components/dashboard/navigation.ts", "utf8")).toMatch(/href: "\/settings", label: "Paramètres"/);
     // Sur téléphone, les zones du tiroir pointent le bouton Menu de la barre du bas.
     for (const id of ["brand", "connect", "reussites", "focus"]) expect(TOUR_STEPS.find((s) => s.id === id)?.anchors).toContain("mobile-menu");
@@ -72,15 +72,14 @@ describe("visite guidée (lot U4)", () => {
     const src = ["src/components/dashboard/profile-menu.tsx", "src/components/dashboard/app-header.tsx", "src/components/dashboard/sidebar-nav.tsx", "src/components/dashboard/mobile-tab-bar.tsx"]
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
-    // V2 : la marque et les Paramètres sont dans le menu du profil ; une page
-    // d'une catégorie repliée est montrée par le titre de sa catégorie.
+    // V2 : la marque et les Paramètres sont dans le menu du profil. Menu sans
+    // catégories (10/10/2026) : chaque page a sa cible ; Publier est en haut à droite.
     expect(src).toContain('data-tour="brand-switcher"');
     expect(src).toContain('data-tour="profile-menu"');
     expect(src).toContain('data-tour="mobile-menu"');
+    expect(src).toContain('data-tour="header-publish"');
     expect(src).toContain("data-tour={`nav-${item.href.slice(1)}`}");
-    expect(src).toContain("data-tour={`nav-group-${group.key}`}");
-    const groups = readFileSync("src/components/dashboard/navigation.ts", "utf8");
-    for (const anchor of TOUR_STEPS.flatMap((s) => s.anchors).filter((a) => a.startsWith("nav-group-"))) expect(groups).toContain(`key: "${anchor.slice("nav-group-".length)}"`);
+    expect(TOUR_STEPS.flatMap((s) => s.anchors).some((a) => a.startsWith("nav-group-"))).toBe(false);
   });
 });
 

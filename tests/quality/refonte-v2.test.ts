@@ -8,7 +8,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: 
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ACCOUNT_NAV_ITEMS, ALL_NAV_ITEMS, NAV_GROUPS, OWNER_MENU_FEATURED, OWNER_NAV_ITEMS, navGroupKeyFor } from "@/components/dashboard/navigation";
+import { ACCOUNT_NAV_ITEMS, ALL_NAV_ITEMS, MOBILE_TAB_HREFS, NAV_GROUPS, OWNER_MENU_FEATURED, OWNER_NAV_ITEMS, SIDEBAR_NAV_ITEMS, navGroupKeyFor } from "@/components/dashboard/navigation";
 import { initialsOf } from "@/components/dashboard/profile-menu";
 import { formatSlotLabel, nextBestSlot } from "@/components/composer/publish-card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -17,34 +17,46 @@ import { UI_PREF_KEYS } from "@/lib/ui-prefs";
 
 const read = (f: string) => readFileSync(f, "utf8");
 
-describe("barre latérale : « Vue d'ensemble » puis cinq catégories repliables", () => {
-  it("catégories et pages dans l'ordre des maquettes", () => {
-    expect(NAV_GROUPS.map((g) => g.label ?? null)).toEqual([null, "Créer", "Analyser", "Présence", "Clients", "Communauté"]);
-    expect(NAV_GROUPS[0].items.map((i) => i.href)).toEqual(["/dashboard"]);
-    expect(NAV_GROUPS[1].items.map((i) => i.label)).toEqual(["Publier", "Studio IA", "Publications", "Calendrier"]);
+describe("barre latérale sans catégories : principaux, un trait, secondaires (10/10/2026)", () => {
+  it("onglets principaux dans l'ordre de Lucas, puis les secondaires", () => {
+    expect(NAV_GROUPS.map((g) => g.key)).toEqual(["principal", "secondaire"]);
+    expect(NAV_GROUPS[0].items.map((i) => i.label)).toEqual(["Vue d'ensemble", "Calendrier", "Publications", "Analytics", "Interactions", "Communauté"]);
+    expect(NAV_GROUPS[1].items.map((i) => i.label)).toEqual(["Studio IA", "Outils", "Comptes connectés", "Page bio", "Media kit", "Rapports", "Calendrier client", "Réussites"]);
+    expect(SIDEBAR_NAV_ITEMS).toHaveLength(14);
+  });
+  it("« Publier » quitte le menu latéral mais reste dans la palette, le fil d'Ariane et la barre du bas", () => {
+    expect(SIDEBAR_NAV_ITEMS.map((i) => i.href)).not.toContain("/composer");
+    expect(ALL_NAV_ITEMS.find((i) => i.href === "/composer")?.label).toBe("Publier");
+    expect(MOBILE_TAB_HREFS).toContain("/composer");
+    expect(read("src/components/dashboard/command-palette.tsx")).toContain("[...SIDEBAR_NAV_ITEMS, PUBLISH_NAV_ITEM, ...ACCOUNT_NAV_ITEMS]");
+    expect(read("src/components/dashboard/app-header.tsx")).toContain('data-tour="header-publish"');
   });
   it("le compte n'est plus dans la barre latérale, mais reste dans la palette et le fil d'Ariane", () => {
-    const sidebar = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href));
+    const sidebar = SIDEBAR_NAV_ITEMS.map((i) => i.href);
     for (const item of ACCOUNT_NAV_ITEMS) {
       expect(sidebar).not.toContain(item.href);
       expect(ALL_NAV_ITEMS.map((i) => i.href)).toContain(item.href);
     }
     expect(ACCOUNT_NAV_ITEMS.map((i) => i.label)).toEqual(["Paramètres", "Facturation", "Automatisations", "Soutenir Nebula"]);
-    expect(read("src/components/dashboard/command-palette.tsx")).toContain("...ACCOUNT_NAV_ITEMS");
   });
-  it("la catégorie de la page ouverte se déplie d'office (pages secondaires comprises)", () => {
-    expect(navGroupKeyFor("/composer")).toBe("creer");
-    expect(navGroupKeyFor("/posts/abc")).toBe("creer");
-    expect(navGroupKeyFor("/tools/taux-engagement")).toBe("analyser");
-    expect(navGroupKeyFor("/reussites")).toBe("communaute");
+  it("groupe d'une page (pages secondaires comprises)", () => {
+    expect(navGroupKeyFor("/calendar")).toBe("principal");
+    expect(navGroupKeyFor("/posts/abc")).toBe("principal");
+    expect(navGroupKeyFor("/tools/taux-engagement")).toBe("secondaire");
+    expect(navGroupKeyFor("/reussites")).toBe("secondaire");
+    expect(navGroupKeyFor("/composer")).toBeNull();
     expect(navGroupKeyFor("/settings")).toBeNull();
   });
-  it("mode réduit : icônes avec infobulle, état mémorisé ; catégories ouvertes mémorisées", () => {
+  it("plus de titres de catégorie ni d'accordéons : un trait fin sépare les deux groupes ; mode réduit avec infobulles", () => {
     const sidebar = read("src/components/dashboard/sidebar-nav.tsx");
+    expect(sidebar).toContain('role="separator"');
+    expect(sidebar).toContain("{index > 0 && (");
+    expect(sidebar).not.toContain("aria-expanded");
+    expect(sidebar).not.toContain("uppercase");
+    expect(sidebar).not.toContain("nav-groups-open");
     expect(sidebar).toContain('role="tooltip"');
     expect(sidebar).toContain('"Réduire le menu"');
-    expect(sidebar).toContain("aria-expanded={open}");
-    expect(UI_PREF_KEYS).toEqual(expect.arrayContaining(["nebula:sidebar-collapsed", "nebula:nav-groups-open", "nebula:composer-preview-hidden"]));
+    expect(UI_PREF_KEYS).toEqual(expect.arrayContaining(["nebula:sidebar-collapsed", "nebula:composer-preview-hidden"]));
     expect(read("src/components/dashboard/app-shell.tsx")).toMatch(/window\.innerWidth < 1360/);
   });
 });
@@ -52,7 +64,7 @@ describe("barre latérale : « Vue d'ensemble » puis cinq catégories repliable
 describe("menu du profil (en haut à droite)", () => {
   it("compte, administration mise en avant, marque, déconnexion", () => {
     const menu = read("src/components/dashboard/profile-menu.tsx");
-    for (const label of ["Mon profil", "Administration", "Toute l&apos;administration", "Changer de marque", "Changer de compte", "Se déconnecter", "Apparence"]) expect(menu).toContain(label);
+    for (const label of ["Mon profil", "Administration", "Toute l&apos;administration", "Changer de marque", "Changer de compte", "Paramètres", "Se déconnecter", "Apparence"]) expect(menu).toContain(label);
     expect(OWNER_MENU_FEATURED.every((href) => OWNER_NAV_ITEMS.some((i) => i.href === href))).toBe(true);
     // Les easter eggs du menu latéral ont suivi : version, mode clair/sombre, double-clic sur l'avatar.
     for (const egg of ["version-click", "theme-toggle-10x", "avatar-double-tap"]) expect(menu).toContain(`"${egg}"`);
@@ -192,15 +204,20 @@ describe("ajustements V2 du 08/10/2026 (retours de Lucas sur le site de test)", 
     expect(overlay).not.toContain("rounded-2xl");
     expect(read("src/components/dashboard/app-shell.tsx")).toContain('<main id="contenu"');
   });
-  it("menu du profil : « Paramètres » en bas, entre « Changer de marque » et « Se déconnecter »", () => {
+  it("menu du profil (10/10/2026) : Paramètres ouvre la fenêtre, Apparence juste dessous, puis Se déconnecter ; la marque est une pastille", () => {
     const menu = read("src/components/dashboard/profile-menu.tsx");
     expect(menu).toContain("ACCOUNT_NAV_ITEMS.filter((item) => item.href !== SETTINGS_HREF).map(accountRow)");
-    const brand = menu.indexOf("Changer de marque</span>");
-    const settings = menu.indexOf("{settingsItem && accountRow(settingsItem)}");
+    const settings = menu.indexOf("<span className=\"flex-1\">Paramètres</span>");
+    const appearance = menu.indexOf("<span className=\"flex-1 text-[14px] text-slate-200\">Apparence</span>");
     const logout = menu.indexOf("Se déconnecter</span>");
-    expect(brand).toBeGreaterThan(0);
-    expect(settings).toBeGreaterThan(brand);
-    expect(logout).toBeGreaterThan(settings);
+    expect(settings).toBeGreaterThan(0);
+    expect(appearance).toBeGreaterThan(settings);
+    expect(logout).toBeGreaterThan(appearance);
+    expect(menu).toContain("openSettings();");
+    // Plus de ligne « Changer de marque » : la pastille, sur la photo du haut et dans l'en-tête du menu.
+    expect(menu).not.toContain("Changer de marque</span>");
+    expect(menu.match(/<BrandBubble brand=\{activeBrand\}/g)).toHaveLength(2);
+    expect(menu).toContain('data-testid="brand-bubble"');
   });
 });
 
@@ -266,7 +283,8 @@ describe("assistant « Demander à Nebula » (09/10/2026)", () => {
     expect(css).toMatch(/html\.nebula-assistant-gutter \{\s*scrollbar-gutter: stable;/);
     expect(css).toMatch(/html\.nebula-assistant-docked \{\s*--nb-topbar-offset: 0px;/);
     const shell = read("src/components/dashboard/app-shell.tsx");
-    expect(shell).toContain("const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;");
+    // Largeurs dans shell-layout.ts depuis le 10/10/2026 (règles du zoom).
+    expect(read("src/components/dashboard/shell-layout.ts")).toContain("export const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;");
     // La marge est sur la zone sous la barre du haut, pas sur la colonne
     // qui contient la barre du haut.
     expect(shell).toMatch(/<AppHeader oauth=\{oauth\} isOwner=\{isOwner\} onOpenMenu=\{openDrawer\} \/>[\s\S]*ref=\{bodyRef\}[\s\S]*marginRight: ASSISTANT_SPACE[\s\S]*<main id="contenu"/);
@@ -319,7 +337,6 @@ describe("menu latéral (09/10/2026) : gris clair, page ouverte en gras blanc av
     expect(nav).toContain('active ? "nb-nav-item-active font-semibold text-white" : "font-normal text-slate-300 hover:text-white"');
     expect(nav).toContain("filled={active}");
     expect(nav).toContain('"h-6 w-6 shrink-0"');
-    expect(nav).toContain("text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300");
     expect(nav).toContain("text-[14px] font-medium text-slate-300 transition");
   });
   it("icônes du menu propres à Nebula : traits de 2 px, version pleine par masque", () => {
@@ -359,7 +376,7 @@ describe("barre du haut façon YouTube Studio (09/10/2026)", () => {
     expect(header).toContain('<IconSearch className="h-6 w-6 [stroke-width:2.1]" />');
     expect(header).toContain("rounded-full border border-white/20");
     expect(header).toContain('<span className="hidden md:inline">Demander à Nebula</span>');
-    expect(header).toContain('<Link href="/composer" className={clsx(pill, "hidden md:flex")}>');
+    expect(header).toContain('<Link href="/composer" data-tour="header-publish" className={clsx(pill, "hidden md:flex")}>');
     // Ordre de YouTube Studio : notifications avant l'assistant.
     expect(header.indexOf("<NotificationBell />")).toBeLessThan(header.indexOf("assistant.enabled && ("));
     expect(read("src/components/dashboard/notification-bell.tsx")).toContain('<BellIcon className="h-6 w-6 [stroke-width:2.1]" />');

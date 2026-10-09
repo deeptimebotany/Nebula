@@ -20,7 +20,7 @@ export function ComposerTips() {
           <ul className="space-y-1.5">
             <li>• Après l&apos;envoi, vous arrivez sur la fiche de la publication : statut par réseau, discussion et, sur YouTube, analyse de rétention par IA.</li>
             <li>• En mode programmé, le planificateur publie automatiquement à l&apos;heure prévue, dans le fuseau horaire de la marque.</li>
-            <li>• Si un compte échoue, vous recevez un email (désactivable dans Paramètres → Compte) et vous pouvez retenter l&apos;envoi depuis la fiche.</li>
+            <li>• Si un compte échoue, vous recevez un email (désactivable dans Paramètres → Notifications) et vous pouvez retenter l&apos;envoi depuis la fiche.</li>
           </ul>
         </div>
       </details>

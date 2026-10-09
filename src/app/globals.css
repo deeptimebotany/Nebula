@@ -2592,6 +2592,20 @@ button:focus-visible > .nt-pill, a:focus-visible > .nt-pill { outline: 2px solid
 [data-mode="light"] .nb-menu-item:active:not(:disabled) { background-color: rgb(var(--c-aurora-500) / 0.15); }
 [data-mode="light"] .nb-menu-item:hover .nb-menu-icon,
 [data-mode="light"] .nb-menu-item:focus-visible .nb-menu-icon { color: var(--l-accent); }
+/* Pastille de la marque active dans le coin de la photo (10/10/2026) :
+   logo ou initiale, détourée de la couleur du fond pour se détacher. */
+.nb-brand-bubble {
+  background-color: var(--nb-avatar-bg);
+  color: var(--nb-avatar-ink);
+  box-shadow: 0 0 0 2px var(--nb-page);
+}
+.nb-popover .nb-brand-bubble {
+  box-shadow: 0 0 0 2px var(--nb-elevated);
+}
+.nb-brand-bubble:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--nb-page), 0 0 0 4px rgb(var(--c-aurora-400) / 0.8);
+}
 /* Ligne choisie (marque active, compte actif, mode d'apparence) : fond violet léger. */
 .nb-menu-item-current,
 .nb-menu-item-current:hover {
@@ -2897,4 +2911,74 @@ select option {
 }
 @media (prefers-reduced-motion: reduce) {
   .nb-assistant-window { transition: visibility 0s; }
+}
+
+/* ==========================================================================
+   Fenêtre Paramètres (10/10/2026, demande de Lucas) : un cadre au milieu de
+   l'écran, le site flouté derrière, onglets à gauche (settings-dialog.tsx).
+   ========================================================================== */
+@keyframes nb-settings-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes nb-settings-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.nb-settings-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(12px) saturate(0.9);
+  backdrop-filter: blur(12px) saturate(0.9);
+  animation: nb-settings-fade 0.2s ease-out both;
+}
+[data-mode="light"] .nb-settings-backdrop {
+  background-color: rgba(17, 24, 39, 0.28);
+}
+.nb-settings-panel {
+  background-color: var(--nb-elevated);
+  background-image: radial-gradient(90% 140px at 70% -40px, rgb(var(--c-aurora-500) / 0.1), transparent 70%);
+  animation: nb-settings-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+@media (min-width: 640px) {
+  .nb-settings-panel {
+    border: 1px solid color-mix(in srgb, rgb(var(--c-aurora-400)) 22%, var(--nb-sep-strong));
+    box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.85);
+  }
+  [data-mode="light"] .nb-settings-panel {
+    border-color: color-mix(in srgb, rgb(var(--c-aurora-500)) 16%, var(--nb-sep-strong));
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 40px 100px -30px rgba(17, 24, 39, 0.35);
+  }
+  .nb-settings-nav {
+    border-right: 1px solid var(--nb-sep);
+    background-color: color-mix(in srgb, var(--nb-page) 45%, transparent);
+  }
+}
+.nb-settings-nav {
+  border-bottom: 1px solid var(--nb-sep);
+}
+@media (min-width: 640px) {
+  .nb-settings-nav { border-bottom: 0; }
+}
+.nb-settings-tab:hover {
+  background-color: var(--nb-hover);
+}
+.nb-settings-tab-active,
+.nb-settings-tab-active:hover {
+  background-color: rgb(var(--c-aurora-500) / 0.16);
+}
+[data-mode="light"] .nb-settings-tab-active,
+[data-mode="light"] .nb-settings-tab-active:hover {
+  background-color: rgb(var(--c-aurora-500) / 0.1);
+}
+.nb-settings-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px rgb(var(--c-aurora-400) / 0.7);
+}
+/* Lignes de réglage séparées par un trait fin. */
+.nb-settings-list > .nb-settings-row + .nb-settings-row {
+  border-top: 1px solid var(--nb-sep);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-settings-backdrop,
+  .nb-settings-panel { animation: none; }
 }

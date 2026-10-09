@@ -21,7 +21,9 @@ export const UI_PREF_KEYS = [
   "nebula:reussites-succes-collapsed",
   "nebula:theme-nova-unlocked",
   "nebula:minigame-best",
-  // Refonte V2 (07/10/2026) : catégories dépliées du menu, aperçu de Publier rangé.
+  // Refonte V2 (07/10/2026) : catégories dépliées du menu (plus lues depuis le
+  // menu sans catégories du 10/10/2026, clé gardée pour les onglets encore
+  // ouverts), aperçu de Publier rangé.
   "nebula:nav-groups-open",
   "nebula:composer-preview-hidden"
 ] as const;

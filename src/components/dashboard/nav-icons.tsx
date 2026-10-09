@@ -45,14 +45,18 @@ function Solid({ id, shape, cut, cutWidth = 2 }: { id: string; shape: ReactNode;
   );
 }
 
-/** Vue d'ensemble : quatre tuiles. */
+/**
+ * Vue d'ensemble : « Tuiles et planète » (10/10/2026, choisie par Lucas
+ * parmi 5 propositions) — trois tuiles du tableau de bord et une planète
+ * ronde à la place de la quatrième, en haut à droite.
+ */
 export function NavIconDashboard({ className, filled = false }: NavIconProps) {
   return (
     <Svg className={className}>
       <g fill={filled ? "currentColor" : "none"}>
         <rect x="3.5" y="3.5" width="7" height="9" rx="1.8" />
-        <rect x="13.5" y="3.5" width="7" height="5" rx="1.8" />
-        <rect x="13.5" y="11.5" width="7" height="9" rx="1.8" />
+        <circle cx="17" cy="7" r="3.5" />
+        <rect x="13.5" y="13.5" width="7" height="7" rx="1.8" />
         <rect x="3.5" y="15.5" width="7" height="5" rx="1.8" />
       </g>
     </Svg>

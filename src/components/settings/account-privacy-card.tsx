@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, signOut } from "next-auth/react";
@@ -11,9 +11,15 @@ import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { IconLock } from "@/components/dashboard/icons";
 import { useBootstrap } from "@/components/bootstrap-provider";
+import { clsx } from "@/lib/clsx";
 import { PASSWORD_MIN_LENGTH, passwordTooLong } from "@/lib/password-rules";
 
-export function AccountPrivacyCard() {
+/**
+ * `bare` (fenêtre Paramètres, 10/10/2026) : sans carte ni titre (la fenêtre
+ * a les siens), sous-titres plus visibles ; `beforeDanger` s'insère juste
+ * avant la zone de danger (accord aux statistiques anonymes).
+ */
+export function AccountPrivacyCard({ bare = false, beforeDanger }: { bare?: boolean; beforeDanger?: ReactNode } = {}) {
   const toast = useToast();
   const confirmDialog = useConfirm();
   const router = useRouter();
@@ -130,15 +136,23 @@ export function AccountPrivacyCard() {
     router.push("/");
   }
 
-  return (
-    <GlassCard>
-      <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
-        <IconLock className="h-4 w-4 text-slate-400" /> Compte &amp; confidentialité
-      </h2>
-      <p className="mt-1 text-sm text-slate-400">Sécurité de votre compte et contrôle de vos données personnelles.</p>
+  const sectionTitle = bare ? "text-[15px] font-semibold text-white" : "text-xs font-medium uppercase tracking-wide text-slate-500";
+  const sectionGap = bare ? "mt-6 border-t border-[color:var(--nb-sep)] pt-6" : "mt-5 border-t border-white/[0.06] pt-4";
+  const Wrapper = bare ? "div" : GlassCard;
 
-      <form onSubmit={changePassword} className="mt-4 space-y-3 border-t border-white/[0.06] pt-4" noValidate>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{hasPassword ? "Changer de mot de passe" : "Définir un mot de passe"}</p>
+  return (
+    <Wrapper>
+      {!bare && (
+        <>
+          <h2 className="flex items-center gap-2 font-display text-base font-medium text-white">
+            <IconLock className="h-4 w-4 text-slate-400" /> Compte &amp; confidentialité
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">Sécurité de votre compte et contrôle de vos données personnelles.</p>
+        </>
+      )}
+
+      <form onSubmit={changePassword} className={clsx("space-y-3", !bare && "mt-4 border-t border-white/[0.06] pt-4")} noValidate>
+        <p className={sectionTitle}>{hasPassword ? "Changer de mot de passe" : "Définir un mot de passe"}</p>
         {!hasPassword && (
           <p className="text-sm text-slate-400">
             Vous vous connectez avec Google, Apple ou Facebook. Définissez un mot de passe pour pouvoir aussi vous connecter avec votre adresse e-mail.
@@ -192,8 +206,8 @@ export function AccountPrivacyCard() {
         <p className="text-xs text-slate-500">Après le changement, vos autres appareils sont déconnectés et un e-mail de confirmation vous est envoyé.</p>
       </form>
 
-      <div className="mt-5 border-t border-white/[0.06] pt-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Vos données</p>
+      <div className={sectionGap}>
+        <p className={sectionTitle}>Vos données</p>
         <p className="mt-1 text-sm text-slate-400">
           Téléchargez une copie de vos données personnelles (profil, marques, publications, comptes connectés) au
           format JSON.
@@ -203,7 +217,9 @@ export function AccountPrivacyCard() {
         </Button>
       </div>
 
-      <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
+      {beforeDanger && <div className={sectionGap}>{beforeDanger}</div>}
+
+      <div className={clsx("rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4", bare ? "mt-6" : "mt-5")}>
         <p className="text-xs font-medium uppercase tracking-wide text-red-400">Zone de danger</p>
         <p className="mt-1 text-sm text-slate-400">
           Supprime définitivement votre compte, vos marques et toutes les publications associées. Irréversible.
@@ -225,6 +241,6 @@ export function AccountPrivacyCard() {
           </Button>
         </div>
       </div>
-    </GlassCard>
+    </Wrapper>
   );
 }

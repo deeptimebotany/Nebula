@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const action = `/api/email/bilan/unsubscribe?token=${encodeURIComponent(token)}`;
   return page(
     "Ne plus recevoir le bilan du mois ?",
-    `${muted("Vous ne recevrez plus le bilan mensuel de vos réseaux. Vous pourrez le réactiver à tout moment dans Paramètres → Compte.")}
+    `${muted("Vous ne recevrez plus le bilan mensuel de vos réseaux. Vous pourrez le réactiver à tout moment dans Paramètres → Notifications.")}
 <form method="post" action="${action.replace(/"/g, "&quot;")}" style="margin-top:20px"><button type="submit" style="background:#8646ff;color:#fff;border:0;border-radius:10px;padding:12px 20px;font-size:15px;font-weight:600;cursor:pointer">Me désinscrire</button></form>`
   );
 }

@@ -1,12 +1,14 @@
 "use client";
 
-// Barre latérale — refonte V2 (07/10/2026, maquettes A et B de Lucas).
-//   - « Vue d'ensemble » seule en haut, puis cinq catégories repliables
-//     (accordéons) : Créer, Analyser, Présence, Clients, Communauté. La
-//     catégorie de la page ouverte se déplie d'office ; les autres gardent
-//     l'état choisi, mémorisé sur cet appareil.
-//   - Mode réduit (icônes seules, maquette B) : les catégories deviennent de
-//     simples séparateurs, chaque icône a une infobulle (nom + une ligne).
+// Barre latérale — refonte V2 (07/10/2026), menu sans catégories (10/10/2026,
+// demande de Lucas).
+//   - Plus de titres « Créer », « Analyser », « Présence », « Clients » ni
+//     d'accordéons : les onglets PRINCIPAUX en haut (Vue d'ensemble,
+//     Calendrier, Publications, Analytics, Interactions, Communauté), un trait
+//     fin, puis les onglets SECONDAIRES. Pas d'épingles. « Publier » n'est
+//     plus ici : c'est le bouton en haut à droite.
+//   - Mode réduit (icônes seules) : le même trait sépare les deux groupes,
+//     chaque icône a une infobulle (nom + une ligne).
 //   - Plus de compte ici : Paramètres, Facturation, Automatisations, Soutenir
 //     Nebula, l'administration, la marque, le mode clair/sombre et la
 //     déconnexion sont dans le menu du profil (profile-menu.tsx).
@@ -16,25 +18,20 @@
 import Link from "next/link";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { SidebarShootingStars } from "@/components/cosmetics/sidebar-shooting-stars";
-import { getPref, setPref } from "@/lib/ui-prefs-client";
-import { NAV_GROUPS, isNavActive, navGroupKeyFor, type NavGroup, type NavItem } from "./navigation";
+import { NAV_GROUPS, isNavActive, type NavGroup, type NavItem } from "./navigation";
 import { NebulaIcon } from "./nebula-brandmark";
-import { IconChevron, IconChevronsLeft, IconChevronsRight, IconClose } from "./icons";
+import { IconChevronsLeft, IconChevronsRight, IconClose } from "./icons";
 
 // Easter egg « logo-spin » : appui long sur le logo → rotation accélérée.
 const LOGO_SPIN_HOLD_MS = 3000;
 const LOGO_SPIN_DURATION_MS = 3200;
 const LOGO_SPIN_TOTAL_DEGREES = 2200;
-
-/** Catégories dépliées, mémorisées sur cet appareil (clés de NAV_GROUPS). */
-const OPEN_GROUPS_KEY = "nebula:nav-groups-open";
-const DEFAULT_OPEN_GROUPS = ["creer"];
 
 interface SidebarNavProps {
   /** Colonne repliée (icônes seules) — ordinateur uniquement. */
@@ -59,37 +56,6 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
   const { data: bootstrap } = useBootstrap();
   const reussites = bootstrap?.reussites ?? null;
   const cosmetics = useCosmetics();
-
-  // --- Accordéons -----------------------------------------------------------
-  const activeGroup = navGroupKeyFor(pathname);
-  const [openGroups, setOpenGroups] = useState<string[]>(() => DEFAULT_OPEN_GROUPS);
-  useEffect(() => {
-    try {
-      const saved = getPref(OPEN_GROUPS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setOpenGroups(parsed.filter((k): k is string => typeof k === "string"));
-      }
-    } catch {
-      // stockage indisponible : catégories par défaut
-    }
-  }, []);
-  // La catégorie de la page ouverte est toujours dépliée.
-  useEffect(() => {
-    if (!activeGroup) return;
-    setOpenGroups((prev) => (prev.includes(activeGroup) ? prev : [...prev, activeGroup]));
-  }, [activeGroup]);
-  const toggleGroup = useCallback((key: string) => {
-    setOpenGroups((prev) => {
-      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
-      try {
-        setPref(OPEN_GROUPS_KEY, JSON.stringify(next));
-      } catch {
-        // sans gravité
-      }
-      return next;
-    });
-  }, []);
 
   // --- Infobulles du mode réduit (position fixe : la colonne défile) --------
   const [tip, setTip] = useState<Tip | null>(null);
@@ -212,50 +178,22 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
   }
 
   function renderGroup(group: NavGroup, index: number) {
-    if (!group.label) {
-      return (
-        <div key={group.key} className="space-y-0.5">
-          {group.items.map((item) => renderItem(item))}
-        </div>
-      );
-    }
-    if (collapsed) {
-      // Mode réduit : un séparateur fin entre catégories, toutes les icônes.
-      return (
-        <div key={group.key} className="space-y-1">
-          <div className="mx-auto my-2 h-px w-8 bg-[color:var(--nb-sep)]" aria-hidden="true" />
-          {group.items.map((item) => renderItem(item))}
-        </div>
-      );
-    }
-    const open = openGroups.includes(group.key);
-    const groupBadge = !open && group.items.some((i) => i.href === "/reussites") ? eggBadge : null;
-    const panelId = `nav-group-${group.key}`;
     const isLastGroup = index === NAV_GROUPS.length - 1;
     return (
-      <div key={group.key} className="pt-3">
-        <button
-          type="button"
-          onClick={() => toggleGroup(group.key)}
-          aria-expanded={open}
-          aria-controls={panelId}
-          data-tour={`nav-group-${group.key}`}
-          // Catégories en gras et plus claires (09/10/2026) : toujours en majuscules
-          // pour les distinguer des pages.
-          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300 transition hover:text-white"
-        >
-          <span className="flex items-center gap-2">
-            {group.label}
-            {groupBadge && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label={`${groupBadge} nouveauté(s) dans Réussites`} />}
-          </span>
-          <IconChevron className={clsx("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")} />
-        </button>
-        <div id={panelId} hidden={!open} className="mt-1 space-y-0.5">
-          {group.items.map((item, i) =>
-            // Tiroir (téléphone) : le dernier lien porte l'easter egg « keyboard-nav ».
-            onClose && isLastGroup && i === group.items.length - 1 ? renderItem(item, keyboardNavProps) : renderItem(item)
-          )}
-        </div>
+      <div key={group.key} data-nav-group={group.key} className={collapsed ? "space-y-1" : "space-y-0.5"}>
+        {/* Onglets secondaires : un trait fin les sépare des principaux
+            (10/10/2026, à la place des titres de catégorie). */}
+        {index > 0 && (
+          <div
+            className={clsx("bg-[color:var(--nb-sep-strong)]", collapsed ? "mx-auto my-3 h-px w-8" : "mx-3 my-3 h-px")}
+            role="separator"
+            aria-hidden="true"
+          />
+        )}
+        {group.items.map((item, i) =>
+          // Tiroir (téléphone) : le dernier lien porte l'easter egg « keyboard-nav ».
+          onClose && isLastGroup && i === group.items.length - 1 ? renderItem(item, keyboardNavProps) : renderItem(item)
+        )}
       </div>
     );
   }

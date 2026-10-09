@@ -49,7 +49,7 @@ describe.skipIf(!hasDatabase)("assistant : contexte des outils", () => {
     expect(captured.system).toContain("- Instagram · @studio.nova : taux d'engagement 4 % par publication (1 publication des 30 derniers jours, 12000 abonnés) — excellent");
     expect(captured.system).toContain("Créneau personnel INSTAGRAM : pas encore assez de relevés (1 sur 5)");
     expect(captured.system).toContain("Fuseau de la marque : Europe/Paris");
-    expect(captured.system).toMatch(/Menu latéral de Nebula : .*Outils \(/);
+    expect(captured.system).toMatch(/Menu latéral de Nebula, sans catégories : .*Outils \(/);
   });
 
   it("bio : pas de chiffres des outils (le module ne les demande pas)", async () => {

@@ -8,7 +8,7 @@
 // existant). La création du compte garde le son de l'intro, inchangé.
 //
 // Règles :
-//   - réglage « Sons de l'interface » (Paramètres → Apparence & Succès),
+//   - réglage « Sons de l'interface » (Paramètres → Sons),
 //     activé par défaut, enregistré sur le compte : coupé → aucun son nulle
 //     part ;
 //   - seulement après un geste de l'utilisateur (jamais au chargement d'une

@@ -4,7 +4,7 @@
 // 29/09/2026). Sept bulles présentent les zones clés, puis UNE action :
 // connecter un premier compte. Depuis le 06/10/2026, le Mode focus a sa
 // propre étape : l'anneau entoure Paramètres, une flèche part de la bulle
-// et le chemin « Paramètres › Apparence & Succès › Mode focus » est écrit. Elle présente l'interface ; la checklist
+// et le chemin « Paramètres › Focus et réussites › Mode focus » est écrit. Elle présente l'interface ; la checklist
 // « Mise en route » et le « Premier décollage » restent les guides d'action.
 //
 // Règles :
@@ -49,15 +49,16 @@ export interface TourStep {
 }
 
 // Refonte V2 (07/10/2026) : la marque et les Paramètres sont dans le menu du
-// profil (avatar en haut à droite) ; une page dans une catégorie repliée de
-// la barre latérale est montrée par le titre de sa catégorie.
+// profil (avatar en haut à droite). Menu sans catégories (10/10/2026) : chaque
+// page est montrée directement ; « Publier » est le bouton en haut à droite
+// (« nav-composer » : barre du bas sur téléphone).
 export const TOUR_STEPS: TourStep[] = [
-  { id: "brand", anchors: ["brand-switcher", "mobile-menu"], title: "Vos marques", text: "Chaque marque a ses comptes, son calendrier et ses statistiques. Changez de marque depuis le menu de votre profil." },
-  { id: "connect", anchors: ["nav-accounts", "nav-group-presence", "mobile-menu"], title: "Comptes connectés", text: "Connectez YouTube, Instagram, Facebook ou TikTok. Nebula ne voit jamais vos mots de passe." },
-  { id: "compose", anchors: ["nav-composer", "nav-group-creer"], title: "Publier", text: "Une publication, plusieurs réseaux, à l'heure de votre choix." },
-  { id: "calendar", anchors: ["nav-calendar", "nav-group-creer"], title: "Calendrier", text: "Tout ce qui est prévu, déplaçable d'un glisser." },
-  { id: "analytics", anchors: ["nav-analytics", "nav-group-analyser"], title: "Analytics", text: "Vos chiffres de tous les réseaux au même endroit." },
-  { id: "reussites", anchors: ["nav-reussites", "nav-group-communaute", "mobile-menu"], title: "Réussites", text: "Chaque semaine, 3 missions pour publier régulièrement : rangs, coffres et badges suivent vos vraies publications." },
+  { id: "brand", anchors: ["brand-switcher", "mobile-menu"], title: "Vos marques", text: "Chaque marque a ses comptes, son calendrier et ses statistiques. Changez de marque avec la petite pastille, dans le coin de votre photo." },
+  { id: "connect", anchors: ["nav-accounts", "mobile-menu"], title: "Comptes connectés", text: "Connectez YouTube, Instagram, Facebook ou TikTok. Nebula ne voit jamais vos mots de passe." },
+  { id: "compose", anchors: ["header-publish", "nav-composer"], title: "Publier", text: "Une publication, plusieurs réseaux, à l'heure de votre choix." },
+  { id: "calendar", anchors: ["nav-calendar"], title: "Calendrier", text: "Tout ce qui est prévu, déplaçable d'un glisser." },
+  { id: "analytics", anchors: ["nav-analytics"], title: "Analytics", text: "Vos chiffres de tous les réseaux au même endroit." },
+  { id: "reussites", anchors: ["nav-reussites", "mobile-menu"], title: "Réussites", text: "Chaque semaine, 3 missions pour publier régulièrement : rangs, coffres et badges suivent vos vraies publications." },
   {
     // Le Mode focus a sa propre étape (06/10/2026) : on montre OÙ il se trouve.
     id: "focus",
@@ -66,7 +67,7 @@ export const TOUR_STEPS: TourStep[] = [
     text: "Vous préférez une interface neutre ? Le Mode focus coupe tout d'un clic : récompenses, sons et notifications de succès. Il se trouve dans les Paramètres, depuis le menu de votre profil\u00a0:",
     focusChoice: true,
     arrow: true,
-    path: ["Menu du profil", "Paramètres", "Apparence & Succès", "Mode focus"]
+    path: ["Menu du profil", "Paramètres", "Focus et réussites", "Mode focus"]
   }
 ];
 

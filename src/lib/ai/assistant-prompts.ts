@@ -12,7 +12,8 @@
 // un client de réécrire le prompt.
 
 import type { AssistantContextKey } from "./assistant-contexts";
-import { ACCOUNT_NAV_ITEMS, NAV_GROUPS } from "@/components/dashboard/navigation";
+import { ACCOUNT_NAV_ITEMS, NAV_GROUPS, type NavItem } from "@/components/dashboard/navigation";
+import { SETTINGS_TAB_LABELS } from "@/components/settings/settings-events";
 import { engagementPresets, type ToolContextDTO } from "@/lib/tools/app-context-shared";
 import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/engagement-rate";
 
@@ -27,16 +28,21 @@ const PAGE_TABS: Record<string, string> = {
   "/interactions": "onglets Commentaires et Engagement"
 };
 
+const mapItem = (i: NavItem) => (i.href === "/tools" ? `${i.label} (${i.description})` : PAGE_TABS[i.href] ? `${i.label} (${PAGE_TABS[i.href]})` : i.label);
+
+// Menu sans catégories (10/10/2026) : onglets principaux, un trait, puis les
+// onglets secondaires ; « Publier » est le bouton en haut à droite et les
+// Paramètres s'ouvrent dans une fenêtre au milieu de l'écran.
 export const APP_MAP =
-  "Menu latéral de Nebula : " +
-  NAV_GROUPS.map(
-    (g) =>
-      (g.label ? `${g.label} → ` : "") +
-      g.items.map((i) => (i.href === "/tools" ? `${i.label} (${i.description})` : PAGE_TABS[i.href] ? `${i.label} (${PAGE_TABS[i.href]})` : i.label)).join(", ")
-  ).join(" ; ") +
-  ". Menu du profil (photo en haut à droite) → Mon profil, " +
-  ACCOUNT_NAV_ITEMS.map((i) => i.label).join(", ") +
-  ", changer de marque, se déconnecter. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
+  "Menu latéral de Nebula, sans catégories : onglets principaux → " +
+  NAV_GROUPS[0].items.map(mapItem).join(", ") +
+  " ; en dessous, après un trait, onglets secondaires → " +
+  NAV_GROUPS.slice(1).flatMap((g) => g.items).map(mapItem).join(", ") +
+  ". Bouton « Publier » en haut à droite (dans la barre du bas sur téléphone). Menu du profil (photo en haut à droite) → Mon profil, " +
+  ACCOUNT_NAV_ITEMS.filter((i) => i.href !== "/settings").map((i) => i.label).join(", ") +
+  ", changer de compte, Paramètres (une fenêtre s'ouvre au milieu de l'écran, avec des onglets : " +
+  SETTINGS_TAB_LABELS.join(", ") +
+  "), Apparence (clair ou sombre), se déconnecter ; la petite pastille de la marque, dans le coin de la photo, sert à changer de marque. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
 
 /** Socle commun, volontairement court : le ton, la langue, les garde-fous.
  *  Tout ce qui est spécifique à un onglet est dans son module. */

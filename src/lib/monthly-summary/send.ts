@@ -74,7 +74,7 @@ export function summaryLinks(userId: string, brandId: string, month: MonthKey): 
     bilanUrl: `${base}/analytics/bilan?brand=${encodeURIComponent(brandId)}&month=${month}&${utm}`,
     calendarUrl: `${base}/calendar?${utm}`,
     engagementsUrl: `${base}/engagements?${utm}`,
-    settingsUrl: `${base}/settings#compte`,
+    settingsUrl: `${base}/settings#notifications`,
     unsubscribeUrl: summaryUnsubscribeUrl(userId),
     billingUrl: `${base}/billing?${utm}`
   };

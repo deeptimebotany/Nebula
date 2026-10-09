@@ -114,7 +114,7 @@ export function AppHeader({ oauth, isOwner, onOpenMenu }: AppHeaderProps) {
             page Publier. Sur ordinateur seulement (la barre du bas l'a déjà
             sur téléphone), et pas sur la page Publier elle-même. */}
         {!onComposer && (
-          <Link href="/composer" className={clsx(pill, "hidden md:flex")}>
+          <Link href="/composer" data-tour="header-publish" className={clsx(pill, "hidden md:flex")}>
             <IconUpload className="h-5 w-5 [stroke-width:2.1]" />
             Publier
           </Link>
