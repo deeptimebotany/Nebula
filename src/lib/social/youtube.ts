@@ -23,6 +23,7 @@ import { adoptConcurrentRefresh } from "./tokens";
 import { isoDurationSeconds } from "@/lib/audit/sources/youtube";
 import { envValue } from "@/lib/env-value";
 import { YOUTUBE_REPLY_SCOPE, hasScope } from "./comment-reply-support";
+import { isStaleYoutubeComment } from "./youtube-data-retention";
 
 // Doc officielle : https://developers.google.com/youtube/v3/guides/uploading_a_video
 // Quota par défaut : 10 000 unités/jour, un upload en coûte ~1 600.
@@ -465,8 +466,13 @@ export const youtubeClient: SocialClient = {
       };
     });
 
-    // Les plus récents en premier, toutes vidéos confondues.
-    return items.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)).slice(0, 25);
+    // Les plus récents en premier, toutes vidéos confondues. Règles de
+    // YouTube (09/10/2026) : un commentaire de plus de 30 jours n'est pas
+    // enregistré (voir youtube-data-policy.ts, qui efface aussi les anciens).
+    return items
+      .filter((item) => !isStaleYoutubeComment(item.publishedAt))
+      .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
+      .slice(0, 25);
   },
 
   /**

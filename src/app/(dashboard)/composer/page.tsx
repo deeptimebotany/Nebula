@@ -65,6 +65,7 @@ import { FORMAT_NETWORKS, POST_FORMATS, defaultFormat, formatProblem, type Media
 import { FormatPicker } from "@/components/composer/format-picker";
 import { useUiSounds } from "@/components/use-ui-sounds";
 import { AiIcon } from "@/components/ai/ai-icon";
+import { YOUTUBE_PRIVATE_LOCK_NOTE, YOUTUBE_UPLOADS_LOCKED_PRIVATE } from "@/lib/social/youtube-audit";
 
 // Réseau affiché dans l'aperçu, mémorisé dans ce navigateur.
 const PREVIEW_NETWORK_KEY = "nebula:composer-preview-network";
@@ -2468,6 +2469,9 @@ function ComposerPageInner() {
                                     Privée
                                   </option>
                                 </select>
+                                {YOUTUBE_UPLOADS_LOCKED_PRIVATE && youtubeOptions.privacyStatus !== "private" && (
+                                  <p className="mt-1 text-[11px] text-amber-200/90">{YOUTUBE_PRIVATE_LOCK_NOTE}</p>
+                                )}
                               </div>
 
                               <div>

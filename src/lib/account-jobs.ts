@@ -19,6 +19,7 @@ import { runApiWatch } from "@/lib/api-watch/watcher";
 import { runFounderJobs } from "@/lib/billing/founders";
 import { runMonthlySummaries } from "@/lib/monthly-summary/send";
 import { purgeTiktokPublishers } from "@/lib/social/tiktok-cap";
+import { runYoutubeDataPolicy } from "@/lib/social/youtube-data-policy";
 
 function safe<T>(label: string, run: () => Promise<T>): Promise<T | null> {
   return run().catch((err) => {
@@ -55,5 +56,8 @@ export async function runAccountJobs() {
   const monthlySummaries = await safe("bilan du mois", () => runMonthlySummaries());
   // Plafond TikTok (06/10/2026) : comptes sans publication depuis 60 jours oubliés.
   const tiktokPublishersPurged = await safe("purge compteur TikTok", () => purgeTiktokPublishers());
-  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries, tiktokPublishersPurged };
+  // Règles de YouTube (09/10/2026) : commentaires et fiches de vidéos de plus
+  // de 30 jours effacés, autorisation des chaînes vérifiée tous les 30 jours.
+  const youtubeData = await safe("règles de données YouTube", () => runYoutubeDataPolicy());
+  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries, tiktokPublishersPurged, youtubeData };
 }

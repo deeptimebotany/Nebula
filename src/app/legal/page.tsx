@@ -21,7 +21,14 @@ import { FOUNDERS_SALE_END_LABEL, FOUNDER_MONTHLY, FOUNDER_PREMIUM, euros, found
 // manquait, la page l'indiquerait honnêtement plutôt que d'inventer. Ceci
 // n'est pas un avis juridique.
 
-const LAST_UPDATED = "7 octobre 2026";
+const LAST_UPDATED = "9 octobre 2026";
+
+// Liens exigés par les règles de YouTube pour les applications qui utilisent
+// ses API (section III.A : conditions d'utilisation de YouTube, règles de
+// confidentialité de Google, page Google pour retirer l'accès).
+const YOUTUBE_TERMS_URL = "https://www.youtube.com/t/terms";
+const GOOGLE_PRIVACY_URL = "http://www.google.com/policies/privacy";
+const GOOGLE_PERMISSIONS_URL = "https://security.google.com/settings/security/permissions";
 
 export const metadata = pageMetadata(SEO_LEGAL);
 
@@ -193,6 +200,19 @@ export default function LegalPage() {
             YouTube) ; ce relevé s&apos;arrête si personne n&apos;a ouvert la marque depuis 30 jours. Votre usage de ces réseaux reste soumis à leurs propres conditions. Vous pouvez
             révoquer cet accès à tout moment depuis la page « Comptes » de {SITE_NAME} ou depuis les paramètres du
             réseau concerné.
+          </p>
+          <p id="youtube-conditions">
+            YouTube : {SITE_NAME} utilise les services d&apos;API YouTube (YouTube API Services). En connectant une chaîne
+            YouTube à {SITE_NAME}, vous acceptez d&apos;être lié par les{" "}
+            <a href={YOUTUBE_TERMS_URL} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              Conditions d&apos;utilisation de YouTube
+            </a>{" "}
+            ({YOUTUBE_TERMS_URL.replace(/^https:\/\//, "")}). Ce que {SITE_NAME} fait des données de votre chaîne est
+            expliqué dans la politique de confidentialité ci-dessous (« Données YouTube »), qui renvoie aussi aux{" "}
+            <a href={GOOGLE_PRIVACY_URL} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              règles de confidentialité de Google
+            </a>
+            .
           </p>
         </Section>
 
@@ -380,6 +400,68 @@ export default function LegalPage() {
           </p>
         </Section>
 
+        <Section id="youtube" title="2 bis. Données YouTube (YouTube API Services)">
+          <p>
+            {SITE_NAME} utilise les services d&apos;API YouTube (YouTube API Services) quand vous connectez une chaîne
+            YouTube. Les{" "}
+            <a href={GOOGLE_PRIVACY_URL} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              règles de confidentialité de Google
+            </a>{" "}
+            ({GOOGLE_PRIVACY_URL.replace(/^https?:\/\//, "")}) s&apos;appliquent aussi à ces données, et votre usage de
+            YouTube reste soumis aux{" "}
+            <a href={YOUTUBE_TERMS_URL} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              Conditions d&apos;utilisation de YouTube
+            </a>
+            .
+          </p>
+          <p>
+            Ce que {SITE_NAME} lit et garde, avec votre autorisation : le nom, l&apos;identifiant, la photo et le nombre
+            d&apos;abonnés de la chaîne ; vos dernières vidéos (titre, miniature, date, durée, confidentialité) et leurs
+            statistiques (vues, j&apos;aime, commentaires) ; les données YouTube Analytics de vos vidéos (durée moyenne
+            regardée, courbe de rétention) ; les commentaires reçus sur vos dernières vidéos (nom et photo de
+            l&apos;auteur, texte, date) ; et le jeton d&apos;accès, chiffré. Ce que {SITE_NAME} fait sur YouTube,
+            seulement quand vous le demandez : envoyer la vidéo que vous publiez ou programmez (avec son titre, sa
+            description, sa miniature, sa confidentialité, sa playlist), publier votre premier commentaire, répondre à un
+            commentaire.
+          </p>
+          <p>
+            À quoi elles servent : vous les montrer dans {SITE_NAME} (Analytics, Publications, Commentaires, Rétention IA,
+            Réussites) et dans les rapports, le calendrier ou le media kit que vous choisissez de partager. Elles ne sont
+            jamais vendues, jamais utilisées pour de la publicité, et {SITE_NAME} ne laisse aucun tiers afficher de
+            publicité ou de contenu dans le Service. Elles ne sont transmises qu&apos;aux prestataires de la section 4
+            (hébergement, base de données) et, seulement si vous lancez Rétention IA, à Google Gemini (adresse de la vidéo
+            publique, courbe de rétention, titre et description). Les cookies utilisés sont décrits à la section 8.
+          </p>
+          <p>
+            Durée de conservation : les statistiques et les données YouTube Analytics sont gardées tant que la chaîne est
+            connectée, et {SITE_NAME} vérifie au moins tous les 30 jours que votre autorisation est toujours valable. Les
+            autres données YouTube (commentaires, titres et miniatures des vidéos) sont actualisées à chaque relevé et ne
+            sont jamais gardées plus de 30 jours sans être actualisées : un commentaire de plus de 30 jours est effacé, une
+            fiche de vidéo non actualisée depuis 30 jours aussi.
+          </p>
+          <p>
+            Retirer l&apos;accès : à tout moment, depuis la page « Comptes connectés » de {SITE_NAME} (bouton Déconnecter),
+            ou depuis la{" "}
+            <a href={GOOGLE_PERMISSIONS_URL} className="text-aurora-300 hover:underline" rel="noreferrer" target="_blank">
+              page des autorisations de votre compte Google
+            </a>{" "}
+            ({GOOGLE_PERMISSIONS_URL.replace(/^https:\/\//, "")}). Après une déconnexion dans {SITE_NAME}, toutes les données
+            YouTube de la chaîne (statistiques, vidéos, commentaires, analyses de rétention, nom et photo) sont effacées
+            immédiatement, et l&apos;accès est aussi retiré chez Google si aucune autre chaîne de votre compte Google
+            n&apos;est connectée à {SITE_NAME} (Google retirerait l&apos;accès de toutes) ; l&apos;historique des publications faites avec{" "}
+            {SITE_NAME} reste dans votre compte. Si vous retirez l&apos;accès depuis Google, {SITE_NAME} s&apos;en aperçoit
+            et efface ces données au plus tard 30 jours après. Effacer ces données dans {SITE_NAME} ne supprime rien sur
+            YouTube : vos vidéos et commentaires se gèrent depuis YouTube.
+          </p>
+          <p>
+            Questions ou réclamations sur l&apos;usage de vos données YouTube : écrivez à{" "}
+            <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
+              {SITE_CONTACT_EMAIL}
+            </a>
+            . Une demande de suppression est traitée sous 7 jours au plus.
+          </p>
+        </Section>
+
         <Section title="3. Finalités et bases légales">
           <p>
             Ces données servent à faire fonctionner le Service que vous avez demandé (exécution du contrat) : vous
@@ -469,7 +551,9 @@ export default function LegalPage() {
             supprimées 6 mois après l&apos;e-mail d&apos;annonce. Les signalements de la Communauté sont supprimés avec
             le contenu signalé ou avec votre compte. Les demandes d&apos;avis, leurs images, votes et avis écrits sont
             supprimés 30 jours après la fin de la demande (72 h après sa publication), ou plus tôt si vous la
-            supprimez ou supprimez votre compte. Les statistiques de groupe anonymes ne sont pas des
+            supprimez ou supprimez votre compte. Données YouTube : voir la section 2 bis (commentaires et fiches de vidéos
+            au plus 30 jours sans actualisation, autorisation vérifiée tous les 30 jours, tout est effacé à la
+            déconnexion de la chaîne). Les statistiques de groupe anonymes ne sont pas des
             données personnelles et peuvent être conservées sans limite.
           </p>
         </Section>
@@ -490,7 +574,8 @@ export default function LegalPage() {
             Vous disposez d&apos;un droit d&apos;accès, de rectification, d&apos;effacement, de limitation,
             d&apos;opposition et de portabilité de vos données. La plupart s&apos;exercent directement depuis
             Paramètres → Compte &amp; confidentialité (export de vos données au format JSON, suppression définitive
-            du compte, déconnexion de chaque réseau). Pour toute autre demande, écrivez à{" "}
+            du compte, déconnexion de chaque réseau). Une demande de suppression envoyée par e-mail est traitée sous
+            7 jours au plus. Pour toute autre demande, écrivez à{" "}
             <a href={`mailto:${SITE_CONTACT_EMAIL}`} className="text-aurora-300 hover:underline">
               {SITE_CONTACT_EMAIL}
             </a>
