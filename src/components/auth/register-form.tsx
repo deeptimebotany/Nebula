@@ -35,7 +35,7 @@ export function RegisterForm({ oauth }: RegisterFormProps) {
 function RegisterFormInner({ oauth }: RegisterFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [form, setForm] = useState({ name: "", email: "", password: "", brandName: "", referralCode: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", passwordConfirm: "", brandName: "", referralCode: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
   // 18 ans minimum (30/09/2026, conditions de l'API Gemini, CGU article 3).
   const [isAdult, setIsAdult] = useState(false);
@@ -48,7 +48,7 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
   const [error, setError] = useState<string | null>(null);
   // Refus « pré-lancement » (adresse non invitée) : lien vers /bientot.
   const [prelaunchRefused, setPrelaunchRefused] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "terms" | "adult", string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "passwordConfirm" | "terms" | "adult", string>>>({});
   const [loading, setLoading] = useState(false);
   // Intro de création de compte (29/09/2026) : jouée dès que le compte est
   // créé ; on part vers l'application quand elle est finie ET la connexion
@@ -85,6 +85,10 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
     if (form.name.trim().length < 2) next.name = "Indiquez votre nom (2 caractères minimum).";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = "Adresse email invalide.";
     if (form.password.length < 8) next.password = "8 caractères minimum.";
+    // Mot de passe tapé deux fois (09/10/2026, demande de Lucas) : évite un
+    // compte créé avec une faute de frappe invisible.
+    if (!form.passwordConfirm) next.passwordConfirm = "Retapez votre mot de passe.";
+    else if (form.passwordConfirm !== form.password) next.passwordConfirm = "Les deux mots de passe ne correspondent pas.";
     if (!isAdult) next.adult = "Nebula est réservé aux personnes de 18 ans et plus.";
     if (!acceptTerms) next.terms = "Merci d'accepter les conditions pour continuer.";
     setFieldErrors(next);
@@ -211,6 +215,22 @@ function RegisterFormInner({ oauth }: RegisterFormProps) {
           onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
           error={fieldErrors.password}
           placeholder="8 caractères minimum"
+        />
+        <PasswordInput
+          label="Confirmez le mot de passe"
+          name="password-confirm"
+          id="register-password-confirm"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={form.passwordConfirm}
+          onChange={(e) => {
+            const value = e.target.value;
+            setForm((s) => ({ ...s, passwordConfirm: value }));
+            if (fieldErrors.passwordConfirm) setFieldErrors((f) => ({ ...f, passwordConfirm: undefined }));
+          }}
+          error={fieldErrors.passwordConfirm}
+          placeholder="Le même mot de passe"
         />
         <Input
           label={

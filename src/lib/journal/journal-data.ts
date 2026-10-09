@@ -8,6 +8,19 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-inscription-mot-de-passe-confirme",
+    date: "2026-10-09",
+    title: "Inscription : le mot de passe se tape deux fois",
+    category: "Sécurité",
+    links: [{ href: "/register", label: "Créer un compte" }],
+    result:
+      "À l'inscription avec une adresse e-mail, un second champ « Confirmez le mot de passe » demande de retaper le mot de passe. Si les deux ne correspondent pas, le compte n'est pas créé et un message l'indique sous le champ : plus de compte bloqué par une faute de frappe invisible.",
+    change:
+      "`register-form.tsx` (champ `register-password-confirm`, vérification avant l'envoi ; seul le mot de passe part au serveur). Test : `tests/quality/inscription-mot-de-passe.test.ts`.",
+    readme: 90,
+    migrations: []
+  },
+  {
     id: "2026-10-09-youtube-donnees-audit",
     date: "2026-10-09",
     title: "YouTube : pages légales et gestion des données mises aux règles de YouTube",
