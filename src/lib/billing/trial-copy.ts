@@ -10,5 +10,6 @@ export function trialBeyondFreeNote(trialEndsAt: string | Date | null | undefine
   const date = trialEndsAt ? new Date(trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long" }) : "la fin de l'essai";
   return what === "brand"
     ? `Pendant l'essai. Après le ${date}, en Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n'est supprimé.`
-    : `Pendant l'essai. Après le ${date}, en Gratuit, ${PLAN_LIMITS.FREE.maxConnections} comptes par marque restent actifs ; les autres sont mis en veille, rien n'est supprimé.`;
+    : // Comptes en trop (09/10/2026) : à déconnecter pour continuer, voir src/lib/billing/connection-limit.ts.
+      `Pendant l'essai. Après le ${date}, en Gratuit, ${PLAN_LIMITS.FREE.maxConnections} comptes par marque : il faudra déconnecter les autres pour continuer à utiliser Nebula, ou passer en Pro. Choisissez dès maintenant ceux que vous gardez.`;
 }

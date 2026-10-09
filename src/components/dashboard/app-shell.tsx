@@ -21,6 +21,7 @@ import { AppHeader } from "./app-header";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { InShellContext } from "./shell-context";
 import { TrialBanner } from "@/components/billing/trial-banner";
+import { ConnectionLimitGate } from "@/components/billing/connection-limit-gate";
 import dynamic from "next/dynamic";
 import { useBrand } from "@/components/brand-context";
 import { TOUR_RESTART_EVENT } from "@/lib/tour-events";
@@ -189,7 +190,9 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       {/* Colonne fixe — ordinateur */}
       <aside
         className={clsx(
-          "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[color:var(--nb-sep)] transition-[width] duration-200 lg:flex",
+          // Sans trait à droite (09/10/2026, demande de Lucas : « épurer ») :
+          // barre latérale et page ont le même fond uni.
+          "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 lg:flex",
           collapsed ? "w-[72px]" : "w-60"
         )}
       >
@@ -239,6 +242,10 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
           </main>
         </div>
         <MobileTabBar onOpenMenu={openDrawer} menuOpen={drawerOpen} />
+        {/* Plus de comptes connectés que le palier n'en permet (fin d'essai,
+            résiliation) : application bloquée jusqu'à la déconnexion des
+            comptes en trop (09/10/2026, voir connection-limit-gate.tsx). */}
+        <ConnectionLimitGate />
         {/* Âge (18 ans et plus) confirmé une fois, avant tout le reste ; puis
             la visite guidée à la première connexion (lot U4). */}
         {data && !data.ai.ageConfirmed ? <AgeGate /> : data && (!data.tour.completed || tourReplay > 0) && <GuidedTour replay={tourReplay} />}

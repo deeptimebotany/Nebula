@@ -5,7 +5,7 @@ import { assertBrandMembership } from "@/lib/brand-access";
 import { getSocialClient } from "@/lib/social";
 import { exchangeMetaCode } from "@/lib/social/meta";
 import { decodeOAuthState, upsertConnection } from "@/lib/connections";
-import { assertConnectionQuota } from "@/lib/billing/plan";
+import { assertConnectionAllowed } from "@/lib/billing/connection-limit";
 import type { Network } from "@/lib/types";
 
 const PROVIDER_TO_NETWORK: Record<string, Network> = {
@@ -66,32 +66,49 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
   }
 
   try {
-    await assertConnectionQuota(brandId);
+    // Limite de comptes du palier (09/10/2026, connection-limit.ts) : vérifiée
+    // compte par compte, après l'autorisation, quand on sait QUEL compte
+    // arrive. Reconnecter un compte déjà relié passe toujours ; un nouveau
+    // compte seulement s'il tient dans le palier (avant : refus global dès
+    // la limite atteinte, même pour une simple reconnexion).
     if (META_PROVIDERS.includes(provider)) {
       // Facebook et Instagram partagent la même boîte de dialogue OAuth Meta
       // (une autorisation retourne les deux à la fois), mais on ne crée ici
       // que les comptes du réseau que la personne a explicitement demandé de
       // connecter — voir src/lib/providers.ts pour le contexte.
       const { instagramAccounts, facebookPages } = await exchangeMetaCode(code);
-      if (provider === "facebook") {
-        for (const fb of facebookPages) await upsertConnection(brandId, "FACEBOOK", fb);
-        if (facebookPages.length === 0) {
-          throw new Error("Aucune Page Facebook n'a été trouvée pour cet utilisateur.");
+      const network = provider === "facebook" ? "FACEBOOK" : "INSTAGRAM";
+      const accounts = provider === "facebook" ? facebookPages : instagramAccounts;
+      if (accounts.length === 0) {
+        throw new Error(
+          provider === "facebook"
+            ? "Aucune Page Facebook n'a été trouvée pour cet utilisateur."
+            : "Aucun compte Instagram Business/Creator (lié à une Page Facebook) n'a été trouvé pour cet utilisateur."
+        );
+      }
+      let added = 0;
+      let refusal: string | null = null;
+      for (const account of accounts) {
+        try {
+          await assertConnectionAllowed(brandId, network, account.externalAccountId);
+        } catch (err) {
+          refusal = (err as Error).message;
+          continue;
         }
-        redirectTo.searchParams.set("count", String(facebookPages.length));
-      } else {
-        for (const ig of instagramAccounts) await upsertConnection(brandId, "INSTAGRAM", ig);
-        if (instagramAccounts.length === 0) {
-          throw new Error(
-            "Aucun compte Instagram Business/Creator (lié à une Page Facebook) n'a été trouvé pour cet utilisateur."
-          );
-        }
-        redirectTo.searchParams.set("count", String(instagramAccounts.length));
+        await upsertConnection(brandId, network, account);
+        added += 1;
+      }
+      if (added === 0 && refusal) throw new Error(refusal);
+      redirectTo.searchParams.set("count", String(added));
+      if (refusal) {
+        redirectTo.searchParams.set("error", `${accounts.length - added} compte(s) non ajouté(s). ${refusal}`);
+        return NextResponse.redirect(redirectTo);
       }
     } else {
       const network = PROVIDER_TO_NETWORK[provider];
       if (!network) throw new Error("Fournisseur inconnu.");
       const token = await getSocialClient(network).exchangeCodeForToken(code);
+      await assertConnectionAllowed(brandId, network, token.externalAccountId);
       await upsertConnection(brandId, network, token);
     }
   } catch (err) {

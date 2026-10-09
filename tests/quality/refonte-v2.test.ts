@@ -273,4 +273,51 @@ describe("assistant « Demander à Nebula » (09/10/2026)", () => {
     // Blocs collés en haut : décalés de la hauteur de la barre du haut seulement quand elle est au-dessus de la zone qui défile.
     expect(read("src/app/(dashboard)/composer/page.tsx")).toContain("sticky top-[calc(var(--nb-topbar-offset)_+_24px)]");
   });
+  it("accueil sans logo (déjà à côté du titre) ; mention courte avec « En savoir plus » vers l'aide", () => {
+    const chat = read("src/components/dashboard/ai-assistant.tsx");
+    expect(chat).not.toContain("<NebulaIcon size={38} />");
+    expect(chat).toContain('const LEGAL_NOTICE = "L\'IA peut faire des erreurs. Vous êtes responsable du contenu que vous publiez.";');
+    expect(chat).toMatch(/<a href=\{ASSISTANT_HELP_PATH\} target="_blank" rel="noopener noreferrer"[^>]*>\s*En savoir plus\s*<\/a>/);
+    expect(chat).toContain('const ASSISTANT_HELP_PATH = "/aide/demander-a-nebula";');
+    // La page d'aide existe, est classée (vitrine) et dit où partent les données.
+    const help = read("src/app/aide/demander-a-nebula/page.tsx");
+    expect(help).toContain("Google Gemini");
+    expect(help).toContain("AI_MONTHLY[p].assistant");
+    expect(read("src/lib/csp.ts")).toContain('"/aide/demander-a-nebula"');
+    expect(read("src/app/sitemap.ts")).toContain("/aide/demander-a-nebula");
+  });
+});
+
+describe("cadre épuré (09/10/2026)", () => {
+  it("plus de trait le long de la barre latérale, au-dessus de « Réduire le menu », ni sous la barre du haut", () => {
+    expect(read("src/components/dashboard/app-shell.tsx")).toContain('"nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 lg:flex"');
+    expect(read("src/components/dashboard/sidebar-nav.tsx")).toContain('<div className={clsx("shrink-0 py-3", collapsed ? "px-2" : "px-3")}>');
+    expect(read("src/components/dashboard/app-header.tsx")).toContain('<header className="nb-topbar sticky top-0 z-30">');
+  });
+});
+
+describe("Soutenir Nebula (09/10/2026)", () => {
+  it("parle de l'équipe Nebula, plus d'« une seule personne »", () => {
+    const page = read("src/app/(dashboard)/support/page.tsx");
+    expect(page).not.toContain("une seule personne");
+    expect(page).toContain("conçu en France par l&apos;équipe Nebula, sans publicité");
+  });
+});
+
+describe("titres de section (09/10/2026)", () => {
+  it("en gras, 17 px, couleur du texte principal, sans majuscules forcées ; libellés des chiffres en clair", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toMatch(/\.nb-section-label \{\s*font-family: var\(--font-display\)[^}]*font-size: 17px;[^}]*font-weight: 600;[^}]*text-transform: none;\s*color: #ffffff;/);
+    expect(read("src/components/ui/stat-card.tsx")).toContain('text-sm font-medium text-slate-200');
+  });
+});
+
+describe("menu latéral en gras (09/10/2026)", () => {
+  it("pages en medium presque blanches, page ouverte en gras, catégories en gras plus claires", () => {
+    const nav = read("src/components/dashboard/sidebar-nav.tsx");
+    expect(nav).toContain('active ? "nb-nav-item-active font-semibold text-white" : "font-medium text-slate-100 hover:text-white"');
+    expect(nav).toContain("text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300");
+    expect(nav).not.toContain("text-slate-500 transition hover:text-white");
+    expect(nav).toContain("text-[14px] font-medium text-slate-300 transition");
+  });
 });

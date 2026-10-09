@@ -14,6 +14,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_CONNECTION_SELECT } from "@/lib/brand-access";
+import { matchMetricRow } from "@/lib/posts/post-metrics";
+import { isPostKind, postKinds, targetKind, type PostKind } from "@/lib/posts/post-kind";
+import { removedFromNetworkAt } from "@/lib/social/remote-delete-support";
+import { YOUTUBE_UPLOADS_LOCKED_PRIVATE } from "@/lib/social/youtube-audit";
 
 export const MAX_RANGE_DAYS = 400;
 export const MAX_POSTS_PER_REQUEST = 2000;
@@ -129,6 +133,10 @@ export interface PostPageQuery {
   status: PageStatusFilter;
   network: string | null;
   q: string;
+  /** Format (09/10/2026) : Shorts et Reels, vidéos, posts, stories (post-kind.ts). */
+  kind: PostKind | null;
+  /** Tri par date : plus récentes d'abord (défaut) ou plus anciennes d'abord. */
+  order: "desc" | "asc";
   cursor: { at: Date; id: string } | null;
   limit: number;
 }
@@ -153,10 +161,13 @@ export function parsePostPageQuery(params: URLSearchParams): PostPageQuery {
   const q = (params.get("q") ?? "").trim().slice(0, 100);
   const rawLimit = Number(params.get("limit") ?? PAGE_SIZE);
   const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : PAGE_SIZE;
+  const kind = (params.get("kind") ?? "").toUpperCase();
   return {
     status,
     network: network && /^[A-Z_]{2,20}$/.test(network) ? network : null,
     q,
+    kind: isPostKind(kind) ? kind : null,
+    order: params.get("order") === "asc" ? "asc" : "desc",
     cursor: decodePageCursor(params.get("cursor")),
     limit
   };
@@ -175,7 +186,151 @@ function pageFilterWhere(brandId: string, query: PostPageQuery): Prisma.PostWher
   };
 }
 
-export async function pageBrandPosts(brandId: string, query: PostPageQuery) {
+// --- Page Publications : tableau façon YouTube Studio (09/10/2026) ----------
+// Pour chaque publication : formats par réseau (Short, vidéo, post, story),
+// visibilité YouTube, et vues / commentaires / j'aime additionnés sur les
+// réseaux affichés (relevés de la page Engagements, PostMetric).
+
+const PAGE_SELECT = {
+  id: true,
+  title: true,
+  caption: true,
+  status: true,
+  scheduledAt: true,
+  createdAt: true,
+  updatedAt: true,
+  media: {
+    orderBy: { order: "asc" },
+    take: 1,
+    select: { mediaAsset: { select: { url: true, type: true, thumbnailUrl: true, importSource: true, width: true, height: true, durationSeconds: true } } }
+  },
+  _count: { select: { media: true } },
+  targets: {
+    select: { id: true, network: true, connectionId: true, status: true, errorMessage: true, publishedAt: true, externalUrl: true, externalPostId: true, metadata: true }
+  }
+} satisfies Prisma.PostSelect;
+
+type PageRow = Prisma.PostGetPayload<{ select: typeof PAGE_SELECT }>;
+
+export type YoutubePrivacy = "public" | "private" | "unlisted";
+
+export interface PagePostTarget {
+  network: string;
+  status: string;
+  errorMessage: string | null;
+  publishedAt: Date | null;
+  externalUrl: string | null;
+  kind: PostKind;
+  /** YouTube : confidentialité choisie dans Publier. */
+  privacy: YoutubePrivacy | null;
+  /** YouTube : vidéo envoyée en « Privée » d'office tant que l'audit n'est pas validé. */
+  lockedPrivate: boolean;
+  /** Retirée du réseau depuis Nebula. */
+  removed: boolean;
+}
+
+export interface PageMetrics {
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+}
+
+export interface PagePost {
+  id: string;
+  title: string;
+  caption: string;
+  status: string;
+  scheduledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  media: { mediaAsset: { url: string; type: string; thumbnailUrl: string | null; importSource: string | null; durationSeconds: number | null } }[];
+  targets: PagePostTarget[];
+  /** Formats des réseaux affichés (filtre réseau appliqué). */
+  kinds: PostKind[];
+  /** Chiffres additionnés des réseaux affichés ; null tant qu'aucun relevé. */
+  metrics: PageMetrics | null;
+}
+
+function mediaFactsOf(row: Pick<PageRow, "media" | "_count">) {
+  const m = row.media[0]?.mediaAsset;
+  return {
+    type: m ? (m.type === "VIDEO" ? ("VIDEO" as const) : ("IMAGE" as const)) : null,
+    count: row._count.media,
+    width: m?.width ?? null,
+    height: m?.height ?? null,
+    durationSeconds: m?.durationSeconds ?? null
+  };
+}
+
+function shownTargets<T extends { network: string }>(targets: T[], network: string | null): T[] {
+  return network ? targets.filter((t) => t.network === network) : targets;
+}
+
+function kindsOf(row: Pick<PageRow, "media" | "_count" | "targets">, network: string | null): PostKind[] {
+  return postKinds(shownTargets(row.targets, network), mediaFactsOf(row));
+}
+
+function youtubePrivacy(metadata: unknown): YoutubePrivacy {
+  const raw = (metadata as { privacyStatus?: unknown } | null)?.privacyStatus;
+  return raw === "private" || raw === "unlisted" ? raw : "public";
+}
+
+async function decoratePagePosts(rows: PageRow[], network: string | null): Promise<PagePost[]> {
+  const shown = rows.flatMap((r) => shownTargets(r.targets, network));
+  const connectionIds = Array.from(new Set(shown.filter((t) => t.status === "PUBLISHED").map((t) => t.connectionId)));
+  const metricRows = connectionIds.length
+    ? await prisma.postMetric.findMany({
+        where: { connectionId: { in: connectionIds } },
+        select: { connectionId: true, postExternalId: true, permalink: true, publishedAt: true, views: true, likes: true, comments: true }
+      })
+    : [];
+  return rows.map((row) => {
+    const facts = mediaFactsOf(row);
+    let metrics: PageMetrics | null = null;
+    for (const t of shownTargets(row.targets, network)) {
+      if (t.status !== "PUBLISHED") continue;
+      const m = matchMetricRow(
+        t,
+        metricRows.filter((r) => r.connectionId === t.connectionId)
+      );
+      if (!m) continue;
+      metrics ??= { views: null, likes: null, comments: null };
+      for (const key of ["views", "likes", "comments"] as const) {
+        const v = m[key];
+        if (typeof v === "number") metrics[key] = (metrics[key] ?? 0) + v;
+      }
+    }
+    const first = row.media[0]?.mediaAsset;
+    return {
+      id: row.id,
+      title: row.title,
+      caption: row.caption,
+      status: row.status,
+      scheduledAt: row.scheduledAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      media: first
+        ? [{ mediaAsset: { url: first.url, type: first.type, thumbnailUrl: first.thumbnailUrl, importSource: first.importSource, durationSeconds: first.durationSeconds } }]
+        : [],
+      targets: row.targets.map((t) => ({
+        network: t.network,
+        status: t.status,
+        errorMessage: t.errorMessage,
+        publishedAt: t.publishedAt,
+        externalUrl: t.externalUrl,
+        kind: targetKind(t.network, t.metadata, facts),
+        privacy: t.network === "YOUTUBE" ? youtubePrivacy(t.metadata) : null,
+        lockedPrivate: t.network === "YOUTUBE" && t.status === "PUBLISHED" && YOUTUBE_UPLOADS_LOCKED_PRIVATE,
+        removed: Boolean(removedFromNetworkAt(t.metadata))
+      })),
+      kinds: kindsOf(row, network),
+      metrics
+    };
+  });
+}
+
+/** Identifiants dans l'ordre de la page (filtres statut, réseau, recherche ; après le curseur). */
+async function pageIds(brandId: string, query: PostPageQuery, cursor: { at: Date; id: string } | null, take: number) {
   const conditions: Prisma.Sql[] = [Prisma.sql`p."brandId" = ${brandId}`];
   if (query.status !== "ALL") conditions.push(Prisma.sql`p."status" IN (${Prisma.join(STATUS_GROUPS[query.status])})`);
   if (query.network) {
@@ -185,32 +340,76 @@ export async function pageBrandPosts(brandId: string, query: PostPageQuery) {
     const like = `%${escapeLike(query.q)}%`;
     conditions.push(Prisma.sql`(p."title" ILIKE ${like} OR p."caption" ILIKE ${like})`);
   }
-  if (query.cursor) {
+  if (cursor) {
     // Dates stockées en UTC sans fuseau : comparaison sur la même forme.
     conditions.push(
-      Prisma.sql`(COALESCE(p."scheduledAt", p."createdAt"), p."id") < (${query.cursor.at.toISOString()}::timestamp(3), ${query.cursor.id})`
+      query.order === "asc"
+        ? Prisma.sql`(COALESCE(p."scheduledAt", p."createdAt"), p."id") > (${cursor.at.toISOString()}::timestamp(3), ${cursor.id})`
+        : Prisma.sql`(COALESCE(p."scheduledAt", p."createdAt"), p."id") < (${cursor.at.toISOString()}::timestamp(3), ${cursor.id})`
     );
   }
-  const rows = await prisma.$queryRaw<{ id: string; sortAt: Date }[]>(
+  const direction = query.order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  return prisma.$queryRaw<{ id: string; sortAt: Date }[]>(
     Prisma.sql`SELECT p."id", COALESCE(p."scheduledAt", p."createdAt") AS "sortAt"
                FROM "Post" p
                WHERE ${Prisma.join(conditions, " AND ")}
-               ORDER BY "sortAt" DESC, p."id" DESC
-               LIMIT ${query.limit + 1}`
+               ORDER BY "sortAt" ${direction}, p."id" ${direction}
+               LIMIT ${take}`
   );
-  const pageRows = rows.slice(0, query.limit);
-  const found = await prisma.post.findMany({ where: { id: { in: pageRows.map((r) => r.id) } }, select: LIGHT_SELECT });
-  const byId = new Map(found.map((p) => [p.id, p]));
-  const posts = pageRows.map((r) => byId.get(r.id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
-  const last = pageRows[pageRows.length - 1];
-  const nextCursor = rows.length > query.limit && last ? encodePageCursor(new Date(last.sortAt), last.id) : null;
+}
+
+async function loadPageRows(ids: string[]): Promise<Map<string, PageRow>> {
+  const found = ids.length ? await prisma.post.findMany({ where: { id: { in: ids } }, select: PAGE_SELECT }) : [];
+  return new Map(found.map((p) => [p.id, p]));
+}
+
+/** Avec un filtre de format : lecture par paquets jusqu'à remplir la page. */
+const KIND_SCAN_BATCH = 200;
+const KIND_SCAN_MAX_BATCHES = 50;
+
+export async function pageBrandPosts(brandId: string, query: PostPageQuery): Promise<{ posts: PagePost[]; nextCursor: string | null }> {
+  let picked: { row: { id: string; sortAt: Date }; post: PageRow }[];
+  let hasMore: boolean;
+  if (!query.kind) {
+    const rows = await pageIds(brandId, query, query.cursor, query.limit + 1);
+    const byId = await loadPageRows(rows.slice(0, query.limit).map((r) => r.id));
+    picked = rows
+      .slice(0, query.limit)
+      .map((row) => ({ row, post: byId.get(row.id) }))
+      .filter((x): x is { row: { id: string; sortAt: Date }; post: PageRow } => Boolean(x.post));
+    hasMore = rows.length > query.limit;
+  } else {
+    const matched: { row: { id: string; sortAt: Date }; post: PageRow }[] = [];
+    let cursor = query.cursor;
+    for (let batch = 0; batch < KIND_SCAN_MAX_BATCHES && matched.length <= query.limit; batch++) {
+      const rows = await pageIds(brandId, query, cursor, KIND_SCAN_BATCH);
+      if (rows.length === 0) break;
+      const byId = await loadPageRows(rows.map((r) => r.id));
+      for (const row of rows) {
+        const post = byId.get(row.id);
+        if (post && kindsOf(post, query.network).includes(query.kind)) matched.push({ row, post });
+        if (matched.length > query.limit) break;
+      }
+      if (rows.length < KIND_SCAN_BATCH) break;
+      const last = rows[rows.length - 1];
+      cursor = { at: new Date(last.sortAt), id: last.id };
+    }
+    picked = matched.slice(0, query.limit);
+    hasMore = matched.length > query.limit;
+  }
+  const posts = await decoratePagePosts(
+    picked.map((p) => p.post),
+    query.network
+  );
+  const last = picked[picked.length - 1];
+  const nextCursor = hasMore && last ? encodePageCursor(new Date(last.row.sortAt), last.row.id) : null;
   return { posts, nextCursor };
 }
 
 /** Compteurs des onglets (avec les filtres réseau/recherche) et réseaux présents. */
 export async function postPageSummary(brandId: string, query: PostPageQuery) {
   const [groups, networks] = await Promise.all([
-    prisma.post.groupBy({ by: ["status"], where: pageFilterWhere(brandId, query), _count: { _all: true } }),
+    query.kind ? kindStatusGroups(brandId, query, query.kind) : prisma.post.groupBy({ by: ["status"], where: pageFilterWhere(brandId, query), _count: { _all: true } }),
     prisma.postTarget.findMany({ where: { post: { brandId } }, distinct: ["network"], select: { network: true } })
   ]);
   const byStatus = new Map((groups as { status: string; _count: { _all: number } }[]).map((g) => [g.status, g._count._all]));
@@ -223,4 +422,19 @@ export async function postPageSummary(brandId: string, query: PostPageQuery) {
     DRAFT: sum(STATUS_GROUPS.DRAFT)
   };
   return { counts, networks: (networks as { network: string }[]).map((n) => n.network) };
+}
+
+/** Compteurs par statut avec un filtre de format : le format se calcule publication par publication. */
+async function kindStatusGroups(brandId: string, query: PostPageQuery, kind: PostKind): Promise<{ status: string; _count: { _all: number } }[]> {
+  const rows = await prisma.post.findMany({
+    where: pageFilterWhere(brandId, query),
+    select: { status: true, media: PAGE_SELECT.media, _count: PAGE_SELECT._count, targets: { select: { network: true, metadata: true } } },
+    take: KIND_SCAN_BATCH * KIND_SCAN_MAX_BATCHES
+  });
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!postKinds(shownTargets(row.targets, query.network), mediaFactsOf(row)).includes(kind)) continue;
+    counts.set(row.status, (counts.get(row.status) ?? 0) + 1);
+  }
+  return Array.from(counts, ([status, n]) => ({ status, _count: { _all: n } }));
 }

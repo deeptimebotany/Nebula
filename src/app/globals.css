@@ -2326,16 +2326,23 @@ button:focus-visible > .nt-chip, a:focus-visible > .nt-chip { outline: 2px solid
   box-shadow: none;
 }
 
-/* Titres de section : majuscules 12 px, sans numéro, discrets. */
+/* Titres de section (09/10/2026, demande de Lucas, en comparant avec
+   YouTube Studio : « pas assez de sous-titres en gras blanc ») : en gras,
+   dans la couleur du texte principal, en minuscules — plus les petites
+   majuscules grises de la première version de la V2. Sans numéro. */
 .nb-main h2:not(.nb-keep-heading):not(:where(.nb-own-design *, .nb-keep-headings *, a *, button *)),
 .nb-section-label {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 12px;
-  line-height: 16px;
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 24px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--nb-label);
+  letter-spacing: -0.005em;
+  text-transform: none;
+  color: #ffffff;
+}
+[data-mode="light"] .nb-main h2:not(.nb-keep-heading):not(:where(.nb-own-design *, .nb-keep-headings *, a *, button *)),
+[data-mode="light"] .nb-section-label {
+  color: var(--l-text-1);
 }
 
 /* Champs : plus de fond gris, un trait fin suffit. */

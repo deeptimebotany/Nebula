@@ -13,7 +13,8 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn(async () => (h.userId ? { user: { id: h.userId } } : null)) }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/brand-access", () => ({ assertBrandMembership: vi.fn(async () => true) }));
-vi.mock("@/lib/billing/plan", () => ({ assertConnectionQuota: vi.fn(async () => undefined) }));
+// Limite de comptes du palier (09/10/2026) : vérifiée compte par compte (connection-limit.ts).
+vi.mock("@/lib/billing/connection-limit", () => ({ assertConnectionAllowed: vi.fn(async () => undefined) }));
 vi.mock("@/lib/social", () => ({ getSocialClient: vi.fn() }));
 vi.mock("@/lib/social/meta", () => ({
   exchangeMetaCode: vi.fn(async () => ({

@@ -134,6 +134,14 @@ export const SEO_SECURITY: SeoPage = {
   eyebrow: "Sécurité"
 };
 
+export const SEO_HELP_ASSISTANT: SeoPage = {
+  path: "/aide/demander-a-nebula",
+  title: "À propos de Demander à Nebula, l'assistant IA",
+  description:
+    "Comment utiliser Demander à Nebula, l'assistant IA : premiers pas, bonnes questions, messages inclus par palier, données envoyées et limites de l'IA.",
+  eyebrow: "Aide"
+};
+
 export const SEO_LEGAL: SeoPage = {
   path: "/legal",
   title: "Mentions légales, CGU et confidentialité",

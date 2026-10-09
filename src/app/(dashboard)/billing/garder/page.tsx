@@ -209,7 +209,8 @@ export default function KeepChoicePage() {
         <fieldset>
           <legend className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Comptes gardés sur « {selected.name} »</legend>
           <p className="mb-2 text-sm text-slate-400">
-            En Gratuit, {data.freeLimits.maxConnections} comptes par marque (Instagram + Facebook comptent ensemble). Les autres restent connectés, en veille.
+            En Gratuit, {data.freeLimits.maxConnections} comptes par marque (Instagram + Facebook comptent ensemble). Les autres devront être déconnectés pour
+            continuer à utiliser Nebula : ceux que vous ne cochez pas ici seront proposés à la déconnexion.
           </p>
           <div className="space-y-1.5">
             {selected.connections.map((c) => (

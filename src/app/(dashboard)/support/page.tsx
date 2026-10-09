@@ -85,10 +85,15 @@ export default function SupportPage() {
         </button>
         {/* V2 : le titre est dans la barre du haut. */}
         <PageHeader title="Soutenir Nebula" />
+        {/* 09/10/2026 (demande de Lucas) : on parle de « l'équipe Nebula »
+            (avant : le projet d'une personne seule), pour inspirer confiance.
+            Rien d'inventé : projet indépendant, conçu en France, sans
+            publicité (voir la page légale). */}
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-          Nebula est développé et hébergé par une seule personne. Si le site vous est utile, un petit coup de pouce
-          aide à financer l&apos;hébergement, les API et le temps passé à l&apos;améliorer. Un immense merci à celles
-          et ceux qui soutiennent le projet — chaque contribution compte.
+          Nebula est un projet indépendant, conçu en France par l&apos;équipe Nebula, sans publicité. Si le site vous est
+          utile, un coup de pouce aide l&apos;équipe à financer l&apos;hébergement, les services utilisés (API, IA) et les
+          prochaines améliorations. Un immense merci à celles et ceux qui soutiennent le projet : chaque contribution
+          compte.
         </p>
       </div>
 

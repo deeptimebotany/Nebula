@@ -184,11 +184,13 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
         className={clsx(
           "nb-nav-item group relative flex items-center rounded-lg text-[14px] transition",
           collapsed ? "mx-auto h-11 w-11 justify-center" : "gap-3 px-3 py-2",
-          active ? "nb-nav-item-active font-semibold text-white" : "text-slate-300 hover:text-white"
+          // Plus appuyé (09/10/2026, demande de Lucas, comme YouTube Studio) :
+          // libellés en medium et presque blancs, la page ouverte en gras.
+          active ? "nb-nav-item-active font-semibold text-white" : "font-medium text-slate-100 hover:text-white"
         )}
         {...extra}
       >
-        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-white" : item.href === "/studio" ? "nb-ai-nav text-slate-400" : "text-slate-400 group-hover:text-white")} />
+        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-white" : item.href === "/studio" ? "nb-ai-nav text-slate-300" : "text-slate-300 group-hover:text-white")} />
         {!collapsed && <span className="truncate">{item.label}</span>}
         {badge &&
           (collapsed ? (
@@ -234,7 +236,9 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
           aria-expanded={open}
           aria-controls={panelId}
           data-tour={`nav-group-${group.key}`}
-          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500 transition hover:text-white"
+          // Catégories en gras et plus claires (09/10/2026) : toujours en majuscules
+          // pour les distinguer des pages.
+          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300 transition hover:text-white"
         >
           <span className="flex items-center gap-2">
             {group.label}
@@ -297,7 +301,8 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
 
       {/* Pied : réduire / déplier (ordinateur) */}
       {onToggleCollapsed && (
-        <div className={clsx("shrink-0 border-t border-[color:var(--nb-sep)] py-3", collapsed ? "px-2" : "px-3")}>
+        // Sans trait au-dessus (09/10/2026, demande de Lucas : « épurer »).
+        <div className={clsx("shrink-0 py-3", collapsed ? "px-2" : "px-3")}>
           <button
             type="button"
             onClick={onToggleCollapsed}
@@ -314,7 +319,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
               hideTip();
             }}
             className={clsx(
-              "flex items-center rounded-lg text-[14px] text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white",
+              "flex items-center rounded-lg text-[14px] font-medium text-slate-300 transition hover:bg-[color:var(--nb-hover)] hover:text-white",
               collapsed ? "mx-auto h-11 w-11 justify-center" : "w-full gap-3 px-3 py-2"
             )}
           >

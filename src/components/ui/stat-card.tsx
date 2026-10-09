@@ -28,7 +28,9 @@ export function StatCard({
   return (
     <GlassCard className={clsx("flex flex-col gap-3", glow && "nebula-cosmetic-gold-statcard")}>
       <div className="flex items-center justify-between">
-        <span className="flex min-w-0 items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400 sm:text-xs">
+        {/* Libellé en clair, comme « Abonnés actuels » chez YouTube Studio (09/10/2026) :
+            plus de petites majuscules grises. */}
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-slate-200">
           {label}
           {badge && (
             <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-amber-300">

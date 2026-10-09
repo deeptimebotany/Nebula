@@ -72,8 +72,12 @@ interface Message {
 
 // Anciennes conversations gardées dans le navigateur (avant le 09/10/2026) : effacées.
 const LEGACY_STORAGE_PREFIX = "nebula:assistant:conversation:";
-const LEGAL_NOTICE =
-  "L'assistant peut faire des erreurs : vérifiez les informations importantes. Vos questions et les données de votre marque sont envoyées à Google Gemini pour générer la réponse.";
+// Mention sous la barre de saisie (09/10/2026, demande de Lucas) : courte,
+// comme sous « Demander à Studio » de YouTube, avec « En savoir plus » vers
+// l'aide de l'assistant (données envoyées à Google Gemini, quotas, limites),
+// ouverte dans un nouvel onglet pour ne pas perdre la conversation.
+const LEGAL_NOTICE = "L'IA peut faire des erreurs. Vous êtes responsable du contenu que vous publiez.";
+const ASSISTANT_HELP_PATH = "/aide/demander-a-nebula";
 
 function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -386,10 +390,11 @@ export function AiAssistant() {
             <div className="px-4 pb-6 pt-6 sm:px-5">
               {/* Accueil (24/09/2026) : aura lumineuse aux couleurs du logo
                   autour du message, « Bonjour [marque] » puis la question en
-                  dégradé de la charte (voir .nb-assistant-aura). */}
+                  dégradé de la charte (voir .nb-assistant-aura). Sans logo
+                  depuis le 09/10/2026 : il est déjà à côté du titre du
+                  panneau (demande de Lucas). */}
               <div className="nb-assistant-aura relative isolate rounded-3xl px-5 pb-5 pt-6">
-                <NebulaIcon size={38} />
-                <h2 className="mt-4 font-display text-2xl font-semibold leading-tight text-white">
+                <h2 className="font-display text-2xl font-semibold leading-tight text-white">
                   Bonjour {activeBrand?.name ?? firstName ?? ""}
                   <span className="nb-assistant-question block text-xl">Comment puis-je vous aider ?</span>
                 </h2>
@@ -604,7 +609,12 @@ export function AiAssistant() {
               <IconSend className="h-4 w-4" />
             </button>
           </div>
-          <p className="mt-2 px-1 text-center text-[10.5px] leading-snug text-slate-500">{LEGAL_NOTICE}</p>
+          <p className="mt-2 px-1 text-center text-[11px] leading-snug text-slate-500">
+            {LEGAL_NOTICE}{" "}
+            <a href={ASSISTANT_HELP_PATH} target="_blank" rel="noopener noreferrer" className="font-medium text-aurora-300 underline-offset-2 hover:underline">
+              En savoir plus
+            </a>
+          </p>
         </div>
       </aside>
     </>

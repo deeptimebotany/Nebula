@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { requireBrandMembership } from "@/lib/brand-access";
-import { assertConnectionQuota } from "@/lib/billing/plan";
+import { assertConnectionAllowed } from "@/lib/billing/connection-limit";
 import { upsertConnection } from "@/lib/connections";
 import { connectWithAppPassword } from "@/lib/social/bluesky";
 import { consumeRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -36,12 +35,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const token = await connectWithAppPassword(identifier, appPassword);
-    // Reconnecter un compte déjà relié ne consomme pas de place en plus.
-    const existing = await prisma.socialConnection.findUnique({
-      where: { brandId_network_externalAccountId: { brandId, network: "BLUESKY", externalAccountId: token.externalAccountId } },
-      select: { id: true }
-    });
-    if (!existing) await assertConnectionQuota(brandId);
+    // Reconnecter un compte déjà relié ne consomme pas de place en plus ; un
+    // compte déconnecté puis reconnecté, si (connection-limit.ts).
+    await assertConnectionAllowed(brandId, "BLUESKY", token.externalAccountId);
     await upsertConnection(brandId, "BLUESKY", token);
     return NextResponse.json({ ok: true, handle: token.handle });
   } catch (err) {

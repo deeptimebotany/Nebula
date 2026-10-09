@@ -85,6 +85,8 @@ export const STATIC_PAGES = [
   "/legal",
   "/securite",
   "/contact",
+  // Aide de l'assistant IA (09/10/2026), ouverte par « En savoir plus » sous le chat.
+  "/aide/demander-a-nebula",
   "/decouvrir/rapports-clients",
   // Pré-lancement (30/09/2026) : page « Bientôt » (formulaire + Turnstile).
   "/bientot"

@@ -7,6 +7,7 @@
 //  - l'accès est retiré chez le réseau quand c'est possible SANS toucher aux
 //    autres connexions (voir revokeAtProvider) ;
 //  - la publication refuse un compte déconnecté (voir lib/publish.ts).
+import { wakeConnectionsWithinLimit } from "@/lib/billing/connection-limit";
 import { prisma } from "@/lib/prisma";
 import type { Network } from "@/lib/types";
 import { sendRequest } from "./base";
@@ -108,5 +109,8 @@ export async function disconnectConnection(connectionId: string): Promise<{ revo
   // toutes les données obtenues avec cette autorisation sont effacées
   // (statistiques, vidéos, commentaires, rétention, nom et photo de la chaîne).
   if (connection.network === "YOUTUBE") await deleteYoutubeAuthorizedData(connectionId);
+  // Marque revenue dans la limite de son palier (09/10/2026) : ses comptes
+  // mis en veille publient de nouveau (connection-limit.ts).
+  await wakeConnectionsWithinLimit(connection.brandId).catch((err: Error) => console.warn("[déconnexion] réveil des comptes :", err.message));
   return { revoked };
 }

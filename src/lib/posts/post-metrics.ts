@@ -49,7 +49,7 @@ export interface PostMetricsDTO {
 
 const MATCH_WINDOW_MS = 20 * 60_000;
 
-interface MetricRow extends MetricValues {
+export interface MetricRow extends MetricValues {
   id: string;
   connectionId: string;
   postExternalId: string;
@@ -69,6 +69,29 @@ function idFromUrl(url: string | null): string | null {
   if (!url) return null;
   const m = /\/(?:video|reel|p|pin|shorts)\/([A-Za-z0-9_-]+)/.exec(url) ?? /watch\?v=([A-Za-z0-9_-]+)/.exec(url);
   return m ? m[1] : null;
+}
+
+/**
+ * Ligne PostMetric d'une cible (règles ci-dessus), parmi les lignes du même
+ * compte. Partagé avec la page Publications (list-posts.ts, 09/10/2026).
+ */
+export function matchMetricRow<R extends Pick<MetricRow, "postExternalId" | "permalink" | "publishedAt">>(
+  target: { status: string; externalPostId: string | null; externalUrl: string | null; publishedAt: Date | null },
+  mine: R[]
+): R | undefined {
+  const urlId = idFromUrl(target.externalUrl);
+  let row =
+    (target.externalPostId ? mine.find((r) => r.postExternalId === target.externalPostId) : undefined) ??
+    (urlId ? mine.find((r) => r.postExternalId === urlId || r.postExternalId.endsWith(`_${urlId}`)) : undefined) ??
+    (target.externalUrl ? mine.find((r) => r.permalink && r.permalink.split("?")[0] === target.externalUrl!.split("?")[0]) : undefined);
+  if (!row && target.status === "PUBLISHED" && target.publishedAt) {
+    const at = target.publishedAt.getTime();
+    const near = mine
+      .filter((r) => r.publishedAt && Math.abs(r.publishedAt.getTime() - at) <= MATCH_WINDOW_MS)
+      .sort((a, b) => Math.abs(a.publishedAt!.getTime() - at) - Math.abs(b.publishedAt!.getTime() - at));
+    row = near[0];
+  }
+  return row;
 }
 
 export async function postMetricsFor(postId: string, userId: string): Promise<PostMetricsDTO | null> {
@@ -118,19 +141,10 @@ export async function postMetricsFor(postId: string, userId: string): Promise<Po
     : [];
 
   const targets: TargetMetrics[] = post.targets.map((t) => {
-    const mine = rows.filter((r) => r.connectionId === t.connectionId);
-    const urlId = idFromUrl(t.externalUrl);
-    let row =
-      (t.externalPostId ? mine.find((r) => r.postExternalId === t.externalPostId) : undefined) ??
-      (urlId ? mine.find((r) => r.postExternalId === urlId || r.postExternalId.endsWith(`_${urlId}`)) : undefined) ??
-      (t.externalUrl ? mine.find((r) => r.permalink && r.permalink.split("?")[0] === t.externalUrl!.split("?")[0]) : undefined);
-    if (!row && t.status === "PUBLISHED" && t.publishedAt) {
-      const at = t.publishedAt.getTime();
-      const near = mine
-        .filter((r) => r.publishedAt && Math.abs(r.publishedAt.getTime() - at) <= MATCH_WINDOW_MS)
-        .sort((a, b) => Math.abs(a.publishedAt!.getTime() - at) - Math.abs(b.publishedAt!.getTime() - at));
-      row = near[0];
-    }
+    const row = matchMetricRow(
+      t,
+      rows.filter((r) => r.connectionId === t.connectionId)
+    );
     return {
       targetId: t.id,
       network: t.network as Network,

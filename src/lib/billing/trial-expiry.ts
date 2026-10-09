@@ -18,6 +18,7 @@ import { upToBrandsText } from "@/lib/plans";
 import { trialEndDate } from "@/lib/trial";
 import { trackGrowth } from "@/lib/growth";
 import { applyFreeLimits, DORMANT_BRAND_MESSAGE } from "@/lib/billing/free-limits";
+import { CONNECTION_LIMIT_REASON, brandConnectionOverage, connectionLimitMessage } from "@/lib/billing/connection-limit";
 
 export async function applyTrialExpirations(now: Date = new Date()): Promise<{ applied: number }> {
   const expired = await prisma.user.findMany({
@@ -60,6 +61,9 @@ export async function grantTrialToLegacyAccounts(): Promise<{ granted: number }>
  * Une marque peut-elle publier ? (création, import, programmation, « Publier
  * maintenant »)
  *   - marque en veille (lot E4) → non, raison `dormant_brand` ;
+ *   - plus de comptes connectés que le palier n'en permet (fin d'essai,
+ *     résiliation…, 09/10/2026) → non, raison `connection_limit`, tant que
+ *     les comptes en trop ne sont pas déconnectés (connection-limit.ts) ;
  *   - essai en cours → oui : les marques déjà créées restent actives jusqu'à
  *     la fin de l'essai, même au-delà de 2 (limite appliquée à la création) ;
  *   - sinon, marques non en veille au-delà du palier (rétrogradation, fin
@@ -67,9 +71,13 @@ export async function grantTrialToLegacyAccounts(): Promise<{ granted: number }>
  *     `second_brand` ; la marque active choisie passe en premier, puis les
  *     plus anciennes.
  */
-export async function assertBrandWritable(brandId: string): Promise<{ ok: true } | { ok: false; message: string; reason: "dormant_brand" | "second_brand" }> {
+export async function assertBrandWritable(
+  brandId: string
+): Promise<{ ok: true } | { ok: false; message: string; reason: "dormant_brand" | "second_brand" | typeof CONNECTION_LIMIT_REASON }> {
   const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { dormantAt: true } });
   if (brand?.dormantAt) return { ok: false, message: DORMANT_BRAND_MESSAGE, reason: "dormant_brand" };
+  const overage = await brandConnectionOverage(brandId);
+  if (overage.over) return { ok: false, message: connectionLimitMessage(overage.slots, overage.max, overage.planLabel), reason: CONNECTION_LIMIT_REASON };
   const owner = await prisma.membership.findFirst({ where: { brandId, role: "OWNER" }, orderBy: { id: "asc" }, select: { userId: true, user: { select: { freeActiveBrandId: true } } } });
   if (!owner) return { ok: true };
   const info = await getUserPlan(owner.userId);

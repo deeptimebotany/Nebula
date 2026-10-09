@@ -31,6 +31,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...UPCOMING_NETWORKS.map((n) => ({ url: `${SITE_URL}/reseaux/${n.slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.4 })),
     { url: `${SITE_URL}/securite`, lastModified: now, changeFrequency: "yearly", priority: 0.6 },
     { url: `${SITE_URL}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.5 },
+    { url: `${SITE_URL}/aide/demander-a-nebula`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     // Inscription : seulement une fois le site ouvert. En pré-lancement,
     // /register renvoie vers /bientot (noindex) : une adresse redirigée dans
     // le sitemap est signalée par Google (07/10/2026, Search Console).

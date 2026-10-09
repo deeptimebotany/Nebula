@@ -44,7 +44,9 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
   const iconButton = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
 
   return (
-    <header className="nb-topbar sticky top-0 z-30 border-b border-[color:var(--nb-sep)]">
+    // Sans trait en bas (09/10/2026, demande de Lucas : « épurer ») : le fond
+    // légèrement flouté suffit à la détacher du contenu qui défile dessous.
+    <header className="nb-topbar sticky top-0 z-30">
       <div className="flex h-16 items-center gap-1 px-4 sm:gap-2 sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center">
           <div id={PAGE_TITLE_SLOT_ID} className="nb-title-slot min-w-0" />

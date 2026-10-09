@@ -8,6 +8,105 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-menu-gras",
+    date: "2026-10-09",
+    title: "Menu latéral en gras",
+    category: "Interface",
+    links: [{ href: "/dashboard", label: "Vue d'ensemble" }],
+    result:
+      "Le menu de gauche est plus lisible : les pages sont écrites plus épais et presque en blanc, les catégories (« Créer », « Analyser », « Présence »…) en gras, et la page ouverte reste en gras sur son fond. Même chose en mode clair, en gris foncé.",
+    change: "`sidebar-nav.tsx` (graisse et couleur des pages, des icônes, des catégories et de « Réduire le menu »). Branche `test`.",
+    readme: 104,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-titres-gras",
+    date: "2026-10-09",
+    title: "Titres de section en gras, comme YouTube Studio",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "Les titres de section de l'application (« À traiter », « Insights IA », « Momentum », « Média », « Publier sur »…) sont maintenant en gras, plus grands et dans la couleur du texte principal, au lieu des petites majuscules grises : les pages se lisent d'un coup d'œil, comme le tableau de bord de YouTube Studio. Les libellés des chiffres (« Abonnés (total) »…) sont aussi plus lisibles.",
+    change: "`globals.css` (titres de section `.nb-main h2`, `.nb-section-label`), `stat-card.tsx` (libellés). Branche `test`.",
+    readme: 103,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-soutenir-equipe",
+    date: "2026-10-09",
+    title: "Soutenir Nebula : on parle de l'équipe Nebula",
+    category: "Communauté",
+    links: [{ href: "/support", label: "Soutenir Nebula" }],
+    result:
+      "La page Soutenir Nebula présente maintenant Nebula comme un projet indépendant, conçu en France par l'équipe Nebula, sans publicité, au lieu d'un site « développé par une seule personne ». Le soutien aide l'équipe à financer l'hébergement, les services utilisés (API, IA) et les prochaines améliorations.",
+    change: "`support/page.tsx` (texte d'introduction). Branche `test`.",
+    readme: 102,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-publications-tableau",
+    date: "2026-10-09",
+    title: "Publications : un tableau façon YouTube Studio, avec vues, commentaires et j'aime",
+    category: "Publication",
+    links: [{ href: "/publications", label: "Publications" }],
+    result:
+      "La page Publications devient un tableau comme le « Contenu » de YouTube Studio : pour chaque publication, la miniature (avec la durée des vidéos), le titre, le texte, les réseaux et le format, la visibilité (brouillon, programmée, publique, privée ou non répertoriée sur YouTube…), la date — triable des plus récentes aux plus anciennes ou l'inverse —, puis les vues, les commentaires et les j'aime additionnés sur les réseaux. Un nouveau filtre trie par format : Shorts et Reels, vidéos, posts (images et textes) ou stories, et se combine avec le filtre de réseau.",
+    change:
+      "`publications/page.tsx` (tableau, tri par date, filtre de format), `src/lib/posts/list-posts.ts` (`kind`, `order`, chiffres et formats par publication), `src/lib/posts/post-kind.ts`, `post-metrics.ts` (`matchMetricRow`). Tests : `tests/integration/publications-table.test.ts`, `tests/quality/post-kind.test.ts`.",
+    readme: 101,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-cadre-epure",
+    date: "2026-10-09",
+    title: "Cadre épuré : plus de traits autour du menu et de la barre du haut",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "Le trait vertical le long du menu, celui au-dessus de « Réduire le menu » et celui sous la barre du haut ont disparu : le menu, la barre du haut et la page se fondent dans le même fond uni, pour un écran plus léger.",
+    change: "`app-shell.tsx`, `sidebar-nav.tsx`, `app-header.tsx` (traits retirés). Branche `test`.",
+    readme: 100,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-limite-comptes-connectes",
+    date: "2026-10-09",
+    title: "Fin d'essai : les comptes en trop doivent être déconnectés",
+    category: "Compte et facturation",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/billing", label: "Facturation" }
+    ],
+    result:
+      "Quand une marque a plus de comptes connectés que son palier n'en permet (fin de l'essai, résiliation, palier inférieur), une fenêtre « Trop de comptes connectés pour votre palier » bloque l'application jusqu'à ce que les comptes en trop soient déconnectés : ils sont cochés d'avance (ceux choisis dans « Choisir ce que je garde », sinon les moins utilisés), on peut changer la sélection, puis confirmer. Seule la Facturation reste ouverte, pour passer à un palier supérieur. Plus aucune publication ne part de la marque tant qu'elle dépasse, et un nouveau compte n'est accepté que s'il tient dans le palier ; reconnecter un compte déjà relié reste toujours possible.",
+    change:
+      "`src/lib/billing/connection-limit.ts` (état, refus de publication `connection_limit`, contrôle compte par compte à la connexion, réveil des comptes en veille), `connection-limit-gate.tsx` et `connection-limit-dialog.tsx` (fenêtre), `/api/billing/connection-limit`, `trial-expiry.ts`, `revoke.ts`, retours OAuth et Bluesky, `src/lib/connection-slots.ts`. Tests : `tests/integration/connection-limit.test.ts`, `tests/quality/connection-limit-gate.test.ts`.",
+    readme: 99,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-assistant-aide",
+    date: "2026-10-09",
+    title: "Assistant IA : accueil allégé et page d'aide « À propos de Demander à Nebula »",
+    category: "IA",
+    links: [
+      { href: "/aide/demander-a-nebula", label: "À propos de Demander à Nebula" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "L'accueil du chat n'affiche plus le logo au-dessus de « Bonjour … » : il est déjà à côté de « Demander à Nebula ». Sous la barre de saisie, une mention courte, « L'IA peut faire des erreurs. Vous êtes responsable du contenu que vous publiez. », suivie de « En savoir plus » : une page d'aide explique qui peut utiliser l'assistant et combien de messages sont inclus, comment s'en servir, comment bien formuler une demande, ce qui est envoyé à Google Gemini et ce qui n'est jamais gardé.",
+    change:
+      "`ai-assistant.tsx` (accueil sans logo, mention courte et lien), nouvelle page `src/app/aide/demander-a-nebula/page.tsx` (quotas lus dans `AI_MONTHLY`), `csp.ts` (`STATIC_PAGES`), `seo-pages.ts` (`SEO_HELP_ASSISTANT`), `sitemap.ts`. Branche `test`.",
+    readme: 98,
+    migrations: []
+  },
+  {
     id: "2026-10-09-inscription-mot-de-passe-confirme",
     date: "2026-10-09",
     title: "Inscription : le mot de passe se tape deux fois",

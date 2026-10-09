@@ -5,10 +5,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { META_DESCRIPTION_MAX, clampDescription, pageMetadata, serializeJsonLd, softwareApplicationLd, toolStructuredData, ldGraph } from "@/lib/seo";
-import { SEO_ALTERNATIVES, SEO_CONTACT, SEO_DISCOVER, SEO_HOME, SEO_LEGAL, SEO_LOGIN, SEO_NETWORKS, SEO_PRICING, SEO_REGISTER, SEO_SECURITY, SEO_TOOLS, SEO_TOOLS_HUB, type SeoPage } from "@/lib/seo-pages";
+import { SEO_ALTERNATIVES, SEO_CONTACT, SEO_DISCOVER, SEO_HELP_ASSISTANT, SEO_HOME, SEO_LEGAL, SEO_LOGIN, SEO_NETWORKS, SEO_PRICING, SEO_REGISTER, SEO_SECURITY, SEO_TOOLS, SEO_TOOLS_HUB, type SeoPage } from "@/lib/seo-pages";
 import { PLAN_LIMITS } from "@/lib/plans";
 
-const PAGES: SeoPage[] = [SEO_HOME, SEO_PRICING, SEO_TOOLS_HUB, ...Object.values(SEO_TOOLS), SEO_CONTACT, SEO_SECURITY, SEO_LEGAL, SEO_REGISTER, SEO_LOGIN, SEO_ALTERNATIVES, SEO_NETWORKS, ...Object.values(SEO_DISCOVER)];
+const PAGES: SeoPage[] = [SEO_HOME, SEO_PRICING, SEO_TOOLS_HUB, ...Object.values(SEO_TOOLS), SEO_CONTACT, SEO_SECURITY, SEO_HELP_ASSISTANT, SEO_LEGAL, SEO_REGISTER, SEO_LOGIN, SEO_ALTERNATIVES, SEO_NETWORKS, ...Object.values(SEO_DISCOVER)];
 
 describe("balises des pages publiques", () => {
   it("titres de 60 caractères au plus, descriptions de 155 au plus (jamais coupées)", () => {
