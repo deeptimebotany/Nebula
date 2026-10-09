@@ -8,6 +8,39 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-assistant-fenetre",
+    date: "2026-10-09",
+    title: "Assistant IA : fenêtre flottante arrondie, conversation remise à zéro à chaque page",
+    category: "IA",
+    links: [
+      { href: "/composer", label: "Publier" },
+      { href: "/dashboard", label: "Vue d'ensemble" }
+    ],
+    result:
+      "« Demander à Nebula » s'ouvre maintenant dans une fenêtre aux grands coins arrondis, au contour fin, posée à droite sous la barre du haut, comme « Demander à Studio » de YouTube Studio : la page ne se décale plus. Et la conversation repart de zéro dès qu'on change de page, qu'on change de marque, qu'on recharge ou qu'on quitte le site : les miniatures proposées pour une vidéo déjà publiée ne restent plus dans le chat.",
+    change:
+      "`ai-assistant.tsx` (plus de sessionStorage, anciennes conversations effacées, remise à zéro au changement de page ou de marque ; fenêtre `.nb-assistant-window`), `app-shell.tsx` (plus de colonne rétrécie ni de défilement transféré), `globals.css` (fenêtre : 420 px, 12 px du bord, 72 px du haut, coins de 28 px, contour fin ; plein écran sur téléphone). Branche `test`.",
+    readme: 96,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-youtube-donnees-audit",
+    date: "2026-10-09",
+    title: "YouTube : pages légales et gestion des données mises aux règles de YouTube",
+    category: "Sécurité",
+    links: [
+      { href: "/legal#youtube", label: "Données YouTube (confidentialité)" },
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "Google a validé l'écran d'autorisation de Nebula (youtube.readonly, youtube.upload, youtube.force-ssl). Pour l'audit « YouTube API Services », qui lèvera le verrou « vidéo privée » et le quota de 10 000 unités par jour, la page légale dit maintenant tout ce que YouTube exige : l'acceptation des Conditions d'utilisation de YouTube (lien), l'usage des YouTube API Services, le lien vers les règles de confidentialité de Google, ce que Nebula lit, garde et fait des données YouTube, le retrait de l'accès depuis Nebula ou depuis la page des autorisations Google, et la durée de conservation. Et Nebula le fait vraiment : déconnecter une chaîne efface tout de suite ses données YouTube (statistiques, vidéos, commentaires, rétention, nom et photo) ; les commentaires et fiches de vidéos ne sont jamais gardés plus de 30 jours sans actualisation ; l'autorisation des chaînes sans synchro depuis 25 jours est vérifiée auprès de Google chaque jour, et une autorisation retirée entraîne l'effacement. Dans Publier, un avis rappelle que les vidéos arrivent en « Privée » sur YouTube tant que l'audit n'est pas validé.",
+    change:
+      "`legal/page.tsx` (conditions §4, confidentialité « 2 bis. Données YouTube », conservation, droits : 7 jours), `src/lib/social/youtube-data-policy.ts` (`deleteYoutubeAuthorizedData`, `purgeStaleYoutubeData`, `checkYoutubeAuthorizations`, `runYoutubeDataPolicy`), `youtube-data-retention.ts`, `youtube.ts` (commentaires de plus de 30 jours ignorés), `revoke.ts` (effacement à la déconnexion), `account-jobs.ts` (tâche du cron), `youtube-audit.ts` et `composer/page.tsx` (avis « Privée »). Tests : `tests/integration/youtube-data-policy.test.ts`, `tests/quality/youtube-compliance.test.ts`.",
+    readme: 95,
+    migrations: []
+  },
+  {
     id: "2026-10-09-logo-themes-palier",
     date: "2026-10-09",
     title: "Logo Nebula : doré avec Or Impérial, en négatif noir et blanc avec Éclipse totale",

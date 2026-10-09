@@ -12,6 +12,7 @@ import type { Network } from "@/lib/types";
 import { sendRequest } from "./base";
 import { deleteBlueskySession } from "./bluesky";
 import { envValue } from "@/lib/env-value";
+import { deleteYoutubeAuthorizedData } from "./youtube-data-policy";
 
 type ConnectionRow = {
   id: string;
@@ -103,5 +104,9 @@ export async function disconnectConnection(connectionId: string): Promise<{ revo
     where: { id: connectionId },
     data: { status: "DISCONNECTED", accessToken: "", refreshToken: null, tokenExpiresAt: null, lastError: null }
   });
+  // Règles de YouTube (09/10/2026, section III.D.2) : à la déconnexion,
+  // toutes les données obtenues avec cette autorisation sont effacées
+  // (statistiques, vidéos, commentaires, rétention, nom et photo de la chaîne).
+  if (connection.network === "YOUTUBE") await deleteYoutubeAuthorizedData(connectionId);
   return { revoked };
 }

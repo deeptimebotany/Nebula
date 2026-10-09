@@ -32,13 +32,7 @@ const GuidedTour = dynamic(() => import("@/components/tour/guided-tour").then((m
 // Confirmation de l'âge : chargée seulement pour les comptes qui ne l'ont pas encore faite.
 const AgeGate = dynamic(() => import("@/components/age-gate").then((m) => m.AgeGate), { ssr: false });
 const DormantBrandBanner = dynamic(() => import("@/components/billing/dormant-brand").then((m) => m.DormantBrandBanner), { ssr: false });
-import { useAiAssistant } from "./ai-assistant-context";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
-
-// Largeur du tiroir « Demander à Nebula » sur ordinateur (voir
-// ai-assistant.tsx, sm:w-[420px]) : la colonne de contenu se rétrécit
-// d'autant quand il est ouvert, façon YouTube Studio.
-const ASSISTANT_WIDTH = 420;
 
 const COLLAPSED_KEY = "nebula:sidebar-collapsed";
 
@@ -65,40 +59,9 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
   // Tiroir (téléphone)
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Assistant IA ouvert sur ordinateur : la colonne de contenu devient son
-  // propre conteneur de défilement, rétréci de la largeur du tiroir — la
-  // barre de défilement de la page se retrouve donc juste à GAUCHE du
-  // panneau (modèle YouTube Studio), et la page ne défile plus derrière
-  // (plus de double barre). Le défilement est transféré dans les deux sens
-  // pour ne pas perdre la position à l'ouverture et à la fermeture.
-  const assistant = useAiAssistant();
+  // Assistant IA (09/10/2026) : fenêtre flottante posée par-dessus la page
+  // (voir ai-assistant.tsx) — la colonne de contenu ne se rétrécit plus.
   const columnRef = useRef<HTMLDivElement>(null);
-  const [assistantDocked, setAssistantDocked] = useState(false);
-  useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
-    function apply() {
-      const dock = assistant.open && desktop.matches;
-      const column = columnRef.current;
-      if (dock === assistantDocked) return;
-      if (dock) {
-        const y = window.scrollY;
-        setAssistantDocked(true);
-        document.documentElement.classList.add("nebula-assistant-docked");
-        requestAnimationFrame(() => {
-          if (column) column.scrollTop = y;
-        });
-      } else {
-        const y = column?.scrollTop ?? 0;
-        setAssistantDocked(false);
-        document.documentElement.classList.remove("nebula-assistant-docked");
-        requestAnimationFrame(() => window.scrollTo({ top: y }));
-      }
-    }
-    apply();
-    desktop.addEventListener("change", apply);
-    return () => desktop.removeEventListener("change", apply);
-  }, [assistant.open, assistantDocked]);
-  useEffect(() => () => document.documentElement.classList.remove("nebula-assistant-docked"), []);
   // Colonne repliée (ordinateur), mémorisée sur cet appareil
   const [collapsed, setCollapsed] = useState(false);
 
@@ -202,8 +165,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       {/* Colonne de contenu */}
       <div
         ref={columnRef}
-        className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding,margin] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60", assistantDocked && "lg:h-screen lg:overflow-y-auto")}
-        style={assistantDocked ? { marginRight: ASSISTANT_WIDTH } : undefined}
+        className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60")}
       >
         <AppHeader oauth={oauth} isOwner={isOwner} />
         <TrialBanner />

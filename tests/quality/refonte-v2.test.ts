@@ -248,3 +248,21 @@ describe("logo Nebula selon le thème de palier (09/10/2026)", () => {
     expect(read("src/components/mode-provider.tsx")).toContain("document.documentElement.dataset.mode = mode;");
   });
 });
+
+describe("assistant « Demander à Nebula » (09/10/2026)", () => {
+  it("la conversation repart de zéro à chaque page et marque, rien n'est gardé dans le navigateur", () => {
+    const chat = read("src/components/dashboard/ai-assistant.tsx");
+    expect(chat).not.toContain("sessionStorage.setItem");
+    expect(chat).toContain("forgetLegacyConversations();");
+    expect(chat).toMatch(/const place = `\$\{brandId \?\? ""\}\|\$\{pathname\}`;\s*if \(placeRef\.current !== null && placeRef\.current !== place\) \{\s*setMessages\(\[\]\);/);
+  });
+  it("fenêtre flottante arrondie sous la barre du haut, la page ne se décale plus", () => {
+    expect(read("src/components/dashboard/ai-assistant.tsx")).toContain('className="nb-assistant-window fixed z-50 flex flex-col"');
+    const css = read("src/app/globals.css");
+    expect(css).toMatch(/\.nb-assistant-window \{\s*inset: auto;\s*top: 72px;\s*right: 12px;\s*bottom: 12px;\s*width: 420px;/);
+    expect(css).toContain("border-radius: 28px;");
+    const shell = read("src/components/dashboard/app-shell.tsx");
+    expect(shell).not.toContain("marginRight: ASSISTANT_WIDTH");
+    expect(shell).not.toContain("nebula-assistant-docked");
+  });
+});

@@ -14,9 +14,15 @@
 // aucun appel réseau — tout est statique dans assistant-contexts.ts. Seul
 // l'envoi d'une question consomme le quota Gemini (voir /api/ai/chat).
 //
-// La conversation survit à la navigation (le composant vit dans le layout)
-// et au rechargement (sessionStorage, par marque) ; « Nouvelle conversation »
-// la vide.
+// Conversation (09/10/2026, demande de Lucas) : elle repart de zéro dès
+// qu'on change de page, qu'on recharge ou qu'on quitte le site — rien n'est
+// gardé dans le navigateur (avant : sessionStorage par marque, les
+// miniatures proposées restaient dans le chat). « Nouvelle conversation » la
+// vide aussi.
+//
+// Présentation (09/10/2026) : fenêtre arrondie posée par-dessus la page, à
+// droite sous la barre du haut, comme « Demander à Studio » de YouTube
+// Studio — elle ne décale plus la page. Plein écran sur téléphone.
 //
 // Ce module est chargé à la demande (ai-assistant-lazy.tsx) : le bouton
 // flottant est toujours là, le tiroir n'est téléchargé qu'à la première
@@ -60,8 +66,8 @@ interface Message {
   framePicks?: FramePickCard[];
 }
 
-const STORAGE_PREFIX = "nebula:assistant:conversation:";
-const STORAGE_MAX_MESSAGES = 40;
+// Anciennes conversations gardées dans le navigateur (avant le 09/10/2026) : effacées.
+const LEGACY_STORAGE_PREFIX = "nebula:assistant:conversation:";
 const LEGAL_NOTICE =
   "L'assistant peut faire des erreurs : vérifiez les informations importantes. Vos questions et les données de votre marque sont envoyées à Google Gemini pour générer la réponse.";
 
@@ -69,22 +75,14 @@ function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function loadConversation(brandId: string): Message[] {
+function forgetLegacyConversations(): void {
   try {
-    const raw = sessionStorage.getItem(STORAGE_PREFIX + brandId);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Message[]).filter((m) => m && typeof m.text === "string") : [];
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith(LEGACY_STORAGE_PREFIX)) sessionStorage.removeItem(key);
+    }
   } catch {
-    return [];
-  }
-}
-
-function saveConversation(brandId: string, messages: Message[]): void {
-  try {
-    sessionStorage.setItem(STORAGE_PREFIX + brandId, JSON.stringify(messages.slice(-STORAGE_MAX_MESSAGES)));
-  } catch {
-    // Stockage indisponible : la conversation vit juste en mémoire.
+    // Stockage indisponible : rien à effacer.
   }
 }
 
@@ -121,22 +119,31 @@ export function AiAssistant() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const loadedBrandRef = useRef<string | null>(null);
+  // Page et marque de la conversation en cours (voir plus bas).
+  const placeRef = useRef<string | null>(null);
 
   const ctx = ASSISTANT_CONTEXTS[contextKey];
   const firstName = firstNameOf(bootstrap?.user?.name);
 
-  // --- Conversation persistée par marque -------------------------------
+  // --- Conversation : repart de zéro à chaque page et à chaque marque ----
+  // Rien n'est gardé dans le navigateur : recharger ou quitter le site la
+  // vide aussi. Les conversations gardées par les versions précédentes sont
+  // effacées une fois.
   useEffect(() => {
-    if (!activeBrand) return;
-    if (loadedBrandRef.current === activeBrand.id) return;
-    loadedBrandRef.current = activeBrand.id;
-    setMessages(loadConversation(activeBrand.id));
-  }, [activeBrand]);
-
+    forgetLegacyConversations();
+  }, []);
+  const brandId = activeBrand?.id ?? null;
   useEffect(() => {
-    if (activeBrand && loadedBrandRef.current === activeBrand.id) saveConversation(activeBrand.id, messages);
-  }, [messages, activeBrand]);
+    const place = `${brandId ?? ""}|${pathname}`;
+    if (placeRef.current !== null && placeRef.current !== place) {
+      setMessages([]);
+      setChosenPick(null);
+      setBatch(0);
+      setFollowupBatch(0);
+      setInput("");
+    }
+    placeRef.current = place;
+  }, [brandId, pathname]);
 
   // --- Nouveau contexte → on repart au premier lot de suggestions --------
   useEffect(() => {
@@ -335,16 +342,16 @@ export function AiAssistant() {
         role="dialog"
         aria-label="Demander à Nebula"
         aria-hidden={!open}
-        className={clsx(
-          // visibility est dans la transition : fermé, le tiroir devient
-          // invisible (et non focusable au clavier) seulement une fois sorti
-          // de l'écran, pour garder l'animation de sortie.
-          "glass-panel-solid fixed inset-y-0 right-0 z-50 flex w-full flex-col border-y-0 border-r-0 transition-[transform,visibility] duration-200 ease-out sm:w-[420px] sm:rounded-l-2xl",
-          open ? "visible translate-x-0" : "invisible translate-x-full"
-        )}
+        data-open={open ? "true" : "false"}
+        // Fenêtre arrondie posée par-dessus la page (globals.css,
+        // .nb-assistant-window) : à droite sous la barre du haut, contour fin,
+        // sans décaler la page. visibility est dans la transition : fermée,
+        // elle devient invisible (et non focusable) seulement à la fin de
+        // l'animation de sortie.
+        className="nb-assistant-window fixed z-50 flex flex-col"
       >
         {/* En-tête */}
-        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-4">
+        <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
           <NebulaIcon size={24} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-sm font-semibold text-white">Demander à Nebula</p>
