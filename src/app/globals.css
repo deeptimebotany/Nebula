@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 :root {
-  /* Polices : --font-sans (Inter) et --font-display (Space Grotesk) sont
+  /* Polices : --font-sans et --font-display (Inter toutes les deux depuis le
+     09/10/2026 ; avant, Space Grotesk pour les titres) sont
      définies par next/font sur <html> (voir src/app/layout.tsx, polices
      auto-hébergées dans src/fonts). Ne PAS les redéclarer ici : une
      déclaration sur :root entrerait en concurrence avec celle de next/font.

@@ -23,7 +23,7 @@ import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/eng
  */
 /** Onglets à l'intérieur d'une page (09/10/2026 : Rétention IA dans Analytics, Commentaires et Engagement dans Interactions). */
 const PAGE_TABS: Record<string, string> = {
-  "/analytics": "onglets Vue d'ensemble, Concurrence, Rétention IA, Publicité",
+  "/analytics": "onglets Vue d'ensemble, Rétention IA, Concurrence, Publicité",
   "/interactions": "onglets Commentaires et Engagement"
 };
 

@@ -184,13 +184,17 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
         className={clsx(
           "nb-nav-item group relative flex items-center rounded-lg text-[14px] transition",
           collapsed ? "mx-auto h-11 w-11 justify-center" : "gap-3 px-3 py-2",
-          // Plus appuyé (09/10/2026, demande de Lucas, comme YouTube Studio) :
-          // libellés en medium et presque blancs, la page ouverte en gras.
-          active ? "nb-nav-item-active font-semibold text-white" : "font-medium text-slate-100 hover:text-white"
+          // 09/10/2026 (demande de Lucas, comme ElevenLabs) : pages en gris
+          // clair, texte normal ; la page ouverte en gras blanc, icône pleine.
+          active ? "nb-nav-item-active font-semibold text-white" : "font-normal text-slate-300 hover:text-white"
         )}
         {...extra}
       >
-        <Icon className={clsx("h-[18px] w-[18px] shrink-0", active ? "text-white" : item.href === "/studio" ? "nb-ai-nav text-slate-300" : "text-slate-300 group-hover:text-white")} />
+        {/* Icônes du menu (09/10/2026) : 24 px, traits épais, pleines sur la page ouverte (nav-icons.tsx). */}
+        <Icon
+          filled={active}
+          className={clsx("h-6 w-6 shrink-0", active ? "text-white" : item.href === "/studio" ? "nb-ai-nav text-slate-300" : "text-slate-300 group-hover:text-white")}
+        />
         {!collapsed && <span className="truncate">{item.label}</span>}
         {badge &&
           (collapsed ? (
@@ -323,7 +327,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapsed, onClose, bran
               collapsed ? "mx-auto h-11 w-11 justify-center" : "w-full gap-3 px-3 py-2"
             )}
           >
-            {collapsed ? <IconChevronsRight className="h-[18px] w-[18px]" /> : <IconChevronsLeft className="h-[18px] w-[18px]" />}
+            {collapsed ? <IconChevronsRight className="h-6 w-6 [stroke-width:2]" /> : <IconChevronsLeft className="h-6 w-6 [stroke-width:2]" />}
             {!collapsed && "Réduire le menu"}
           </button>
         </div>

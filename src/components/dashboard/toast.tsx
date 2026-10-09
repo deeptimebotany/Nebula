@@ -98,7 +98,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         aria-atomic="false"
         // V2 : au-dessus des barres collées en bas sur téléphone (onglets + boutons de Publier).
-        className="nb-toasts pointer-events-none fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] right-4 z-[100] flex w-[min(320px,calc(100vw-2rem))] flex-col gap-2 sm:bottom-20 lg:bottom-5 lg:right-5"
+        className="nb-toasts pointer-events-none fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] right-4 z-[100] flex w-[min(320px,calc(100vw-2rem))] flex-col gap-2 sm:bottom-20 md:bottom-5 md:right-5"
       >
         {toasts.map((t) => (
           <div

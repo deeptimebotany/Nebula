@@ -192,7 +192,9 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
         className={clsx(
           // Sans trait à droite (09/10/2026, demande de Lucas : « épurer ») :
           // barre latérale et page ont le même fond uni.
-          "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 lg:flex",
+          // Dès 768 px (09/10/2026, retour de Lucas : fenêtre coupée en deux,
+          // plus de menu) : la colonne reste là, en icônes sous 1 360 px.
+          "nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 md:flex",
           collapsed ? "w-[72px]" : "w-60"
         )}
       >
@@ -204,7 +206,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
         aria-hidden={!drawerOpen}
         onClick={() => setDrawerOpen(false)}
         className={clsx(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 lg:hidden",
+          "fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 md:hidden",
           drawerOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       />
@@ -214,7 +216,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
         aria-label="Menu de navigation"
         aria-hidden={!drawerOpen}
         className={clsx(
-          "nb-sidebar fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-[color:var(--nb-sep)] shadow-2xl transition-transform duration-200 ease-out lg:hidden",
+          "nb-sidebar fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-[color:var(--nb-sep)] shadow-2xl transition-transform duration-200 ease-out md:hidden",
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -224,8 +226,8 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
       </aside>
 
       {/* Colonne de contenu */}
-      <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-60", assistantDocked && "lg:h-screen")}>
-        <AppHeader oauth={oauth} isOwner={isOwner} />
+      <div className={clsx("flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "md:pl-[72px]" : "md:pl-60", assistantDocked && "lg:h-screen")}>
+        <AppHeader oauth={oauth} isOwner={isOwner} onOpenMenu={openDrawer} />
         {/* Tout ce qui est sous la barre du haut : c'est cette zone (et elle
             seule) qui se rétrécit et défile quand l'assistant est ouvert. */}
         <div
@@ -235,7 +237,7 @@ export function AppShell({ oauth, isOwner, children }: AppShellProps) {
         >
           <TrialBanner />
           {activeBrand?.dormant && <DormantBrandBanner />}
-          <main id="contenu" tabIndex={-1} className="nb-main noise-grid flex-1 px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">
+          <main id="contenu" tabIndex={-1} className="nb-main noise-grid flex-1 px-4 pb-28 pt-6 outline-none sm:px-6 md:pb-12 lg:px-10 lg:pt-8">
             <InShellContext.Provider value={true}>
               <div className="mx-auto max-w-7xl">{children}</div>
             </InShellContext.Provider>

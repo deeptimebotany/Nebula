@@ -23,6 +23,12 @@
 // Modifier / Détails, Statistiques, Commentaires, Voir sur le réseau,
 // Supprimer et « ⋮ » (Dupliquer, fiche complète, autres réseaux). Sur
 // téléphone, ces boutons restent visibles sous chaque carte.
+//
+// Puis (09/10/2026, demande de Lucas) : plus de « ⋮ » — Voir sur le réseau
+// (un bouton par réseau en ligne), Dupliquer, Supprimer ; cases à cocher
+// (une par ligne, « tout cocher » dans l'en-tête) et barre « N publications
+// sélectionnées · Supprimer », comme YouTube Studio
+// (POST /api/posts/bulk-delete, dans Nebula seulement).
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
@@ -40,7 +46,8 @@ import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { NetworkTile } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, commentNetworks, type Network } from "@/lib/types";
 import { POST_KINDS, POST_KIND_FILTER_LABEL, POST_KIND_LABEL, type PostKind } from "@/lib/posts/post-kind";
-import { IconAlert, IconCalendar, IconChart, IconClock, IconDots, IconLink, IconList, IconLock, IconMessage, IconPencilLine, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
+import { IconAlert, IconCalendar, IconChart, IconClock, IconClose, IconLink, IconList, IconLock, IconMessage, IconPencilLine, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
+import { useConfirm } from "@/components/dashboard/confirm";
 import { PostEditModal } from "@/components/dashboard/post-edit-modal";
 import { DeletePostDialog, type DeletableTarget } from "@/components/posts/delete-post-dialog";
 import { useToast } from "@/components/dashboard/toast";
@@ -148,6 +155,57 @@ function PublicationsPageInner() {
   const [editing, setEditing] = useState<{ id: string; tab: "stats" | "content" } | null>(null);
   const [deleting, setDeleting] = useState<{ id: string; targets: DeletableTarget[] } | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
+  // Cases à cocher (09/10/2026) : publications sélectionnées de la liste affichée.
+  const confirm = useConfirm();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  // Nouvelle liste (filtre, tri, marque, rechargement) : on ne garde que ce qui y est encore.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0 || !posts) return prev.size === 0 ? prev : new Set();
+      const ids = new Set(posts.map((p) => p.id));
+      const kept = new Set(Array.from(prev).filter((id) => ids.has(id)));
+      return kept.size === prev.size ? prev : kept;
+    });
+  }, [posts]);
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleAll() {
+    if (!posts) return;
+    setSelected((prev) => (posts.every((p) => prev.has(p.id)) ? new Set() : new Set(posts.map((p) => p.id))));
+  }
+  async function deleteSelected() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const many = ids.length > 1;
+    const ok = await confirm({
+      title: many ? `Supprimer ${ids.length} publications ?` : "Supprimer cette publication ?",
+      message: `${many ? "Elles sont supprimées" : "Elle est supprimée"} de Nebula, avec ${many ? "leurs" : "ses"} statistiques et ${many ? "leurs" : "ses"} fichiers. Une publication déjà en ligne reste sur les réseaux : pour la retirer aussi d'un réseau, utilisez la corbeille de sa ligne.`,
+      confirmLabel: "Supprimer",
+      danger: true
+    });
+    if (!ok) return;
+    setBulkDeleting(true);
+    const res = await fetch("/api/posts/bulk-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setBulkDeleting(false);
+    if (!res || !res.ok) {
+      toast.error(typeof data.error === "string" ? data.error : "La suppression n'a pas abouti. Réessayez.");
+      return;
+    }
+    const n = Number(data.deleted) || 0;
+    toast.success(n > 1 ? `${n} publications supprimées.` : n === 1 ? "Publication supprimée." : "Aucune publication supprimée.");
+    if (data.publishing > 0) toast.info(`${data.publishing} publication${data.publishing > 1 ? "s" : ""} en cours d'envoi : laissée${data.publishing > 1 ? "s" : ""} de côté.`);
+    setSelected(new Set());
+    setReloadKey((k) => k + 1);
+    void refreshUsage();
+  }
 
   // La fenêtre de suppression a besoin de ce que chaque réseau permet
   // (« Supprimer aussi sur … ») : lu sur la fiche de la publication.
@@ -180,8 +238,12 @@ function PublicationsPageInner() {
     onEdit: (id, tab) => setEditing({ id, tab }),
     onDelete: askDelete,
     onDuplicate: duplicate,
-    busyId: rowBusy
+    busyId: rowBusy,
+    isSelected: (id) => selected.has(id),
+    onToggleSelected: toggleSelected
   };
+  const allSelected = Boolean(posts && posts.length > 0 && posts.every((p) => selected.has(p.id)));
+  const someSelected = selected.size > 0 && !allSelected;
 
   const pageUrl = useCallback(
     (brandId: string, cursor?: string) => {
@@ -354,9 +416,43 @@ function PublicationsPageInner() {
         <div className={clsx("space-y-3 transition-opacity", refreshing && "opacity-60")} aria-busy={refreshing || undefined}>
           {/* Tableau façon YouTube Studio (09/10/2026) : en-têtes de colonnes
               sur ordinateur, une carte par publication sur téléphone. */}
+          {/* Sélection (09/10/2026, comme YouTube Studio) : barre d'actions. */}
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.06] px-4 py-2.5" role="region" aria-label="Publications sélectionnées" data-testid="publications-selection-bar">
+              <p className="text-sm font-medium text-white">
+                {selected.size} publication{selected.size > 1 ? "s" : ""} sélectionnée{selected.size > 1 ? "s" : ""}
+                {!allSelected && posts.length > selected.size && (
+                  <>
+                    {" "}
+                    (
+                    <button type="button" onClick={toggleAll} className="underline underline-offset-2 hover:text-aurora-200">
+                      Tout sélectionner
+                    </button>
+                    )
+                  </>
+                )}
+              </p>
+              <span className="hidden h-5 w-px bg-white/15 sm:block" aria-hidden="true" />
+              <Button variant="danger" onClick={() => void deleteSelected()} disabled={bulkDeleting} className="px-3 py-1.5">
+                <IconTrash className="h-4 w-4" /> {bulkDeleting ? "Suppression…" : "Supprimer"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+                title="Annuler la sélection"
+                aria-label="Annuler la sélection"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div role="table" aria-label="Liste des publications" className="border-y border-[color:var(--nb-sep)]">
             <div role="rowgroup" className="hidden lg:block">
               <div role="row" className={clsx(TABLE_GRID, "border-b border-[color:var(--nb-sep)] py-3 text-xs font-medium text-slate-400")}>
+                <span role="columnheader" className="flex justify-center pt-0.5">
+                  <SelectBox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Tout sélectionner" />
+                </span>
                 <span role="columnheader">Publication</span>
                 <span role="columnheader">Visibilité</span>
                 <span role="columnheader" aria-sort={order === "desc" ? "descending" : "ascending"}>
@@ -423,7 +519,25 @@ function PublicationsPageInner() {
 }
 
 /** Colonnes du tableau (ordinateur). */
-const TABLE_GRID = "grid grid-cols-[minmax(0,1fr)_160px_150px_80px_116px_80px] items-start gap-x-4 px-3";
+const TABLE_GRID = "grid grid-cols-[24px_minmax(0,1fr)_160px_150px_80px_116px_80px] items-start gap-x-4 px-3";
+
+/** Case à cocher de sélection (ligne, ou « tout » dans l'en-tête). */
+function SelectBox({ checked, indeterminate = false, onChange, label }: { checked: boolean; indeterminate?: boolean; onChange: () => void; label: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label={label}
+      className="h-[18px] w-[18px] shrink-0 cursor-pointer rounded accent-aurora-500"
+    />
+  );
+}
 
 function SortArrow({ up }: { up: boolean }) {
   return (
@@ -497,6 +611,17 @@ interface RowHandlers {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   busyId: string | null;
+  isSelected: (id: string) => boolean;
+  onToggleSelected: (id: string) => void;
+}
+
+function IconDuplicate({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+    </svg>
+  );
 }
 
 function IconTrash({ className }: { className?: string }) {
@@ -521,37 +646,13 @@ function IconExternal({ className }: { className?: string }) {
  * Modifier (pas encore envoyée) ou Détails (déjà envoyée), Statistiques et
  * Commentaires (en ligne), Voir sur le réseau, Supprimer, puis « ⋮ ».
  */
-function RowActions({ post, actions, onMenu }: { post: ApiPost; actions: RowHandlers; onMenu?: (open: boolean) => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+function RowActions({ post, actions }: { post: ApiPost; actions: RowHandlers }) {
   const live = post.status === "PUBLISHED" || post.status === "PARTIAL";
   const sent = post.status !== "DRAFT" && post.status !== "SCHEDULED";
   const busy = actions.busyId === post.id;
   const links = post.targets.filter((t, i, all) => t.externalUrl && !t.removed && all.findIndex((o) => o.network === t.network && o.externalUrl) === i);
   const readsComments = commentNetworks(NETWORKS).some((n) => post.targets.some((t) => t.network === n && t.status === "PUBLISHED"));
   const label = (n: Network) => NETWORK_META[n]?.label ?? n;
-
-  function setMenu(open: boolean) {
-    setMenuOpen(open);
-    onMenu?.(open);
-  }
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDown(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenu(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuOpen]);
 
   const btn = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/[0.1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-aurora-400/60 disabled:opacity-50";
   const icon = "h-5 w-5 [stroke-width:1.9]";
@@ -571,78 +672,34 @@ function RowActions({ post, actions, onMenu }: { post: ApiPost; actions: RowHand
           <IconMessage className={icon} />
         </Link>
       )}
-      {links[0]?.externalUrl && (
-        <a href={links[0].externalUrl} target="_blank" rel="noopener noreferrer" className={btn} title={`Voir sur ${label(links[0].network)}`} aria-label={`Voir sur ${label(links[0].network)}`}>
-          <IconExternal className={icon} />
+      {/* Voir sur le réseau : une flèche pour un seul réseau, le logo de
+          chaque réseau quand la publication est en ligne sur plusieurs. */}
+      {links.map((t) => (
+        <a
+          key={t.network}
+          href={t.externalUrl!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={btn}
+          title={`Voir sur ${label(t.network)}`}
+          aria-label={`Voir sur ${label(t.network)}`}
+        >
+          {links.length > 1 ? <NetworkTile network={t.network} size={20} /> : <IconExternal className={icon} />}
         </a>
-      )}
+      ))}
+      <button type="button" className={btn} onClick={() => actions.onDuplicate(post.id)} disabled={busy} title="Dupliquer" aria-label="Dupliquer">
+        <IconDuplicate className={icon} />
+      </button>
       <button type="button" className={btn} onClick={() => actions.onDelete(post.id)} disabled={busy} title="Supprimer" aria-label="Supprimer">
         <IconTrash className={icon} />
       </button>
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          className={btn}
-          onClick={() => setMenu(!menuOpen)}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          title="Plus d'options"
-          aria-label="Plus d'options"
-        >
-          <IconDots className="h-5 w-5 rotate-90" />
-        </button>
-        {menuOpen && (
-          <div role="menu" className="nb-popover absolute right-0 top-full z-30 mt-1 w-60 rounded-xl border bg-[color:var(--nb-elevated)] p-1 shadow-2xl">
-            <Link role="menuitem" href={`/posts/${post.id}`} className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200">
-              Fiche complète
-            </Link>
-            <button
-              role="menuitem"
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMenu(false);
-                actions.onDuplicate(post.id);
-              }}
-              className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-200"
-            >
-              Dupliquer
-            </button>
-            {links.map((t) => (
-              <a
-                key={t.network}
-                role="menuitem"
-                href={t.externalUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="nb-menu-item flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200"
-              >
-                <NetworkTile network={t.network} size={16} />
-                Voir sur {label(t.network)}
-              </a>
-            ))}
-            <button
-              role="menuitem"
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMenu(false);
-                actions.onDelete(post.id);
-              }}
-              className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-red-300"
-            >
-              Supprimer
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
 
 function PublicationRow({ post, actions }: { post: ApiPost; actions: RowHandlers }) {
-  // Menu « ⋮ » ouvert : les boutons restent affichés même si la souris quitte la ligne.
-  const [pinned, setPinned] = useState(false);
+  const checked = actions.isSelected(post.id);
+  const checkbox = <SelectBox checked={checked} onChange={() => actions.onToggleSelected(post.id)} label={`Sélectionner « ${post.title.trim() || post.caption.trim().split("\n")[0] || "sans titre"} »`} />;
   const first = post.media[0]?.mediaAsset;
   const thumb = first && first.type === "IMAGE" ? first.url : first?.thumbnailUrl ?? null;
   const networks = Array.from(new Set(post.targets.map((t) => t.network)));
@@ -684,10 +741,10 @@ function PublicationRow({ post, actions }: { post: ApiPost; actions: RowHandlers
         </Link>
         {/* Ordinateur : au survol de la ligne, la description laisse la place aux boutons. */}
         {description && (
-          <p className={clsx("mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400", pinned ? "lg:hidden" : "lg:group-focus-within/row:hidden lg:group-hover/row:hidden")}>{description}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400 lg:group-focus-within/row:hidden lg:group-hover/row:hidden">{description}</p>
         )}
-        <div className={clsx("-ml-2 mt-0.5", pinned ? "hidden lg:block" : "hidden lg:group-focus-within/row:block lg:group-hover/row:block")}>
-          <RowActions post={post} actions={actions} onMenu={setPinned} />
+        <div className="-ml-2 mt-0.5 hidden lg:group-focus-within/row:block lg:group-hover/row:block">
+          <RowActions post={post} actions={actions} />
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           {networks.length > 0 && (
@@ -723,9 +780,10 @@ function PublicationRow({ post, actions }: { post: ApiPost; actions: RowHandlers
 
   return (
     <li role="row">
-      <div className="group/row rounded-xl py-3 transition hover:bg-[color:var(--nb-hover)]">
+      <div className={clsx("group/row rounded-xl py-3 transition", checked ? "bg-aurora-500/[0.08]" : "hover:bg-[color:var(--nb-hover)]")}>
         {/* Ordinateur : colonnes alignées sur les en-têtes. */}
         <div className={clsx(TABLE_GRID, "hidden lg:grid")}>
+          <div role="cell" className="flex justify-center pt-1">{checkbox}</div>
           <div role="cell">{content}</div>
           <div role="cell">{visibilityCell}</div>
           <div role="cell" className="text-sm">
@@ -752,7 +810,10 @@ function PublicationRow({ post, actions }: { post: ApiPost; actions: RowHandlers
         </div>
         {/* Téléphone et tablette : une carte. */}
         <div className="space-y-2 px-1 lg:hidden">
-          {content}
+          <div className="flex gap-3">
+            <div className="pt-1">{checkbox}</div>
+            <div className="min-w-0 flex-1">{content}</div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-400">
             <span className={clsx("inline-flex items-center gap-1.5", visibility.tone)}>
               {visibility.label}

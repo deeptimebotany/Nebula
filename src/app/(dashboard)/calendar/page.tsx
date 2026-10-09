@@ -128,6 +128,25 @@ function CalendarPageInner() {
   // du panneau "Filtres" (marques/comptes précis) pour un accès en un clic.
   const [hiddenNetworks, setHiddenNetworks] = useState<Set<Network>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Panneau « Filtres » (09/10/2026, retour de Lucas : il débordait sur le
+  // calendrier sans fond, illisible, et ne se fermait pas) : fond plein de
+  // menu, et fermé par un clic ailleurs ou Échap.
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function onDown(e: MouseEvent) {
+      if (!filtersRef.current?.contains(e.target as Node)) setFiltersOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setFiltersOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [filtersOpen]);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   // Glisser-déposer : reprogrammation rapide d'un post sur une autre date en
   // le faisant glisser dans la grille (garde l'heure d'origine, change juste
@@ -434,15 +453,23 @@ function CalendarPageInner() {
             aria-label="Vue du calendrier"
           />
 
-          <div className="relative">
+          <div className="relative" ref={filtersRef}>
             <button
+              type="button"
               onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              aria-haspopup="dialog"
               className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-white/25"
             >
-              Filtres · {selectedBrandIds.length} marque(s)
+              Filtres · {selectedBrandIds.length} marque{selectedBrandIds.length > 1 ? "s" : ""}
             </button>
             {filtersOpen && (
-              <div className="glass-panel absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-xl p-3">
+              <div
+                role="dialog"
+                aria-label="Filtres du calendrier"
+                data-testid="calendar-filters"
+                className="nb-popover absolute left-0 top-[calc(100%+6px)] z-40 w-72 rounded-xl border bg-[color:var(--nb-elevated)] p-3 shadow-2xl"
+              >
                 <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-500">Marques affichées</p>
                 <div className="space-y-1">
                   {brands.map((b) => (

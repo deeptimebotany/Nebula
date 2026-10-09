@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { type LinkProps } from "next/link";
-import { type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { clsx } from "@/lib/clsx";
 
 type Variant = "glow" | "ghost" | "outline" | "danger";
@@ -24,13 +24,14 @@ export function buttonClasses(variant: Variant = "glow", className?: string): st
   return clsx(BASE, VARIANTS[variant], className);
 }
 
-export function Button({
-  className,
-  variant = "glow",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return <button className={buttonClasses(variant, className)} {...props} />;
-}
+// ref transmise au <button> (09/10/2026) : le calendrier de « Programmer »
+// s'ouvre sous le bouton (page Publier).
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }>(function Button(
+  { className, variant = "glow", ...props },
+  ref
+) {
+  return <button ref={ref} className={buttonClasses(variant, className)} {...props} />;
+});
 
 // Lien habillé en bouton : un vrai <a> (navigation, ouverture dans un nouvel
 // onglet, un seul arrêt de focus au clavier) — et non plus un <button>

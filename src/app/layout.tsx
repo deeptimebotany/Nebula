@@ -21,10 +21,15 @@ const inter = localFont({
   display: "swap"
 });
 
-const spaceGrotesk = localFont({
-  src: "../fonts/space-grotesk-variable-latin.woff2",
+// Titres (09/10/2026, demande de Lucas : « la même police que ElevenLabs,
+// partout sur le site ») : Inter aussi, la police d'interface d'ElevenLabs
+// (leurs grands titres utilisent une police payante, Waldenburg). Même
+// fichier que le texte : un seul téléchargement. Space Grotesk n'est plus
+// chargée (le fichier reste dans src/fonts).
+const interDisplay = localFont({
+  src: "../fonts/inter-variable-latin.woff2",
   variable: "--font-display",
-  weight: "300 700",
+  weight: "100 900",
   display: "swap"
 });
 
@@ -99,7 +104,7 @@ export const viewport: Viewport = {
 // doit pas signaler l'attribut changé par ce script. Voir color-mode.ts.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" data-mode={DEFAULT_COLOR_MODE} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang="fr" data-mode={DEFAULT_COLOR_MODE} suppressHydrationWarning className={`${inter.variable} ${interDisplay.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: COLOR_MODE_SCRIPT }} />
       </head>

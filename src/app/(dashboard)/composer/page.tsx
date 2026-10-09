@@ -1859,25 +1859,29 @@ function ComposerPageInner() {
   }, [insightHours, selectedNetworks]);
   const bestSlot = useMemo(() => (bestHour === null ? null : nextBestSlot(bestHour, timezone, new Date(clock))), [bestHour, timezone, clock]);
 
-  // « Programmer » : la date choisie, sinon le meilleur créneau, sinon le
-  // choix de la date. « Publier maintenant » : tout de suite.
+  // « Programmer » (09/10/2026, demande de Lucas) : ouvre le calendrier
+  // (PublishActions), présélectionné sur la date déjà choisie (clic sur une
+  // case du calendrier) ou sur le meilleur créneau ; son bouton
+  // « Programmer » envoie à la date retenue. « Publier maintenant » : tout
+  // de suite.
   const scheduledChosen = mode === "date" && Boolean(scheduleDate);
   const canSubmitBasics = assets.length > 0 && selectedNetworks.length > 0;
   const submitMissing = !assets.length ? "Ajoutez un média pour continuer." : selectedNetworks.length === 0 ? "Choisissez au moins un réseau." : publishBlocked;
-  function onScheduleClick() {
-    const date = scheduledChosen ? scheduleDate : bestSlot;
-    if (!date) {
-      setScheduleDate(firstAvailableSlot(timezone));
-      setMode("date");
-      toast.info("Choisissez la date et l'heure dans « Quand », puis cliquez sur Programmer.");
-      return;
-    }
-    if (!scheduledChosen) {
-      setScheduleDate(date);
-      setMode("date");
-    }
+  function onScheduleClick(date: string) {
+    setScheduleDate(date);
+    setMode("date");
     void onSubmit({ mode: "date", scheduleDate: date });
   }
+  // Il manque quelque chose : même message (et même easter egg) qu'à l'envoi.
+  function onScheduleBlocked() {
+    void onSubmit({ mode: "date" });
+  }
+  const scheduleActionProps = {
+    scheduleValue: scheduledChosen ? scheduleDate : null,
+    timezone,
+    bestSlot,
+    onScheduleBlocked
+  };
   function onPublishNowClick() {
     void onSubmit({ mode: "now" });
   }
@@ -2004,6 +2008,7 @@ function ComposerPageInner() {
               blockedReason={publishBlocked}
               onSchedule={onScheduleClick}
               onPublishNow={onPublishNowClick}
+              {...scheduleActionProps}
             />
           </div>,
           headerActionsSlot
@@ -2773,14 +2778,6 @@ function ComposerPageInner() {
           <WhenSection
             mode={mode}
             scheduleDate={scheduleDate}
-            onScheduleDateChange={(value) => {
-              setScheduleDate(value);
-              setMode("date");
-            }}
-            onClearDate={() => {
-              setMode("now");
-              setScheduleDate("");
-            }}
             timezone={timezone}
             bestSlot={bestSlot}
             shortcutLabel={shortcutLabel}
@@ -2795,6 +2792,7 @@ function ComposerPageInner() {
                 blockedReason={publishBlocked}
                 onSchedule={onScheduleClick}
                 onPublishNow={onPublishNowClick}
+                {...scheduleActionProps}
               />
             }
           />
@@ -2865,6 +2863,7 @@ function ComposerPageInner() {
             blockedReason={publishBlocked}
             onSchedule={onScheduleClick}
             onPublishNow={onPublishNowClick}
+            {...scheduleActionProps}
           />
         </div>
       </div>

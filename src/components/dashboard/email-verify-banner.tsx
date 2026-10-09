@@ -71,7 +71,7 @@ export function EmailVerifyBanner() {
       {unverified && (
         <div
           title={verify.sent ? "Le lien est valable 48 h. Pensez à regarder dans les courriers indésirables." : undefined}
-          className="nb-verify-banner fixed bottom-[9.25rem] left-1/2 lg:bottom-4 z-[69] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-aurora-300/40 bg-[#140c24]/95 py-1.5 pl-3 pr-1.5 text-xs text-slate-100 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.7)] backdrop-blur lg:left-[calc(50%+7rem)]"
+          className="nb-verify-banner fixed bottom-[9.25rem] left-1/2 md:bottom-4 z-[69] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-aurora-300/40 bg-[#140c24]/95 py-1.5 pl-3 pr-1.5 text-xs text-slate-100 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.7)] backdrop-blur lg:left-[calc(50%+7rem)]"
         >
           {verify.sent ? (
             <span aria-hidden="true" className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent opacity-70 motion-reduce:animate-none" />

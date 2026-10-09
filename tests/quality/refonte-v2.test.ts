@@ -269,7 +269,7 @@ describe("assistant « Demander à Nebula » (09/10/2026)", () => {
     expect(shell).toContain("const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;");
     // La marge est sur la zone sous la barre du haut, pas sur la colonne
     // qui contient la barre du haut.
-    expect(shell).toMatch(/<AppHeader oauth=\{oauth\} isOwner=\{isOwner\} \/>[\s\S]*ref=\{bodyRef\}[\s\S]*marginRight: ASSISTANT_SPACE[\s\S]*<main id="contenu"/);
+    expect(shell).toMatch(/<AppHeader oauth=\{oauth\} isOwner=\{isOwner\} onOpenMenu=\{openDrawer\} \/>[\s\S]*ref=\{bodyRef\}[\s\S]*marginRight: ASSISTANT_SPACE[\s\S]*<main id="contenu"/);
     expect(shell).not.toMatch(/style=\{assistantDocked \? \{ marginRight: ASSISTANT_SPACE \} : undefined\}\s*>\s*<AppHeader/);
     // Blocs collés en haut : décalés de la hauteur de la barre du haut seulement quand elle est au-dessus de la zone qui défile.
     expect(read("src/app/(dashboard)/composer/page.tsx")).toContain("sticky top-[calc(var(--nb-topbar-offset)_+_24px)]");
@@ -291,7 +291,7 @@ describe("assistant « Demander à Nebula » (09/10/2026)", () => {
 
 describe("cadre épuré (09/10/2026)", () => {
   it("plus de trait le long de la barre latérale, au-dessus de « Réduire le menu », ni sous la barre du haut", () => {
-    expect(read("src/components/dashboard/app-shell.tsx")).toContain('"nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 lg:flex"');
+    expect(read("src/components/dashboard/app-shell.tsx")).toContain('"nb-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-200 md:flex"');
     expect(read("src/components/dashboard/sidebar-nav.tsx")).toContain('<div className={clsx("shrink-0 py-3", collapsed ? "px-2" : "px-3")}>');
     expect(read("src/components/dashboard/app-header.tsx")).toContain('<header className="nb-topbar sticky top-0 z-30">');
   });
@@ -313,13 +313,33 @@ describe("titres de section (09/10/2026)", () => {
   });
 });
 
-describe("menu latéral en gras (09/10/2026)", () => {
-  it("pages en medium presque blanches, page ouverte en gras, catégories en gras plus claires", () => {
+describe("menu latéral (09/10/2026) : gris clair, page ouverte en gras blanc avec icône pleine", () => {
+  it("pages en gris clair, page ouverte en gras blanc ; icônes de 24 px pleines sur la page ouverte ; catégories en gras", () => {
     const nav = read("src/components/dashboard/sidebar-nav.tsx");
-    expect(nav).toContain('active ? "nb-nav-item-active font-semibold text-white" : "font-medium text-slate-100 hover:text-white"');
+    expect(nav).toContain('active ? "nb-nav-item-active font-semibold text-white" : "font-normal text-slate-300 hover:text-white"');
+    expect(nav).toContain("filled={active}");
+    expect(nav).toContain('"h-6 w-6 shrink-0"');
     expect(nav).toContain("text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300");
-    expect(nav).not.toContain("text-slate-500 transition hover:text-white");
     expect(nav).toContain("text-[14px] font-medium text-slate-300 transition");
+  });
+  it("icônes du menu propres à Nebula : traits de 2 px, version pleine par masque", () => {
+    const icons = read("src/components/dashboard/nav-icons.tsx");
+    expect(icons).toContain('strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"');
+    expect(icons).toContain('mask={`url(#${id})`}');
+    const navigation = read("src/components/dashboard/navigation.ts");
+    for (const name of ["NavIconDashboard", "NavIconPublish", "NavIconPublications", "NavIconCalendar", "NavIconAnalytics", "NavIconInteractions", "NavIconReports", "NavIconCommunity", "NavIconTrophy"]) {
+      expect(navigation).toContain(`icon: ${name}`);
+    }
+  });
+  it("fenêtre étroite (fenêtre coupée en deux) : la colonne reste dès 768 px ; bouton menu sur téléphone", () => {
+    expect(read("src/components/dashboard/mobile-tab-bar.tsx")).toContain("pb-[env(safe-area-inset-bottom)] md:hidden");
+    expect(read("src/components/dashboard/app-header.tsx")).toContain('aria-label="Ouvrir le menu"');
+  });
+  it("police : Inter partout (titres compris)", () => {
+    const layout = read("src/app/layout.tsx");
+    expect(layout).toContain('variable: "--font-display"');
+    expect(layout).not.toContain("space-grotesk-variable-latin.woff2");
+    expect(layout.match(/inter-variable-latin\.woff2/g)).toHaveLength(2);
   });
 });
 
@@ -339,7 +359,7 @@ describe("barre du haut façon YouTube Studio (09/10/2026)", () => {
     expect(header).toContain('<IconSearch className="h-6 w-6 [stroke-width:2.1]" />');
     expect(header).toContain("rounded-full border border-white/20");
     expect(header).toContain('<span className="hidden md:inline">Demander à Nebula</span>');
-    expect(header).toContain('<Link href="/composer" className={clsx(pill, "hidden lg:flex")}>');
+    expect(header).toContain('<Link href="/composer" className={clsx(pill, "hidden md:flex")}>');
     // Ordre de YouTube Studio : notifications avant l'assistant.
     expect(header.indexOf("<NotificationBell />")).toBeLessThan(header.indexOf("assistant.enabled && ("));
     expect(read("src/components/dashboard/notification-bell.tsx")).toContain('<BellIcon className="h-6 w-6 [stroke-width:2.1]" />');

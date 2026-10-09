@@ -10,10 +10,16 @@
 //
 // Avant (Lot 4) : une carte « 5. Publication » (deux boutons radio) et une
 // barre d'action collante à part.
-import { useState } from "react";
+//
+// 09/10/2026 (demande de Lucas) : « Programmer » ouvre directement le
+// calendrier (DateTimePopover), présélectionné sur la date déjà choisie
+// (clic sur une case du calendrier) ou sur votre meilleur créneau ; son
+// bouton « Programmer » envoie. Plus de « Changer la date » ni de « Ne pas
+// programmer » sous « Quand » : « Publier maintenant » publie tout de suite.
+import { useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { Button } from "@/components/ui/button";
-import { DateTimePicker, firstAvailableSlot } from "@/components/ui/date-time-picker";
+import { DateTimePopover, firstAvailableSlot } from "@/components/ui/date-time-picker";
 import { localInputToUtc, timeZoneLabel, utcToLocalInput, utcToWallClock, wallClockToUtc } from "@/lib/timezone";
 import type { ScheduleMode } from "./composer-types";
 
@@ -52,34 +58,96 @@ interface PublishActionsProps {
   canSubmit: boolean;
   submitting: boolean;
   blockedReason?: string | null;
-  onSchedule: () => void;
+  /** Date retenue dans le calendrier de « Programmer » (« YYYY-MM-DDTHH:mm », fuseau de la marque). */
+  onSchedule: (date: string) => void;
+  /** Clic sur « Programmer » alors qu'il manque quelque chose (média, réseau…) : message, sans calendrier. */
+  onScheduleBlocked?: () => void;
   onPublishNow: () => void;
+  /** Valeur de départ du calendrier : date déjà choisie, sinon meilleur créneau. */
+  scheduleValue?: string | null;
+  /** Fuseau de la marque. */
+  timezone?: string;
+  /** Meilleur créneau à venir, pour le signaler dans le calendrier. */
+  bestSlot?: string | null;
   /** Boutons plus petits (barre du haut). */
   compact?: boolean;
   className?: string;
 }
 
 /** « Programmer » + « Publier maintenant » (le principal est violet plein). */
-export function PublishActions({ scheduled, canSubmit, submitting, blockedReason, onSchedule, onPublishNow, compact = false, className }: PublishActionsProps) {
+export function PublishActions({
+  scheduled,
+  canSubmit,
+  submitting,
+  blockedReason,
+  onSchedule,
+  onScheduleBlocked,
+  onPublishNow,
+  scheduleValue,
+  timezone,
+  bestSlot,
+  compact = false,
+  className
+}: PublishActionsProps) {
   // disabled={submitting} SEULEMENT (pas !canSubmit) : le bouton principal
   // doit rester cliquable quand canSubmit est faux, pour l'easter egg des
   // 20 clics (voir composer/page.tsx) — la garde reste dans l'envoi.
   const size = compact ? "px-3 py-2 text-[13px]" : "px-5 py-2.5";
   const muted = !canSubmit && !submitting && "cursor-not-allowed opacity-50";
   const title = !canSubmit && blockedReason ? blockedReason : undefined;
+  // Calendrier de « Programmer » : ouvert sous le bouton, valeur propre à
+  // ce calendrier tant qu'on n'a pas confirmé.
+  const scheduleRef = useRef<HTMLButtonElement>(null);
+  const [picking, setPicking] = useState(false);
+  const [draft, setDraft] = useState("");
+  function openCalendar() {
+    if (!canSubmit) {
+      onScheduleBlocked?.();
+      return;
+    }
+    setDraft(scheduleValue || bestSlot || firstAvailableSlot(timezone));
+    setPicking((v) => !v);
+  }
+  const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+  const tz = timezone ?? browserTz ?? "Europe/Paris";
+  const draftUtc = draft ? localInputToUtc(draft, tz) : null;
   return (
     <div className={clsx("flex shrink-0 items-center gap-2", className)}>
       <Button
+        ref={scheduleRef}
         variant={scheduled ? "glow" : "outline"}
         className={clsx("whitespace-nowrap", size, scheduled && muted)}
         disabled={submitting}
         aria-disabled={scheduled ? !canSubmit : undefined}
+        aria-haspopup="dialog"
+        aria-expanded={picking}
         title={scheduled ? title : undefined}
-        onClick={onSchedule}
+        onClick={openCalendar}
         data-testid="composer-schedule"
       >
         {submitting && scheduled ? "Envoi..." : "Programmer"}
       </Button>
+      <DateTimePopover
+        anchorRef={scheduleRef}
+        open={picking}
+        onClose={() => setPicking(false)}
+        value={draft}
+        onChange={setDraft}
+        timeZone={timezone}
+        title="Programmer la publication"
+        confirmLabel="Programmer"
+        onConfirm={() => {
+          setPicking(false);
+          if (draft) onSchedule(draft);
+        }}
+        note={
+          <>
+            {draft && bestSlot && draft === bestSlot ? <span className="text-aurora-300">Votre meilleur créneau. </span> : null}
+            Heure de {tz.replace(/_/g, " ")} ({timeZoneLabel(tz, draftUtc ?? new Date())})
+            {browserTz && browserTz !== tz ? `, différente de votre appareil (${browserTz})` : ""}.
+          </>
+        }
+      />
       <Button
         variant={scheduled ? "outline" : "glow"}
         className={clsx("whitespace-nowrap", size, !scheduled && muted)}
@@ -98,9 +166,6 @@ export function PublishActions({ scheduled, canSubmit, submitting, blockedReason
 interface WhenSectionProps {
   mode: ScheduleMode;
   scheduleDate: string;
-  onScheduleDateChange: (value: string) => void;
-  /** Revenir à « maintenant » (efface la date choisie). */
-  onClearDate: () => void;
   timezone: string;
   /** Meilleur créneau à venir (« YYYY-MM-DDTHH:mm »), tiré des statistiques réelles, sinon null. */
   bestSlot: string | null;
@@ -112,13 +177,10 @@ interface WhenSectionProps {
   footnote?: React.ReactNode;
 }
 
-export function WhenSection({ mode, scheduleDate, onScheduleDateChange, onClearDate, timezone, bestSlot, shortcutLabel, actions, missing, missingTone = "neutral", footnote }: WhenSectionProps) {
-  const [picking, setPicking] = useState(false);
+export function WhenSection({ mode, scheduleDate, timezone, bestSlot, shortcutLabel, actions, missing, missingTone = "neutral", footnote }: WhenSectionProps) {
   const scheduled = mode === "date" && Boolean(scheduleDate);
   const scheduledUtc = scheduled ? localInputToUtc(scheduleDate, timezone) : null;
   const inPast = scheduledUtc ? scheduledUtc.getTime() < Date.now() : false;
-  const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const differentTz = browserTz && browserTz !== timezone;
   const shown = scheduled ? scheduleDate : bestSlot;
   const isBest = Boolean(shown && bestSlot && shown === bestSlot);
 
@@ -139,29 +201,11 @@ export function WhenSection({ mode, scheduleDate, onScheduleDateChange, onClearD
               <span className="text-slate-400">Maintenant, ou à la date de votre choix</span>
             )}
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-            <button type="button" onClick={() => setPicking((v) => !v)} className="text-slate-400 underline-offset-2 transition hover:text-white hover:underline" aria-expanded={picking}>
-              {scheduled || bestSlot ? "Changer la date" : "Choisir une date"}
-            </button>
-            {scheduled && (
-              <button type="button" onClick={onClearDate} className="text-slate-400 underline-offset-2 transition hover:text-white hover:underline">
-                Ne pas programmer
-              </button>
-            )}
-          </div>
+          <p className="mt-1 text-[13px] text-slate-400">« Programmer » ouvre le calendrier ; « Publier maintenant » publie tout de suite.</p>
         </div>
         <div className="hidden sm:block">{actions}</div>
       </div>
 
-      {picking && (
-        <div className="mt-4 max-w-sm space-y-2">
-          <DateTimePicker value={scheduleDate || bestSlot || firstAvailableSlot(timezone)} onChange={onScheduleDateChange} timeZone={timezone} />
-          <p className="text-[12px] text-slate-500">
-            Heure de <span className="text-slate-300">{timezone.replace(/_/g, " ")}</span> ({timeZoneLabel(timezone, scheduledUtc ?? new Date())})
-            {differentTz && <> — différent de votre appareil ({browserTz}). Modifiable dans Paramètres → Marque.</>}
-          </p>
-        </div>
-      )}
       {inPast && <p className="mt-2 text-[13px] text-amber-300">Cette date est déjà passée : choisissez une date et une heure à venir.</p>}
       {missing && <p className={clsx("mt-3 text-[13px]", missingTone === "warning" ? "text-amber-300" : "text-slate-500")}>{missing}</p>}
       {footnote}

@@ -19,7 +19,7 @@ import { clsx } from "@/lib/clsx";
 import { NotificationBell } from "./notification-bell";
 import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
-import { IconSearch, IconUpload } from "./icons";
+import { IconMenu, IconSearch, IconUpload } from "./icons";
 import { AiIcon } from "@/components/ai/ai-icon";
 import { ProfileMenu } from "./profile-menu";
 import { resolveNav } from "./navigation";
@@ -31,9 +31,11 @@ export const HEADER_ACTIONS_SLOT_ID = "nb-header-actions";
 interface AppHeaderProps {
   oauth?: { google: boolean; apple: boolean; facebook: boolean };
   isOwner?: boolean;
+  /** Téléphone (moins de 768 px) : ouvre le menu complet. */
+  onOpenMenu?: () => void;
 }
 
-export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
+export function AppHeader({ oauth, isOwner, onOpenMenu }: AppHeaderProps) {
   const pathname = usePathname();
   const assistant = useAiAssistant();
   const [isMac, setIsMac] = useState(false);
@@ -57,6 +59,12 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
     <header className="nb-topbar sticky top-0 z-30">
       <div className="flex h-16 items-center gap-1 px-4 sm:gap-2 sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center">
+          {/* Téléphone : bouton du menu, à gauche du titre (09/10/2026). */}
+          {onOpenMenu && (
+            <button type="button" onClick={onOpenMenu} aria-label="Ouvrir le menu" title="Menu" className={clsx(iconButton, "-ml-2 mr-1 md:hidden")}>
+              <IconMenu className="h-6 w-6 [stroke-width:2]" />
+            </button>
+          )}
           <div id={PAGE_TITLE_SLOT_ID} className="nb-title-slot min-w-0" />
           <p className="nb-title-fallback min-w-0 truncate font-display text-[19px] font-semibold text-white sm:text-[21px]">
             {nav.item ? (
@@ -106,7 +114,7 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
             page Publier. Sur ordinateur seulement (la barre du bas l'a déjà
             sur téléphone), et pas sur la page Publier elle-même. */}
         {!onComposer && (
-          <Link href="/composer" className={clsx(pill, "hidden lg:flex")}>
+          <Link href="/composer" className={clsx(pill, "hidden md:flex")}>
             <IconUpload className="h-5 w-5 [stroke-width:2.1]" />
             Publier
           </Link>

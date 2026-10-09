@@ -8,6 +8,48 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-menu-icones-police",
+    date: "2026-10-09",
+    title: "Nouvelles icônes du menu, police Inter partout",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/analytics", label: "Analytics" }
+    ],
+    result:
+      "Le menu a de nouvelles icônes, plus grandes et plus nettes ; les pages sont en gris clair et la page ouverte passe en gras blanc avec son icône pleine. Dans une fenêtre étroite (écran coupé en deux), le menu reste affiché en icônes. Les titres utilisent maintenant la même police que le texte (Inter), partout sur le site.",
+    change: "Nouvelles icônes `nav-icons.tsx`, `navigation.ts`, `sidebar-nav.tsx`, `mobile-tab-bar.tsx`, `app-shell.tsx`, `app-header.tsx` (menu dès 768 px, bouton ☰ sur téléphone), `layout.tsx` (Inter pour les titres). Branche `test`.",
+    readme: 115,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-publications-selection",
+    date: "2026-10-09",
+    title: "Publications : sélectionner et supprimer plusieurs publications",
+    category: "Publication",
+    links: [
+      { href: "/publications", label: "Publications" },
+      { href: "/calendar", label: "Calendrier" }
+    ],
+    result:
+      "Dans Publications, cochez les publications voulues (ou toutes d'un coup) puis « Supprimer » : elles sont retirées de Nebula en une fois. Les boutons de chaque ligne sont plus directs : plus de menu « ⋮ », « Dupliquer » est à côté de la corbeille. Dans le Calendrier, le panneau « Filtres » est enfin lisible et se ferme quand on clique ailleurs.",
+    change: "`publications/page.tsx` (cases, barre de sélection, boutons), nouvelle route `/api/posts/bulk-delete`, panneau Filtres de `calendar/page.tsx`. Branche `test`.",
+    readme: 114,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-programmer-calendrier",
+    date: "2026-10-09",
+    title: "« Programmer » ouvre le calendrier",
+    category: "Publication",
+    links: [{ href: "/composer", label: "Publier" }],
+    result:
+      "Dans Publier, cliquer sur « Programmer » ouvre tout de suite le calendrier, réglé sur votre meilleur créneau : choisissez le jour et l'heure, puis « Programmer ». Plus besoin de « Changer la date » ni de « Ne pas programmer » : « Publier maintenant » publie tout de suite. Dans Analytics, l'onglet Rétention IA passe avant Concurrence.",
+    change: "`publish-card.tsx` (calendrier sous le bouton), `date-time-picker.tsx` (`DateTimePopover`), `button.tsx` (ref), `composer/page.tsx`, ordre des onglets dans `analytics-client.tsx`. Branche `test`.",
+    readme: 113,
+    migrations: []
+  },
+  {
     id: "2026-10-09-interactions-retention",
     date: "2026-10-09",
     title: "Menu réorganisé : Interactions, et Rétention IA dans Analytics",

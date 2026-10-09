@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "@/lib/clsx";
 import { IconCalendar, IconChevron } from "@/components/dashboard/icons";
@@ -64,19 +64,30 @@ function parseValue(value: string): Date {
   return new Date(y, (m || 1) - 1, day || 1, h || 0, min || 0);
 }
 
+/** Plus tôt créneau autorisé (« YYYY-MM-DDTHH:mm »), recalculé toutes les 30 s. */
+function useMinSlot(timeZone?: string): string {
+  const [minValue, setMinValue] = useState(() => firstAvailableSlot(timeZone));
+  useEffect(() => {
+    setMinValue(firstAvailableSlot(timeZone));
+    const id = window.setInterval(() => setMinValue(firstAvailableSlot(timeZone)), 30_000);
+    return () => window.clearInterval(id);
+  }, [timeZone]);
+  return minValue;
+}
+
 /**
  * Sélecteur date + heure "maison" : remplace l'input <input type="datetime-local">
  * natif du navigateur (peu lisible, très différent d'un OS à l'autre) par une
  * vraie grille mensuelle avec flèches, cohérente avec le reste de Nebula.
  *
- * Le panneau ouvert est rendu via un portail (createPortal) directement dans
- * <body>, en position "fixed" calculée depuis le bouton — plutôt qu'en
- * position "absolute" dans le flux normal. Sans ça, le panneau se faisait
- * couper net par le conteneur scrollable de la page (<main overflow-y-auto>
- * dans le layout du tableau de bord) dès qu'il n'y avait pas assez de place
- * en dessous : on ne le voyait jamais entièrement. Le portail garantit qu'il
- * s'affiche toujours par-dessus tout, avec un repli automatique vers le haut
- * si la place manque en bas de l'écran.
+ * Le panneau ouvert (DateTimePopover) est rendu via un portail
+ * (createPortal) directement dans <body>, en position "fixed" calculée
+ * depuis le bouton — plutôt qu'en position "absolute" dans le flux normal.
+ * Sans ça, le panneau se faisait couper net par le conteneur scrollable de
+ * la page (<main overflow-y-auto> dans le layout du tableau de bord) dès
+ * qu'il n'y avait pas assez de place en dessous : on ne le voyait jamais
+ * entièrement. Le portail garantit qu'il s'affiche toujours par-dessus tout,
+ * avec un repli automatique vers le haut si la place manque en bas de l'écran.
  */
 export function DateTimePicker({
   value,
@@ -90,30 +101,83 @@ export function DateTimePicker({
   timeZone?: string;
 }) {
   const selected = useMemo(() => parseValue(value), [value]);
-  // Plus tôt créneau autorisé (« YYYY-MM-DDTHH:mm »), recalculé toutes les
-  // 30 s : un horaire devient grisé dès qu'il est dépassé, même panneau
-  // ouvert. Tout ce qui est avant est grisé et non sélectionnable.
-  const [minValue, setMinValue] = useState(() => firstAvailableSlot(timeZone));
-  useEffect(() => {
-    setMinValue(firstAvailableSlot(timeZone));
-    const id = window.setInterval(() => setMinValue(firstAvailableSlot(timeZone)), 30_000);
-    return () => window.clearInterval(id);
-  }, [timeZone]);
+  const minValue = useMinSlot(timeZone);
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const valueIsPast = Boolean(value) && value < minValue;
+
+  const label = value
+    ? `${pad(selected.getDate())}/${pad(selected.getMonth() + 1)}/${selected.getFullYear()} à ${pad(selected.getHours())}:${pad(selected.getMinutes())}`
+    : "Choisir une date et une heure";
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-left text-sm text-white outline-none transition focus:border-aurora-400/60"
+      >
+        <IconCalendar className="h-4 w-4 shrink-0 text-slate-400" />
+        <span className={clsx(!value && "text-slate-500", valueIsPast && "text-red-300")}>{label}</span>
+      </button>
+      {valueIsPast && (
+        <p className="mt-1.5 text-xs text-red-300" role="alert">
+          Cet horaire est déjà passé : choisissez une date et une heure à venir.
+        </p>
+      )}
+      <DateTimePopover anchorRef={buttonRef} open={open} onClose={() => setOpen(false)} value={value} onChange={onChange} timeZone={timeZone} />
+    </div>
+  );
+}
+
+/**
+ * Le calendrier seul, ouvert sous (ou au-dessus de) n'importe quel élément
+ * (09/10/2026 : le bouton « Programmer » de la page Publier l'ouvre
+ * directement). `confirmLabel` / `onConfirm` : le bouton en bas à droite
+ * (« OK » par défaut, qui ferme simplement le calendrier). Un clic à côté
+ * ou Échap ferme sans rien confirmer.
+ */
+export function DateTimePopover({
+  anchorRef,
+  open,
+  onClose,
+  value,
+  onChange,
+  timeZone,
+  title,
+  confirmLabel = "OK",
+  onConfirm,
+  note
+}: {
+  anchorRef: RefObject<HTMLElement>;
+  open: boolean;
+  onClose: () => void;
+  value: string;
+  onChange: (value: string) => void;
+  timeZone?: string;
+  /** Au-dessus du mois (ex. « Programmer la publication »). */
+  title?: ReactNode;
+  confirmLabel?: string;
+  onConfirm?: () => void;
+  /** Sous les heures (remplace la phrase sur les dates passées). */
+  note?: ReactNode;
+}) {
+  const selected = useMemo(() => parseValue(value), [value]);
+  const minValue = useMinSlot(timeZone);
   const minDay = minValue.slice(0, 10);
   const minHour = Number(minValue.slice(11, 13));
   const minMinute = Number(minValue.slice(14, 16));
-  const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
   const [hour, setHour] = useState(selected.getHours());
   const [minute, setMinute] = useState(selected.getMinutes());
   const [pos, setPos] = useState<{ top: number; left: number; openUpward: boolean } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   function computePosition() {
-    const btn = buttonRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUpward = spaceBelow < PANEL_MAX_HEIGHT && rect.top > spaceBelow;
     const left = Math.min(Math.max(rect.left, 8), window.innerWidth - PANEL_WIDTH - 8);
@@ -124,6 +188,10 @@ export function DateTimePicker({
   useLayoutEffect(() => {
     if (!open) return;
     computePosition();
+    // Le mois affiché suit la valeur à l'ouverture.
+    setCursor(new Date(selected.getFullYear(), selected.getMonth(), 1));
+    setHour(selected.getHours());
+    setMinute(selected.getMinutes());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -134,19 +202,25 @@ export function DateTimePicker({
     }
     function onClickOutside(e: MouseEvent) {
       const target = e.target as Node;
-      if (buttonRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
-      setOpen(false);
+      onClose();
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
     }
     window.addEventListener("scroll", onScrollOrResize, true);
     window.addEventListener("resize", onScrollOrResize);
     document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("scroll", onScrollOrResize, true);
       window.removeEventListener("resize", onScrollOrResize);
       document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, onClose]);
 
   const grid = useMemo(() => {
     const first = new Date(cursor);
@@ -162,7 +236,6 @@ export function DateTimePicker({
 
   const todayKey = nowWallClock(timeZone).slice(0, 10);
   const selectedKey = value ? dayKey(selected) : null;
-  const valueIsPast = Boolean(value) && value < minValue;
 
   // Toute valeur produite passe par ici : si elle tombe dans le passé, on la
   // recale sur le premier créneau disponible (jamais de date dépassée).
@@ -199,42 +272,22 @@ export function DateTimePicker({
   const hourDisabled = (h: number) => onMinDay && h < minHour;
   const minuteDisabled = (m: number) => onMinDay && (hour < minHour || (hour === minHour && m < minMinute));
 
-  const label = value
-    ? `${pad(selected.getDate())}/${pad(selected.getMonth() + 1)}/${selected.getFullYear()} à ${pad(selected.getHours())}:${pad(selected.getMinutes())}`
-    : "Choisir une date et une heure";
-
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-lg border border-[color:var(--nb-sep-strong)] bg-transparent px-3.5 py-2.5 text-left text-sm text-white outline-none transition focus:border-aurora-400/60"
-      >
-        <IconCalendar className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className={clsx(!value && "text-slate-500", valueIsPast && "text-red-300")}>{label}</span>
-      </button>
-      {valueIsPast && (
-        <p className="mt-1.5 text-xs text-red-300" role="alert">
-          Cet horaire est déjà passé : choisissez une date et une heure à venir.
-        </p>
-      )}
-
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
-        createPortal(
+  if (!open || !pos || typeof document === "undefined") return null;
+  return createPortal(
           <div
             ref={panelRef}
+            role="dialog"
+            aria-label={typeof title === "string" ? title : "Choisir une date et une heure"}
             className="nb-popover fixed z-[100] overflow-y-auto rounded-xl p-3"
             style={{
               top: pos.openUpward ? undefined : pos.top,
               bottom: pos.openUpward ? window.innerHeight - pos.top : undefined,
               left: pos.left,
               width: PANEL_WIDTH,
-              maxHeight: PANEL_MAX_HEIGHT
+              maxHeight: PANEL_MAX_HEIGHT + (title ? 40 : 0)
             }}
           >
+            {title && <p className="mb-2 text-[13px] font-semibold text-white">{title}</p>}
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-medium text-white">
                 {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
@@ -316,16 +369,15 @@ export function DateTimePicker({
               </select>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => (onConfirm ? onConfirm() : onClose())}
                 className="ml-auto rounded-lg bg-aurora-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-aurora-400"
+                data-testid="date-popover-confirm"
               >
-                OK
+                {confirmLabel}
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">Les dates et heures déjà passées sont grisées.</p>
+            <p className="mt-2 text-[11px] text-slate-500">{note ?? "Les dates et heures déjà passées sont grisées."}</p>
           </div>,
           document.body
-        )}
-    </div>
   );
 }

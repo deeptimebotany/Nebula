@@ -160,8 +160,6 @@ describe("TikTok : section de Publier (rendu)", () => {
       createElement(WhenSection, {
         mode: "now",
         scheduleDate: "",
-        onScheduleDateChange: () => undefined,
-        onClearDate: () => undefined,
         timezone: "Europe/Paris",
         bestSlot: null,
         shortcutLabel: "Ctrl",

@@ -18,7 +18,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
   return (
     <nav
       aria-label="Navigation rapide"
-      className="nb-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-[color:var(--nb-sep)] pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="nb-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-[color:var(--nb-sep)] pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="grid grid-cols-5">
         {tabs.map((item) => {
@@ -39,7 +39,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
                   primary ? "bg-aurora-500 text-white" : active && "bg-[color:var(--nb-active)]"
                 )}
               >
-                <Icon className={clsx("h-[18px] w-[18px]", primary ? "text-white" : active ? "text-white" : "")} />
+                <Icon filled={active && !primary} className={clsx("h-6 w-6", primary ? "text-white" : active ? "text-white" : "")} />
               </span>
               {item.shortLabel ?? item.label}
             </Link>
@@ -54,7 +54,7 @@ export function MobileTabBar({ onOpenMenu, menuOpen }: { onOpenMenu: () => void;
           className={clsx("flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition", menuOpen ? "text-white" : "text-slate-500 hover:text-white")}
         >
           <span className={clsx("flex h-7 w-11 items-center justify-center rounded-full", menuOpen && "bg-[color:var(--nb-active)]")}>
-            <IconMenu className="h-[18px] w-[18px]" />
+            <IconMenu className="h-6 w-6 [stroke-width:2]" />
           </span>
           Menu
         </button>

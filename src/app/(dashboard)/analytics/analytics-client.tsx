@@ -636,8 +636,9 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           {(
             [
               ["overview", "Vue d'ensemble"],
-              ["competitors", "Concurrence"],
+              // Rétention IA avant Concurrence (09/10/2026, demande de Lucas).
               ["retention", "Rétention IA"],
+              ["competitors", "Concurrence"],
               ...(adsEnabled ? [["ads", "Publicité"]] : [])
             ] as [AnalyticsTab, string][]
           ).map(([id, label]) => (

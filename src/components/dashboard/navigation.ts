@@ -6,34 +6,38 @@
 // « Nouveau post » / « Créer une publication » pour la même page).
 import {
   IconPlug,
-  IconHome,
-  IconCalendar,
-  IconUpload,
   IconChart,
-  IconList,
-  IconLink,
   IconMessage,
-  IconThumbUp,
-  IconBioLink,
-  IconMediaKit,
-  IconReport,
-  IconCalendarShare,
-  IconRetention,
-  IconUsers,
   IconCard,
   IconSettings,
   IconTrophy,
   IconFlask,
   IconHeart,
   IconGift,
-  IconSparkle,
   IconSend,
-  IconWrench,
   IconClock
 } from "./icons";
 import { TOOL_CATALOG } from "@/components/tools/tool-catalog";
+import {
+  NavIconAccounts,
+  NavIconAnalytics,
+  NavIconBio,
+  NavIconCalendar,
+  NavIconClientCalendar,
+  NavIconCommunity,
+  NavIconDashboard,
+  NavIconInteractions,
+  NavIconMediaKit,
+  NavIconPublications,
+  NavIconPublish,
+  NavIconReports,
+  NavIconStudio,
+  NavIconTools,
+  NavIconTrophy
+} from "./nav-icons";
 
-export type NavIcon = (props: { className?: string }) => JSX.Element;
+/** Icône d'une entrée de menu ; `filled` : version pleine de la page ouverte (nav-icons.tsx, 09/10/2026). */
+export type NavIcon = (props: { className?: string; filled?: boolean }) => JSX.Element;
 
 export interface NavItem {
   href: string;
@@ -61,7 +65,7 @@ export interface NavGroup {
 export const SUCCESS_NAV_ITEM: NavItem = {
   href: "/reussites",
   label: "Réussites",
-  icon: IconTrophy,
+  icon: NavIconTrophy,
   description: "Rang de créateur, missions de la semaine, accomplissements et easter eggs",
   keywords: ["succès", "easter eggs", "trophées", "récompenses", "niveau", "rang", "missions", "coffre", "défis", "accomplissements", "xp", "constellation", "étoiles", "compétences", "bilan", "vitrine", "carte de créateur", "leçons"]
 };
@@ -75,16 +79,16 @@ export const SUCCESS_NAV_ITEM: NavItem = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: "home",
-    items: [{ href: "/dashboard", label: "Vue d'ensemble", shortLabel: "Accueil", icon: IconHome, description: "Vos chiffres et vos prochaines publications", keywords: ["accueil", "home", "tableau de bord"] }]
+    items: [{ href: "/dashboard", label: "Vue d'ensemble", shortLabel: "Accueil", icon: NavIconDashboard, description: "Vos chiffres et vos prochaines publications", keywords: ["accueil", "home", "tableau de bord"] }]
   },
   {
     key: "creer",
     label: "Créer",
     items: [
-      { href: "/composer", label: "Publier", icon: IconUpload, description: "Créer et programmer une publication", keywords: ["nouveau post", "composer", "importation", "créer"] },
-      { href: "/studio", label: "Studio IA", icon: IconSparkle, description: "Idées, accroches et scripts tirés de vos chiffres", keywords: ["idées", "script", "accroche", "hook", "ia", "inspiration", "vidéo"] },
-      { href: "/publications", label: "Publications", icon: IconList, description: "Toutes vos publications, filtrables par statut et réseau", keywords: ["posts", "liste", "historique", "échecs"] },
-      { href: "/calendar", label: "Calendrier", icon: IconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] }
+      { href: "/composer", label: "Publier", icon: NavIconPublish, description: "Créer et programmer une publication", keywords: ["nouveau post", "composer", "importation", "créer"] },
+      { href: "/studio", label: "Studio IA", icon: NavIconStudio, description: "Idées, accroches et scripts tirés de vos chiffres", keywords: ["idées", "script", "accroche", "hook", "ia", "inspiration", "vidéo"] },
+      { href: "/publications", label: "Publications", icon: NavIconPublications, description: "Toutes vos publications, filtrables par statut et réseau", keywords: ["posts", "liste", "historique", "échecs"] },
+      { href: "/calendar", label: "Calendrier", icon: NavIconCalendar, description: "Le planning de vos publications", keywords: ["agenda", "planning"] }
     ]
   },
   {
@@ -96,7 +100,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         href: "/analytics",
         label: "Analytics",
-        icon: IconChart,
+        icon: NavIconAnalytics,
         description: "Abonnés, portée, concurrence, rétention IA de vos vidéos YouTube",
         keywords: ["statistiques", "stats", "audience", "rétention", "rétention ia", "vidéo", "youtube", "analyse", "concurrence", "publicité"]
       },
@@ -104,7 +108,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         href: "/tools",
         label: "Outils",
-        icon: IconWrench,
+        icon: NavIconTools,
         description: "Taux d'engagement, meilleur moment, hashtags, bio Instagram, titre YouTube, audit",
         keywords: ["outils gratuits", "taux d'engagement", "engagement", "calculateur", "meilleur moment", "heure", "créneau", "hashtags", "bio instagram", "titre youtube", "audit", "score"]
       }
@@ -114,33 +118,33 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "presence",
     label: "Présence",
     items: [
-      { href: "/accounts", label: "Comptes connectés", icon: IconLink, description: "Instagram, Facebook, TikTok, YouTube", keywords: ["réseaux", "connexion", "oauth"] },
+      { href: "/accounts", label: "Comptes connectés", icon: NavIconAccounts, description: "Instagram, Facebook, TikTok, YouTube", keywords: ["réseaux", "connexion", "oauth"] },
       // 09/10/2026 (demande de Lucas) : Commentaires et Engagements réunis en
       // « Interactions » (onglets Commentaires et Engagement) ; les anciennes
       // adresses redirigent.
       {
         href: "/interactions",
         label: "Interactions",
-        icon: IconMessage,
+        icon: NavIconInteractions,
         description: "Commentaires à lire et à qui répondre, likes, partages et vues de vos publications",
         keywords: ["commentaires", "engagements", "engagement", "messages", "modération", "réponses", "réactions", "likes", "partages", "stories", "vues"]
       },
-      { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
-      { href: "/media-kit", label: "Media kit", icon: IconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] }
+      { href: "/link-in-bio", label: "Page bio", icon: NavIconBio, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
+      { href: "/media-kit", label: "Media kit", icon: NavIconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] }
     ]
   },
   {
     key: "clients",
     label: "Clients",
     items: [
-      { href: "/reports", label: "Rapports", icon: IconReport, description: "Page de reporting partageable et envoi automatique", keywords: ["reporting", "client", "email"] },
-      { href: "/calendar-share", label: "Calendrier client", icon: IconCalendarShare, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] }
+      { href: "/reports", label: "Rapports", icon: NavIconReports, description: "Page de reporting partageable et envoi automatique", keywords: ["reporting", "client", "email"] },
+      { href: "/calendar-share", label: "Calendrier client", icon: NavIconClientCalendar, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] }
     ]
   },
   {
     key: "communaute",
     label: "Communauté",
-    items: [{ href: "/community", label: "Communauté", icon: IconUsers, description: "Entraide, guides et partages", keywords: ["forum", "guides"] }, SUCCESS_NAV_ITEM]
+    items: [{ href: "/community", label: "Communauté", icon: NavIconCommunity, description: "Entraide, guides et partages", keywords: ["forum", "guides"] }, SUCCESS_NAV_ITEM]
   }
 ];
 
