@@ -20,9 +20,12 @@
 // miniatures proposées restaient dans le chat). « Nouvelle conversation » la
 // vide aussi.
 //
-// Présentation (09/10/2026) : fenêtre arrondie posée par-dessus la page, à
-// droite sous la barre du haut, comme « Demander à Studio » de YouTube
-// Studio — elle ne décale plus la page. Plein écran sur téléphone.
+// Présentation (09/10/2026) : le tiroir d'avant (sur ordinateur, la page se
+// décale pour lui faire de la place, voir app-shell.tsx), mais aux coins
+// arrondis, détaché de 12 px des bords (.nb-assistant-window, globals.css).
+// Une fenêtre flottante par-dessus la page a été essayée puis abandonnée à
+// la demande de Lucas (« c'était mieux avant, garde juste les bords
+// arrondis »). Plein écran sur téléphone.
 //
 // Ce module est chargé à la demande (ai-assistant-lazy.tsx) : le bouton
 // flottant est toujours là, le tiroir n'est téléchargé qu'à la première
@@ -343,15 +346,14 @@ export function AiAssistant() {
         aria-label="Demander à Nebula"
         aria-hidden={!open}
         data-open={open ? "true" : "false"}
-        // Fenêtre arrondie posée par-dessus la page (globals.css,
-        // .nb-assistant-window) : à droite sous la barre du haut, contour fin,
-        // sans décaler la page. visibility est dans la transition : fermée,
-        // elle devient invisible (et non focusable) seulement à la fin de
-        // l'animation de sortie.
-        className="nb-assistant-window fixed z-50 flex flex-col"
+        // Tiroir à droite aux coins arrondis (globals.css,
+        // .nb-assistant-window). visibility est dans la transition : fermé,
+        // le tiroir devient invisible (et non focusable au clavier) seulement
+        // une fois sorti de l'écran, pour garder l'animation de sortie.
+        className="glass-panel-solid nb-assistant-window fixed z-50 flex flex-col"
       >
         {/* En-tête */}
-        <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
+        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-5">
           <NebulaIcon size={24} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-sm font-semibold text-white">Demander à Nebula</p>

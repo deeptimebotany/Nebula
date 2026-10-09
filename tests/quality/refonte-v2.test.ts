@@ -256,13 +256,15 @@ describe("assistant « Demander à Nebula » (09/10/2026)", () => {
     expect(chat).toContain("forgetLegacyConversations();");
     expect(chat).toMatch(/const place = `\$\{brandId \?\? ""\}\|\$\{pathname\}`;\s*if \(placeRef\.current !== null && placeRef\.current !== place\) \{\s*setMessages\(\[\]\);/);
   });
-  it("fenêtre flottante arrondie sous la barre du haut, la page ne se décale plus", () => {
-    expect(read("src/components/dashboard/ai-assistant.tsx")).toContain('className="nb-assistant-window fixed z-50 flex flex-col"');
+  it("tiroir d'avant (la page se décale sur ordinateur), mais aux coins arrondis et détaché des bords", () => {
+    expect(read("src/components/dashboard/ai-assistant.tsx")).toContain('className="glass-panel-solid nb-assistant-window fixed z-50 flex flex-col"');
     const css = read("src/app/globals.css");
-    expect(css).toMatch(/\.nb-assistant-window \{\s*inset: auto;\s*top: 72px;\s*right: 12px;\s*bottom: 12px;\s*width: 420px;/);
+    expect(css).toMatch(/\.nb-assistant-window \{\s*inset: auto;\s*top: 12px;\s*right: 12px;\s*bottom: 12px;\s*width: 420px;/);
     expect(css).toContain("border-radius: 28px;");
+    expect(css).toMatch(/html\.nebula-assistant-docked,\s*html\.nebula-assistant-docked body \{\s*overflow: hidden;/);
     const shell = read("src/components/dashboard/app-shell.tsx");
-    expect(shell).not.toContain("marginRight: ASSISTANT_WIDTH");
-    expect(shell).not.toContain("nebula-assistant-docked");
+    expect(shell).toContain("const ASSISTANT_SPACE = ASSISTANT_WIDTH + 2 * ASSISTANT_GAP;");
+    expect(shell).toContain("marginRight: ASSISTANT_SPACE");
+    expect(shell).toContain('document.documentElement.classList.add("nebula-assistant-docked");');
   });
 });

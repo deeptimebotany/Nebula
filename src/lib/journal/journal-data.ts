@@ -10,16 +10,16 @@ const NEW_ENTRIES: JournalEntry[] = [
   {
     id: "2026-10-09-assistant-fenetre",
     date: "2026-10-09",
-    title: "Assistant IA : fenêtre flottante arrondie, conversation remise à zéro à chaque page",
+    title: "Assistant IA : panneau aux coins arrondis, conversation remise à zéro à chaque page",
     category: "IA",
     links: [
       { href: "/composer", label: "Publier" },
       { href: "/dashboard", label: "Vue d'ensemble" }
     ],
     result:
-      "« Demander à Nebula » s'ouvre maintenant dans une fenêtre aux grands coins arrondis, au contour fin, posée à droite sous la barre du haut, comme « Demander à Studio » de YouTube Studio : la page ne se décale plus. Et la conversation repart de zéro dès qu'on change de page, qu'on change de marque, qu'on recharge ou qu'on quitte le site : les miniatures proposées pour une vidéo déjà publiée ne restent plus dans le chat.",
+      "« Demander à Nebula » garde sa place à droite (sur ordinateur, la page se décale pour lui laisser la place), mais son panneau a maintenant de grands coins arrondis et un contour fin, détaché des bords de l'écran, au lieu d'un rectangle collé au bord. Et la conversation repart de zéro dès qu'on change de page, qu'on change de marque, qu'on recharge ou qu'on quitte le site : les miniatures proposées pour une vidéo déjà publiée ne restent plus dans le chat.",
     change:
-      "`ai-assistant.tsx` (plus de sessionStorage, anciennes conversations effacées, remise à zéro au changement de page ou de marque ; fenêtre `.nb-assistant-window`), `app-shell.tsx` (plus de colonne rétrécie ni de défilement transféré), `globals.css` (fenêtre : 420 px, 12 px du bord, 72 px du haut, coins de 28 px, contour fin ; plein écran sur téléphone). Branche `test`.",
+      "`ai-assistant.tsx` (plus de sessionStorage, anciennes conversations effacées, remise à zéro au changement de page ou de marque ; panneau `.nb-assistant-window`), `globals.css` (panneau : 420 px, 12 px des bords, coins de 28 px, contour fin ; plein écran sur téléphone), `app-shell.tsx` (colonne rétrécie de 444 px quand le panneau est ouvert). Branche `test`.",
     readme: 96,
     migrations: []
   },

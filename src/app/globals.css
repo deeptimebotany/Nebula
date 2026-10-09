@@ -1196,6 +1196,15 @@ body {
   top: 1rem;
 }
 
+/* Assistant « Demander à Nebula » ancré sur ordinateur (voir app-shell.tsx) :
+   la page ne défile plus derrière le tiroir — c'est la colonne de contenu
+   qui défile, avec sa barre juste à gauche du panneau. */
+@media (min-width: 1024px) {
+  html.nebula-assistant-docked,
+  html.nebula-assistant-docked body {
+    overflow: hidden;
+  }
+}
 
 /* Mouvement réduit demandé par le système : on coupe TOUTES les animations
    et transitions décoratives d'un coup (logo animé, halos, comète, thème
@@ -2825,14 +2834,17 @@ select option {
 }
 [data-mode="light"][data-theme="eclipse-totale"] .nb-logo:not(.nb-logo--on-dark) .nb-logo-star { fill: #ffffff; }
 
-/* --- Assistant « Demander à Nebula » : fenêtre flottante (09/10/2026) ---- */
-/* Comme « Demander à Studio » de YouTube Studio : une fenêtre aux grands
-   coins arrondis, au contour fin, posée à droite sous la barre du haut, par-
-   dessus la page (qui ne bouge plus). Plein écran sur téléphone. */
+/* --- Assistant « Demander à Nebula » : tiroir aux coins arrondis (09/10/2026) */
+/* Le tiroir d'avant, à droite (sur ordinateur, la page se décale pour lui
+   faire de la place : voir app-shell.tsx), mais détaché de 12 px des bords
+   de l'écran, avec de grands coins arrondis et un contour fin, au lieu d'un
+   rectangle collé au bord. Fond et ombre : .glass-panel-solid. Plein écran
+   sur téléphone. (Une fenêtre flottante par-dessus la page, sans décaler
+   la page, a été essayée puis abandonnée à la demande de Lucas.) */
 .nb-assistant-window {
   inset: 0;
-  background-color: var(--nb-page);
-  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.18s ease, visibility 0.24s;
+  border-width: 0;
+  transition: transform 0.2s ease-out, visibility 0.2s;
 }
 .nb-assistant-window[data-open="false"] {
   transform: translateX(100%);
@@ -2841,26 +2853,24 @@ select option {
 @media (min-width: 640px) {
   .nb-assistant-window {
     inset: auto;
-    top: 72px;
+    top: 12px;
     right: 12px;
     bottom: 12px;
     width: 420px;
     max-width: calc(100vw - 24px);
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.16);
     border-radius: 28px;
-    box-shadow: 0 28px 70px -28px rgba(0, 0, 0, 0.8);
   }
+  /* Sorti de l'écran en entier, marge comprise. */
   .nb-assistant-window[data-open="false"] {
-    transform: translateX(24px);
-    opacity: 0;
+    transform: translateX(calc(100% + 24px));
   }
   [data-mode="light"] .nb-assistant-window {
     border-color: rgba(17, 24, 39, 0.14);
-    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 28px 70px -28px rgba(17, 24, 39, 0.3);
   }
 }
-[data-mode="light"] .nb-assistant-window { background-color: #ffffff; }
 @media (prefers-reduced-motion: reduce) {
   .nb-assistant-window { transition: visibility 0s; }
 }
