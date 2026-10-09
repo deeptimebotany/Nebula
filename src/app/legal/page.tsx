@@ -353,7 +353,8 @@ export default function LegalPage() {
             compte dans la limite des permissions accordées, ainsi que les statistiques et commentaires que ces
             plateformes renvoient (quand vous actualisez, et une fois par jour automatiquement tant que vous utilisez
             le Service). Pour les Réussites : les records gagnés, avec les chiffres et le titre de la publication qui
-            les prouvent, et les avis de la Communauté que vous marquez « Cet avis m&apos;a aidé ». Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
+            les prouvent, et les avis de la Communauté que vous marquez « Cet avis m&apos;a aidé ». Pour l&apos;assistant « Demander à
+            Nebula » : le texte de vos conversations (vos questions et ses réponses), que vous seul retrouvez dans « Discussions ». Pour la sécurité : l&apos;empreinte (hachage) de votre adresse IP, conservée au
             plus deux jours, pour limiter les tentatives abusives sur les formulaires publics. Votre choix concernant
             les statistiques anonymes, avec sa date.
           </p>
@@ -549,7 +550,8 @@ export default function LegalPage() {
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
             contact sont supprimés 12 mois après leur réception. Les adresses de la liste « Prévenez-moi du lancement » sont
             supprimées 6 mois après l&apos;e-mail d&apos;annonce. Les signalements de la Communauté sont supprimés avec
-            le contenu signalé ou avec votre compte. Les demandes d&apos;avis, leurs images, votes et avis écrits sont
+            le contenu signalé ou avec votre compte. Les conversations avec l&apos;assistant sont supprimées 90 jours après leur dernier
+            message, ou plus tôt si vous les supprimez. Les demandes d&apos;avis, leurs images, votes et avis écrits sont
             supprimés 30 jours après la fin de la demande (72 h après sa publication), ou plus tôt si vous la
             supprimez ou supprimez votre compte. Données YouTube : voir la section 2 bis (commentaires et fiches de vidéos
             au plus 30 jours sans actualisation, autorisation vérifiée tous les 30 jours, tout est effacé à la

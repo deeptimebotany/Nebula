@@ -2,21 +2,24 @@
 
 // Barre du haut — refonte V2 (07/10/2026, maquettes de Lucas) : à gauche le
 // titre de la page (posé par <PageHeader>, voir page-header.tsx, sinon le
-// nom de l'entrée de menu), à droite trois icônes sans cadre — rechercher,
-// assistant, notifications — puis l'avatar qui ouvre le menu du profil
-// (compte, facturation, administration, marque, déconnexion).
+// nom de l'entrée de menu), à droite, comme YouTube Studio (09/10/2026,
+// demande de Lucas) : rechercher et notifications (icônes de 24 px, traits
+// épais, blanches), « Demander à Nebula » et « Publier » dans des boutons
+// arrondis entourés, puis l'avatar qui ouvre le menu du profil (compte,
+// facturation, administration, marque, déconnexion).
 // Avant : la bande des comptes connectés, « + », le bouton de mise à niveau
 // et un sélecteur de compte ; ils vivent maintenant dans Comptes connectés
 // et dans le menu du profil.
 // Une page peut aussi poser ses boutons dans la barre (emplacement
 // #nb-header-actions, ex. Publier sur petit écran, maquette E).
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { NotificationBell } from "./notification-bell";
 import { openCommandPalette } from "./command-palette";
 import { useAiAssistant } from "./ai-assistant-context";
-import { IconSearch } from "./icons";
+import { IconSearch, IconUpload } from "./icons";
 import { AiIcon } from "@/components/ai/ai-icon";
 import { ProfileMenu } from "./profile-menu";
 import { resolveNav } from "./navigation";
@@ -41,7 +44,12 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
   // Titre de secours (avant que la page ne pose le sien, ou page sans
   // <PageHeader>) : l'entrée de menu, et la page secondaire s'il y en a une.
   const nav = resolveNav(pathname);
-  const iconButton = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
+  // Plus gros et plus appuyé (09/10/2026, comme YouTube Studio) : icônes de
+  // 24 px en traits de 2,1, couleur du texte principal.
+  const iconButton = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-[color:var(--nb-hover)]";
+  const pill =
+    "flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/20 px-2.5 text-[15px] font-semibold text-white transition hover:bg-[color:var(--nb-hover)] md:pl-3.5 md:pr-4";
+  const onComposer = pathname === "/composer" || pathname.startsWith("/composer/");
 
   return (
     // Sans trait en bas (09/10/2026, demande de Lucas : « épurer ») : le fond
@@ -68,12 +76,15 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
         <div id={HEADER_ACTIONS_SLOT_ID} className="nb-header-actions flex shrink-0 items-center gap-2" />
 
         <button type="button" onClick={openCommandPalette} aria-label="Rechercher ou aller à une page" title={`Rechercher (${isMac ? "⌘" : "Ctrl"} K)`} className={iconButton}>
-          <IconSearch className="h-5 w-5" />
+          <IconSearch className="h-6 w-6 [stroke-width:2.1]" />
         </button>
 
+        <NotificationBell />
+
         {/* Assistant IA — seul point d'entrée général, à l'endroit où YouTube
-            Studio place « Demander à Studio ». Masqué tant que l'IA n'est pas
-            disponible pour la marque. Survol ou focus : le tiroir se
+            Studio place « Demander à Studio » : bouton arrondi entouré, avec
+            son nom (icône seule sur téléphone). Masqué tant que l'IA n'est
+            pas disponible pour la marque. Survol ou focus : le tiroir se
             télécharge, pour que l'ouverture garde son animation. */}
         {assistant.enabled && (
           <button
@@ -84,13 +95,22 @@ export function AppHeader({ oauth, isOwner }: AppHeaderProps) {
             aria-label="Demander à Nebula"
             aria-pressed={assistant.open}
             title="Demander à Nebula"
-            className={clsx(iconButton, assistant.open && "bg-[color:var(--nb-active)] text-white")}
+            className={clsx(pill, assistant.open && "border-aurora-400/50 bg-[color:var(--nb-active)]")}
           >
-            <AiIcon className="h-4 w-4" active={assistant.open} />
+            <AiIcon className="h-5 w-5" active={assistant.open} />
+            <span className="hidden md:inline">Demander à Nebula</span>
           </button>
         )}
 
-        <NotificationBell />
+        {/* « Publier » (à la place du « Créer » de YouTube Studio) : ouvre la
+            page Publier. Sur ordinateur seulement (la barre du bas l'a déjà
+            sur téléphone), et pas sur la page Publier elle-même. */}
+        {!onComposer && (
+          <Link href="/composer" className={clsx(pill, "hidden lg:flex")}>
+            <IconUpload className="h-5 w-5 [stroke-width:2.1]" />
+            Publier
+          </Link>
+        )}
 
         <div className="ml-1">
           <ProfileMenu oauth={oauth} isOwner={isOwner} />

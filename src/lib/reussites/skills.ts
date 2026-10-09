@@ -199,14 +199,14 @@ export const SKILLS: SkillDef[] = [
       name: "1 000 vues",
       description: "Une publication vue 1 000 fois.",
       requirements: [{ metric: "maxViews", target: 1_000, unit: "vues" }],
-      href: "/engagements",
+      href: "/interactions?vue=engagement",
       action: "Voir mes publications"
     },
     {
       name: "Viral",
       description: "Une publication vue 10 000 fois.",
       requirements: [{ metric: "maxViews", target: 10_000, unit: "vues" }],
-      href: "/engagements",
+      href: "/interactions?vue=engagement",
       action: "Voir mes publications"
     }
   ]),
@@ -216,7 +216,7 @@ export const SKILLS: SkillDef[] = [
       description: "Répondre à un commentaire reçu sur une de vos publications.",
       requirements: [{ metric: "commentReplies", target: 1, unit: "réponse" }],
       note: "Vos réponses sont repérées quand vous actualisez l'onglet Commentaires (Instagram, Facebook, YouTube).",
-      href: "/comments",
+      href: "/interactions",
       action: "Ouvrir les commentaires"
     },
     {
@@ -231,7 +231,7 @@ export const SKILLS: SkillDef[] = [
       description: "Répondre à 20 commentaires reçus.",
       requirements: [{ metric: "commentReplies", target: 20, unit: "réponses" }],
       note: "Vos réponses sont repérées quand vous actualisez l'onglet Commentaires (Instagram, Facebook, YouTube).",
-      href: "/comments",
+      href: "/interactions",
       action: "Répondre aux commentaires",
       reward: "Cadre de page bio « Halo »"
     },

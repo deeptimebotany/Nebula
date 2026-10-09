@@ -24,9 +24,13 @@ describe("fenêtre « Trop de comptes connectés »", () => {
     // Le bouton ne s'active que si les comptes gardés tiennent dans le palier.
     expect(dialog).toContain("disabled={!fits || count === 0}");
   });
-  it("décompte partagé client / serveur (Instagram + Facebook = 1)", () => {
+  it("décompte partagé client / serveur (un compte connecté = un compte, Facebook compris)", () => {
     expect(read("src/lib/billing/plan.ts")).toContain('export { connectionSlotsFor } from "@/lib/connection-slots";');
-    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "TIKTOK"])).toBe(2);
+    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "TIKTOK"])).toBe(3);
+    expect(read("src/app/(dashboard)/billing/garder/page.tsx")).toContain("return connectionSlotsFor(connections.map((c) => c.network));");
+    for (const f of ["src/lib/billing/connection-limit.ts", "src/lib/billing/plan.ts", "src/components/billing/connection-limit-dialog.tsx", "src/app/(dashboard)/billing/garder/page.tsx", "src/app/(dashboard)/accounts/page.tsx"]) {
+      expect(read(f)).not.toContain("comptent ensemble");
+    }
   });
   it("côté serveur : publication refusée au-delà du palier, nouveau compte vérifié compte par compte", () => {
     expect(read("src/lib/billing/trial-expiry.ts")).toContain("reason: CONNECTION_LIMIT_REASON");

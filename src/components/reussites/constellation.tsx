@@ -81,11 +81,11 @@ function Sky({ data, selected, onSelect }: { data: ConstellationDTO; selected: n
                 return (
                   <g key={st.key}>
                     <circle className="nb-star-next" cx={p.x} cy={p.y} r="11" fill="none" stroke={sk.color} strokeWidth="2" />
-                    <circle cx={p.x} cy={p.y} r="5" fill="#0e0e10" stroke={sk.color} strokeWidth="1.5" />
+                    <circle cx={p.x} cy={p.y} r="5" fill="#0f0f0f" stroke={sk.color} strokeWidth="1.5" />
                   </g>
                 );
               }
-              return <circle key={st.key} cx={p.x} cy={p.y} r="5" fill="#0e0e10" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />;
+              return <circle key={st.key} cx={p.x} cy={p.y} r="5" fill="#0f0f0f" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />;
             })}
             <text className="nb-sky-label" x={labelPos.x} y={labelPos.y + (angle === -90 ? -4 : angle > 0 && angle < 180 ? 18 : 6)} textAnchor={anchor} fontSize="17" fontWeight="600" fill="#e7e9f5">
               {sk.name} · {litCount}

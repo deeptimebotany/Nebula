@@ -16,7 +16,7 @@
 //     possible même à la limite ;
 //   - dès que la marque repasse dans la limite, ses comptes mis en veille
 //     par le cron sont réveillés (wakeConnectionsWithinLimit).
-// Instagram + Facebook comptent ensemble (connectionSlotsFor).
+// Un compte connecté = un compte, Instagram et Facebook compris (connectionSlotsFor).
 import { prisma } from "@/lib/prisma";
 import { connectionSlotsFor } from "@/lib/connection-slots";
 import { countConnectionSlots, getBrandPlan } from "@/lib/billing/plan";
@@ -53,11 +53,11 @@ export interface ConnectionLimitState extends ConnectionOverage {
 
 /** Texte commun (fenêtre, refus de l'API). */
 export function connectionLimitMessage(slots: number, max: number, planLabel: string): string {
-  return `Cette marque a ${slots} comptes connectés, mais votre palier ${planLabel} en permet ${max} (Instagram + Facebook comptent ensemble). Déconnectez les comptes en trop pour continuer, ou passez à un palier supérieur.`;
+  return `Cette marque a ${slots} comptes connectés, mais votre palier ${planLabel} en permet ${max}. Déconnectez les comptes en trop pour continuer, ou passez à un palier supérieur.`;
 }
 
 export function connectionLimitReachedMessage(planLabel: string, max: number): string {
-  return `Limite de comptes connectés atteinte pour le palier ${planLabel} (${max} comptes ; Instagram + Facebook comptent ensemble pour un seul compte). Passez sur un palier supérieur dans Facturation pour en connecter un autre.`;
+  return `Limite de comptes connectés atteinte pour le palier ${planLabel} (${max} comptes par marque). Passez sur un palier supérieur dans Facturation pour en connecter un autre.`;
 }
 
 /** La marque dépasse-t-elle les comptes de son palier, maintenant ? */

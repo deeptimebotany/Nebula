@@ -14,11 +14,14 @@
 // aucun appel réseau — tout est statique dans assistant-contexts.ts. Seul
 // l'envoi d'une question consomme le quota Gemini (voir /api/ai/chat).
 //
-// Conversation (09/10/2026, demande de Lucas) : elle repart de zéro dès
-// qu'on change de page, qu'on recharge ou qu'on quitte le site — rien n'est
-// gardé dans le navigateur (avant : sessionStorage par marque, les
-// miniatures proposées restaient dans le chat). « Nouvelle conversation » la
-// vide aussi.
+// Conversation (09/10/2026, demande de Lucas, version 2) : elle reste quand
+// on change de page ou qu'on ferme le tiroir, et elle est enregistrée à
+// chaque réponse (/api/ai/chat, save: true). Recharger la page, quitter
+// Nebula ou changer de marque ouvre un chat vide ; les conversations
+// passées se retrouvent dans « Discussions » (bouton ☰ à gauche du titre),
+// d'où on peut les rouvrir et les continuer, ou les supprimer (voir
+// src/lib/ai/assistant-conversations.ts). « Nouvelle conversation » (à côté
+// de la croix) vide le chat ; rien n'est gardé dans le navigateur.
 //
 // Présentation (09/10/2026) : le tiroir d'avant (sur ordinateur, le contenu
 // se décale pour lui faire de la place, voir app-shell.tsx), mais posé sous
@@ -46,7 +49,7 @@ import {
 } from "@/lib/ai/assistant-contexts";
 import { sendThumbnailBrief, sendThumbnailPick, type FramePickCard, type ThumbnailBrief } from "@/lib/ai/thumbnail-brief-bridge";
 import { MarkdownLite } from "@/components/ui/markdown-lite";
-import { IconChevronRight, IconClose, IconRefresh, IconSend } from "./icons";
+import { IconChevronLeft, IconChevronRight, IconClose, IconMenu, IconSend } from "./icons";
 import { NebulaIcon } from "./nebula-brandmark";
 import { clsx } from "@/lib/clsx";
 import { AiIcon } from "@/components/ai/ai-icon";
@@ -101,6 +104,46 @@ function describePick(p: FramePickCard, k: number): string {
   return `Option ${k + 1}${details ? ` (${details})` : ""} : ${why}`;
 }
 
+interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+/** « il y a 5 min », « hier », « 3 oct. » — liste des discussions. */
+function whenLabel(iso: string): string {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const minutes = Math.round(diff / 60_000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "hier";
+  if (days < 7) return `il y a ${days} jours`;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+/** Nouvelle conversation (carré et crayon, comme « Demander à Studio »). */
+function IconCompose({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" />
+      <path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 8.5-8.5Z" />
+    </svg>
+  );
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
+  );
+}
+
 function firstNameOf(name: string | null | undefined): string | null {
   if (!name) return null;
   const first = name.trim().split(/\s+/)[0];
@@ -127,31 +170,41 @@ export function AiAssistant() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Page et marque de la conversation en cours (voir plus bas).
-  const placeRef = useRef<string | null>(null);
+  // Marque de la conversation en cours (voir plus bas).
+  const brandRef = useRef<string | null>(null);
+  // Conversation enregistrée en cours (null tant que l'assistant n'a pas répondu).
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  // « Discussions » : la liste des conversations passées, à la place du chat.
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [history, setHistory] = useState<ConversationSummary[] | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
 
   const ctx = ASSISTANT_CONTEXTS[contextKey];
   const firstName = firstNameOf(bootstrap?.user?.name);
 
-  // --- Conversation : repart de zéro à chaque page et à chaque marque ----
-  // Rien n'est gardé dans le navigateur : recharger ou quitter le site la
-  // vide aussi. Les conversations gardées par les versions précédentes sont
-  // effacées une fois.
+  // --- Conversation : gardée d'une page à l'autre, nouvelle à chaque marque
+  // Rien n'est gardé dans le navigateur : recharger ou quitter le site ouvre
+  // un chat vide (la conversation est dans « Discussions »). Les
+  // conversations gardées par les versions précédentes sont effacées une fois.
   useEffect(() => {
     forgetLegacyConversations();
   }, []);
   const brandId = activeBrand?.id ?? null;
   useEffect(() => {
-    const place = `${brandId ?? ""}|${pathname}`;
-    if (placeRef.current !== null && placeRef.current !== place) {
+    if (brandRef.current !== null && brandRef.current !== brandId) {
       setMessages([]);
+      setConversationId(null);
       setChosenPick(null);
       setBatch(0);
       setFollowupBatch(0);
       setInput("");
+      setHistory(null);
+      setView("chat");
     }
-    placeRef.current = place;
-  }, [brandId, pathname]);
+    brandRef.current = brandId;
+  }, [brandId]);
 
   // --- Nouveau contexte → on repart au premier lot de suggestions --------
   useEffect(() => {
@@ -226,13 +279,14 @@ export function AiAssistant() {
         const res = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brandId: activeBrand.id, contextKey: key, messages: history })
+          body: JSON.stringify({ brandId: activeBrand.id, contextKey: key, messages: history, save: true, conversationId })
         });
         const data = (await res.json().catch(() => ({}))) as {
           reply?: string;
           error?: string | unknown;
           retryAfterSeconds?: number;
           thumbnail?: ThumbnailBrief | null;
+          conversationId?: string | null;
         };
 
         if (!res.ok) {
@@ -258,6 +312,10 @@ export function AiAssistant() {
           ...prev,
           { id: newId(), role: "model", text: data.reply ?? "", contextKey: key, thumbnail: data.thumbnail ?? null }
         ]);
+        if (data.conversationId) {
+          setConversationId(data.conversationId);
+          setHistory(null); // la liste sera relue à la prochaine ouverture
+        }
         setFollowupBatch((b) => b + 1);
       } catch {
         setMessages((prev) => [
@@ -268,7 +326,7 @@ export function AiAssistant() {
         setSending(false);
       }
     },
-    [input, activeBrand, sending, cooldownUntil, messages, contextKey, upgrade]
+    [input, activeBrand, sending, cooldownUntil, messages, contextKey, upgrade, conversationId]
   );
 
   // --- Question poussée par une page (ex. section Miniature) --------------
@@ -305,10 +363,65 @@ export function AiAssistant() {
 
   function resetConversation() {
     setMessages([]);
+    setConversationId(null);
+    setChosenPick(null);
     setBatch(0);
     setFollowupBatch(0);
     setInput("");
-    inputRef.current?.focus();
+    setView("chat");
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  // --- Discussions : conversations passées de cette marque -----------------
+  const loadHistory = useCallback(async () => {
+    if (!brandId) return;
+    setHistoryError(false);
+    const res = await fetch(`/api/ai/conversations?brandId=${encodeURIComponent(brandId)}`, { cache: "no-store" }).catch(() => null);
+    const data = res && res.ok ? ((await res.json().catch(() => null)) as { conversations?: ConversationSummary[] } | null) : null;
+    if (!data?.conversations) {
+      setHistoryError(true);
+      setHistory([]);
+      return;
+    }
+    setHistory(data.conversations);
+  }, [brandId]);
+
+  function openHistory() {
+    setConfirmDelete(null);
+    setView("history");
+    void loadHistory();
+  }
+
+  async function openConversation(id: string) {
+    if (id === conversationId) {
+      setView("chat");
+      return;
+    }
+    setOpening(id);
+    const res = await fetch(`/api/ai/conversations/${encodeURIComponent(id)}`, { cache: "no-store" }).catch(() => null);
+    const data = res && res.ok ? ((await res.json().catch(() => null)) as { conversation?: { id: string; messages: { role: "user" | "model"; text: string }[] } } | null) : null;
+    setOpening(null);
+    if (!data?.conversation) {
+      setHistoryError(true);
+      return;
+    }
+    setMessages(data.conversation.messages.map((m) => ({ id: newId(), role: m.role, text: m.text, contextKey })));
+    setConversationId(data.conversation.id);
+    setChosenPick(null);
+    setFollowupBatch((b) => b + 1);
+    setInput("");
+    setView("chat");
+  }
+
+  async function removeConversation(id: string) {
+    setConfirmDelete(null);
+    setHistory((prev) => (prev ? prev.filter((c) => c.id !== id) : prev));
+    await fetch(`/api/ai/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+    // La conversation affichée vient d'être supprimée : on repart d'un chat vide.
+    if (id === conversationId) {
+      setMessages([]);
+      setConversationId(null);
+    }
   }
 
   function onGenerateThumbnail(brief: ThumbnailBrief) {
@@ -357,32 +470,120 @@ export function AiAssistant() {
         // une fois sorti de l'écran, pour garder l'animation de sortie.
         className="glass-panel-solid nb-assistant-window fixed z-50 flex flex-col"
       >
-        {/* En-tête */}
-        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-5">
-          <NebulaIcon size={24} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-sm font-semibold text-white">Demander à Nebula</p>
-          </div>
-          {messages.length > 0 && (
+        {/* En-tête (09/10/2026, comme « Demander à Studio ») : ☰ à gauche
+            ouvre « Discussions », « Nouvelle conversation » à côté de la croix. */}
+        <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-white/[0.06] px-3">
+          {view === "chat" ? (
             <button
               type="button"
-              onClick={resetConversation}
-              title="Nouvelle conversation"
-              aria-label="Nouvelle conversation"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+              onClick={openHistory}
+              title="Discussions"
+              aria-label="Discussions : vos conversations passées"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white transition hover:bg-white/[0.08]"
             >
-              <IconRefresh className="h-4 w-4" />
+              <IconMenu className="h-5 w-5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setView("chat")}
+              title="Revenir au chat"
+              aria-label="Revenir au chat"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
+            >
+              <IconChevronLeft className="h-5 w-5" />
             </button>
           )}
+          <NebulaIcon size={22} />
+          <div className="min-w-0 flex-1 pl-1">
+            <p className="truncate font-display text-sm font-semibold text-white">{view === "history" ? "Discussions" : "Demander à Nebula"}</p>
+          </div>
+          <button
+            type="button"
+            onClick={resetConversation}
+            disabled={view === "chat" && messages.length === 0}
+            title="Nouvelle conversation"
+            aria-label="Nouvelle conversation"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-white transition hover:bg-white/[0.08] disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            <IconCompose className="h-[18px] w-[18px]" />
+          </button>
           <button
             type="button"
             onClick={() => setOpen(false)}
+            title="Fermer"
             aria-label="Fermer l'assistant"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-white transition hover:bg-white/[0.08]"
           >
-            <IconClose className="h-4 w-4" />
+            <IconClose className="h-5 w-5" />
           </button>
         </div>
+
+        {view === "history" ? (
+          <div className="flex min-h-0 flex-1 flex-col" data-testid="assistant-history">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+              {history === null ? (
+                <div className="space-y-2 px-2 py-1" aria-busy="true">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-10 animate-pulse rounded-xl bg-white/[0.04]" />
+                  ))}
+                  <span className="sr-only">Chargement des discussions</span>
+                </div>
+              ) : history.length === 0 ? (
+                <p className="px-2 py-4 text-sm leading-relaxed text-slate-400">
+                  {historyError
+                    ? "Impossible de charger vos discussions pour le moment. Réessayez dans un instant."
+                    : `Aucune discussion enregistrée pour « ${activeBrand?.name ?? "cette marque"} ». Vos conversations apparaissent ici dès la première réponse de l'assistant.`}
+                </p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {history.map((c) => (
+                    <li key={c.id} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => void openConversation(c.id)}
+                        disabled={opening !== null}
+                        className={clsx(
+                          "nb-menu-item flex w-full flex-col rounded-xl py-2.5 pl-3 pr-11 text-left",
+                          c.id === conversationId ? "nb-menu-item-current" : "text-slate-100"
+                        )}
+                      >
+                        <span className="truncate text-sm font-medium">{opening === c.id ? "Ouverture…" : c.title}</span>
+                        <span className="mt-0.5 text-[11px] text-slate-500">{whenLabel(c.updatedAt)}</span>
+                      </button>
+                      {confirmDelete === c.id ? (
+                        <button
+                          type="button"
+                          onClick={() => void removeConversation(c.id)}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-red-500/15 px-2.5 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/25"
+                        >
+                          Supprimer ?
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(c.id)}
+                          title="Supprimer cette discussion"
+                          aria-label={`Supprimer la discussion « ${c.title} »`}
+                          className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 opacity-0 transition hover:bg-white/[0.08] hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100"
+                        >
+                          <IconTrash className="h-4 w-4" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="shrink-0 border-t border-white/[0.06] px-5 py-3 text-[11px] leading-snug text-slate-500">
+              Discussions de « {activeBrand?.name ?? "cette marque"} », visibles par vous seul, effacées 90 jours après le dernier message.{" "}
+              <a href={ASSISTANT_HELP_PATH} target="_blank" rel="noopener noreferrer" className="font-medium text-aurora-300 underline-offset-2 hover:underline">
+                Aide sur l&apos;assistant
+              </a>
+            </div>
+          </div>
+        ) : (
+          <>
 
         {/* Corps défilant : accueil + suggestions, ou la conversation */}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -616,6 +817,8 @@ export function AiAssistant() {
             </a>
           </p>
         </div>
+          </>
+        )}
       </aside>
     </>
   );

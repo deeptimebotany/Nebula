@@ -19,6 +19,7 @@ import { runApiWatch } from "@/lib/api-watch/watcher";
 import { runFounderJobs } from "@/lib/billing/founders";
 import { runMonthlySummaries } from "@/lib/monthly-summary/send";
 import { purgeTiktokPublishers } from "@/lib/social/tiktok-cap";
+import { purgeOldConversations } from "@/lib/ai/assistant-conversations";
 import { runYoutubeDataPolicy } from "@/lib/social/youtube-data-policy";
 
 function safe<T>(label: string, run: () => Promise<T>): Promise<T | null> {
@@ -59,5 +60,7 @@ export async function runAccountJobs() {
   // Règles de YouTube (09/10/2026) : commentaires et fiches de vidéos de plus
   // de 30 jours effacés, autorisation des chaînes vérifiée tous les 30 jours.
   const youtubeData = await safe("règles de données YouTube", () => runYoutubeDataPolicy());
-  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries, tiktokPublishersPurged, youtubeData };
+  // Conversations de l'assistant (09/10/2026) : effacées après 90 jours sans nouveau message.
+  const conversationsPurged = await safe("purge des conversations de l'assistant", () => purgeOldConversations());
+  return { rewards, bonusFlushed, reminders, notificationsPurged, expiring, webhookRetries, webhookPurged, adsSynced, adsPendingPurged, missionNudges, feedbackClosed, feedbackPurged, autoSynced, apiWatch, founders, monthlySummaries, tiktokPublishersPurged, youtubeData, conversationsPurged };
 }

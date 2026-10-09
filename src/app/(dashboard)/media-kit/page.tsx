@@ -333,7 +333,7 @@ export default function MediaKitPage() {
                       Analytics
                     </Link>{" "}
                     et{" "}
-                    <Link href="/engagements" className="text-aurora-300 hover:text-white">
+                    <Link href="/interactions?vue=engagement" className="text-aurora-300 hover:text-white">
                       Engagements
                     </Link>{" "}
                     et actualisez : le kit se remplit tout seul.
@@ -374,7 +374,7 @@ export default function MediaKitPage() {
                   (shownChoices.length === 0 ? (
                     <p className="text-sm text-slate-400">
                       Aucune publication mesurée sur 12 mois. Ouvrez{" "}
-                      <Link href="/engagements" className="text-aurora-300 hover:text-white">
+                      <Link href="/interactions?vue=engagement" className="text-aurora-300 hover:text-white">
                         Engagements
                       </Link>{" "}
                       et actualisez.

@@ -102,7 +102,7 @@ export function FactsPanel({ facts, connectHref = "/accounts" }: { facts: Studio
       ) : (
         <p className="text-sm text-slate-400">
           Pas encore assez de chiffres par publication. Ouvrez{" "}
-          <Link href="/engagements" className="text-aurora-300 hover:text-white">
+          <Link href="/interactions?vue=engagement" className="text-aurora-300 hover:text-white">
             Engagements
           </Link>{" "}
           et actualisez : le Studio s&apos;appuiera sur vos meilleures publications.
@@ -122,7 +122,7 @@ export function FactsPanel({ facts, connectHref = "/accounts" }: { facts: Studio
                 ? `La moitié du public part vers ${Math.round(facts.retention.halfAudienceAt * 100)} % (${facts.retention.analyses} analyse${facts.retention.analyses > 1 ? "s" : ""})`
                 : `Plus de la moitié du public reste jusqu'au bout (${facts.retention.analyses} analyse${facts.retention.analyses > 1 ? "s" : ""})`
               : (
-                <Link href="/retention" className="text-aurora-300 hover:text-white">
+                <Link href="/analytics?tab=retention" className="text-aurora-300 hover:text-white">
                   Analysez une vidéo dans Rétention IA
                 </Link>
               )}

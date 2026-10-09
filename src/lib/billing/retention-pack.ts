@@ -77,7 +77,7 @@ export async function grantRetentionPack(session: Stripe.Checkout.Session): Prom
     kind: "reminder",
     title: "Recharge Rétention ajoutée",
     body: `${credits} analyses Rétention ont été ajoutées à votre compte. Elles servent une fois le quota du mois utilisé, et n'expirent pas.`,
-    href: "/retention",
+    href: "/analytics?tab=retention",
     actionLabel: "Analyser une vidéo",
     dedupeKey: `retention-pack:${session.id}`
   });

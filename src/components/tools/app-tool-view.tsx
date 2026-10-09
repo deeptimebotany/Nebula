@@ -108,7 +108,7 @@ function EngagementTool({ accounts }: { accounts: ToolAccountDTO[] }) {
       {missing.length > 0 && (
         <p className="text-xs text-slate-500">
           Pas encore de chiffres relevés pour {missing.map(accountLabel).join(", ")} : ouvrez{" "}
-          <Link href="/engagements" className="text-aurora-300 hover:underline">
+          <Link href="/interactions?vue=engagement" className="text-aurora-300 hover:underline">
             Engagements
           </Link>{" "}
           et cliquez sur « Actualiser », ou attendez le prochain relevé automatique.

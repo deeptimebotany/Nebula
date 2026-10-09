@@ -4,7 +4,7 @@
 // n'apparaissent qu'une fois leurs clés développeur renseignées sur Vercel,
 // pour ne pas proposer un bouton qui ne mène nulle part pendant que la
 // plateforme valide l'application. Côté serveur uniquement (process.env).
-import { NETWORKS, type Network } from "@/lib/types";
+import { LAUNCHED_NETWORKS, NETWORKS, type Network } from "@/lib/types";
 import { envValue } from "@/lib/env-value";
 
 const REQUIRED_ENV: Partial<Record<Network, string[]>> = {
@@ -18,8 +18,17 @@ export function isNetworkConfigured(network: Network): boolean {
   return !required || required.every((name) => Boolean(envValue(name)));
 }
 
+/**
+ * Réseaux affichés dans l'application. Les réseaux lancés (Pinterest compris)
+ * sont toujours visibles, même là où leurs clés manquent (site de test) :
+ * comme pour les réseaux historiques, « Connecter » y renvoie alors un
+ * message clair. Une personne en Gratuit voit ainsi tous les réseaux que
+ * Nebula propose, y compris ceux qu'un palier supérieur lui permettrait de
+ * relier (09/10/2026, demande de Lucas). Les réseaux pas encore lancés
+ * (Threads, LinkedIn) n'apparaissent qu'avec leurs clés.
+ */
 export function availableNetworks(): Network[] {
-  return NETWORKS.filter(isNetworkConfigured);
+  return NETWORKS.filter((n) => LAUNCHED_NETWORKS.includes(n) || isNetworkConfigured(n));
 }
 
 /** Adresse de retour OAuth : variable dédiée, sinon <NEXTAUTH_URL>/api/connections/<fournisseur>/callback. */

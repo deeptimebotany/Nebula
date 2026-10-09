@@ -151,7 +151,7 @@ export async function getBrandPlan(brandId: string): Promise<UserPlanInfo> {
   return getUserPlan(owner.userId);
 }
 
-// Décompte des comptes (Instagram + Facebook comptent ensemble) : dans
+// Décompte des comptes (un compte connecté = un compte) : dans
 // src/lib/connection-slots.ts depuis le 09/10/2026, importable côté client.
 export { connectionSlotsFor } from "@/lib/connection-slots";
 
@@ -168,7 +168,7 @@ export async function assertConnectionQuota(brandId: string) {
   const count = await countConnectionSlots(brandId);
   if (count >= limits.maxConnections) {
     throw new Error(
-      `Limite de comptes connectés atteinte pour le palier ${limits.label} (${limits.maxConnections} comptes ; Instagram + Facebook comptent ensemble pour un seul compte). Passez sur un palier supérieur dans Facturation.`
+      `Limite de comptes connectés atteinte pour le palier ${limits.label} (${limits.maxConnections} comptes par marque). Passez sur un palier supérieur dans Facturation.`
     );
   }
 }

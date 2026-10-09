@@ -410,7 +410,7 @@ export function MonthlySummaryView({ data, inProgress }: { data: MonthlySummaryD
                   <p className="mt-1 text-xs text-slate-300">
                     {d.community.replies > 0
                       ? `${plural(d.community.replies, "réponse", "réponses")} de votre part (${Math.round((d.community.replies / Math.max(1, d.community.comments)) * 100)} %)`
-                      : "Répondez-leur depuis la page Commentaires."}
+                      : "Répondez-leur depuis Interactions › Commentaires."}
                   </p>
                 </div>
               )}

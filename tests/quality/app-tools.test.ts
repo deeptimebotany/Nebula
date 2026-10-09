@@ -101,8 +101,9 @@ describe("menu « Outils »", () => {
     expect(APP_PREFIXES).toContain("/tools");
     expect(APP_MAP).toMatch(/Outils \(Taux d'engagement/);
     // Refonte V2 (07/10/2026) : catégories repliables et menu du profil.
-    expect(APP_MAP).toMatch(/Analyser → Analytics, Engagements, Rétention IA, Outils/);
-    expect(APP_MAP).toMatch(/Présence → Comptes connectés, Commentaires, Page bio, Media kit/);
+    // 09/10/2026 : Rétention IA dans Analytics, Commentaires + Engagements = Interactions.
+    expect(APP_MAP).toMatch(/Analyser → Analytics \(onglets Vue d'ensemble, Concurrence, Rétention IA, Publicité\), Outils/);
+    expect(APP_MAP).toMatch(/Présence → Comptes connectés, Interactions \(onglets Commentaires et Engagement\), Page bio, Media kit/);
     expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Paramètres, Facturation, Automatisations, Soutenir Nebula/);
   });
 });

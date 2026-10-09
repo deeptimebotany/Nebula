@@ -647,12 +647,25 @@ export async function generateCopy(input: {
   mediaHint?: string; // ex: "vidéo" — utilisé seulement en repli si aucune image n'a pu être extraite
   frameBase64?: string;
   frameMimeType?: string;
+  /** Résumé de la vidéo entière, image et son (copy-analysis.ts, 09/10/2026). */
+  mediaBrief?: string;
 }): Promise<string> {
-  const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = input;
+  const { field, network, maxLength, brandName, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType, mediaBrief } = input;
 
   const promptLines = [
     `Tu es un assistant de community management pour la marque "${brandName}" sur Nebula.`,
-    frameBase64
+    mediaBrief
+      ? [
+          "La vidéo que la personne s'apprête à publier a été regardée en entier, image et son. Voici ce qu'elle montre et ce qui y est dit :",
+          "<video>",
+          mediaBrief,
+          "</video>",
+          "Base-toi STRICTEMENT sur ce contenu (sujet, ce qui est dit, moments forts, ton) : n'invente rien qui n'y figure pas, et ne rédige surtout pas un texte de présentation générique de la marque.",
+          frameBase64 ? "Une image extraite de la vidéo est jointe en plus." : ""
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : frameBase64
       ? "Voici une image réelle extraite du média que la personne s'apprête à publier. Base-toi STRICTEMENT sur ce que tu vois (sujet, action, décor, ambiance) : n'invente rien qui ne soit pas visible sur cette image, et ne rédige surtout pas un texte de présentation générique de la marque."
       : mediaHint
         ? `Média joint : ${mediaHint} (aucune image n'a pu être analysée cette fois — reste prudent et générique sur le contenu visuel plutôt que d'inventer des détails).`

@@ -13,8 +13,13 @@
 // passe en « thumbnails » quand sa section Miniature est à l'écran. Toute
 // navigation remet l'override à zéro, pour ne jamais rester bloqué sur un
 // contexte d'une page qu'on a quittée.
+// 09/10/2026 : l'override est attaché à la page où il a été posé (et non plus
+// effacé par un effet au changement de page, qui passait APRÈS l'effet de la
+// nouvelle page et effaçait son override) : un onglet d'une page (Rétention
+// IA dans Analytics, Engagement dans Interactions) peut ainsi poser le sien
+// dès son affichage.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { useAiStatus } from "@/components/use-ai-status";
@@ -84,7 +89,13 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
 
   const [open, setOpen] = useState(false);
   const [prepared, setPrepared] = useState(false);
-  const [override, setOverride] = useState<AssistantContextKey | null>(null);
+  // Override + page où il a été posé : ignoré dès qu'on change de page.
+  const [overrideState, setOverrideState] = useState<{ key: AssistantContextKey; path: string } | null>(null);
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  const setOverride = useCallback((key: AssistantContextKey | null) => {
+    setOverrideState(key ? { key, path: pathRef.current } : null);
+  }, []);
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
   const [pendingInjection, setPendingInjection] = useState<PendingInjection | null>(null);
   const [externalThinking, setExternalThinkingState] = useState(false);
@@ -95,9 +106,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Changement de page → l'override de la page précédente n'a plus de sens.
-  useEffect(() => {
-    setOverride(null);
-  }, [pathname]);
+  const override = overrideState && overrideState.path === pathname ? overrideState.key : null;
 
   const pageKey = useMemo(() => resolveAssistantContext(pathname), [pathname]);
   const contextKey = override ?? pageKey;
@@ -109,7 +118,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
     if (options?.contextKey) setOverride(options.contextKey);
     setPendingPrompt({ text, submit: options?.submit ?? true, nonce: Date.now() });
     setOpen(true);
-  }, []);
+  }, [setOverride]);
 
   const consumePendingPrompt = useCallback(() => setPendingPrompt(null), []);
 
@@ -119,7 +128,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
     // (question puis réponse) ne doivent pas s'écraser.
     setPendingInjection((prev) => ({ messages: [...(prev?.messages ?? []), ...messages], nonce: Date.now() }));
     setOpen(true);
-  }, []);
+  }, [setOverride]);
   const consumePendingInjection = useCallback(() => setPendingInjection(null), []);
 
   const value = useMemo<AiAssistantContextValue>(
@@ -142,7 +151,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       externalThinkingLabel,
       setExternalThinking
     }),
-    [aiStatus?.enabled, open, toggle, prepared, prepare, contextKey, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking, externalThinkingLabel, setExternalThinking]
+    [aiStatus?.enabled, open, toggle, prepared, prepare, contextKey, setOverride, ask, pendingPrompt, consumePendingPrompt, inject, pendingInjection, consumePendingInjection, externalThinking, externalThinkingLabel, setExternalThinking]
   );
 
   return <AiAssistantContext.Provider value={value}>{children}</AiAssistantContext.Provider>;

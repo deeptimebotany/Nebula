@@ -24,13 +24,13 @@ beforeEach(() => {
 });
 
 describe("comptes connectés : décompte du quota", () => {
-  it("Instagram + Facebook d'une même connexion Meta comptent pour un", () => {
-    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK"])).toBe(1);
-    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "FACEBOOK"])).toBe(2);
+  it("Instagram et Facebook comptent chacun pour un compte (09/10/2026)", () => {
+    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK"])).toBe(2);
+    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "FACEBOOK"])).toBe(3);
   });
   it("tous les autres réseaux comptent (Bluesky, Threads, Pinterest, LinkedIn oubliés avant le lot 3)", () => {
     expect(connectionSlotsFor(["BLUESKY", "THREADS", "PINTEREST", "LINKEDIN"])).toBe(4);
-    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "BLUESKY"])).toBe(4);
+    expect(connectionSlotsFor(["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "BLUESKY"])).toBe(5);
     expect(connectionSlotsFor([])).toBe(0);
   });
   it("ne compte pas les comptes déconnectés", async () => {

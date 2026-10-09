@@ -140,11 +140,11 @@ describe("fin d'essai (lot E4)", () => {
     expect(sortByUsage([{ id: "x", createdAt: d("2026-01-01"), uses: 0 }]).length).toBe(1);
     expect(pickDefaultActiveBrand([])).toBeNull();
   });
-  it("comptes gardés : le choix d'abord, puis les plus utilisés, Instagram + Facebook comptant pour un", () => {
+  it("comptes gardés : le choix d'abord, puis les plus utilisés, Instagram et Facebook comptant chacun pour un", () => {
     const c = (id: string, network: string, uses: number) => ({ id, network, uses, createdAt: d("2026-01-01") });
     const conns = [c("ig", "INSTAGRAM", 5), c("fb", "FACEBOOK", 5), c("yt", "YOUTUBE", 9), c("tt", "TIKTOK", 1), c("bs", "BLUESKY", 3), c("li", "LINKEDIN", 0)];
     const kept = pickConnectionsToKeep(conns, 4, null);
-    expect(Array.from(kept).sort()).toEqual(["bs", "fb", "ig", "tt", "yt"].sort());
+    expect(Array.from(kept).sort()).toEqual(["bs", "fb", "ig", "yt"].sort());
     const chosen = pickConnectionsToKeep(conns, 4, ["li", "tt"]);
     expect(chosen.has("li")).toBe(true);
     expect(chosen.has("tt")).toBe(true);

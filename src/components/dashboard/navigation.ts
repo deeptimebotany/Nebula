@@ -91,12 +91,15 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "analyser",
     label: "Analyser",
     items: [
-      { href: "/analytics", label: "Analytics", icon: IconChart, description: "Abonnés, portée, engagement", keywords: ["statistiques", "stats", "audience"] },
-      // Deux onglets distincts depuis la séparation de l'ancien
-      // « Interactions » (fourre-tout) : le TEXTE des commentaires à modérer
-      // (Présence) d'un côté, les CHIFFRES d'engagement de l'autre (ici).
-      { href: "/engagements", label: "Engagements", icon: IconThumbUp, description: "Likes, partages, enregistrements et vues par publication", keywords: ["réactions", "likes", "partages", "stories", "vues", "interactions"] },
-      { href: "/retention", label: "Rétention IA", icon: IconRetention, description: "Analyse de rétention de vos vidéos YouTube", keywords: ["vidéo", "youtube", "analyse", "ia"] },
+      // 09/10/2026 (demande de Lucas) : Rétention IA devient un onglet
+      // d'Analytics (/analytics?tab=retention) ; /retention redirige.
+      {
+        href: "/analytics",
+        label: "Analytics",
+        icon: IconChart,
+        description: "Abonnés, portée, concurrence, rétention IA de vos vidéos YouTube",
+        keywords: ["statistiques", "stats", "audience", "rétention", "rétention ia", "vidéo", "youtube", "analyse", "concurrence", "publicité"]
+      },
       // 02/10/2026 : les outils gratuits du site, préremplis avec la marque.
       {
         href: "/tools",
@@ -112,7 +115,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Présence",
     items: [
       { href: "/accounts", label: "Comptes connectés", icon: IconLink, description: "Instagram, Facebook, TikTok, YouTube", keywords: ["réseaux", "connexion", "oauth"] },
-      { href: "/comments", label: "Commentaires", icon: IconMessage, description: "Modérer les commentaires reçus sur vos publications", keywords: ["interactions", "messages", "modération", "réponses"] },
+      // 09/10/2026 (demande de Lucas) : Commentaires et Engagements réunis en
+      // « Interactions » (onglets Commentaires et Engagement) ; les anciennes
+      // adresses redirigent.
+      {
+        href: "/interactions",
+        label: "Interactions",
+        icon: IconMessage,
+        description: "Commentaires à lire et à qui répondre, likes, partages et vues de vos publications",
+        keywords: ["commentaires", "engagements", "engagement", "messages", "modération", "réponses", "réactions", "likes", "partages", "stories", "vues"]
+      },
       { href: "/link-in-bio", label: "Page bio", icon: IconBioLink, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
       { href: "/media-kit", label: "Media kit", icon: IconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] }
     ]

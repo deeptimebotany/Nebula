@@ -10,7 +10,7 @@ const FAQ = [
   { q: "Comment est calculé le taux d'engagement ?", a: "Interactions moyennes par publication (j'aime + commentaires + partages, divisés par le nombre de publications), rapportées au nombre d'abonnés, en pourcentage. C'est la formule la plus courante ; certains outils utilisent la portée à la place des abonnés, ce qui donne des chiffres plus élevés." },
   { q: "Quel est un bon taux d'engagement ?", a: "Cela dépend fortement du réseau et de la taille du compte : un petit compte engagé dépasse souvent 5 % sur TikTok ou Instagram, un grand compte se situe plutôt autour de 1 %. Les repères affichés sont des ordres de grandeur généraux, datés." },
   { q: "Pourquoi mon taux baisse quand mes abonnés augmentent ?", a: "Mécaniquement : le dénominateur grossit plus vite que les interactions. Regardez plutôt l'évolution des interactions par publication et la portée — Nebula les suit dans Analytics et Engagements." },
-  { q: "Nebula peut-il calculer mon vrai taux ?", a: "Oui : une fois vos comptes connectés, l'onglet Engagements récupère les vrais chiffres de chaque publication (vues, j'aime, commentaires, partages, enregistrements) et Analytics suit vos abonnés et votre portée." }
+  { q: "Nebula peut-il calculer mon vrai taux ?", a: "Oui : une fois vos comptes connectés, l'onglet Engagement de la page Interactions récupère les vrais chiffres de chaque publication (vues, j'aime, commentaires, partages, enregistrements) et Analytics suit vos abonnés et votre portée." }
 ];
 
 export default function TauxEngagementPage() {

@@ -16,11 +16,18 @@
 // (additionnés sur les réseaux affichés, d'après les relevés de la page
 // Engagements) — et filtre de format : Shorts et Reels, vidéos, posts,
 // stories (src/lib/posts/post-kind.ts). Une ligne par publication.
+//
+// Puis (09/10/2026, demande de Lucas) : comme YouTube Studio, seul le titre
+// (et la miniature) ouvre la fiche — souligné au survol — au lieu de toute la
+// ligne ; au survol d'une ligne, la description laisse la place aux boutons
+// Modifier / Détails, Statistiques, Commentaires, Voir sur le réseau,
+// Supprimer et « ⋮ » (Dupliquer, fiche complète, autres réseaux). Sur
+// téléphone, ces boutons restent visibles sous chaque carte.
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { ImportSourceBadge } from "@/components/media-import/import-source-badge";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useBrand } from "@/components/brand-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
@@ -31,9 +38,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { NetworkTile } from "@/components/ui/network-badge";
-import { NETWORK_META, NETWORKS, type Network } from "@/lib/types";
+import { NETWORK_META, NETWORKS, commentNetworks, type Network } from "@/lib/types";
 import { POST_KINDS, POST_KIND_FILTER_LABEL, POST_KIND_LABEL, type PostKind } from "@/lib/posts/post-kind";
-import { IconAlert, IconCalendar, IconClock, IconLink, IconList, IconLock, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
+import { IconAlert, IconCalendar, IconChart, IconClock, IconDots, IconLink, IconList, IconLock, IconMessage, IconPencilLine, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
+import { PostEditModal } from "@/components/dashboard/post-edit-modal";
+import { DeletePostDialog, type DeletableTarget } from "@/components/posts/delete-post-dialog";
+import { useToast } from "@/components/dashboard/toast";
 import { clsx } from "@/lib/clsx";
 import { refreshUsage } from "@/lib/data/hooks";
 
@@ -131,6 +141,47 @@ function PublicationsPageInner() {
   const [reloadKey, setReloadKey] = useState(0);
   // Seule la dernière requête lancée a le droit d'afficher son résultat.
   const requestSeq = useRef(0);
+  // Boutons des lignes (09/10/2026) : fenêtre « Modifier » / « Statistiques »
+  // (la même que dans le calendrier) et fenêtre de suppression.
+  const toast = useToast();
+  const router = useRouter();
+  const [editing, setEditing] = useState<{ id: string; tab: "stats" | "content" } | null>(null);
+  const [deleting, setDeleting] = useState<{ id: string; targets: DeletableTarget[] } | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
+
+  // La fenêtre de suppression a besoin de ce que chaque réseau permet
+  // (« Supprimer aussi sur … ») : lu sur la fiche de la publication.
+  async function askDelete(id: string) {
+    setRowBusy(id);
+    const res = await fetch(`/api/posts/${id}`).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setRowBusy(null);
+    if (!res || !res.ok || !data.post) {
+      toast.error("Impossible d'ouvrir la suppression. Réessayez dans un instant.");
+      return;
+    }
+    setDeleting({ id, targets: data.post.targets as DeletableTarget[] });
+  }
+
+  // Dupliquer : nouveau brouillon avec le même contenu, ouvert dans Publier.
+  async function duplicate(id: string) {
+    setRowBusy(id);
+    const res = await fetch(`/api/posts/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "duplicate" }) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setRowBusy(null);
+    if (!res || !res.ok || !data.postId) {
+      toast.error(typeof data.error === "string" ? data.error : "Impossible de dupliquer cette publication.");
+      return;
+    }
+    router.push(`/composer?duplicate=${data.postId}`);
+  }
+
+  const rowActions: RowHandlers = {
+    onEdit: (id, tab) => setEditing({ id, tab }),
+    onDelete: askDelete,
+    onDuplicate: duplicate,
+    busyId: rowBusy
+  };
 
   const pageUrl = useCallback(
     (brandId: string, cursor?: string) => {
@@ -325,7 +376,7 @@ function PublicationsPageInner() {
             </div>
             <ul role="rowgroup" className="divide-y divide-[color:var(--nb-sep)]">
               {posts.map((post) => (
-                <PublicationRow key={post.id} post={post} />
+                <PublicationRow key={post.id} post={post} actions={rowActions} />
               ))}
             </ul>
           </div>
@@ -340,6 +391,32 @@ function PublicationsPageInner() {
             )}
           </div>
         </div>
+      )}
+
+      {editing && (
+        <PostEditModal
+          postId={editing.id}
+          initialTab={editing.tab}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+      {deleting && (
+        <DeletePostDialog
+          postId={deleting.id}
+          targets={deleting.targets}
+          onClose={() => setDeleting(null)}
+          onChanged={() => setReloadKey((k) => k + 1)}
+          onDeleted={(message) => {
+            setDeleting(null);
+            toast.success(message);
+            setReloadKey((k) => k + 1);
+            void refreshUsage();
+          }}
+        />
       )}
     </div>
   );
@@ -415,7 +492,157 @@ function dateOf(post: ApiPost): { day: string; detail: string; time?: string } {
   return { day: formatDay(d), detail: "Publiée" };
 }
 
-function PublicationRow({ post }: { post: ApiPost }) {
+interface RowHandlers {
+  onEdit: (id: string, tab: "stats" | "content") => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  busyId: string | null;
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
+  );
+}
+
+function IconExternal({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M14 4h6v6M20 4l-9 9" />
+      <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+    </svg>
+  );
+}
+
+/**
+ * Boutons d'une publication, comme sous un titre de YouTube Studio :
+ * Modifier (pas encore envoyée) ou Détails (déjà envoyée), Statistiques et
+ * Commentaires (en ligne), Voir sur le réseau, Supprimer, puis « ⋮ ».
+ */
+function RowActions({ post, actions, onMenu }: { post: ApiPost; actions: RowHandlers; onMenu?: (open: boolean) => void }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const live = post.status === "PUBLISHED" || post.status === "PARTIAL";
+  const sent = post.status !== "DRAFT" && post.status !== "SCHEDULED";
+  const busy = actions.busyId === post.id;
+  const links = post.targets.filter((t, i, all) => t.externalUrl && !t.removed && all.findIndex((o) => o.network === t.network && o.externalUrl) === i);
+  const readsComments = commentNetworks(NETWORKS).some((n) => post.targets.some((t) => t.network === n && t.status === "PUBLISHED"));
+  const label = (n: Network) => NETWORK_META[n]?.label ?? n;
+
+  function setMenu(open: boolean) {
+    setMenuOpen(open);
+    onMenu?.(open);
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDown(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenu(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen]);
+
+  const btn = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/[0.1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-aurora-400/60 disabled:opacity-50";
+  const icon = "h-5 w-5 [stroke-width:1.9]";
+
+  return (
+    <div className="flex items-center gap-1" data-testid="publication-actions">
+      <button type="button" className={btn} onClick={() => actions.onEdit(post.id, "content")} title={sent ? "Détails" : "Modifier"} aria-label={sent ? "Détails" : "Modifier"}>
+        <IconPencilLine className={icon} />
+      </button>
+      {live && (
+        <button type="button" className={btn} onClick={() => actions.onEdit(post.id, "stats")} title="Statistiques" aria-label="Statistiques">
+          <IconChart className={icon} />
+        </button>
+      )}
+      {readsComments && (
+        <Link href={`/interactions?post=${post.id}`} className={btn} title="Commentaires" aria-label="Commentaires">
+          <IconMessage className={icon} />
+        </Link>
+      )}
+      {links[0]?.externalUrl && (
+        <a href={links[0].externalUrl} target="_blank" rel="noopener noreferrer" className={btn} title={`Voir sur ${label(links[0].network)}`} aria-label={`Voir sur ${label(links[0].network)}`}>
+          <IconExternal className={icon} />
+        </a>
+      )}
+      <button type="button" className={btn} onClick={() => actions.onDelete(post.id)} disabled={busy} title="Supprimer" aria-label="Supprimer">
+        <IconTrash className={icon} />
+      </button>
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          className={btn}
+          onClick={() => setMenu(!menuOpen)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Plus d'options"
+          aria-label="Plus d'options"
+        >
+          <IconDots className="h-5 w-5 rotate-90" />
+        </button>
+        {menuOpen && (
+          <div role="menu" className="nb-popover absolute right-0 top-full z-30 mt-1 w-60 rounded-xl border bg-[color:var(--nb-elevated)] p-1 shadow-2xl">
+            <Link role="menuitem" href={`/posts/${post.id}`} className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200">
+              Fiche complète
+            </Link>
+            <button
+              role="menuitem"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setMenu(false);
+                actions.onDuplicate(post.id);
+              }}
+              className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-200"
+            >
+              Dupliquer
+            </button>
+            {links.map((t) => (
+              <a
+                key={t.network}
+                role="menuitem"
+                href={t.externalUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nb-menu-item flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200"
+              >
+                <NetworkTile network={t.network} size={16} />
+                Voir sur {label(t.network)}
+              </a>
+            ))}
+            <button
+              role="menuitem"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setMenu(false);
+                actions.onDelete(post.id);
+              }}
+              className="nb-menu-item flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-red-300"
+            >
+              Supprimer
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PublicationRow({ post, actions }: { post: ApiPost; actions: RowHandlers }) {
+  // Menu « ⋮ » ouvert : les boutons restent affichés même si la souris quitte la ligne.
+  const [pinned, setPinned] = useState(false);
   const first = post.media[0]?.mediaAsset;
   const thumb = first && first.type === "IMAGE" ? first.url : first?.thumbnailUrl ?? null;
   const networks = Array.from(new Set(post.targets.map((t) => t.network)));
@@ -428,7 +655,7 @@ function PublicationRow({ post }: { post: ApiPost }) {
   const metric = (n: number | null | undefined) => (live ? formatCount(n) : "—");
 
   const thumbnail = (
-    <div className="relative aspect-video w-[120px] shrink-0 overflow-hidden rounded-lg bg-white/[0.04] sm:w-[136px]">
+    <Link href={`/posts/${post.id}`} tabIndex={-1} aria-hidden="true" className="relative block aspect-video w-[120px] shrink-0 overflow-hidden rounded-lg bg-white/[0.04] sm:w-[136px]">
       {thumb ? (
         // eslint-disable-next-line @next/next/no-img-element
         <RemoteImage src={thumb} className="h-full w-full" sizes="136px" />
@@ -439,17 +666,29 @@ function PublicationRow({ post }: { post: ApiPost }) {
         <span className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-wider text-slate-500">Texte</span>
       )}
       {first?.type === "VIDEO" && typeof first.durationSeconds === "number" && first.durationSeconds > 0 && (
-        <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 py-px text-[11px] font-medium tabular-nums text-white">{formatDuration(first.durationSeconds)}</span>
+        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-px text-[11px] font-medium tabular-nums text-white">{formatDuration(first.durationSeconds)}</span>
       )}
-    </div>
+    </Link>
   );
 
   const content = (
     <div className="flex min-w-0 gap-3">
       {thumbnail}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-white">{title}</p>
-        {description && <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400">{description}</p>}
+        {/* Seul le titre ouvre la fiche, souligné au survol (comme YouTube Studio). */}
+        <Link
+          href={`/posts/${post.id}`}
+          className="block truncate text-sm font-medium text-white underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {title}
+        </Link>
+        {/* Ordinateur : au survol de la ligne, la description laisse la place aux boutons. */}
+        {description && (
+          <p className={clsx("mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400", pinned ? "lg:hidden" : "lg:group-focus-within/row:hidden lg:group-hover/row:hidden")}>{description}</p>
+        )}
+        <div className={clsx("-ml-2 mt-0.5", pinned ? "hidden lg:block" : "hidden lg:group-focus-within/row:block lg:group-hover/row:block")}>
+          <RowActions post={post} actions={actions} onMenu={setPinned} />
+        </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           {networks.length > 0 && (
             <span className="flex items-center gap-1" aria-label={`Réseaux : ${networks.map((n) => NETWORK_META[n]?.label ?? n).join(", ")}`}>
@@ -484,10 +723,7 @@ function PublicationRow({ post }: { post: ApiPost }) {
 
   return (
     <li role="row">
-      <Link
-        href={`/posts/${post.id}`}
-        className="group/row block rounded-xl py-3 transition hover:bg-[color:var(--nb-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-aurora-400/60"
-      >
+      <div className="group/row rounded-xl py-3 transition hover:bg-[color:var(--nb-hover)]">
         {/* Ordinateur : colonnes alignées sur les en-têtes. */}
         <div className={clsx(TABLE_GRID, "hidden lg:grid")}>
           <div role="cell">{content}</div>
@@ -498,7 +734,13 @@ function PublicationRow({ post }: { post: ApiPost }) {
           </div>
           {post.status === "DRAFT" ? (
             <div role="cell" className="col-span-3 flex justify-end">
-              <span className="rounded-full bg-white/[0.08] px-4 py-2 text-sm font-medium text-white transition group-hover/row:bg-white/[0.14]">Modifier le brouillon</span>
+              <button
+                type="button"
+                onClick={() => actions.onEdit(post.id, "content")}
+                className="rounded-full bg-white/[0.08] px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.16]"
+              >
+                Modifier le brouillon
+              </button>
             </div>
           ) : (
             <>
@@ -525,8 +767,12 @@ function PublicationRow({ post }: { post: ApiPost }) {
               </span>
             )}
           </div>
+          {/* Téléphone : les boutons restent visibles (pas de survol au doigt). */}
+          <div className="-ml-2">
+            <RowActions post={post} actions={actions} />
+          </div>
         </div>
-      </Link>
+      </div>
     </li>
   );
 }

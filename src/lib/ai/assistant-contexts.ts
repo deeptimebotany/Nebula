@@ -467,6 +467,9 @@ const PATH_RULES: { prefix: string; key: AssistantContextKey }[] = [
   { prefix: "/publications", key: "publications" },
   { prefix: "/analytics", key: "analytics" },
   { prefix: "/accounts", key: "accounts" },
+  // Interactions (09/10/2026) : onglet Commentaires ; l'onglet Engagement
+  // pose le contexte « engagements » (interactions/page.tsx).
+  { prefix: "/interactions", key: "comments" },
   { prefix: "/comments", key: "comments" },
   { prefix: "/engagements", key: "engagements" },
   { prefix: "/link-in-bio", key: "link-in-bio" },

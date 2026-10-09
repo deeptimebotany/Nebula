@@ -62,7 +62,18 @@ interface PostDetail {
 // Modale d'édition rapide ouverte depuis le calendrier : fond flou, on reste
 // sur la page. Permet de changer le titre, la légende (avec assistance IA)
 // et de remplacer le fichier vidéo/image, sans repasser par tout le composer.
-export function PostEditModal({ postId, onClose, onSaved }: { postId: string; onClose: () => void; onSaved: () => void }) {
+export function PostEditModal({
+  postId,
+  onClose,
+  onSaved,
+  initialTab = "stats"
+}: {
+  postId: string;
+  onClose: () => void;
+  onSaved: () => void;
+  /** Publication déjà envoyée : onglet ouvert d'abord (page Publications : « Détails » → Contenu, « Statistiques » → Statistiques). */
+  initialTab?: "stats" | "content";
+}) {
   const toast = useToast();
   const upgrade = useUpgradeModal();
   const [post, setPost] = useState<PostDetail | null>(null);
@@ -71,7 +82,7 @@ export function PostEditModal({ postId, onClose, onSaved }: { postId: string; on
   const [saving, setSaving] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [aiBusy, setAiBusy] = useState<"title" | "caption" | null>(null);
-  const [tab, setTab] = useState<"stats" | "content">("stats");
+  const [tab, setTab] = useState<"stats" | "content">(initialTab);
   const [reusing, setReusing] = useState(false);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);

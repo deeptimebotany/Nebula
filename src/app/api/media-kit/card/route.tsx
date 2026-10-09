@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 const SIZES = { story: { w: 1080, h: 1920 }, post: { w: 1080, h: 1350 } } as const;
 const VIOLET = "#a066ff";
 const CYAN = "#5fe0f0";
-const BG = "#0e0e10";
+const BG = "#0f0f0f";
 
 /** La police intégrée n'a pas les espaces insécables : espace simple. */
 const plain = (s: string) => s.replace(/[  ]/g, " ");
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
                 backgroundImage: `linear-gradient(135deg, ${VIOLET}, ${CYAN})`,
                 fontSize: story ? 58 : 50,
                 fontWeight: 700,
-                color: "#0e0e10"
+                color: "#0f0f0f"
               }}
             >
               {initials(name)}

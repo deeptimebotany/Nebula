@@ -29,10 +29,10 @@ describe("réseaux et commentaires", () => {
   });
 
   it("plus de bandeau ni de filtre pour les réseaux sans commentaires, lien masqué dans Comptes connectés", () => {
-    const comments = read("src/app/(dashboard)/comments/page.tsx");
+    const comments = read("src/components/interactions/comments-view.tsx");
     expect(comments).not.toContain("ne permet pas encore de lire les commentaires");
     expect(comments).toContain(".filter((c) => c.supportsEngagement)");
     const accounts = read("src/app/(dashboard)/accounts/page.tsx");
-    expect(accounts).toMatch(/readsComments !== false && \(\s*<Link\s+href=\{`\/comments\?connectionId=/);
+    expect(accounts).toMatch(/readsComments !== false && \(\s*<Link\s+href=\{`\/interactions\?connectionId=/);
   });
 });

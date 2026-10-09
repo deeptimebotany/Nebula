@@ -44,11 +44,10 @@ const nextConfig = {
     return [
       { source: "/terms", destination: "/legal#conditions", permanent: true },
       { source: "/privacy", destination: "/legal#confidentialite", permanent: true },
-      // L'ancien onglet « Interactions » a été scindé en Commentaires
-      // (/comments) et Engagements (/engagements) ; les liens déjà partagés
-      // (menu déroulant d'un compte, favoris) atterrissent sur Commentaires,
-      // paramètres conservés (?connectionId=…).
-      { source: "/interactions", destination: "/comments", permanent: false },
+      // « Interactions » est de nouveau une vraie page depuis le 09/10/2026
+      // (Commentaires et Engagements réunis) : plus de redirection ici ;
+      // /comments et /engagements redirigent vers elle (leurs page.tsx).
+
       // Bluesky est disponible depuis le 25/09/2026 : sa page de liste
       // d'attente n'existe plus.
       { source: "/reseaux/bluesky", destination: "/reseaux", permanent: true },

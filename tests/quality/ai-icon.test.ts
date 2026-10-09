@@ -40,7 +40,7 @@ describe("étoile de l'IA", () => {
   });
 
   it("gardée en couleur tant que l'IA travaille ou que le chat est ouvert", () => {
-    expect(read("src/components/dashboard/app-header.tsx")).toContain("<AiIcon className=\"h-4 w-4\" active={assistant.open} />");
+    expect(read("src/components/dashboard/app-header.tsx")).toContain("<AiIcon className=\"h-5 w-5\" active={assistant.open} />");
     const composer = read("src/app/(dashboard)/composer/page.tsx");
     expect(composer).toContain("active={generatingAll}");
     expect(composer).toContain("active={repurposeOpen || repurposeLoading}");

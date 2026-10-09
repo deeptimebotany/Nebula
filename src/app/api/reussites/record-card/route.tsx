@@ -23,7 +23,7 @@ export const maxDuration = 30;
 // Rendu par next/og (police intégrée, aucun service externe, aucun coût).
 const W = 1080;
 const H = 1350;
-const BG = "#0e0e10";
+const BG = "#0f0f0f";
 
 /** Texte pour la police intégrée : espaces simples, pas d'emoji ni de « × » douteux. */
 const plain = (s: string) => s.replace(/[  ]/g, " ");

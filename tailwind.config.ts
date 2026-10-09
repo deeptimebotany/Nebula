@@ -16,7 +16,7 @@ const config: Config = {
         // Dark UI (24/09/2026) : gris NEUTRES (famille « zinc ») à la place
         // des gris bleutés « slate » — mêmes noms de classes partout
         // (text-slate-400…), seules les valeurs changent. Contrastes sur le
-        // fond #0e0e10 : 500 → 5,9:1, 600 → 4,2:1 (comme avant).
+        // fond #0f0f0f : 500 → 5,9:1, 600 → 4,2:1 (comme avant).
         slate: {
           50: "#fafafa",
           100: "#f4f4f5",
@@ -28,13 +28,13 @@ const config: Config = {
           700: "#3f3f46",
           800: "#27272a",
           900: "#18181b",
-          950: "#0e0e10"
+          950: "#0f0f0f"
         },
         // Fonds « Dark UI » neutres (décision du 24/09/2026) : gris-noir sans
         // teinte bleue, comme les outils de travail (éditeur, Claude, Vercel).
         void: {
           950: "#0b0b0d",
-          900: "#0e0e10",
+          900: "#0f0f0f",
           800: "#141417",
           700: "#1a1a1e",
           600: "#222227"
@@ -79,7 +79,7 @@ const config: Config = {
       backgroundImage: {
         // Dark UI (24/09/2026) : décors ramenés à un simple éclairage neutre.
         "grid-fade":
-          "linear-gradient(to bottom, transparent, rgba(14,14,16,0.9)), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
+          "linear-gradient(to bottom, transparent, rgba(15,15,15,0.9)), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
         "aurora-radial":
           "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,255,255,0.05), transparent 70%)",
         "nebula-mesh":

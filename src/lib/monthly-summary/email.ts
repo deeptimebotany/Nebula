@@ -170,7 +170,7 @@ export function renderSummaryEmail(d: MonthlySummaryData, links: SummaryLinks): 
   const parts: string[] = [];
 
   // En-tête
-  parts.push(`<tr><td style="background:#0e0e10;border-radius:16px 16px 0 0;padding:22px 28px 26px">
+  parts.push(`<tr><td style="background:#0f0f0f;border-radius:16px 16px 0 0;padding:22px 28px 26px">
 <img src="${href(links.logoUrl)}" width="130" height="36" alt="Nebula" style="display:block;border:0;outline:none;width:130px;height:36px">
 <p style="margin:22px 0 4px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c4b2ff;font-weight:700">Votre bilan du mois</p>
 <h1 style="margin:0;font-size:28px;line-height:1.2;color:#ffffff">${esc(d.monthTitle)}</h1>
@@ -357,7 +357,7 @@ ${it.note ? `<p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:${TEX
 
   // Encart Pro (Gratuit)
   if (d.upsell) {
-    parts.push(`<tr><td style="padding:20px 28px 0"><div style="background:#0e0e10;border-radius:14px;padding:18px 18px 20px">
+    parts.push(`<tr><td style="padding:20px 28px 0"><div style="background:#0f0f0f;border-radius:14px;padding:18px 18px 20px">
 <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#ffffff">Allez plus loin avec Pro</p>
 <p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#c9c9d1">Plusieurs marques, 8 comptes par marque, l'assistant IA, l'analyse de rétention de vos vidéos, les rapports clients automatiques et un calendrier client à partager.</p>
 <a href="${href(links.billingUrl)}" style="display:inline-block;background:#ffffff;color:${INK};text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px">Voir les paliers</a>

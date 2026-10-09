@@ -21,7 +21,10 @@ const bodySchema = z.object({
   existingCaption: z.string().optional(),
   mediaHint: z.string().optional(),
   frameBase64: z.string().optional(),
-  frameMimeType: z.string().optional()
+  frameMimeType: z.string().optional(),
+  // Résumé de la vidéo (image et son) fait par /api/media/[id]/copy-analysis
+  // (09/10/2026) : l'IA écrit à partir de ce que montre et dit la vidéo.
+  mediaBrief: z.string().max(3_000).optional()
 });
 
 // POST /api/ai/generate-copy — génère un titre ou une description via
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, field, network, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType } = parsed.data;
+  const { brandId, field, network, existingTitle, existingCaption, mediaHint, frameBase64, frameMimeType, mediaBrief } = parsed.data;
   const denied = await requireBrandMembership((session.user as { id: string }).id, brandId);
   if (denied) return denied;
 
@@ -60,7 +63,8 @@ export async function POST(req: NextRequest) {
         existingCaption,
         mediaHint,
         frameBase64,
-        frameMimeType
+        frameMimeType,
+        mediaBrief
       })
     );
     return NextResponse.json({ text });

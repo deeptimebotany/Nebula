@@ -39,7 +39,7 @@ export default async function AuditOgImage({ params }: { params: { token: string
           alignItems: "center",
           gap: 72,
           padding: "72px 88px",
-          background: "#0e0e10",
+          background: "#0f0f0f",
           backgroundImage: `radial-gradient(circle at 12% 8%, ${VIOLET}55, transparent 42%), radial-gradient(circle at 88% 92%, ${CYAN}33, transparent 46%)`,
           color: "#ededef",
           fontFamily: "sans-serif"

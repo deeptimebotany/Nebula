@@ -493,8 +493,15 @@ function ComposerPageInner() {
   // description (voir getMediaFrameForAi) — invalidé dès que le média
   // change pour ne jamais analyser un fichier obsolète.
   const mediaFrameRef = useRef<{ base64: string; mimeType: string } | null>(null);
+  // Résumé de la vidéo entière, image et son (09/10/2026, voir
+  // getVideoBriefForAi) : une seule analyse par vidéo, partagée par le titre
+  // et la description ; oublié dès que la vidéo change.
+  const videoBriefRef = useRef<{ assetId: string; promise: Promise<string | null | typeof AI_BLOCKED> } | null>(null);
+  const [analyzingMedia, setAnalyzingMedia] = useState(false);
   useEffect(() => {
     mediaFrameRef.current = null;
+    const video = assets.find((a) => a.type === "VIDEO");
+    if (videoBriefRef.current && videoBriefRef.current.assetId !== video?.id) videoBriefRef.current = null;
   }, [assets]);
 
   // Aperçu : format auto-détecté (court 9:16 vs 16:9) à partir des vraies
@@ -1080,8 +1087,48 @@ function ComposerPageInner() {
     return mediaFrameRef.current;
   }
 
+  // « Rédiger avec l'IA » regarde d'abord la vidéo en entier, image et son
+  // (09/10/2026, demande de Lucas) : /api/media/[id]/copy-analysis renvoie ce
+  // qu'elle montre et ce qui y est dit ; la rédaction part de ce résumé.
+  // Analyse impossible : on écrit à partir d'une image de la vidéo, en le
+  // disant. Quota ou palier : la fenêtre de mise à niveau, et rien n'est écrit.
+  function getVideoBriefForAi(): Promise<string | null | typeof AI_BLOCKED> {
+    if (!videoAsset) return Promise.resolve(null);
+    if (videoBriefRef.current?.assetId === videoAsset.id) return videoBriefRef.current.promise;
+    const asset = videoAsset;
+    const promise = (async () => {
+      setAnalyzingMedia(true);
+      try {
+        const info = await readVideoInfo(asset.previewUrl).catch(() => null);
+        const res = await fetch(`/api/media/${asset.id}/copy-analysis`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(info && info.duration > 0 ? { durationSeconds: Math.round(info.duration * 10) / 10 } : {})
+        }).catch(() => null);
+        const data = res ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok && typeof data.brief === "string" && data.brief) return data.brief as string;
+        // Un échec n'est pas gardé : le prochain clic relance l'analyse.
+        videoBriefRef.current = null;
+        if (res && upgrade.openFromResponse(res.status, data)) return AI_BLOCKED;
+        toast.info(`${typeof data.error === "string" ? data.error : "La vidéo n'a pas pu être analysée en entier."} Le texte est écrit à partir d'une image de la vidéo.`);
+        return null;
+      } finally {
+        setAnalyzingMedia(false);
+      }
+    })();
+    videoBriefRef.current = { assetId: asset.id, promise };
+    return promise;
+  }
+
   async function generateField(field: "title" | "description", network?: Network) {
     if (!activeBrand) return "";
+    // Sans média, rien à analyser : l'IA n'écrit plus un texte générique sur la marque.
+    if (assets.length === 0) {
+      toast.info(AI_NEEDS_MEDIA);
+      return "";
+    }
+    const brief = await getVideoBriefForAi();
+    if (brief === AI_BLOCKED) return "";
     const frame = await getMediaFrameForAi();
     const res = await fetch("/api/ai/generate-copy", {
       method: "POST",
@@ -1094,7 +1141,8 @@ function ComposerPageInner() {
         existingCaption: caption,
         mediaHint: videoAsset ? "vidéo" : assets.length ? "image" : undefined,
         frameBase64: frame?.base64,
-        frameMimeType: frame?.mimeType
+        frameMimeType: frame?.mimeType,
+        mediaBrief: brief ?? undefined
       })
     });
     const data = await res.json();
@@ -1128,6 +1176,10 @@ function ComposerPageInner() {
   }
 
   async function onGenerateAll() {
+    if (assets.length === 0) {
+      toast.info(AI_NEEDS_MEDIA);
+      return;
+    }
     setGeneratingAll(true);
     // L'IA écrit le titre et la description (étapes 2 et 3) ; les textes
     // adaptés par réseau (étape 4) restent écrits à la main (01/10/2026).
@@ -2374,19 +2426,25 @@ function ComposerPageInner() {
                       aiMenuOpen ? "nb-menu-item-current" : "text-slate-300 hover:bg-[color:var(--nb-hover)] hover:text-white"
                     )}
                   >
-                    <AiIcon className="h-4 w-4" active={generatingAll || generatingFields.size > 0 || repurposeLoading} />
-                    {generatingAll || generatingFields.size > 0 ? "Rédaction…" : "Rédiger avec l'IA"}
+                    <AiIcon className="h-4 w-4" active={analyzingMedia || generatingAll || generatingFields.size > 0 || repurposeLoading} />
+                    {analyzingMedia ? "Analyse de la vidéo…" : generatingAll || generatingFields.size > 0 ? "Rédaction…" : "Rédiger avec l'IA"}
                   </button>
                   {aiMenuOpen && (
-                    <div role="menu" className="nb-popover absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl p-1.5">
-                      <button type="button" role="menuitem" onClick={() => runAi(onGenerateAll)} disabled={generatingAll} className={AI_MENU_ITEM}>
+                    <div role="menu" className="nb-popover absolute left-0 top-[calc(100%+6px)] z-30 w-72 rounded-xl p-1.5">
+                      {/* Sans média (09/10/2026) : l'IA a besoin de l'image ou de la vidéo pour écrire. */}
+                      {assets.length === 0 && (
+                        <p role="note" className="mb-1 rounded-lg bg-white/[0.04] px-2.5 py-2 text-[13px] leading-snug text-slate-300" data-testid="ai-needs-media">
+                          {AI_NEEDS_MEDIA}
+                        </p>
+                      )}
+                      <button type="button" role="menuitem" onClick={() => runAi(onGenerateAll)} disabled={generatingAll || assets.length === 0} className={AI_MENU_ITEM}>
                         <AiIcon className="h-4 w-4" active={generatingAll} /> {generatingAll ? "Génération..." : "Titre et description"}
                       </button>
-                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("title"))} disabled={generatingFields.has("title")} className={AI_MENU_ITEM}>
+                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("title"))} disabled={generatingFields.has("title") || assets.length === 0} className={AI_MENU_ITEM}>
                         <AiIcon className={clsx("h-4 w-4", generatingFields.has("title") && "animate-pulse")} active={generatingFields.has("title")} />
                         {generatingFields.has("title") ? "Génération..." : "Le titre seulement"}
                       </button>
-                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("description"))} disabled={generatingFields.has("description")} className={AI_MENU_ITEM}>
+                      <button type="button" role="menuitem" onClick={() => runAi(() => onGenerateOne("description"))} disabled={generatingFields.has("description") || assets.length === 0} className={AI_MENU_ITEM}>
                         <AiIcon className={clsx("h-4 w-4", generatingFields.has("description") && "animate-pulse")} active={generatingFields.has("description")} />
                         {generatingFields.has("description") ? "Génération..." : "La description seulement"}
                       </button>
@@ -2836,7 +2894,11 @@ function ComposerPageInner() {
 }
 
 const TOOL_BUTTON = "flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white";
-const AI_MENU_ITEM = "nb-menu-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 disabled:cursor-wait disabled:opacity-60";
+const AI_MENU_ITEM = "nb-menu-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-200 disabled:cursor-not-allowed disabled:opacity-50";
+/** « Rédiger avec l'IA » sans image ni vidéo (09/10/2026, demande de Lucas). */
+const AI_NEEDS_MEDIA = "Importez d'abord une image ou une vidéo : l'IA l'analyse pour trouver le titre et la description.";
+/** Analyse refusée (quota, palier) : la fenêtre de mise à niveau est ouverte, rien n'est écrit. */
+const AI_BLOCKED = Symbol("ai-blocked");
 
 // Interrupteur général « Contenu généré par l'IA » (section Média), avec une
 // exception possible par réseau (« Par réseau »).

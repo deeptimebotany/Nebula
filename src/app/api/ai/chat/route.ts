@@ -10,6 +10,7 @@ import { consumeRateLimit } from "@/lib/rate-limit";
 import { isAssistantContextKey, type AssistantContextKey } from "@/lib/ai/assistant-contexts";
 import { CONTEXT_PROMPTS, buildSystemInstruction, extractThumbnailBrief, toolContextLines, trimHistory } from "@/lib/ai/assistant-prompts";
 import { getToolContext } from "@/lib/tools/app-context";
+import { saveConversation } from "@/lib/ai/assistant-conversations";
 import { z } from "zod";
 
 // Durée maximale de la fonction Vercel (07/10/2026) : l'appel à Gemini est
@@ -42,7 +43,12 @@ const bodySchema = z.object({
   contextKey: z.string().optional(),
   // Contexte optionnel : limite le scope au post en cours si on discute
   // depuis la page /posts/[id] plutôt que de l'assistant global.
-  postId: z.string().optional()
+  postId: z.string().optional(),
+  // Conversations enregistrées (09/10/2026) : le tiroir « Demander à Nebula »
+  // envoie save: true et l'identifiant de la conversation en cours (null au
+  // premier message). La réponse renvoie l'identifiant à réutiliser.
+  save: z.boolean().optional(),
+  conversationId: z.string().max(64).nullable().optional()
 });
 
 /** Messages par utilisateur et par fenêtre glissante. 30 / 10 min laisse une
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { brandId, messages, postId } = parsed.data;
+  const { brandId, messages, postId, save, conversationId } = parsed.data;
   const contextKey: AssistantContextKey = isAssistantContextKey(parsed.data.contextKey) ? parsed.data.contextKey : "generic";
   const userId = (session.user as { id: string }).id;
 
@@ -130,6 +136,19 @@ export async function POST(req: NextRequest) {
   // marque : la marque doit donc être une de celles de l'utilisateur.
   const denied = await requireBrandMembership(userId, brandId);
   if (denied) return denied;
+
+  // Réponse envoyée : la conversation (fil + réponse) est enregistrée. Un
+  // échec d'enregistrement ne prive jamais la personne de sa réponse.
+  const reply = async (body: Record<string, unknown> & { reply: string }) => {
+    let savedId: string | null = null;
+    if (save) {
+      savedId = await saveConversation({ userId, brandId, conversationId, messages: [...messages, { role: "model", text: body.reply }] }).catch((err) => {
+        console.error("[assistant] conversation non enregistrée :", (err as Error).message);
+        return null;
+      });
+    }
+    return NextResponse.json({ ...body, conversationId: savedId ?? conversationId ?? null });
+  };
 
   // Easter egg "qui es-tu" : répond avant même de vérifier que Gemini est
   // configuré ou que le palier permet l'IA — une réponse maison ne coûte
@@ -139,19 +158,19 @@ export async function POST(req: NextRequest) {
     const identityEgg = matchIdentityEasterEgg(lastUserMessage.text);
     if (identityEgg) {
       await markEasterEggFound(userId, "ai-identity");
-      return NextResponse.json({ reply: identityEgg, contextKey });
+      return reply({ reply: identityEgg, contextKey });
     }
 
     const mathEgg = matchMathEasterEgg(lastUserMessage.text);
     if (mathEgg) {
       await markEasterEggFound(userId, "ai-answer-42");
-      return NextResponse.json({ reply: mathEgg, contextKey });
+      return reply({ reply: mathEgg, contextKey });
     }
 
     const thanksEgg = matchThanksEasterEgg(lastUserMessage.text);
     if (thanksEgg) {
       await markEasterEggFound(userId, "support-thanks");
-      return NextResponse.json({ reply: thanksEgg, contextKey });
+      return reply({ reply: thanksEgg, contextKey });
     }
   }
 
@@ -271,9 +290,9 @@ export async function POST(req: NextRequest) {
 
     if (contextKey === "thumbnails") {
       const { text, brief } = extractThumbnailBrief(raw);
-      return NextResponse.json({ reply: text, thumbnail: brief, contextKey });
+      return reply({ reply: text, thumbnail: brief, contextKey });
     }
-    return NextResponse.json({ reply: raw, contextKey });
+    return reply({ reply: raw, contextKey });
   } catch (err) {
     if (err instanceof GeminiQuotaError) {
       return NextResponse.json(

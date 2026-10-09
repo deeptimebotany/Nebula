@@ -320,10 +320,11 @@ export function NotificationBell() {
         className={clsx(
           // V2 (07/10/2026) : icône seule, sans cadre, comme la maquette.
           "relative flex h-10 w-10 items-center justify-center rounded-full transition",
-          open ? "bg-[color:var(--nb-active)] text-white" : "text-slate-400 hover:bg-[color:var(--nb-hover)] hover:text-white"
+          // Plus gros et plus appuyé (09/10/2026, comme YouTube Studio).
+          open ? "bg-[color:var(--nb-active)] text-white" : "text-white hover:bg-[color:var(--nb-hover)]"
         )}
       >
-        <BellIcon className="h-5 w-5" />
+        <BellIcon className="h-6 w-6 [stroke-width:2.1]" />
         {badge > 0 && (
           <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[color:var(--nb-page)] bg-aurora-500 px-1 text-[10px] font-bold leading-none text-white">
             {badge > 9 ? "9+" : badge}

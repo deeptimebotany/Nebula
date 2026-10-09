@@ -221,8 +221,8 @@ export interface VideoSource {
   filename: string;
 }
 
-/** Flux de la vidéo : Vercel Blob (adresse publique) ou disque en local. */
-async function openVideo(source: VideoSource, deadline: number): Promise<{ body: ReadableStream<Uint8Array>; sizeBytes: number }> {
+/** Flux de la vidéo : Vercel Blob (adresse publique) ou disque en local. Partagé avec copy-analysis.ts. */
+export async function openVideo(source: VideoSource, deadline: number): Promise<{ body: ReadableStream<Uint8Array>; sizeBytes: number }> {
   if (/^https?:\/\//i.test(source.url)) {
     try {
       const media = await openMediaStream("GEMINI", source.url, Math.max(5_000, deadline - Date.now()));

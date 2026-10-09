@@ -52,6 +52,8 @@ model User {
   feedbackVotes    FeedbackVote[]
   feedbackComments FeedbackComment[]
   studioGenerations  StudioGeneration[]
+  // Conversations de « Demander à Nebula » (09/10/2026).
+  assistantConversations AssistantConversation[]
   // L'abonnement appartient au COMPTE (à l'utilisateur), pas à une marque en
   // particulier : il gouverne combien de marques au total ce compte peut
   // créer. Voir src/lib/plans.ts.
@@ -415,6 +417,7 @@ model Brand {
   studioGenerations StudioGeneration[]
   mediaKit       MediaKit?
   composerDrafts ComposerDraft[]
+  assistantConversations AssistantConversation[]
 }
 
 // Calendrier client en lecture seule (produit n°7 de la feuille de route) :
@@ -2035,4 +2038,28 @@ model TiktokPublisherDay {
   day    String   @id
   peak   Int
   peakAt DateTime @default(now())
+}
+
+// Conversations de l'assistant « Demander à Nebula » (09/10/2026, demande de
+// Lucas) : la conversation en cours est enregistrée à chaque réponse, puis
+// retrouvée dans « Discussions » (menu ☰ du chat). Une conversation par
+// personne et par marque, jamais visible des autres membres. Seulement le
+// texte des messages (sans les images proposées), 60 messages au plus ;
+// supprimable à tout moment, effacée après 90 jours sans nouveau message
+// (src/lib/ai/assistant-conversations.ts, cron).
+model AssistantConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  /// Première question, raccourcie.
+  title     String
+  /// [{ role: "user" | "model", text }]
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([userId, brandId, updatedAt])
+  @@index([updatedAt])
 }

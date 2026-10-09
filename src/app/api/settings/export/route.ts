@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 
 // GET /api/settings/export — export des données personnelles au format
 // JSON (droit à la portabilité) : profil, marques possédées, publications,
-// comptes réseaux connectés (sans jetons d'accès ni secrets). Téléchargé
+// comptes réseaux connectés (sans jetons d'accès ni secrets), conversations
+// avec l'assistant « Demander à Nebula » (09/10/2026). Téléchargé
 // directement par le navigateur (Content-Disposition: attachment).
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,10 @@ export async function GET() {
       createdAt: true,
       themePreference: true,
       referralCode: true,
+      assistantConversations: {
+        orderBy: { updatedAt: "desc" },
+        select: { title: true, messages: true, createdAt: true, updatedAt: true, brand: { select: { name: true } } }
+      },
       memberships: {
         select: {
           role: true,

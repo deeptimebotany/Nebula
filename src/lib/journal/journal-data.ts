@@ -8,6 +8,119 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-09-interactions-retention",
+    date: "2026-10-09",
+    title: "Menu réorganisé : Interactions, et Rétention IA dans Analytics",
+    category: "Interface",
+    links: [
+      { href: "/interactions", label: "Interactions" },
+      { href: "/analytics", label: "Analytics" }
+    ],
+    result:
+      "Commentaires et Engagements ne font plus qu'une page, « Interactions », avec deux onglets : Commentaires (lire et répondre) et Engagement (likes, partages, vues par publication). Rétention IA se trouve maintenant dans Analytics, dans son propre onglet. Les anciens liens mènent toujours au bon endroit.",
+    change: "Nouvelle page `interactions` (onglets), `comments-view.tsx`, `engagements-view.tsx`, `retention-tool.tsx`, onglet Rétention IA dans `analytics-client.tsx`, redirections de `/comments`, `/engagements`, `/retention`, menu (`navigation.ts`), liens et assistant. Branche `test`.",
+    readme: 112,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-fond-0f0f0f",
+    date: "2026-10-09",
+    title: "Fond sombre en noir neutre",
+    category: "Interface",
+    links: [{ href: "/dashboard", label: "Vue d'ensemble" }],
+    result: "En mode sombre, le fond du site et de l'application est maintenant un noir neutre (#0f0f0f), au lieu d'un noir très légèrement bleuté.",
+    change: "`globals.css`, `tailwind.config.ts`, `site.ts`, images de partage, cartes et e-mails (#0e0e10 → #0f0f0f). Branche `test`.",
+    readme: 111,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-assistant-discussions",
+    date: "2026-10-09",
+    title: "« Demander à Nebula » garde vos conversations",
+    category: "IA",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/aide/demander-a-nebula", label: "Aide de l'assistant" }
+    ],
+    result:
+      "La conversation avec l'assistant vous suit maintenant d'une page à l'autre, même si vous fermez le panneau. Le bouton ☰ en haut à gauche ouvre « Discussions » : vos conversations passées pour cette marque, à rouvrir ou à supprimer. Le bouton à côté de la croix commence une nouvelle conversation. Elles sont visibles par vous seul et effacées 90 jours après le dernier message.",
+    change: "`ai-assistant.tsx` (Discussions, nouvelle conversation, conversation gardée entre les pages), `/api/ai/chat` (enregistrement), nouvelles routes `/api/ai/conversations`, `assistant-conversations.ts`, purge dans le cron, export des données, aide et politique de confidentialité. Branche `test`.",
+    readme: 110,
+    migrations: ["20261016090000_assistant_conversations"]
+  },
+  {
+    id: "2026-10-09-redaction-ia-media",
+    date: "2026-10-09",
+    title: "« Rédiger avec l'IA » regarde votre vidéo avant d'écrire",
+    category: "IA",
+    links: [{ href: "/composer", label: "Publier" }],
+    result:
+      "Dans Publier, l'IA regarde maintenant la vidéo en entier, image et son, avant d'écrire le titre ou la description : le texte parle de ce que montre et dit la vidéo, au lieu d'un texte générique. Pour une image, elle s'appuie sur l'image. Sans média, un message demande d'importer d'abord une image ou une vidéo.",
+    change: "`composer/page.tsx` (analyse avant rédaction, message sans média), nouvelle route `/api/media/[id]/copy-analysis` et `copy-analysis.ts`, `generate-copy` et `generateCopy` (résumé de la vidéo). Branche `test`.",
+    readme: 109,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-publications-boutons",
+    date: "2026-10-09",
+    title: "Publications : titre cliquable et boutons sur chaque ligne",
+    category: "Publication",
+    links: [
+      { href: "/publications", label: "Publications" },
+      { href: "/comments", label: "Commentaires" }
+    ],
+    result:
+      "Dans le tableau des publications, c'est le titre qui ouvre la fiche (souligné au survol), plus toute la ligne. En passant la souris sur une ligne, des boutons apparaissent comme sur YouTube Studio : modifier, statistiques, commentaires de cette publication, voir sur le réseau, supprimer, et un menu avec dupliquer et la fiche complète. Sur téléphone, ils sont toujours visibles.",
+    change: "`publications/page.tsx` (boutons de ligne), `post-edit-modal.tsx` (onglet de départ), `comments/page.tsx` + `comment-match.ts` (filtre par publication). Branche `test`.",
+    readme: 108,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-instagram-facebook-separes",
+    date: "2026-10-09",
+    title: "Instagram et Facebook comptent chacun pour un compte",
+    category: "Compte et facturation",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/billing", label: "Facturation" }
+    ],
+    result:
+      "Chaque compte connecté compte pour un, Instagram et Facebook compris : une Page Facebook prend une place comme un compte TikTok ou YouTube. La mention « Instagram + Facebook comptent ensemble » disparaît de la page Comptes connectés et des messages de limite.",
+    change: "`connection-slots.ts` (un compte connecté = un compte), `billing/garder/page.tsx`, `connection-limit.ts`, `plan.ts`, `connection-limit-dialog.tsx`, `accounts/page.tsx`. Branche `test`.",
+    readme: 107,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-barre-du-haut-studio",
+    date: "2026-10-09",
+    title: "Barre du haut : « Demander à Nebula » et « Publier » bien visibles",
+    category: "Interface",
+    links: [
+      { href: "/dashboard", label: "Vue d'ensemble" },
+      { href: "/composer", label: "Publier" }
+    ],
+    result:
+      "En haut à droite, les icônes de recherche et de notifications sont plus grandes et plus nettes, « Demander à Nebula » est de nouveau un bouton arrondi avec son nom, et un bouton « Publier » ouvre directement la page Publier depuis n'importe quelle page, comme le bouton « Créer » de YouTube Studio.",
+    change: "`app-header.tsx` (icônes 24 px, boutons arrondis « Demander à Nebula » et « Publier »), `notification-bell.tsx` (cloche). Branche `test`.",
+    readme: 106,
+    migrations: []
+  },
+  {
+    id: "2026-10-09-reseaux-visibles",
+    date: "2026-10-09",
+    title: "Tous les réseaux visibles, même à la limite du palier",
+    category: "Compte et facturation",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/billing", label: "Facturation" }
+    ],
+    result:
+      "Sur la page Comptes connectés, tous les réseaux proposés par Nebula restent affichés, même en Gratuit à la limite de comptes : un réseau pas encore relié (Pinterest, par exemple) propose « Débloquer avec Pro » et rappelle combien de comptes ce palier permet, au lieu d'un bouton grisé ou d'un réseau absent.",
+    change: "`network-availability.ts` (réseaux lancés toujours proposés), `accounts/page.tsx` (bouton du palier qui débloque le réseau). Branche `test`.",
+    readme: 105,
+    migrations: []
+  },
+  {
     id: "2026-10-09-menu-gras",
     date: "2026-10-09",
     title: "Menu latéral en gras",

@@ -68,7 +68,7 @@ describe("fond uni, blocs sans cadre, titres sans numéro", () => {
   const css = read("src/app/globals.css");
   it("gris très clair #F9FAFB en clair, noir neutre en sombre, fond par défaut vraiment uni", () => {
     expect(css).toContain("--l-page: #f9fafb;");
-    expect(css).toMatch(/:root \{\n {2}--nb-page: #0e0e10;/);
+    expect(css).toMatch(/:root \{\n {2}--nb-page: #0f0f0f;/);
     expect(read("src/lib/backgrounds.ts")).toContain('def("mesh", "Uni (défaut)", ({ i }) => i.BASE)');
   });
   it("les blocs du contenu perdent cadre et ombre, un trait fin les sépare", () => {
@@ -250,11 +250,12 @@ describe("logo Nebula selon le thème de palier (09/10/2026)", () => {
 });
 
 describe("assistant « Demander à Nebula » (09/10/2026)", () => {
-  it("la conversation repart de zéro à chaque page et marque, rien n'est gardé dans le navigateur", () => {
+  it("la conversation reste d'une page à l'autre, repart de zéro à chaque marque ; rien n'est gardé dans le navigateur (09/10/2026, v2)", () => {
     const chat = read("src/components/dashboard/ai-assistant.tsx");
     expect(chat).not.toContain("sessionStorage.setItem");
+    expect(chat).not.toContain("placeRef");
     expect(chat).toContain("forgetLegacyConversations();");
-    expect(chat).toMatch(/const place = `\$\{brandId \?\? ""\}\|\$\{pathname\}`;\s*if \(placeRef\.current !== null && placeRef\.current !== place\) \{\s*setMessages\(\[\]\);/);
+    expect(chat).toMatch(/if \(brandRef\.current !== null && brandRef\.current !== brandId\) \{\s*setMessages\(\[\]\);\s*setConversationId\(null\);/);
   });
   it("tiroir sous la barre du haut, aux coins arrondis : seul le contenu se décale, pas la barre du haut", () => {
     expect(read("src/components/dashboard/ai-assistant.tsx")).toContain('className="glass-panel-solid nb-assistant-window fixed z-50 flex flex-col"');
@@ -319,5 +320,28 @@ describe("menu latéral en gras (09/10/2026)", () => {
     expect(nav).toContain("text-[12px] font-bold uppercase tracking-[0.08em] text-slate-300");
     expect(nav).not.toContain("text-slate-500 transition hover:text-white");
     expect(nav).toContain("text-[14px] font-medium text-slate-300 transition");
+  });
+});
+
+describe("réseaux visibles à la limite du palier (09/10/2026)", () => {
+  it("réseaux lancés toujours proposés ; réseau non relié : « Débloquer avec » le palier suivant", () => {
+    expect(read("src/lib/network-availability.ts")).toContain("NETWORKS.filter((n) => LAUNCHED_NETWORKS.includes(n) || isNetworkConfigured(n))");
+    const page = read("src/app/(dashboard)/accounts/page.tsx");
+    expect(page).toContain("PAID_PLANS.map((p) => PLAN_LIMITS[p]).find((l) => l.maxConnections > planInfo.limits.maxConnections)");
+    expect(page).toContain("const promote = locked && linked.length === 0 && Boolean(unlockPlan);");
+    expect(page).toContain("label={`Débloquer avec ${unlockPlan.label}`}");
+  });
+});
+
+describe("barre du haut façon YouTube Studio (09/10/2026)", () => {
+  it("icônes de 24 px en traits épais ; « Demander à Nebula » et « Publier » en boutons arrondis entourés", () => {
+    const header = read("src/components/dashboard/app-header.tsx");
+    expect(header).toContain('<IconSearch className="h-6 w-6 [stroke-width:2.1]" />');
+    expect(header).toContain("rounded-full border border-white/20");
+    expect(header).toContain('<span className="hidden md:inline">Demander à Nebula</span>');
+    expect(header).toContain('<Link href="/composer" className={clsx(pill, "hidden lg:flex")}>');
+    // Ordre de YouTube Studio : notifications avant l'assistant.
+    expect(header.indexOf("<NotificationBell />")).toBeLessThan(header.indexOf("assistant.enabled && ("));
+    expect(read("src/components/dashboard/notification-bell.tsx")).toContain('<BellIcon className="h-6 w-6 [stroke-width:2.1]" />');
   });
 });

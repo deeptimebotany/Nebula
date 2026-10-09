@@ -124,8 +124,8 @@ describe.skipIf(!hasDatabase)("limite de comptes connectés du palier", () => {
     await expect(assertConnectionAllowed(brand.id, "TIKTOK", tiktok.externalAccountId)).resolves.toBeUndefined();
     // Compte déconnecté : il reprendrait une place → refusé.
     await expect(assertConnectionAllowed(brand.id, "PINTEREST", gone.externalAccountId)).rejects.toThrow();
-    // Page Facebook avec le compte Instagram : même place, acceptée.
-    await expect(assertConnectionAllowed(brand.id, "FACEBOOK", "page-1")).resolves.toBeUndefined();
+    // Page Facebook : un compte de plus (Instagram et Facebook comptent chacun pour un depuis le 09/10/2026), refusée.
+    await expect(assertConnectionAllowed(brand.id, "FACEBOOK", "page-1")).rejects.toThrow(/Limite de comptes connectés atteinte/);
     expect(ig.id).toBeTruthy();
   });
 

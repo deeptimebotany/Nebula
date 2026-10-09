@@ -52,7 +52,7 @@ interface Ink {
 
 // Couleur de fond sous chaque dégradé : noir neutre (Dark UI, 24/09/2026),
 // identique au fond de page (body) — plus de teinte bleu nuit.
-const BASE = "#0e0e10";
+const BASE = "#0f0f0f";
 
 const DARK_INK: Ink = {
   NEBULA: "var(--c-nebula-500)",

@@ -17,8 +17,10 @@ export const metadata = pageMetadata(SEO_HELP_ASSISTANT);
 //     10 minutes (src/app/api/ai/chat/route.ts) ;
 //   - données envoyées à Gemini : seulement ce que le module de l'onglet
 //     demande (needs, src/lib/ai/assistant-prompts.ts), 10 derniers messages ;
-//   - rien n'est gardé : ni dans le navigateur (ai-assistant.tsx), ni sur le
-//     serveur (seulement des compteurs, src/lib/ai/usage.ts et counters.ts).
+//   - conversations (09/10/2026) : gardées d'une page à l'autre, enregistrées
+//     sur le serveur pour « Discussions », par personne et par marque,
+//     supprimables, effacées après 90 jours sans message
+//     (src/lib/ai/assistant-conversations.ts) ; rien dans le navigateur.
 
 /** Paliers où l'assistant est inclus, avec leur nombre de messages. */
 const ASSISTANT_QUOTAS = PLANS.filter((p) => AI_MONTHLY[p].assistant > 0).map((p) => ({
@@ -156,12 +158,14 @@ export default function AideDemanderANebulaPage() {
 
         <Section id="conversation" title="Votre conversation">
           <p>
-            La conversation repart de zéro dès que vous changez de page ou de marque, que vous rechargez ou que vous quittez le site. Le bouton
-            « Nouvelle conversation », en haut du panneau, la vide aussi à tout moment.
+            La conversation vous suit d&apos;une page à l&apos;autre : vous pouvez fermer le panneau et le rouvrir, elle est toujours là. Quand vous
+            rechargez la page, quittez {SITE_NAME} ou changez de marque, le panneau s&apos;ouvre sur une nouvelle conversation. Le bouton « Nouvelle
+            conversation », à côté de la croix, en commence une à tout moment.
           </p>
           <p>
-            {SITE_NAME} ne garde pas le texte de vos conversations : ni dans votre navigateur, ni sur nos serveurs. Nous comptons seulement le
-            nombre de messages, pour votre quota. Si une réponse vous plaît, copiez-la avant de changer de page.
+            Vos conversations passées sont dans « Discussions » : le bouton à trois traits, en haut à gauche du panneau. Vous pouvez en rouvrir une
+            pour la continuer, ou la supprimer. Elles sont rangées par marque, visibles par vous seul (pas par les autres membres de la marque), et
+            effacées automatiquement 90 jours après leur dernier message. Seul le texte est gardé : les miniatures proposées dans le chat ne le sont pas.
           </p>
         </Section>
 

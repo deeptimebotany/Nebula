@@ -6,7 +6,7 @@
 // Le logo est une image PNG hébergée sur le site (public/email/nebula-logo.png,
 // 390 × 108 px affichée en 130 × 36 pour les écrans haute densité) : Gmail et
 // Outlook n'affichent pas le SVG. Son fond est le même noir que le bandeau
-// (#0e0e10), pour rester correct même si un client mail ignore la couleur de
+// (#0f0f0f), pour rester correct même si un client mail ignore la couleur de
 // fond du bandeau.
 import { SITE_URL } from "@/lib/site";
 
@@ -15,7 +15,7 @@ export const EMAIL_COLORS = {
   button: "#8646ff",
   /** Liens dans le texte, sur blanc : 6,8:1. */
   link: "#6a2fe0",
-  banner: "#0e0e10",
+  banner: "#0f0f0f",
   text: "#1f2937",
   muted: "#6b7280",
   border: "#e5e7eb"

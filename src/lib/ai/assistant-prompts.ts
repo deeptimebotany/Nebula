@@ -21,9 +21,19 @@ import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/eng
  * navigation : l'assistant donne le bon chemin (« Outils → Calculateur de
  * taux d'engagement ») sans qu'on le tienne à jour à la main.
  */
+/** Onglets à l'intérieur d'une page (09/10/2026 : Rétention IA dans Analytics, Commentaires et Engagement dans Interactions). */
+const PAGE_TABS: Record<string, string> = {
+  "/analytics": "onglets Vue d'ensemble, Concurrence, Rétention IA, Publicité",
+  "/interactions": "onglets Commentaires et Engagement"
+};
+
 export const APP_MAP =
   "Menu latéral de Nebula : " +
-  NAV_GROUPS.map((g) => (g.label ? `${g.label} → ` : "") + g.items.map((i) => (i.href === "/tools" ? `${i.label} (${i.description})` : i.label)).join(", ")).join(" ; ") +
+  NAV_GROUPS.map(
+    (g) =>
+      (g.label ? `${g.label} → ` : "") +
+      g.items.map((i) => (i.href === "/tools" ? `${i.label} (${i.description})` : PAGE_TABS[i.href] ? `${i.label} (${PAGE_TABS[i.href]})` : i.label)).join(", ")
+  ).join(" ; ") +
   ". Menu du profil (photo en haut à droite) → Mon profil, " +
   ACCOUNT_NAV_ITEMS.map((i) => i.label).join(", ") +
   ", changer de marque, se déconnecter. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
@@ -124,12 +134,12 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
     maxOutputTokens: 800
   },
   comments: {
-    instruction: `Contexte : l'utilisateur modère les commentaires reçus (onglet Commentaires). Priorité : rédiger des réponses prêtes à poster (propose 2 tons : chaleureux / sobre), désamorcer les critiques, transformer les questions en idées de contenu. Reste bref : une réponse à un commentaire fait 1 à 3 phrases. ${HOWTO_HINT}`,
+    instruction: `Contexte : l'utilisateur modère les commentaires reçus (page Interactions, onglet Commentaires). Priorité : rédiger des réponses prêtes à poster (propose 2 tons : chaleureux / sobre), désamorcer les critiques, transformer les questions en idées de contenu. Reste bref : une réponse à un commentaire fait 1 à 3 phrases. ${HOWTO_HINT}`,
     needs: {},
     maxOutputTokens: 800
   },
   engagements: {
-    instruction: `Contexte : l'utilisateur regarde ses métriques d'engagement par publication (onglet Engagements : vues, likes, commentaires, partages, enregistrements). Les chiffres des publications synchronisées sont fournis ci-dessous quand ils existent. Priorité : expliquer ce que chaque métrique révèle (enregistrements = valeur durable, partages = portée organique, likes = approbation rapide), repérer les publications qui sortent du lot et proposer 2 ou 3 actions concrètes. Ne compare jamais à des moyennes inventées. ${HOWTO_HINT}`,
+    instruction: `Contexte : l'utilisateur regarde ses métriques d'engagement par publication (page Interactions, onglet Engagement : vues, likes, commentaires, partages, enregistrements). Les chiffres des publications synchronisées sont fournis ci-dessous quand ils existent. Priorité : expliquer ce que chaque métrique révèle (enregistrements = valeur durable, partages = portée organique, likes = approbation rapide), repérer les publications qui sortent du lot et proposer 2 ou 3 actions concrètes. Ne compare jamais à des moyennes inventées. ${HOWTO_HINT}`,
     needs: { postMetrics: true, recentPosts: false },
     maxOutputTokens: 1000
   },
@@ -259,7 +269,7 @@ export function buildSystemInstruction(key: AssistantContextKey, data: BrandCont
   if (mod.needs.postMetrics) {
     parts.push(
       "Engagements des dernières publications (dernière actualisation) :",
-      data.postMetricsLines?.length ? data.postMetricsLines.join("\n") : "(rien de synchronisé — l'utilisateur peut cliquer « Actualiser » sur la page Engagements)"
+      data.postMetricsLines?.length ? data.postMetricsLines.join("\n") : "(rien de synchronisé — l'utilisateur peut cliquer « Actualiser » dans Interactions, onglet Engagement)"
     );
   }
   if (mod.needs.toolData) {

@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
     prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
   ]);
   const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  const back = parsed.data.returnTo === "billing" ? "/billing" : "/retention";
+  // Retour : Facturation, ou l'onglet Rétention IA d'Analytics (09/10/2026).
+  const back = parsed.data.returnTo === "billing" ? "/billing?" : "/analytics?tab=retention&";
   const metadata = { userId, kind: RETENTION_PACK_KIND, credits: String(RETENTION_PACK.credits), waivedWithdrawalAt: new Date().toISOString() };
 
   const checkout = await stripe().checkout.sessions.create({
@@ -51,8 +52,8 @@ export async function POST(req: NextRequest) {
     payment_intent_data: { metadata },
     // Facture envoyée par Stripe (utile aux agences et indépendants).
     invoice_creation: { enabled: true, invoice_data: { description: `Recharge Rétention Nebula : ${RETENTION_PACK_LABEL}, sans date limite.`, metadata } },
-    success_url: `${appUrl}${back}?recharge=success`,
-    cancel_url: `${appUrl}${back}?recharge=cancel`
+    success_url: `${appUrl}${back}recharge=success`,
+    cancel_url: `${appUrl}${back}recharge=cancel`
   });
   return NextResponse.json({ url: checkout.url });
 }

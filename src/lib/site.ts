@@ -15,7 +15,7 @@ export const SITE_DESCRIPTION = `Nebula réunit ${networksSentence()} : programm
 export const SITE_LOCALE = "fr_FR";
 // Couleur de fond de l'application (voir --app-bg dans globals.css) — sert
 // de theme-color au navigateur et de fond aux images de partage.
-export const SITE_THEME_COLOR = "#0e0e10";
+export const SITE_THEME_COLOR = "#0f0f0f";
 // Fond des pages en mode clair (--l-page dans globals.css), le mode par
 // défaut depuis le 29/09/2026 : theme-color du navigateur.
 export const SITE_THEME_COLOR_LIGHT = "#f0f2f5";

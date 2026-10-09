@@ -8,7 +8,7 @@ import { IconClock } from "@/components/dashboard/icons";
 
 const FAQ = [
   { q: "Ces horaires sont-ils valables pour mon compte ?", a: "Ce sont des moyennes générales, toutes audiences confondues, relevées à une date donnée. Votre audience a ses propres habitudes : un compte B2B et un compte lifestyle n'ont pas les mêmes pics. Vos propres statistiques valent toujours mieux qu'une moyenne." },
-  { q: "Comment connaître mes vrais meilleurs créneaux ?", a: "En comparant les performances de vos publications selon leur heure de départ. Nebula récupère les vrais chiffres de chaque publication (onglet Engagements) et ses horaires de publication : vous voyez vite ce qui marche pour VOTRE audience." },
+  { q: "Comment connaître mes vrais meilleurs créneaux ?", a: "En comparant les performances de vos publications selon leur heure de départ. Nebula récupère les vrais chiffres de chaque publication (page Interactions, onglet Engagement) et ses horaires de publication : vous voyez vite ce qui marche pour VOTRE audience." },
   { q: "Faut-il publier à l'heure exacte ?", a: "Non. Publier 30 à 60 minutes avant le pic laisse le temps à l'algorithme de tester la publication auprès d'un premier cercle. La régularité compte plus que la minute près." }
 ];
 

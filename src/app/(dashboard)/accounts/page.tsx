@@ -20,7 +20,7 @@ import { UpgradeButton } from "@/components/dashboard/upgrade-gem";
 import { IconChart, IconCalendar, IconChevron, IconMessage, IconPlus, IconRefresh, IconThumbUp } from "@/components/dashboard/icons";
 import { refreshConnections, refreshUsage, useConnections, useUsage } from "@/lib/data/hooks";
 import { useBootstrap } from "@/components/bootstrap-provider";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PAID_PLANS, PLAN_LIMITS } from "@/lib/plans";
 import { trialBeyondFreeNote } from "@/lib/billing/trial-copy";
 
 interface ConnectionRow {
@@ -167,12 +167,17 @@ function AccountsPageInner() {
     load();
   }
 
-  // Instagram et Facebook comptent pour UN SEUL compte dans le quota : le
-  // décompte vient du serveur (countConnectionSlots, via /api/billing/usage)
+  // Un compte connecté = un compte (Instagram et Facebook compris, depuis le
+  // 09/10/2026) : le décompte vient du serveur (countConnectionSlots, via /api/billing/usage)
   // plutôt que d'être refait ici.
   const connectionSlots = planInfo?.connectionSlots ?? 0;
 
   const atLimit = planInfo ? connectionSlots >= planInfo.limits.maxConnections : false;
+  // À la limite (09/10/2026, demande de Lucas) : tous les réseaux restent
+  // affichés, et ceux qui demanderaient une place de plus proposent le palier
+  // qui la donne (« Débloquer avec Pro ») au lieu d'un bouton grisé (chaque
+  // compte en plus prend une place, Facebook compris).
+  const unlockPlan = planInfo ? PAID_PLANS.map((p) => PLAN_LIMITS[p]).find((l) => l.maxConnections > planInfo.limits.maxConnections) : undefined;
 
   return (
     <div className="space-y-6">
@@ -182,8 +187,8 @@ function AccountsPageInner() {
         actions={
           planInfo && (
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300">
-              {connectionSlots} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections} comptes
-              (Instagram + Facebook comptent ensemble) · palier {planInfo.limits.label}
+              {connectionSlots} / {planInfo.limits.maxConnections >= 9999 ? "∞" : planInfo.limits.maxConnections} comptes · palier{" "}
+              {planInfo.limits.label}
             </span>
           )
         }
@@ -230,7 +235,12 @@ function AccountsPageInner() {
           // bloc l'annonce explicitement le temps que la liste arrive.
           const finalizing = listLoading && connected === provider.id && !error;
           const starting = startingProvider === provider.id;
-          const buttonDisabled = !activeBrand || atLimit || listLoading || starting;
+          const locked = atLimit;
+          // Réseau pas encore relié : on donne envie (bouton du palier qui le
+          // débloque) ; réseau déjà relié : « + Ajouter un compte » reste
+          // simplement grisé, le bandeau du haut suffit.
+          const promote = locked && linked.length === 0 && Boolean(unlockPlan);
+          const buttonDisabled = !activeBrand || locked || listLoading || starting;
           return (
             <GlassCard key={provider.id}>
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -241,6 +251,9 @@ function AccountsPageInner() {
                   <NetworkTile network={provider.networks[0]} size={30} roomy />
                   {provider.label}
                 </h2>
+                {promote && !listLoading && unlockPlan ? (
+                  <UpgradeButton size="sm" label={`Débloquer avec ${unlockPlan.label}`} />
+                ) : (
                 <Button
                   variant="outline"
                   disabled={buttonDisabled}
@@ -263,6 +276,7 @@ function AccountsPageInner() {
                     "Connecter"
                   )}
                 </Button>
+                )}
               </div>
 
               {listLoading && (
@@ -284,7 +298,15 @@ function AccountsPageInner() {
                 </div>
               )}
 
-              {!listLoading && linked.length === 0 && <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>}
+              {!listLoading && linked.length === 0 &&
+                (promote && unlockPlan ? (
+                  <p className="text-sm text-slate-300">
+                    Publiez aussi sur {provider.label} avec le palier {unlockPlan.label} :{" "}
+                    {unlockPlan.maxConnections >= 9999 ? "comptes illimités" : `jusqu'à ${unlockPlan.maxConnections} comptes`} par marque.
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500">Aucun compte {provider.label} connecté.</p>
+                ))}
               <ul className="space-y-2">
                 {linked.map((c) => {
                   // Statut EXPIRED : le réseau a refusé la connexion lors d'une
@@ -370,14 +392,14 @@ function AccountsPageInner() {
                           {/* Pas de lien « Commentaires » quand l'API du réseau ne les donne pas (TikTok, Pinterest). */}
                           {NETWORK_META[c.network]?.readsComments !== false && (
                             <Link
-                              href={`/comments?connectionId=${c.id}`}
+                              href={`/interactions?connectionId=${c.id}`}
                               className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
                             >
                               <IconMessage className="h-4 w-4 text-slate-500" /> Commentaires
                             </Link>
                           )}
                           <Link
-                            href={`/engagements?connectionId=${c.id}`}
+                            href={`/interactions?vue=engagement&connectionId=${c.id}`}
                             className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
                           >
                             <IconThumbUp className="h-4 w-4 text-slate-500" /> Engagements

@@ -111,7 +111,7 @@ export function ConnectionLimitDialog({ brandId, brandName }: { brandId: string;
         ) : (
           <>
             <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              Votre palier {data.planLabel} permet {data.max} comptes par marque (Instagram + Facebook comptent ensemble), et « {brandName} » en a{" "}
+              Votre palier {data.planLabel} permet {data.max} comptes par marque, et « {brandName} » en a{" "}
               {data.slots}. Pour continuer à utiliser Nebula, déconnectez les comptes en trop, ou passez à un palier supérieur.
             </p>
 

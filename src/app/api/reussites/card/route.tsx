@@ -24,7 +24,7 @@ export const maxDuration = 30;
 // Rendu par next/og (police intégrée, aucun service externe, aucun coût).
 const W = 1080;
 const H = 1350;
-const BG = "#0e0e10";
+const BG = "#0f0f0f";
 
 /** Nombre à la française, avec une espace simple (la police intégrée n'a pas l'espace fine). */
 const num = (n: number) => n.toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");

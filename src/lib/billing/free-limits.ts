@@ -68,8 +68,8 @@ export function pickDefaultActiveBrand<T extends UsageCandidate>(brands: T[]): T
 
 /**
  * Comptes gardés dans la limite du Gratuit : d'abord ceux choisis par
- * l'utilisateur (dans son ordre), puis les plus utilisés. Instagram +
- * Facebook comptent pour un seul compte (connectionSlotsFor).
+ * l'utilisateur (dans son ordre), puis les plus utilisés (un compte connecté
+ * = un compte, connectionSlotsFor).
  */
 export function pickConnectionsToKeep<T extends UsageCandidate & { network: string }>(connections: T[], limit: number, chosen: string[] | null): Set<string> {
   const byId = new Map(connections.map((c) => [c.id, c]));

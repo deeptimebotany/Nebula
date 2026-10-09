@@ -30,7 +30,19 @@ import { analyticsKey, refreshConnections, useAnalytics } from "@/lib/data/hooks
 import { useSeedIsFresh } from "@/lib/data/swr-config";
 import { MotionRoot } from "@/components/motion/motion-root";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { useOptionalAiAssistant } from "@/components/dashboard/ai-assistant-context";
 import { limitsOf } from "@/lib/plans";
+
+// Onglet Rétention IA (09/10/2026, demande de Lucas : l'ancienne page
+// /retention devient un onglet d'Analytics) : téléchargé à l'ouverture.
+const RetentionTool = dynamic(() => import("@/components/retention/retention-tool").then((m) => m.RetentionTool), {
+  ssr: false,
+  loading: () => <SkeletonGrid count={2} />
+});
+
+type AnalyticsTab = "overview" | "competitors" | "retention" | "ads";
+const ANALYTICS_TABS: readonly AnalyticsTab[] = ["overview", "competitors", "retention", "ads"];
+const isAnalyticsTab = (v: string | null): v is AnalyticsTab => (ANALYTICS_TABS as readonly string[]).includes(v ?? "");
 
 // Onglet Publicité : module à part (tableaux, graphique des dépenses),
 // téléchargé seulement quand on ouvre l'onglet (audit performance, lot 4).
@@ -320,7 +332,30 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
   const connections = useMemo(() => cachedAnalytics ?? [], [cachedAnalytics]);
   const [syncing, setSyncing] = useState(false);
   const loading = cachedAnalytics === null && !analyticsError;
-  const [tab, setTab] = useState<"overview" | "competitors" | "ads">(() => (searchParams.get("tab") === "ads" ? "ads" : "overview"));
+  const [tab, setTabState] = useState<AnalyticsTab>(() => {
+    const t = searchParams.get("tab");
+    return isAnalyticsTab(t) ? t : "overview";
+  });
+  // L'onglet est gardé dans l'adresse (?tab=…) : un rechargement ou un lien
+  // partagé rouvre le même onglet (09/10/2026).
+  function setTab(next: AnalyticsTab) {
+    setTabState(next);
+    try {
+      const url = new URL(window.location.href);
+      if (next === "overview") url.searchParams.delete("tab");
+      else url.searchParams.set("tab", next);
+      url.searchParams.delete("recharge");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    } catch {
+      // Adresse non modifiable : l'onglet change quand même.
+    }
+  }
+  // Assistant : l'onglet Rétention IA garde son propre contexte.
+  const assistant = useOptionalAiAssistant();
+  const setAssistantOverride = assistant?.setContextOverride;
+  useEffect(() => {
+    setAssistantOverride?.(tab === "retention" ? "retention" : null);
+  }, [tab, setAssistantOverride]);
   // Onglet Publicité (lot 5) : affiché dès qu'une régie est configurée sur
   // le serveur (les formules gratuites y voient l'offre Pro).
   const [adsEnabled, setAdsEnabled] = useState(searchParams.get("tab") === "ads" || Boolean(initial?.adsEnabled));
@@ -602,8 +637,9 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
             [
               ["overview", "Vue d'ensemble"],
               ["competitors", "Concurrence"],
+              ["retention", "Rétention IA"],
               ...(adsEnabled ? [["ads", "Publicité"]] : [])
-            ] as [typeof tab, string][]
+            ] as [AnalyticsTab, string][]
           ).map(([id, label]) => (
             <button
               key={id}
@@ -630,6 +666,8 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           >
         {tab === "ads" ? (
           activeBrand ? <AdsTab key={activeBrand.id} brandId={activeBrand.id} /> : null
+        ) : tab === "retention" ? (
+          <RetentionTool embedded />
         ) : tab === "competitors" ? (
           activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
         ) : connections.length === 0 && !loading ? (
