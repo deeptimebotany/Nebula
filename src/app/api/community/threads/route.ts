@@ -1,6 +1,7 @@
 import { refreshReussites } from "@/lib/reussites/engine";
 import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
 import { NextRequest, NextResponse } from "next/server";
+import { recordMentions } from "@/lib/community/mentions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     }
   });
 
+  // Mentions @pseudo dans le titre ou le message (10/10/2026).
+  await recordMentions({ authorId: userId, text: `${thread.title}\n${thread.body}`, place: { threadId: thread.id }, href: `/community/${thread.id}`, where: `Dans le sujet « ${thread.title} »` });
   await refreshReussites(userId);
   return NextResponse.json({ ok: true, thread });
 }

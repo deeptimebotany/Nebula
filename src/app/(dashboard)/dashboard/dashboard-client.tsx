@@ -3,16 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SkeletonText } from "@/components/ui/skeleton";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useBrand } from "@/components/brand-context";
 import { StatCard } from "@/components/ui/stat-card";
-import { GlassCard } from "@/components/ui/glass-card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { NetworkBadge, NetworkDot } from "@/components/ui/network-badge";
 import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
-import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar, IconUpload } from "@/components/dashboard/icons";
+import { IconPlus, IconUsers, IconChart, IconHeart, IconCalendar } from "@/components/dashboard/icons";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { LivingClock } from "@/components/dashboard/living-clock";
@@ -21,14 +19,12 @@ import { LevelCard } from "@/components/reussites/level-card";
 import { useCosmetics } from "@/components/cosmetics-provider";
 import { OnboardingChecklist, type ChecklistStep } from "@/components/dashboard/onboarding-checklist";
 import { AttentionWidget, type AttentionItem } from "@/components/dashboard/attention-widget";
-import { Input } from "@/components/ui/input";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import { analyticsKey, useAnalytics, useConnections } from "@/lib/data/hooks";
 import { useSeedIsFresh } from "@/lib/data/swr-config";
 import { useHydrated } from "@/lib/use-hydrated";
 import { GREETING_VARIANTS } from "@/lib/dashboard-greetings";
 import type { ReussitesSummaryDTO } from "@/lib/reussites/types";
-import { saveComposerDraftNow } from "@/lib/composer-draft-client";
 import { TrialChoiceCard } from "@/components/billing/dormant-brand";
 import { useFocusMode } from "@/components/bootstrap-provider";
 import { clsx } from "@/lib/clsx";
@@ -109,7 +105,6 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
   // Mode focus (30/09/2026) : pas de carte « Rang de créateur ».
   const { focusMode } = useFocusMode();
   const { activeBrand } = useBrand();
-  const router = useRouter();
   const cosmetics = useCosmetics();
   const hydrated = useHydrated();
   const [greeting] = useState(() => GREETING_VARIANTS[initial?.greetingIndex ?? Math.floor(Math.random() * GREETING_VARIANTS.length)] ?? GREETING_VARIANTS[0]);
@@ -134,20 +129,6 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
   // Données du serveur préparées pour CET affichage ? (Faux si la page est
   // resservie par le cache du routeur : retour arrière, lien dans les 30 s.)
   const seedFresh = useRef(useSeedIsFresh(initial ? analyticsKey(initial.brandId) : null)).current;
-
-  // Raccourci d'action rapide : rédige un brouillon minimal ici et redirige
-  // vers le Composer/Importation, qui restaure automatiquement ce brouillon
-  // (même clé localStorage que son propre système d'auto-sauvegarde — voir
-  // composer/page.tsx) plutôt que de dupliquer la logique de publication.
-  const [quickText, setQuickText] = useState("");
-
-  async function onQuickCreate() {
-    if (!activeBrand) return;
-    // Brouillon enregistré dans le compte (et en copie locale) avant d'ouvrir
-    // le Composer, qui le reprend (voir lib/composer-draft-client.ts).
-    await saveComposerDraftNow(activeBrand.id, { title: "", caption: quickText.trim(), selectedNetworks: [] });
-    router.push("/composer");
-  }
 
   useEffect(() => {
     if (!activeBrand) return;
@@ -279,28 +260,8 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
       {/* Fin d'essai (lot E4) : 3 jours avant, choisir la marque qui reste active. */}
       <TrialChoiceCard />
 
-      {/* Raccourcis d'action rapide : rédiger ou importer un média sans
-          naviguer jusqu'à la page Publier — voir onQuickCreate. */}
-      {activeBrand && (
-        <GlassCard className="border-white/[0.06] bg-white/[0.015]">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              aria-label="Rédiger une publication"
-              value={quickText}
-              onChange={(e) => setQuickText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onQuickCreate()}
-              placeholder="Rédiger une publication en un clic…"
-              wrapperClassName="min-w-[220px] flex-1"
-            />
-            <Button variant="outline" onClick={() => router.push("/composer")}>
-              <IconUpload className="h-4 w-4" /> Importer un média
-            </Button>
-            <Button onClick={onQuickCreate} disabled={!quickText.trim()}>
-              <IconPlus className="h-4 w-4" /> Créer
-            </Button>
-          </div>
-        </GlassCard>
-      )}
+      {/* Barre « Rédiger une publication en un clic » retirée le 10/10/2026
+          (demande de Lucas) : « Nouvelle publication » en haut suffit. */}
 
       {!loading && activeBrand && linkPagePublished !== null && <OnboardingChecklist brandId={activeBrand.id} steps={checklistSteps} />}
 

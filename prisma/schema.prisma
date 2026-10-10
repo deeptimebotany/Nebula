@@ -56,6 +56,9 @@ model User {
   feedbackRequests FeedbackRequest[]
   feedbackVotes    FeedbackVote[]
   feedbackComments FeedbackComment[]
+  // Mentions @pseudo de la Communauté (10/10/2026) : reçues et écrites.
+  mentionsReceived CommunityMention[] @relation("MentionsReceived")
+  mentionsWritten  CommunityMention[] @relation("MentionsWritten")
   studioGenerations  StudioGeneration[]
   // Conversations de « Demander à Nebula » (09/10/2026).
   assistantConversations AssistantConversation[]
@@ -898,6 +901,14 @@ model EngagementItem {
   // date de la première réponse du compte à ce commentaire, d'où qu'elle
   // ait été écrite (appli du réseau ou autre). null = pas de réponse vue.
   ownerRepliedAt  DateTime?
+  // Commentaires façon YouTube Studio (10/10/2026) : le contenu commenté
+  // (titre ou début de légende, miniature) relevé à la synchro, et le
+  // « j'aime » du compte sur ce commentaire (Facebook, Bluesky — ownerLikeId :
+  // l'enregistrement du j'aime chez Bluesky, pour le retirer).
+  postTitle        String?
+  postThumbnailUrl String?
+  ownerLikedAt     DateTime?
+  ownerLikeId      String?
   createdAt       DateTime         @default(now())
   connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
@@ -925,6 +936,7 @@ model ForumThread {
   author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   replies   ForumReply[]
   reactions CommunityReaction[]
+  mentions  CommunityMention[]
 
   @@index([createdAt])
 
@@ -947,6 +959,7 @@ model ForumReply {
   parent    ForumReply?  @relation("ReplyThread", fields: [parentId], references: [id], onDelete: Cascade)
   children  ForumReply[] @relation("ReplyThread")
   reactions CommunityReaction[]
+  mentions  CommunityMention[]
 
   @@index([threadId, createdAt])
   @@index([parentId])
@@ -1057,6 +1070,7 @@ model FeedbackRequest {
   options    FeedbackOption[]
   votes      FeedbackVote[]
   comments   FeedbackComment[]
+  mentions   CommunityMention[]
 
   @@index([closesAt])
   @@index([authorId, createdAt])
@@ -1093,6 +1107,36 @@ model FeedbackVote {
   @@index([userId])
 }
 
+// Mention @pseudo dans la Communauté (10/10/2026, demande de Lucas) : une
+// ligne par personne mentionnée et par message (sujet, réponse du forum,
+// demande d'avis ou avis écrit — un seul des quatre est rempli). Sert à
+// l'onglet « Mentions » de la Communauté ; part avec le message (cascade).
+model CommunityMention {
+  id        String           @id @default(cuid())
+  userId    String
+  authorId  String
+  threadId  String?
+  replyId   String?
+  requestId String?
+  commentId String?
+  excerpt   String           @default("")
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation("MentionsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  author    User             @relation("MentionsWritten", fields: [authorId], references: [id], onDelete: Cascade)
+  thread    ForumThread?     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  reply     ForumReply?      @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  request   FeedbackRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  comment   FeedbackComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([authorId])
+  @@index([threadId])
+  @@index([replyId])
+  @@index([requestId])
+  @@index([commentId])
+}
+
 model FeedbackComment {
   id        String          @id @default(cuid())
   requestId String
@@ -1104,6 +1148,7 @@ model FeedbackComment {
   helpfulAt DateTime?
   request   FeedbackRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   author    User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mentions  CommunityMention[]
 
   @@index([requestId, createdAt])
   @@index([authorId])

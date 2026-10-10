@@ -6,7 +6,10 @@
 //    profil), date, texte, J'aime (avec le nombre), Je n'aime pas (sans
 //    nombre), Répondre ;
 //  - les réponses à une réponse sont repliées derrière « N réponses », sous
-//    un trait qui descend ; répondre à quelqu'un dans un fil le mentionne.
+//    un trait qui descend ; répondre à quelqu'un dans un fil le mentionne ;
+//  - « @ » propose des membres à mentionner, les @pseudo deviennent des
+//    liens ; l'auteur du sujet supprime les réponses des autres sur son
+//    sujet (avec les réponses en dessous).
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/dashboard/toast";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { ContentActions } from "@/components/community/content-actions";
+import { MentionText } from "@/components/community/mention-text";
+import { MentionTextarea } from "@/components/community/mention-textarea";
 import { reportKey } from "@/lib/community/report-reasons";
 import { clsx } from "@/lib/clsx";
 import type { ForumReplyDTO, ForumThreadDTO, ForumVote } from "@/lib/community/forum";
@@ -136,9 +141,9 @@ function Composer({
     <div className="flex items-start gap-3">
       <MemberAvatar author={meAuthor} size={compact ? 26 : 38} interactive={false} />
       <div className="min-w-0 flex-1">
-        <textarea
+        <MentionTextarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onValueChange={setText}
           onFocus={() => setFocused(true)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void send();
@@ -278,7 +283,9 @@ export default function ThreadDetailPage() {
             <CommunityAuthor author={r.author} />
             <span className="text-slate-500">{ago(r.createdAt)}</span>
           </div>
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-100">{r.body}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-100">
+            <MentionText text={r.body} />
+          </p>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <VoteBar likes={r.likes} myVote={r.myVote} busy={voting === r.id} onVote={(v) => void vote({ replyId: r.id }, v)} onReply={() => setReplyTo({ topId, to: r })} />
             <ContentActions
@@ -287,6 +294,8 @@ export default function ThreadDetailPage() {
               threadId={thread?.id}
               mine={userId === r.author?.id}
               canModerate={canModerate}
+              containerOwner={Boolean(userId) && userId === thread?.author?.id}
+              hasChildren={!child && (children.get(r.id)?.length ?? 0) > 0}
               reported={reported.has(reportKey("REPLY", r.id))}
               onReported={() => markReported(reportKey("REPLY", r.id))}
               onDeleted={() => void load()}
@@ -347,7 +356,9 @@ export default function ThreadDetailPage() {
             <span className="text-slate-500">{ago(thread.createdAt)}</span>
           </div>
           <h1 className="mt-2 font-display text-xl font-semibold text-white">{thread.title}</h1>
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">{thread.body}</p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">
+            <MentionText text={thread.body} />
+          </p>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <VoteBar likes={thread.likes} myVote={thread.myVote} busy={voting === thread.id} onVote={(v) => void vote({ threadId: thread.id }, v)} />
             <ContentActions

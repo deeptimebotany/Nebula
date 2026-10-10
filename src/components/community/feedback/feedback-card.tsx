@@ -12,6 +12,8 @@ import { useState } from "react";
 import { MemberAvatar } from "@/components/community/member-avatar";
 import { CommunityAuthor } from "@/components/reussites/community-author";
 import { ContentActions } from "@/components/community/content-actions";
+import { MentionText } from "@/components/community/mention-text";
+import { MentionTextarea } from "@/components/community/mention-textarea";
 import { NetworkBadge } from "@/components/ui/network-badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/dashboard/toast";
@@ -176,7 +178,7 @@ export function FeedbackCard({
             <span className={clsx("text-[11px]", r.closed ? "text-slate-500" : "text-emerald-300")}>{r.closed ? "Terminée" : timeLeftLabel(r.closesAt)}</span>
           </div>
           <h3 id={`avis-${r.id}-titre`} className="mt-1 text-sm text-white">
-            {r.context || (r.kind === "TITLE" ? "Quel titre vous donne le plus envie de cliquer ?" : "Quelle miniature vous donne le plus envie de cliquer ?")}
+            {r.context ? <MentionText text={r.context} /> : r.kind === "TITLE" ? "Quel titre vous donne le plus envie de cliquer ?" : "Quelle miniature vous donne le plus envie de cliquer ?"}
           </h3>
           <p className="mt-0.5 text-[11px] text-slate-500">
             <CommunityAuthor author={r.author} /> · {ago(r.createdAt)}
@@ -289,7 +291,9 @@ export function FeedbackCard({
                 const canMark = r.mine && !own;
                 return (
                   <li key={c.id} className={clsx("rounded-xl border px-3 py-2", c.helpful ? "border-emerald-400/30 bg-emerald-400/[0.04]" : "border-white/[0.06] bg-white/[0.02]")}>
-                    <p className="whitespace-pre-line text-sm text-slate-200">{c.body}</p>
+                    <p className="whitespace-pre-line text-sm text-slate-200">
+                      <MentionText text={c.body} />
+                    </p>
                     <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[11px] text-slate-500">
                         <CommunityAuthor author={c.author} /> · {ago(c.createdAt)}
@@ -317,6 +321,7 @@ export function FeedbackCard({
                           threadId={r.id}
                           mine={own}
                           canModerate={canModerate}
+                          containerOwner={r.mine}
                           reported={reported.has(reportKey("FEEDBACK_COMMENT", c.id))}
                           onReported={() => onReported(reportKey("FEEDBACK_COMMENT", c.id))}
                           onDeleted={() => {
@@ -341,12 +346,12 @@ export function FeedbackCard({
               <label htmlFor={`avis-${r.id}-champ`} className="sr-only">
                 Votre avis
               </label>
-              <textarea
+              <MentionTextarea
                 id={`avis-${r.id}-champ`}
                 value={draft}
                 maxLength={FEEDBACK_COMMENT_MAX}
                 rows={2}
-                onChange={(e) => setDraft(e.target.value)}
+                onValueChange={setDraft}
                 placeholder={r.mine ? "Précisez votre question ou remerciez…" : "Pourquoi celle-ci ? Un conseil pour l'améliorer ?"}
                 className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
               />

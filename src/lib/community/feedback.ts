@@ -22,6 +22,7 @@ import { deleteUploadedFile, localUploadPath, saveUploadedFile } from "@/lib/sto
 import { ownStoragePath, sniffMediaMime, userUploadPrefix } from "@/lib/upload-policy";
 import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
 import { displayHandle } from "./handle-rules";
+import { recordMentions } from "./mentions";
 import { notify, notifyOnce } from "@/lib/notifications";
 import { fetchPublic, readBodyCapped } from "@/lib/net-safety";
 import { NETWORKS } from "@/lib/types";
@@ -194,6 +195,8 @@ export async function createFeedbackRequest(userId: string, input: FeedbackCreat
       },
       select: { id: true }
     });
+    // Mentions @pseudo dans la question (10/10/2026).
+    if (context) await recordMentions({ authorId: userId, text: context, place: { requestId: created.id }, href: `/community?onglet=avis#avis-${created.id}`, where: "Dans une demande d'avis" });
     return { ok: true, id: created.id };
   } catch (err) {
     await Promise.all(images.map((u) => (u ? deleteUploadedFile(u) : undefined)));
@@ -350,6 +353,15 @@ export async function commentFeedback(userId: string, requestId: string, rawBody
       dedupeKey: `feedback-comments:${requestId}`
     });
   }
+  // Mentions @pseudo (10/10/2026) : l'auteur de la demande est déjà prévenu.
+  await recordMentions({
+    authorId: userId,
+    text: body,
+    place: { commentId: created.id },
+    href: `/community?onglet=avis#avis-${requestId}`,
+    where: "Sous une demande d'avis",
+    alreadyNotified: row.authorId !== userId ? [row.authorId] : []
+  });
   return { ok: true, comment: { id: created.id, body: created.body, createdAt: created.createdAt.toISOString(), author: publicAuthor(created.author), mine: true, helpful: false } };
 }
 

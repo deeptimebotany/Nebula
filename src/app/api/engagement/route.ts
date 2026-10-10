@@ -7,6 +7,8 @@ import { getSocialClient } from "@/lib/social";
 import type { Network } from "@/lib/types";
 import { commentReplySupport } from "@/lib/social/comment-reply-support";
 import { youtubeCommentReplyEnabled } from "@/lib/social/youtube";
+import { commentActionSupport } from "@/lib/social/comment-actions-support";
+import { withCommentedContent } from "@/lib/engagement/content";
 
 // Boîte de réception des COMMENTAIRES (page /comments) : les commentaires
 // déjà synchronisés (voir /api/engagement/sync) soit pour UN compte
@@ -63,8 +65,11 @@ export async function GET(req: NextRequest) {
       reply:
         roles.get(c.brandId) === "VIEWER"
           ? { mode: "manual", how: "Votre rôle sur cette marque permet de lire les commentaires, pas d'y répondre." }
-          : commentReplySupport(c.network, c, { youtubeReplyEnabled: ytReply })
+          : commentReplySupport(c.network, c, { youtubeReplyEnabled: ytReply }),
+      // J'aime et suppression depuis Nebula (10/10/2026) : possibles, ou pourquoi pas.
+      actions: commentActionSupport(c.network, c, roles.get(c.brandId) ?? null)
     })),
-    items
+    // Contenu commenté (titre, miniature) à droite de chaque commentaire.
+    items: await withCommentedContent(items)
   });
 }

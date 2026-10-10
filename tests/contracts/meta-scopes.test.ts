@@ -47,7 +47,10 @@ describe("permissions demandées à Meta", () => {
       [/graph\("INSTAGRAM", `\/\$\{m\.id\}\/comments`/, "instagram_manage_comments"],
       [/\/media_publish`/, "instagram_content_publish"],
       [/\/feed`/, "pages_manage_posts"],
-      [/\/me\/accounts`/, "pages_show_list"]
+      [/\/me\/accounts`/, "pages_show_list"],
+      // Commentaires (10/10/2026) : j'aime de la Page et suppression.
+      [/graph\("FACEBOOK", `\/\$\{encodeURIComponent\(comment\.externalId\)\}\/likes`/, "pages_manage_engagement"],
+      [/graph\("INSTAGRAM", `\/\$\{encodeURIComponent\(comment\.externalId\)\}`, connection\.accessToken, \{ method: "DELETE"/, "instagram_manage_comments"]
     ];
     for (const [pattern, scope] of needs) {
       expect(pattern.test(source), pattern.source).toBe(true);

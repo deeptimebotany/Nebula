@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { IconHeart } from "@/components/dashboard/icons";
+import { TeamMessageForm } from "@/components/support/team-message-form";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { sourceSecretComment } from "@/lib/easter-eggs-registry";
 
@@ -116,11 +117,16 @@ export default function SupportPage() {
         )}
       </GlassCard>
 
+      {/* Écrire à l'équipe (10/10/2026) : un message, sans payer. */}
+      <GlassCard>
+        <TeamMessageForm />
+      </GlassCard>
+
       <GlassCard>
         <h2 className="mb-2 font-display text-sm font-medium text-white">D&apos;autres façons d&apos;aider</h2>
         <ul className="space-y-1.5 text-sm text-slate-400">
           <li>• Parlez de Nebula autour de vous, ou dans la Communauté (voir l&apos;onglet Communauté).</li>
-          <li>• Signalez un bug ou une idée d&apos;amélioration.</li>
+          <li>• Signalez un bug ou une idée d&apos;amélioration avec « Écrire à l&apos;équipe », juste au-dessus.</li>
           <li>• Partagez vos retours d&apos;utilisation — c&apos;est ce qui fait le plus avancer le site.</li>
         </ul>
       </GlassCard>

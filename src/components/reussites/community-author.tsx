@@ -2,7 +2,7 @@
 // le 10/10/2026), avec son rang de créateur (Réussites),
 // sa vitrine (jusqu'à 3 badges choisis) et la mention « Mentor » (étoile
 // Communauté ★5), et le badge « Fondateur » (offres fondateurs, à vie) :
-// « Lucas [Confirmé II] Fondateur Mentor 🎬 📅 ».
+// « @lucas [Artiste II] Fondateur Mentor 🎬 📅 ».
 import Link from "next/link";
 import { LevelPill } from "./level-pill";
 import type { RingStyle } from "@/lib/reussites/catalog";

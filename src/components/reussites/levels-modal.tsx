@@ -5,7 +5,7 @@
 // fond flouté avec les rangs et leurs 3 paliers, la progression actuelle
 // et les récompenses. La liste s'ouvre centrée sur le rang en cours.
 // Lot B : condition de variété des rangs. Réussites v3 (02/10/2026) : 8 rangs
-// de créateur (Lancement → Icône) et records de qualité à partir de Confirmé.
+// de créateur (Débutant → Visionnaire) et records de qualité à partir d'Artiste.
 import { useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { RANKS, STEPS } from "@/lib/reussites/catalog";
@@ -41,7 +41,7 @@ export function LevelsModal({
     <Modal open={open} onClose={onClose} title="Les rangs de créateur" maxWidthClassName="max-w-xl">
       <p className="-mt-2 mb-4 text-sm text-slate-400">
         Chaque publication, mission, étoile ou accomplissement rapporte de l&apos;XP. Vous en avez <strong className="text-white">{fmt(xp)}</strong> : un rang atteint ne se perd jamais.
-        À partir du rang Régulier, il faut aussi des compétences variées (constellation) ; à partir de Confirmé, des records de qualité (album « Qualité ») : de vrais résultats, pas du volume.
+        À partir du rang Artisan, il faut aussi des compétences variées (constellation) ; à partir d&apos;Artiste, des records de qualité (album « Qualité ») : de vrais résultats, pas du volume.
       </p>
       <ol className="nb-thin-scroll -mr-2 max-h-[60vh] space-y-2 overflow-y-auto scroll-smooth pr-2">
         {RANKS.map((r) => {

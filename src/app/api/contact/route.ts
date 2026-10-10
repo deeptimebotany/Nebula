@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { sendEmail, escapeHtml } from "@/lib/email";
 import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { SITE_CONTACT_EMAIL, SITE_NAME } from "@/lib/site";
-import { prisma } from "@/lib/prisma";
-import { alertOwner } from "@/lib/owner-alerts";
-import { OWNER_EMAIL } from "@/lib/owner";
+import { deliverContactMessage } from "@/lib/contact-message";
 
 // POST /api/contact — formulaire public de la page /contact.
 // 29/09/2026 : le message est d'abord ENREGISTRÉ en base (ContactMessage,
@@ -56,47 +52,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: TURNSTILE_FAILED_MESSAGE }, { status: 400 });
   }
 
-  let saved: { id: string };
-  try {
-    saved = await prisma.contactMessage.create({ data: { name, email, subject: SUBJECT_LABELS[subject], message }, select: { id: true } });
-  } catch (err) {
-    console.error("[contact] enregistrement impossible :", (err as Error).message);
-    return NextResponse.json(
-      { error: `Impossible d'enregistrer le message pour le moment. Écrivez-nous directement à ${SITE_CONTACT_EMAIL}.` },
-      { status: 503 }
-    );
-  }
-
-  await alertOwner({
-    title: `Nouveau message : ${SUBJECT_LABELS[subject]}`,
-    body: `${name} (${email}) : ${message.length > 180 ? `${message.slice(0, 180)}…` : message}`,
-    dedupeKey: `contact:${saved.id}`,
-    href: "/admin/messages",
-    actionLabel: "Lire le message"
-  });
-
-  const html = `
-    <div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:#111">
-      <p><strong>Nouveau message depuis le formulaire de contact ${escapeHtml(SITE_NAME)}</strong></p>
-      <p><strong>De :</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;<br/>
-         <strong>Sujet :</strong> ${escapeHtml(SUBJECT_LABELS[subject])}</p>
-      <p style="white-space:pre-wrap;border-left:3px solid #8646ff;padding-left:12px">${escapeHtml(message)}</p>
-    </div>`;
-
-  // Copie par e-mail au propriétaire (CONTACT_INBOX_EMAIL si renseignée) :
-  // l'adresse affichée sur le site peut ne pas avoir de boîte de réception,
-  // et l'expéditeur de test de Resend n'écrit qu'au titulaire du compte.
-  const result = await sendEmail({
-    to: process.env.CONTACT_INBOX_EMAIL?.trim() || OWNER_EMAIL,
-    subject: `[${SITE_NAME}] ${SUBJECT_LABELS[subject]} — ${name}`,
-    html,
-    replyTo: email
-  });
-  if (result.ok) {
-    await prisma.contactMessage.update({ where: { id: saved.id }, data: { emailSent: true } }).catch(() => undefined);
-  } else {
-    // Le message est enregistré et signalé dans la cloche : rien n'est perdu.
-    console.error("[contact] copie par e-mail impossible :", result.error);
-  }
+  // Enregistrement, alerte du propriétaire et copie par e-mail : src/lib/contact-message.ts.
+  const delivered = await deliverContactMessage({ name, email, subject: SUBJECT_LABELS[subject], message });
+  if (!delivered.ok) return NextResponse.json({ error: delivered.error }, { status: delivered.status });
   return NextResponse.json({ ok: true });
 }

@@ -34,8 +34,12 @@ export const CATEGORIES: { id: ReussiteCategory; label: string; emoji: string }[
 // (décision de Lucas : plus de noms d'astres, jugés enfantins). Les 15
 // premiers paliers gardent exactement les XP de la v2 : un palier enregistré
 // (User.creatorLevel 1 à 15) garde son sens, seul son nom change (ancien
-// « Constellation I » = « Confirmé I », palier 10). Les rangs Influent,
-// Référence et Icône s'ajoutent au-dessus.
+// « Constellation I » = « Artiste I », palier 10). Les rangs 6 à 8
+// s'ajoutent au-dessus.
+// Noms (10/10/2026, choix de Lucas) : Débutant, Apprenti, Artisan, Artiste,
+// Auteur, Guide, Pionnier, Visionnaire — avant : Lancement, Émergent,
+// Régulier, Confirmé, Établi, Influent, Référence, Icône. Les identifiants
+// (RankId) ne changent pas : ils servent aux emblèmes et aux tests.
 // Historique : 8 niveaux (25/09/2026), puis 5 rangs d'astres (v2, 26/09) ;
 // les clés « level-N » et « rank-N » déjà en base restent valables.
 // Condition pour entrer dans un rang : compétences variées (lot B) et, depuis
@@ -53,35 +57,36 @@ export interface RankDef {
 }
 
 // 10/10/2026 (retour de Lucas : « une vidéo et deux, trois succès, et je suis
-// presque Émergent III ») : seuils relevés, surtout au début, et XP des
-// premiers pas réduits (étoiles ★1, Premier décollage, premières fois, 3
-// réseaux, easter eggs). Repères pour un créateur actif : Émergent vers 2
-// semaines, Régulier vers 1 mois et demi, Confirmé vers 3 mois et demi,
-// Établi vers 6 mois, Influent vers 1 an, Icône vers 3 ans. Les comptes déjà
+// presque Émergent III », aujourd'hui Apprenti III) : seuils relevés,
+// surtout au début, et XP des premiers pas réduits (étoiles ★1, Premier
+// décollage, premières fois, 3 réseaux, easter eggs). Repères pour un
+// créateur actif : Apprenti vers 2 semaines, Artisan vers 1 mois et demi,
+// Artiste vers 3 mois et demi, Auteur vers 6 mois, Guide vers 1 an,
+// Visionnaire vers 3 ans. Les comptes déjà
 // évalués sont recalculés une fois (engine.ts, XP_RECALC_KEY).
 export const RANKS: RankDef[] = [
-  { rank: 1, id: "lancement", name: "Lancement", tagline: "Vos premières publications : tout se met en place.", tiers: [0, 150, 350] },
-  { rank: 2, id: "emergent", name: "Émergent", tagline: "Vous publiez régulièrement : votre ligne se dessine.", tiers: [600, 900, 1300] },
-  { rank: 3, id: "regulier", name: "Régulier", tagline: "Votre rythme tient dans la durée : votre audience sait quand vous retrouver.", tiers: [1800, 2400, 3100] },
-  { rank: 4, id: "confirme", name: "Confirmé", tagline: "Vos formats, votre rythme et vos résultats se tiennent.", tiers: [4000, 5000, 6200] },
-  { rank: 5, id: "etabli", name: "Établi", tagline: "Vos contenus retiennent leur public et votre audience grandit pour de vrai.", tiers: [7500, 9000, 11000] },
-  { rank: 6, id: "influent", name: "Influent", tagline: "Vos résultats parlent d'eux-mêmes : on attend vos prochaines publications.", tiers: [13500, 16500, 20000] },
-  { rank: 7, id: "reference", name: "Référence", tagline: "Les autres créateurs s'inspirent de votre travail et de vos conseils.", tiers: [24000, 28500, 33500] },
-  { rank: 8, id: "icone", name: "Icône", tagline: "Le sommet de Nebula : constance, qualité et entraide, sur la durée.", tiers: [39000, 45000, 52000] }
+  { rank: 1, id: "lancement", name: "Débutant", tagline: "On essaie, on teste des idées, on découvre la création.", tiers: [0, 150, 350] },
+  { rank: 2, id: "emergent", name: "Apprenti", tagline: "On prend le coup de main, on apprend les codes et la régularité.", tiers: [600, 900, 1300] },
+  { rank: 3, id: "regulier", name: "Artisan", tagline: "On affine sa technique, sa voix, son rythme et la qualité de son travail.", tiers: [1800, 2400, 3100] },
+  { rank: 4, id: "confirme", name: "Artiste", tagline: "Le statut est assumé : la chaîne tourne avec sérénité et méthode.", tiers: [4000, 5000, 6200] },
+  { rank: 5, id: "etabli", name: "Auteur", tagline: "Une vraie patte visuelle et narrative : une identité forte que l'audience reconnaît.", tiers: [7500, 9000, 11000] },
+  { rank: 6, id: "influent", name: "Guide", tagline: "On commence à transmettre, à inspirer et à compter dans son écosystème.", tiers: [13500, 16500, 20000] },
+  { rank: 7, id: "reference", name: "Pionnier", tagline: "On ouvre des voies, on tente des concepts inédits.", tiers: [24000, 28500, 33500] },
+  { rank: 8, id: "icone", name: "Visionnaire", tagline: "Un pilier de la communauté, reconnu pour sa constance et sa bienveillance.", tiers: [39000, 45000, 52000] }
 ];
 
 const ROMAN = ["I", "II", "III"];
 
 /** Récompenses de palier (texte) ; les clés correspondantes sont dans REWARDS. */
 const STEP_REWARDS: Record<number, string> = {
-  4: "Insigne Émergent",
-  7: "Insigne Régulier et anneau d'avatar argent",
-  10: "Insigne Confirmé et une vidéo à la une 7 jours",
+  4: "Insigne Apprenti",
+  7: "Insigne Artisan et anneau d'avatar argent",
+  10: "Insigne Artiste et une vidéo à la une 7 jours",
   11: "Cadre de page bio « Astre »",
-  13: "Insigne Établi et anneau stellaire animé",
-  16: "Insigne Influent et une vidéo à la une 7 jours",
-  19: "Insigne Référence et une vidéo à la une 7 jours",
-  22: "Insigne Icône et une vidéo à la une 7 jours"
+  13: "Insigne Auteur et anneau stellaire animé",
+  16: "Insigne Guide et une vidéo à la une 7 jours",
+  19: "Insigne Pionnier et une vidéo à la une 7 jours",
+  22: "Insigne Visionnaire et une vidéo à la une 7 jours"
 };
 
 /** Paliers qui donnent un ticket « vidéo à la une » (une fois chacun). */
@@ -94,7 +99,7 @@ export interface StepDef {
   tier: number;
   rankId: RankId;
   rankName: string;
-  /** « Confirmé II ». */
+  /** « Artiste II ». */
   name: string;
   minXp: number;
   tagline: string;
@@ -127,7 +132,7 @@ export interface LevelProgress {
   tier: number;
   rankId: RankId;
   rankName: string;
-  /** « Confirmé II ». */
+  /** « Artiste II ». */
   name: string;
   xp: number;
   /** XP du début du palier actuel. */
@@ -148,9 +153,9 @@ export interface LevelProgress {
 /** « Rang en attente » : ce qui manque pour entrer dans le rang suivant. */
 export interface PendingRank {
   step: number;
-  /** « Régulier I ». */
+  /** « Artisan I ». */
   name: string;
-  /** « 2 compétences au niveau 2 » (et « 1 record de qualité » à partir de Confirmé). */
+  /** « 2 compétences au niveau 2 » (et « 1 record de qualité » à partir d'Artiste). */
   condition: string;
   /** « 1 compétence de plus au niveau 2 », les compétences les plus proches, les records manquants. */
   missing: string[];
@@ -733,7 +738,7 @@ export const TOTAL_ACCOMPLISHMENTS = ALL_TIERS.length;
 /**
  * Records de qualité (Réussites v3) : paliers qui prouvent un vrai résultat,
  * pas du volume. Ils comptent pour entrer dans les rangs à partir de
- * Confirmé (skills.ts → RANK_CONDITIONS) et se partagent en carte.
+ * Artiste (skills.ts → RANK_CONDITIONS) et se partagent en carte.
  */
 export const QUALITY_KEYS: string[] = [
   ...SERIES.filter((x) => x.category === "qualite" || x.id === "avis-recus" || x.id === "avis-utiles").flatMap((x) => x.tiers.map((t) => t.key)),

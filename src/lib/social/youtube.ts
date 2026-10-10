@@ -448,9 +448,12 @@ export const youtubeClient: SocialClient = {
       })
     );
 
+    // Titre et miniature de la vidéo commentée (10/10/2026, page Commentaires).
+    const videoById = new Map(videos.map((v) => [v.videoId, v]));
     const items = perVideo.flat().map((item) => {
       const c = item.snippet.topLevelComment.snippet;
       const videoId = item.snippet.videoId ?? "";
+      const video = videoById.get(videoId);
       const own = (item.replies?.comments ?? []).filter((r) => r.snippet?.authorChannelId?.value === connection.externalAccountId);
       return {
         type: "COMMENT" as const,
@@ -462,7 +465,9 @@ export const youtubeClient: SocialClient = {
         authorAvatarUrl: c.authorProfileImageUrl,
         text: c.textDisplay,
         permalink: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${item.snippet.topLevelComment.id}` : undefined,
-        publishedAt: toDate(c.publishedAt)
+        publishedAt: toDate(c.publishedAt),
+        postTitle: video?.title || undefined,
+        postThumbnailUrl: video?.thumbnailUrl ?? (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : undefined)
       };
     });
 

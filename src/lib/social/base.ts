@@ -167,6 +167,21 @@ export interface EngagementItemInput {
    * réponse du compte vue (ou réseau qui ne les donne pas).
    */
   ownerRepliedAt?: Date;
+  /**
+   * Contenu commenté (Commentaires façon YouTube Studio, 10/10/2026) : titre
+   * (ou début de la légende) et miniature, relevés avec la liste des
+   * publications que le réseau renvoie déjà. Absent : la page cherche dans
+   * les statistiques des publications, puis dans les publications Nebula.
+   */
+  postTitle?: string;
+  postThumbnailUrl?: string;
+}
+
+/** Titre court d'une publication : la première ligne de sa légende. */
+export function postTitleOf(text: string | null | undefined, max = 100): string | undefined {
+  const line = (text ?? "").split("\n").map((l) => l.trim()).find(Boolean);
+  if (!line) return undefined;
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
 /** Nom de compte sans « @ » ni majuscules, pour comparer. */
@@ -287,6 +302,18 @@ export interface SocialClient {
    * commentaires et qui le permettent (voir social/comment-reply-support.ts).
    */
   replyToComment?(connection: ConnectionLike, comment: { externalId: string; postExternalId?: string | null }, text: string): Promise<{ externalId?: string }>;
+  /**
+   * « J'aime » du compte sur un commentaire reçu, ou son retrait (page
+   * Commentaires, 10/10/2026). Optionnel : seulement Facebook (en tant que
+   * Page) et Bluesky — Instagram, Threads et YouTube ne l'ouvrent pas aux
+   * applications. `likeId` : l'enregistrement du j'aime à retirer (Bluesky).
+   */
+  likeComment?(connection: ConnectionLike, comment: { externalId: string; likeId?: string | null }, like: boolean): Promise<{ likeId?: string | null }>;
+  /**
+   * Supprime un commentaire reçu sur une publication du compte (page
+   * Commentaires, 10/10/2026). Optionnel : Instagram et Facebook seulement.
+   */
+  deleteComment?(connection: ConnectionLike, comment: { externalId: string }): Promise<void>;
 }
 
 /**

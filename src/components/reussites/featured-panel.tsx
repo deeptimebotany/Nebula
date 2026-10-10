@@ -1,7 +1,7 @@
 "use client";
 
 // Vidéo à la une, côté créateur (Réussites v2, lot C) : accord (retirable à
-// tout moment), tickets gagnés (paliers Confirmé I, Influent I, Référence I et Icône I, coffre), choix de la
+// tout moment), tickets gagnés (paliers Artiste I, Guide I, Pionnier I et Visionnaire I, coffre), choix de la
 // vidéo parmi celles déjà partagées dans la Communauté, et ses mises à la
 // une en cours ou à venir (qu'il peut retirer).
 import Link from "next/link";
@@ -43,7 +43,7 @@ export function FeaturedPanel({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300">Vidéo à la une</p>
           <p className="mt-1 text-sm text-slate-300">
-            3 vidéos à la une de la Communauté, 7 jours chacune. Gagnée aux rangs Confirmé, Influent, Référence et Icône ou, rarement, dans le coffre.
+            3 vidéos à la une de la Communauté, 7 jours chacune. Gagnée aux rangs Artiste, Guide, Pionnier et Visionnaire ou, rarement, dans le coffre.
           </p>
         </div>
         <span className="rounded-full bg-amber-300/15 px-2.5 py-1 text-xs font-semibold tabular-nums text-amber-200">

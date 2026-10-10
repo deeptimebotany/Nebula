@@ -21,6 +21,7 @@ import {
   SocialApiError,
   fetchJson,
   pollUntil,
+  postTitleOf,
   sameHandle,
   waitBudgetMs,
   type PublishCheckpoint,
@@ -386,9 +387,10 @@ export const threadsClient: SocialClient = {
 
   async fetchEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
     const token = await freshToken(connection);
+    // Texte et image du fil commenté (10/10/2026, page Commentaires).
     const list = await graph(`/${connection.externalAccountId}/threads`, token, {
-      params: { fields: "id,permalink", limit: "10" },
-      schema: graphList(z.object({ id: idSchema, permalink: textSchema }))
+      params: { fields: "id,permalink,text,media_type,media_url,thumbnail_url", limit: "10" },
+      schema: graphList(z.object({ id: idSchema, permalink: textSchema, text: textSchema, media_type: textSchema, media_url: textSchema, thumbnail_url: textSchema }))
     });
     const items: EngagementItemInput[] = [];
     for (const t of list.data) {
@@ -407,7 +409,9 @@ export const threadsClient: SocialClient = {
           authorName: r.username ? `@${r.username}` : undefined,
           text: r.text,
           permalink: r.permalink,
-          publishedAt: toDate(r.timestamp)
+          publishedAt: toDate(r.timestamp),
+          postTitle: postTitleOf(t.text),
+          postThumbnailUrl: t.thumbnail_url ?? (t.media_type === "IMAGE" ? t.media_url : undefined)
         });
       }
     }

@@ -3,7 +3,9 @@
 // Actions sur un contenu de la Communauté (30/09/2026) : « Signaler » (motif
 // au choix + texte libre facultatif, une fois par personne et par contenu)
 // et « Supprimer » (son auteur, ou le propriétaire du site, après
-// confirmation). Voir src/lib/community/moderation.ts.
+// confirmation ; depuis le 10/10/2026 aussi l'auteur du sujet ou de la
+// demande d'avis, pour les messages des autres sous son contenu). Voir
+// src/lib/community/moderation.ts.
 import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,13 @@ export interface ContentActionsProps {
   mine: boolean;
   /** Propriétaire du site : peut supprimer tout contenu. */
   canModerate: boolean;
+  /**
+   * La personne connectée a écrit le sujet (ou la demande d'avis) sous
+   * lequel est ce message : elle peut le supprimer (10/10/2026).
+   */
+  containerOwner?: boolean;
+  /** Réponse de premier niveau qui a des réponses (elles partent avec elle). */
+  hasChildren?: boolean;
   /** Déjà signalé par la personne connectée. */
   reported: boolean;
   onReported?: () => void;
@@ -45,18 +54,19 @@ export interface ContentActionsProps {
   className?: string;
 }
 
-export function ContentActions({ type, id, threadId, mine, canModerate, reported, onReported, onDeleted, className }: ContentActionsProps) {
+export function ContentActions({ type, id, threadId, mine, canModerate, containerOwner = false, hasChildren = false, reported, onReported, onDeleted, className }: ContentActionsProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const canDelete = mine || canModerate;
+  const canDelete = mine || canModerate || containerOwner;
 
   async function remove() {
-    const asModerator = !mine && canModerate;
+    const asOwnerOfContainer = !mine && containerOwner;
+    const asModerator = !mine && !containerOwner && canModerate;
     const ok = await confirm({
       title: `Supprimer ${WHAT[type].this} ?`,
-      message: `${asModerator ? WHAT[type].moderator : ""}${type === "THREAD" ? "Ses réponses seront supprimées aussi. " : type === "FEEDBACK" ? "Ses votes, avis et images seront supprimés aussi. " : ""}Action définitive.`,
+      message: `${asModerator ? WHAT[type].moderator : ""}${asOwnerOfContainer ? (type === "REPLY" ? "Vous la retirez de votre sujet ; la personne n'est pas prévenue. " : "Vous le retirez de votre demande ; la personne n'est pas prévenue. ") : ""}${type === "THREAD" ? "Ses réponses seront supprimées aussi. " : type === "FEEDBACK" ? "Ses votes, avis et images seront supprimés aussi. " : type === "REPLY" && hasChildren ? "Les réponses en dessous seront supprimées aussi. " : ""}Action définitive.`,
       confirmLabel: "Supprimer",
       danger: true
     });

@@ -245,7 +245,7 @@ export function ShowcaseSection({
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300">Vos récompenses</p>
           {owned.length === 0 ? (
-            <p className="text-xs text-slate-400">Pas encore de récompense : la première arrive avec 10 publications ou le rang Émergent.</p>
+            <p className="text-xs text-slate-400">Pas encore de récompense : la première arrive avec 10 publications ou le rang Apprenti.</p>
           ) : (
             <ul className="space-y-1.5">
               {owned.map((r) => (

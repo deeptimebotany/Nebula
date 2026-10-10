@@ -36,10 +36,12 @@ import { ContentActions } from "@/components/community/content-actions";
 import { reportKey } from "@/lib/community/report-reasons";
 import { FeedbackTab } from "@/components/community/feedback/feedback-tab";
 import { CommunityHome } from "@/components/community/community-home";
+import { MentionsTab } from "@/components/community/mentions-tab";
+import { MentionTextarea } from "@/components/community/mention-textarea";
 import { MemberAvatar, handleInitial } from "@/components/community/member-avatar";
 
 // 10/10/2026 (demande de Lucas) : « Accueil » façon YouTube, ouvert par défaut.
-type Tab = "accueil" | "forum" | "avis" | "videos";
+type Tab = "accueil" | "forum" | "avis" | "videos" | "mentions";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -122,6 +124,8 @@ export default function CommunityPage() {
   const [posting, setPosting] = useState(false);
   // Avis de la communauté (02/10/2026) : demandes en attente de mon vote.
   const [feedbackCount, setFeedbackCount] = useState(0);
+  // Mentions @pseudo (10/10/2026) : non lues, pastille de l'onglet Mentions.
+  const [mentionsUnread, setMentionsUnread] = useState(0);
 
   // Aucune dépendance : le chargement ne doit se relancer que sur demande
   // (après une publication), jamais parce qu'un contexte a été re-rendu.
@@ -150,12 +154,20 @@ export default function CommunityPage() {
   // une alerte de signalement).
   useEffect(() => {
     const onglet = new URLSearchParams(window.location.search).get("onglet");
-    if (onglet === "videos" || onglet === "avis" || onglet === "forum" || onglet === "accueil") setTab(onglet);
+    if (onglet === "videos" || onglet === "avis" || onglet === "forum" || onglet === "accueil" || onglet === "mentions") setTab(onglet);
   }, []);
   useEffect(() => {
     if (loading || !window.location.hash.startsWith("#video-")) return;
     document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
   }, [loading, tab]);
+
+  // Mentions non lues : pastille de l'onglet Mentions.
+  useEffect(() => {
+    fetch("/api/community/mentions", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => typeof d?.unread === "number" && setMentionsUnread(d.unread))
+      .catch(() => undefined);
+  }, []);
 
   // Demandes d'avis en attente de mon vote : pastille de l'onglet Avis.
   useEffect(() => {
@@ -272,7 +284,8 @@ export default function CommunityPage() {
                 ["accueil", "Accueil", 0],
                 ["forum", "Forum", threads.length],
                 ["avis", "Avis", feedbackCount],
-                ["videos", "Vidéos du jour", videos.length]
+                ["videos", "Vidéos du jour", videos.length],
+                ["mentions", "Mentions", mentionsUnread]
               ] as [Tab, string, number][]
             ).map(([id, label, count]) => (
               <button
@@ -286,7 +299,13 @@ export default function CommunityPage() {
                 )}
               >
                 {label}
-                {!loading && count > 0 && <span className="text-[12px] font-normal tabular-nums text-slate-500">{count}</span>}
+                {id === "mentions"
+                  ? count > 0 && (
+                      <span className="rounded-full bg-aurora-500 px-1.5 text-[11px] font-semibold tabular-nums text-white" aria-label={`${count} non lue${count > 1 ? "s" : ""}`}>
+                        {count}
+                      </span>
+                    )
+                  : !loading && count > 0 && <span className="text-[12px] font-normal tabular-nums text-slate-500">{count}</span>}
               </button>
             ))}
           </div>
@@ -297,7 +316,7 @@ export default function CommunityPage() {
             </GlassCard>
           )}
 
-          {loading && tab !== "avis" && (
+          {loading && tab !== "avis" && tab !== "mentions" && (
             <div className="space-y-3" aria-busy="true">
               <SkeletonCard lines={2} />
               <SkeletonCard lines={2} />
@@ -319,9 +338,9 @@ export default function CommunityPage() {
                       autoFocus
                       className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
                     />
-                    <textarea
+                    <MentionTextarea
                       value={newBody}
-                      onChange={(e) => setNewBody(e.target.value)}
+                      onValueChange={setNewBody}
                       placeholder="Votre message — contexte, ce que vous avez déjà essayé, ce que vous attendez…"
                       rows={4}
                       maxLength={5000}
@@ -413,6 +432,7 @@ export default function CommunityPage() {
           )}
 
           {tab === "avis" && <FeedbackTab viewerId={me?.user?.id ?? null} onCountChange={setFeedbackCount} />}
+          {tab === "mentions" && <MentionsTab onRead={() => setMentionsUnread(0)} />}
 
           {tab === "videos" && <FeaturedStrip />}
           {!loading && tab === "videos" && (

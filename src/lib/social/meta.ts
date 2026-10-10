@@ -10,6 +10,7 @@ import {
   readBody,
   sendRequest,
   pollUntil,
+  postTitleOf,
   sameHandle,
   waitBudgetMs,
   type ConnectionLike,
@@ -416,13 +417,17 @@ function insightValue(res: InsightsResponse | null, name: string): number | null
  * puis leurs commentaires un par un.
  */
 async function fetchInstagramEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
+  // Légende et image (10/10/2026) : le contenu commenté s'affiche à droite
+  // de chaque commentaire, comme dans YouTube Studio.
   const media = await graph("INSTAGRAM", `/${connection.externalAccountId}/media`, connection.accessToken, {
-    params: { fields: "id,permalink", limit: String(ENGAGEMENT_RECENT_POSTS) },
-    schema: graphList(z.object({ id: idSchema, permalink: textSchema }))
+    params: { fields: "id,permalink,caption,media_type,media_url,thumbnail_url", limit: String(ENGAGEMENT_RECENT_POSTS) },
+    schema: graphList(z.object({ id: idSchema, permalink: textSchema, caption: textSchema, media_type: textSchema, media_url: textSchema, thumbnail_url: textSchema }))
   });
 
   const items: EngagementItemInput[] = [];
   for (const m of media.data) {
+    const postTitle = postTitleOf(m.caption);
+    const postThumbnailUrl = m.thumbnail_url ?? (m.media_type === "VIDEO" ? undefined : m.media_url);
     const comments = await graph("INSTAGRAM", `/${m.id}/comments`, connection.accessToken, {
       params: { fields: "id,text,username,timestamp,replies{from,username,timestamp}", limit: String(ENGAGEMENT_COMMENTS_PER_POST) },
       schema: graphList(igCommentSchema)
@@ -440,7 +445,9 @@ async function fetchInstagramEngagement(connection: ConnectionLike): Promise<Eng
         text: c.text,
         permalink: m.permalink,
         publishedAt: toDate(c.timestamp),
-        ownerRepliedAt: earliest(own.map((r) => toDate(r.timestamp) ?? new Date()))
+        ownerRepliedAt: earliest(own.map((r) => toDate(r.timestamp) ?? new Date())),
+        postTitle,
+        postThumbnailUrl
       });
     }
   }
@@ -550,12 +557,13 @@ async function fetchFacebookPostMetrics(connection: ConnectionLike): Promise<Pos
 async function fetchFacebookEngagement(connection: ConnectionLike): Promise<EngagementItemInput[]> {
   const token = await ensureFacebookPageToken(connection);
   const posts = await graph("FACEBOOK", `/${connection.externalAccountId}/posts`, token, {
-    params: { fields: "id,permalink_url", limit: String(ENGAGEMENT_RECENT_POSTS) },
-    schema: graphList(z.object({ id: idSchema, permalink_url: textSchema }))
+    params: { fields: "id,permalink_url,message,full_picture", limit: String(ENGAGEMENT_RECENT_POSTS) },
+    schema: graphList(z.object({ id: idSchema, permalink_url: textSchema, message: textSchema, full_picture: textSchema }))
   });
 
   const items: EngagementItemInput[] = [];
   for (const p of posts.data) {
+    const postTitle = postTitleOf(p.message);
     const comments = await graph("FACEBOOK", `/${p.id}/comments`, token, {
       params: { fields: "id,message,from,created_time,permalink_url,comments.limit(10){from,created_time}", limit: String(ENGAGEMENT_COMMENTS_PER_POST) },
       schema: graphList(fbCommentSchema)
@@ -572,7 +580,9 @@ async function fetchFacebookEngagement(connection: ConnectionLike): Promise<Enga
         text: c.message,
         permalink: c.permalink_url ?? p.permalink_url,
         publishedAt: toDate(c.created_time),
-        ownerRepliedAt: earliest(own.map((r) => toDate(r.created_time) ?? new Date()))
+        ownerRepliedAt: earliest(own.map((r) => toDate(r.created_time) ?? new Date())),
+        postTitle,
+        postThumbnailUrl: p.full_picture
       });
     }
   }
@@ -779,6 +789,13 @@ export const instagramClient: SocialClient = {
     return { externalId: reply.id };
   },
 
+  // Supprimer un commentaire reçu (page Commentaires, 10/10/2026) :
+  // DELETE /{commentaire}, permission instagram_manage_comments (déjà demandée).
+  async deleteComment(connection, comment) {
+    const res = await graph("INSTAGRAM", `/${encodeURIComponent(comment.externalId)}`, connection.accessToken, { method: "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("INSTAGRAM", "Instagram a refusé la suppression du commentaire.", 400);
+  },
+
   fetchEngagement: fetchInstagramEngagement,
   fetchPostMetrics: fetchInstagramPostMetrics,
   listRecentPosts: listInstagramRecentPosts
@@ -971,6 +988,23 @@ export const facebookClient: SocialClient = {
       schema: createdSchema
     });
     return { externalId: reply.id };
+  },
+
+  // J'aime de la Page sur un commentaire (10/10/2026) : POST ou DELETE
+  // /{commentaire}/likes, permission pages_manage_engagement (déjà demandée).
+  async likeComment(connection, comment, like) {
+    const token = await ensureFacebookPageToken(connection);
+    const res = await graph("FACEBOOK", `/${encodeURIComponent(comment.externalId)}/likes`, token, { method: like ? "POST" : "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("FACEBOOK", "Facebook a refusé le j'aime.", 400);
+    return { likeId: null };
+  },
+
+  // Supprimer un commentaire reçu (10/10/2026) : DELETE /{commentaire}, au
+  // nom de la Page (pages_manage_engagement).
+  async deleteComment(connection, comment) {
+    const token = await ensureFacebookPageToken(connection);
+    const res = await graph("FACEBOOK", `/${encodeURIComponent(comment.externalId)}`, token, { method: "DELETE", schema: deletedSchema });
+    if (res.success === false) throw new SocialApiError("FACEBOOK", "Facebook a refusé la suppression du commentaire.", 400);
   },
 
   fetchEngagement: fetchFacebookEngagement,

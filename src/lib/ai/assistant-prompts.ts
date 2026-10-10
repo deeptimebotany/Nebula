@@ -42,7 +42,7 @@ export const APP_MAP =
   ACCOUNT_NAV_ITEMS.filter((i) => i.href !== "/settings").map((i) => i.label).join(", ") +
   ", changer de compte, Paramètres (une fenêtre s'ouvre au milieu de l'écran, avec des onglets : " +
   SETTINGS_TAB_LABELS.join(", ") +
-  "), Apparence (clair ou sombre), se déconnecter ; la petite pastille de la marque, dans le coin de la photo, sert à changer de marque. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils).";
+  "), Apparence (clair ou sombre), se déconnecter ; la petite pastille de la marque, dans le coin de la photo, sert à changer de marque. Les outils existent aussi sans compte sur le site public, page « Outils gratuits » (/outils). Pour écrire à l'équipe Nebula (idée, bug, encouragement, question), c'est gratuit : menu du profil → Soutenir Nebula → « Écrire à l'équipe » ; le message arrive directement à l'équipe, qui répond par e-mail.";
 
 /** Socle commun, volontairement court : le ton, la langue, les garde-fous.
  *  Tout ce qui est spécifique à un onglet est dans son module. */

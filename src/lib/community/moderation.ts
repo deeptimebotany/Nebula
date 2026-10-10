@@ -8,7 +8,11 @@
 //   notification par contenu, remise en haut à chaque nouveau signalement.
 // - Supprimer : l'auteur supprime son contenu ; le propriétaire du site
 //   supprime n'importe quel sujet, réponse ou lien partagé, directement
-//   depuis la Communauté (avec confirmation dans l'interface).
+//   depuis la Communauté (avec confirmation dans l'interface). Depuis le
+//   10/10/2026 (demande de Lucas), l'auteur d'un sujet supprime aussi les
+//   réponses des autres sur son sujet (avec les réponses en dessous, comme
+//   YouTube), et l'auteur d'une demande d'avis les avis écrits dessous ; la
+//   personne n'est pas prévenue.
 // Les signalements d'un contenu supprimé partent avec lui (pas de clé
 // étrangère : trois tables possibles).
 import { prisma } from "@/lib/prisma";
@@ -42,6 +46,8 @@ export interface ReportTarget {
   excerpt: string;
   /** Adresse du contenu dans l'application. */
   href: string;
+  /** Auteur du sujet (réponse) ou de la demande d'avis (avis écrit) qui contient ce message. */
+  containerAuthorId?: string;
 }
 
 /** Contenu signalable, ou null s'il n'existe pas (ou plus). */
@@ -52,9 +58,12 @@ export async function findReportTarget(type: ReportTargetType, id: string): Prom
     return { type, id, authorId: t.authorId, authorName: t.author?.name || "un membre", excerpt: excerpt(`${t.title} — ${t.body}`), href: `/community/${t.id}` };
   }
   if (type === "REPLY") {
-    const r = await prisma.forumReply.findUnique({ where: { id }, select: { id: true, body: true, threadId: true, authorId: true, author: { select: { name: true } } } });
+    const r = await prisma.forumReply.findUnique({
+      where: { id },
+      select: { id: true, body: true, threadId: true, authorId: true, author: { select: { name: true } }, thread: { select: { authorId: true } } }
+    });
     if (!r) return null;
-    return { type, id, authorId: r.authorId, authorName: r.author?.name || "un membre", excerpt: excerpt(r.body), href: `/community/${r.threadId}#reponse-${r.id}` };
+    return { type, id, authorId: r.authorId, authorName: r.author?.name || "un membre", excerpt: excerpt(r.body), href: `/community/${r.threadId}#reponse-${r.id}`, containerAuthorId: r.thread?.authorId };
   }
   if (type === "FEEDBACK") {
     const f = await prisma.feedbackRequest.findUnique({
@@ -66,9 +75,12 @@ export async function findReportTarget(type: ReportTargetType, id: string): Prom
     return { type, id, authorId: f.authorId, authorName: f.author?.name || "un membre", excerpt: excerpt(`${what}${f.context ? ` — ${f.context}` : ""}`), href: `/community?onglet=avis#avis-${f.id}` };
   }
   if (type === "FEEDBACK_COMMENT") {
-    const c = await prisma.feedbackComment.findUnique({ where: { id }, select: { id: true, body: true, requestId: true, authorId: true, author: { select: { name: true } } } });
+    const c = await prisma.feedbackComment.findUnique({
+      where: { id },
+      select: { id: true, body: true, requestId: true, authorId: true, author: { select: { name: true } }, request: { select: { authorId: true } } }
+    });
     if (!c) return null;
-    return { type, id, authorId: c.authorId, authorName: c.author?.name || "un membre", excerpt: excerpt(c.body), href: `/community?onglet=avis#avis-${c.requestId}` };
+    return { type, id, authorId: c.authorId, authorName: c.author?.name || "un membre", excerpt: excerpt(c.body), href: `/community?onglet=avis#avis-${c.requestId}`, containerAuthorId: c.request?.authorId };
   }
   const v = await prisma.sharedVideo.findUnique({ where: { id }, select: { id: true, title: true, note: true, externalUrl: true, authorId: true, author: { select: { name: true } } } });
   if (!v) return null;
@@ -141,8 +153,9 @@ export async function deleteCommunityContent(actor: { userId: string; email: str
     FEEDBACK_COMMENT: "vos propres avis"
   };
   if (!target) return { ok: false, status: 404, error: NOT_FOUND[type] };
-  if (target.authorId !== actor.userId && !canModerate(actor.email)) {
-    return { ok: false, status: 403, error: `Vous ne pouvez supprimer que ${OWN[type]}.` };
+  const ownsContainer = Boolean(target.containerAuthorId) && target.containerAuthorId === actor.userId;
+  if (target.authorId !== actor.userId && !ownsContainer && !canModerate(actor.email)) {
+    return { ok: false, status: 403, error: `Vous ne pouvez supprimer que ${OWN[type]}${type === "REPLY" ? ", ou les réponses sur vos sujets" : type === "FEEDBACK_COMMENT" ? ", ou les avis sous vos demandes" : ""}.` };
   }
   if (type === "FEEDBACK") {
     // Les commentaires partent avec la demande : leurs signalements aussi.
@@ -162,7 +175,9 @@ export async function deleteCommunityContent(actor: { userId: string; email: str
       prisma.forumThread.delete({ where: { id } })
     ]);
   } else if (type === "REPLY") {
-    await prisma.$transaction([prisma.communityReport.deleteMany({ where: { targetType: "REPLY", targetId: id } }), prisma.forumReply.delete({ where: { id } })]);
+    // Les réponses en dessous partent avec elle (cascade), leurs signalements aussi.
+    const childIds = (await prisma.forumReply.findMany({ where: { parentId: id }, select: { id: true } })).map((r: { id: string }) => r.id);
+    await prisma.$transaction([prisma.communityReport.deleteMany({ where: { targetType: "REPLY", targetId: { in: [id, ...childIds] } } }), prisma.forumReply.delete({ where: { id } })]);
   } else {
     await prisma.$transaction([prisma.communityReport.deleteMany({ where: { targetType: "VIDEO", targetId: id } }), prisma.sharedVideo.delete({ where: { id } })]);
   }

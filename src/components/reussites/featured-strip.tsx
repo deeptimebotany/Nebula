@@ -2,7 +2,7 @@
 
 // « À la une » de la Communauté (Réussites v2, lot C) : 3 vidéos déjà
 // partagées par des créateurs qui l'acceptent, 7 jours chacune. Gagnées
-// (rangs Confirmé à Icône, coffre), choisies par Nebula, ou « sélection du
+// (rangs Artiste à Visionnaire, coffre), choisies par Nebula, ou « sélection du
 // moment » (vidéos partagées récemment) quand une place est libre. Un lien
 // vers la vidéo sur son réseau, jamais une copie. Le créateur ou le
 // propriétaire du site peut la retirer.

@@ -21,6 +21,7 @@ import {
   checkShape,
   downloadMedia,
   parseRetryAfter,
+  postTitleOf,
   readBody,
   sendRequest,
   withReadRetries,
@@ -407,6 +408,37 @@ export const blueskyClient: SocialClient = {
     return { externalId: created.uri };
   },
 
+  // J'aime du compte sur un commentaire (page Commentaires, 10/10/2026) :
+  // enregistrement app.bsky.feed.like (sujet : le commentaire), retiré avec
+  // com.atproto.repo.deleteRecord. Rien de plus que le mot de passe
+  // d'application déjà donné.
+  async likeComment(connection: BlueskyConnection, comment: { externalId: string; likeId?: string | null }, like: boolean) {
+    const token = await accessTokenFor(connection);
+    if (!like) {
+      const match = comment.likeId ? /^at:\/\/([^/]+)\/app\.bsky\.feed\.like\/([^/]+)$/.exec(comment.likeId) : null;
+      if (match && match[1] === connection.externalAccountId) {
+        await xrpc(pdsOf(connection), "com.atproto.repo.deleteRecord", { token, body: { repo: match[1], collection: "app.bsky.feed.like", rkey: match[2] } });
+      }
+      return { likeId: null };
+    }
+    const { posts } = await xrpc(APPVIEW, "app.bsky.feed.getPosts", {
+      query: { uris: [comment.externalId] },
+      schema: z.object({ posts: z.array(z.object({ uri: z.string().min(1), cid: z.string().min(1) })) })
+    });
+    const target = posts[0];
+    if (!target) throw new SocialApiError("BLUESKY", "Commentaire introuvable : il a peut-être été supprimé.", 404);
+    const created = await xrpc(pdsOf(connection), "com.atproto.repo.createRecord", {
+      token,
+      body: {
+        repo: connection.externalAccountId,
+        collection: "app.bsky.feed.like",
+        record: { $type: "app.bsky.feed.like", subject: { uri: target.uri, cid: target.cid }, createdAt: new Date().toISOString() }
+      },
+      schema: z.object({ uri: z.string().min(1), cid: z.string().min(1) })
+    });
+    return { likeId: created.uri };
+  },
+
   async postComment(connection: BlueskyConnection, externalPostId: string, comment: string) {
     const token = await accessTokenFor(connection);
     const { posts } = await xrpc(APPVIEW, "app.bsky.feed.getPosts", {
@@ -501,7 +533,9 @@ export const blueskyClient: SocialClient = {
           authorAvatarUrl: r.author.avatar,
           text: r.record.text,
           permalink: postUrl(r.author.handle, r.author.did, r.uri),
-          publishedAt: toDate(r.record.createdAt)
+          publishedAt: toDate(r.record.createdAt),
+          postTitle: postTitleOf(post.record.text),
+          postThumbnailUrl: post.embed?.images?.[0]?.thumb ?? post.embed?.thumbnail
         });
       }
     }

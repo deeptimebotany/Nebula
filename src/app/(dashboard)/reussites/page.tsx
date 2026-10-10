@@ -546,7 +546,7 @@ function RecordCardDialog({ open, onClose, tierKey, community }: { open: boolean
 }
 
 // Objectifs « Pour bien démarrer » : les premiers pas, montrés en tête de
-// l'album tant qu'ils ne sont pas tous faits (rangs Lancement et Émergent I).
+// l'album tant qu'ils ne sont pas tous faits (rangs Débutant et Apprenti I).
 const STARTER_SERIES = ["first-post", "bio-live", "first-thread", "posts", "envol"];
 
 /** Lit ?focus=… (dans une frontière Suspense, exigée par useSearchParams). */
@@ -818,9 +818,19 @@ export default function ReussitesPage() {
       ) : (
         <>
           {/* En-tête d'une ligne, toujours visible (lot U3) : emblème, rang, progression. */}
-          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden">
+          {/* Survol du rang (10/10/2026, retour de Lucas) : plus d'agrandissement,
+              qui faisait déborder l'anneau et le coupait en haut (bloc
+              overflow-hidden) — l'anneau s'éclaire seulement, avec un peu de
+              marge autour. */}
+          <section id="reussites-level" aria-label="Rang de créateur" className="reussites-banner relative scroll-mt-24 overflow-hidden py-1.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <button type="button" onClick={() => setLevelsOpen(true)} className="shrink-0 rounded-full transition hover:scale-[1.04]" aria-label="Voir tous les rangs">
+              <button
+                type="button"
+                onClick={() => setLevelsOpen(true)}
+                className="shrink-0 rounded-full transition hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aurora-400/60"
+                aria-label="Voir tous les rangs"
+                data-testid="rank-ring-button"
+              >
                 <LevelRing level={level.level} pct={level.pct} size={52} stroke={5} animated />
               </button>
               <div className="min-w-0 flex-1">
@@ -1065,7 +1075,7 @@ export default function ReussitesPage() {
                   <p className="text-[11px] text-slate-500">
                     Seules les publications vraiment en ligne comptent (pas les brouillons ni les échecs), les réponses trop courtes du forum ne comptent pas, et les chiffres
                     d&apos;audience viennent de vos comptes connectés (API officielles des réseaux, relevées chaque jour). Records de qualité : publications en ligne
-                    depuis 7 jours au moins, comparées à vos propres chiffres ; ils comptent pour les rangs à partir de Confirmé.
+                    depuis 7 jours au moins, comparées à vos propres chiffres ; ils comptent pour les rangs à partir d&apos;Artiste.
                   </p>
                 </>
               )}

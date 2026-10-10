@@ -44,10 +44,10 @@ describe("constellation", () => {
 });
 
 describe("condition de variété des rangs", () => {
-  it("compétences à partir de Régulier, records de qualité à partir de Confirmé", () => {
+  it("compétences à partir de Artisan, records de qualité à partir de Artiste", () => {
     expect(maxStepAllowed(levels())).toBe(6);
     expect(maxStepAllowed(levels({ regularite: 2, formats: 2 }))).toBe(9);
-    // Confirmé : 3 compétences au niveau 3 ET 1 record de qualité (v3).
+    // Artiste : 3 compétences au niveau 3 ET 1 record de qualité (v3).
     expect(maxStepAllowed(levels({ regularite: 3, formats: 3, portee: 3 }))).toBe(9);
     expect(maxStepAllowed(levels({ regularite: 3, formats: 3, portee: 3 }), 1)).toBe(12);
     const four = levels({ regularite: 4, formats: 4, portee: 4, communaute: 4 });
@@ -60,28 +60,28 @@ describe("condition de variété des rangs", () => {
 
   it("rang en attente : barre pleine et ce qui manque, compétences les plus proches d'abord", () => {
     const r = gatedRank(2000, levels({ regularite: 2, formats: 1 }));
-    expect(r).toMatchObject({ level: 6, name: "Émergent III", pct: 100, nextName: "Régulier I" });
-    expect(r.pending).toEqual({ step: 7, name: "Régulier I", condition: "2 compétences au niveau 2", missing: ["1 compétence de plus au niveau 2", "Formats vidéo (1/2)"] });
+    expect(r).toMatchObject({ level: 6, name: "Apprenti III", pct: 100, nextName: "Artisan I" });
+    expect(r.pending).toEqual({ step: 7, name: "Artisan I", condition: "2 compétences au niveau 2", missing: ["1 compétence de plus au niveau 2", "Formats vidéo (1/2)"] });
     expect(gatedRank(1000, levels()).pending).toBeNull(); // XP insuffisants : rien en attente
   });
 
   it("rang en attente faute de records de qualité : ce qui manque est dit", () => {
     const r = gatedRank(4200, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 0);
-    expect(r).toMatchObject({ level: 9, name: "Régulier III", pct: 100 });
-    expect(r.pending).toEqual({ step: 10, name: "Confirmé I", condition: "3 compétences au niveau 3 et 1 record de qualité", missing: ["1 record de qualité de plus (0/1), dans l'album « Qualité »"] });
-    expect(gatedRank(4200, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 1)).toMatchObject({ level: 10, name: "Confirmé I", pending: null });
+    expect(r).toMatchObject({ level: 9, name: "Artisan III", pct: 100 });
+    expect(r.pending).toEqual({ step: 10, name: "Artiste I", condition: "3 compétences au niveau 3 et 1 record de qualité", missing: ["1 record de qualité de plus (0/1), dans l'album « Qualité »"] });
+    expect(gatedRank(4200, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 1)).toMatchObject({ level: 10, name: "Artiste I", pending: null });
   });
 
   it("un rang déjà atteint n'est jamais retiré, mais jamais au-delà des XP", () => {
-    expect(gatedRank(2600, levels(), 8)).toMatchObject({ level: 8, name: "Régulier II" });
+    expect(gatedRank(2600, levels(), 8)).toMatchObject({ level: 8, name: "Artisan II" });
     expect(gatedRank(2600, levels(), 12).level).toBe(8);
     expect(gatedRank(2600, levels({ regularite: 2, portee: 2 }), 1)).toMatchObject({ level: 8, pending: null });
-    // Palier Confirmé gagné avant la v3 (sans record de qualité) : gardé.
-    expect(gatedRank(5200, levels({ regularite: 3, formats: 3, portee: 3 }), 11, 0)).toMatchObject({ level: 11, name: "Confirmé II" });
+    // Palier Artiste gagné avant la v3 (sans record de qualité) : gardé.
+    expect(gatedRank(5200, levels({ regularite: 3, formats: 3, portee: 3 }), 11, 0)).toMatchObject({ level: 11, name: "Artiste II" });
   });
 
   it("rankAt : progression dans le palier enregistré", () => {
-    expect(rankAt(1000, 5)).toMatchObject({ name: "Émergent II", pct: 25, pending: null });
+    expect(rankAt(1000, 5)).toMatchObject({ name: "Apprenti II", pct: 25, pending: null });
     expect(missingForRank(3, levels({ regularite: 2, formats: 2 }))).toEqual([]);
   });
 

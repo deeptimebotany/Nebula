@@ -9,8 +9,8 @@
 // Les étoiles sont enregistrées comme des accomplissements (AchievementUnlock,
 // clé « star-<compétence>-<n> ») : ne jamais renommer une clé.
 //
-// Conditions des rangs : pour entrer dans les rangs Régulier et au-delà, il
-// faut aussi plusieurs compétences au bon niveau et, dès Confirmé, des
+// Conditions des rangs : pour entrer dans les rangs Artisan et au-delà, il
+// faut aussi plusieurs compétences au bon niveau et, dès Artiste, des
 // records de qualité (v3). Elles ne s'appliquent qu'aux passages à venir :
 // un rang déjà atteint n'est jamais retiré.
 import { MAX_STEP, RANKS, STEPS, findTier, rankAt, rankFor, stepDef, type LevelProgress, type PendingRank } from "./catalog";

@@ -11,19 +11,19 @@ describe("rangs à paliers", () => {
   it("8 rangs × 3 paliers, seuils croissants, noms de parcours de créateur", () => {
     expect(STEPS).toHaveLength(24);
     for (let i = 1; i < STEPS.length; i++) expect(STEPS[i].minXp).toBeGreaterThan(STEPS[i - 1].minXp);
-    expect(Array.from(new Set(STEPS.map((s) => s.rankName)))).toEqual(["Lancement", "Émergent", "Régulier", "Confirmé", "Établi", "Influent", "Référence", "Icône"]);
-    expect(STEPS.map((s) => s.name).slice(0, 4)).toEqual(["Lancement I", "Lancement II", "Lancement III", "Émergent I"]);
-    expect(STEPS[23].name).toBe("Icône III");
+    expect(Array.from(new Set(STEPS.map((s) => s.rankName)))).toEqual(["Débutant", "Apprenti", "Artisan", "Artiste", "Auteur", "Guide", "Pionnier", "Visionnaire"]);
+    expect(STEPS.map((s) => s.name).slice(0, 4)).toEqual(["Débutant I", "Débutant II", "Débutant III", "Apprenti I"]);
+    expect(STEPS[23].name).toBe("Visionnaire III");
     for (const s of STEPS) expect(s.name).not.toMatch(/Étincelle|Comète|Étoile|Constellation|Nébuleuse/);
   });
 
   it("rang, palier et progression dans le palier", () => {
-    expect(rankFor(0)).toMatchObject({ level: 1, name: "Lancement I", rank: 1, tier: 1, pct: 0, nextName: "Lancement II" });
+    expect(rankFor(0)).toMatchObject({ level: 1, name: "Débutant I", rank: 1, tier: 1, pct: 0, nextName: "Débutant II" });
     // Seuils relevés le 10/10/2026 (rangs trop rapides au début).
-    expect(rankFor(520)).toMatchObject({ level: 3, name: "Lancement III", rankId: "lancement", levelXp: 350, nextXp: 600, pct: 68 });
-    expect(rankFor(1000)).toMatchObject({ level: 5, name: "Émergent II", rankId: "emergent", levelXp: 900, nextXp: 1300 });
-    expect(rankFor(11000)).toMatchObject({ level: 15, name: "Établi III", nextXp: 13500, nextName: "Influent I" });
-    expect(rankFor(60000)).toMatchObject({ level: 24, name: "Icône III", nextXp: null, pct: 100 });
+    expect(rankFor(520)).toMatchObject({ level: 3, name: "Débutant III", rankId: "lancement", levelXp: 350, nextXp: 600, pct: 68 });
+    expect(rankFor(1000)).toMatchObject({ level: 5, name: "Apprenti II", rankId: "emergent", levelXp: 900, nextXp: 1300 });
+    expect(rankFor(11000)).toMatchObject({ level: 15, name: "Auteur III", nextXp: 13500, nextName: "Guide I" });
+    expect(rankFor(60000)).toMatchObject({ level: 24, name: "Visionnaire III", nextXp: null, pct: 100 });
     expect(rankFor(-5).xp).toBe(0);
   });
 
@@ -38,9 +38,9 @@ describe("rangs à paliers", () => {
       [24000, 28500, 33500],
       [39000, 45000, 52000]
     ]);
-    expect(rankFor(600).name).toBe("Émergent I");
-    expect(rankFor(5000).name).toBe("Confirmé II");
-    expect(rankFor(7500).name).toBe("Établi I");
+    expect(rankFor(600).name).toBe("Apprenti I");
+    expect(rankFor(5000).name).toBe("Artiste II");
+    expect(rankFor(7500).name).toBe("Auteur I");
     // Les récompenses restent accordées par l'ancienne clé ET par le nouveau palier.
     const byKey = (k: string) => REWARDS.find((r) => r.key === k)!.grantedBy;
     expect(byKey("ach:ring-argent")).toEqual(expect.arrayContaining([levelKey(5), rankKey(7)]));

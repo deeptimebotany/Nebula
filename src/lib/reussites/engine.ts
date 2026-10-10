@@ -26,12 +26,12 @@
 // Lot C : défi collectif du mois (collective.ts), badges de
 // saison (seasons.ts), Premier décollage (launch.ts), badge Explorateur,
 // ticket « vidéo à la une » du rang Constellation I (featured.ts, v2).
-// Réussites v3 (02/10/2026) : 8 rangs de créateur (Lancement → Icône, 24
+// Réussites v3 (02/10/2026) : 8 rangs de créateur (Débutant → Visionnaire, 24
 // paliers), records de qualité mesurés par quality.ts (vues comparées à la
 // médiane du compte, engagement au-dessus des repères, rétention YouTube,
 // croissance nette, avis reçus et jugés utiles), avec leur preuve gardée
 // dans AchievementUnlock.detail ; tickets « à la une » aux paliers
-// Confirmé I, Influent I, Référence I et Icône I.
+// Artiste I, Guide I, Pionnier I et Visionnaire I.
 import { prisma } from "@/lib/prisma";
 import { ownedBy } from "@/lib/brand-access";
 import {
@@ -515,8 +515,8 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     if ((firstRun || catchUp) && (await tryCreateUnlock(userId, MIGRATION_KEY, 0, true))) have.add(MIGRATION_KEY);
 
     // XP et rang (une ligne par palier atteint : jamais de retour en arrière).
-    // Conditions : à partir du rang Régulier, des compétences variées ; à
-    // partir de Confirmé, des records de qualité (v3). Un palier déjà
+    // Conditions : à partir du rang Artisan, des compétences variées ; à
+    // partir d'Artiste, des records de qualité (v3). Un palier déjà
     // atteint (ou mérité avant) n'est jamais retiré.
     const xp = await computeXp(userId);
     const reached = recalc
@@ -546,8 +546,8 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     }
     if ((firstRun || recalc) && !have.has(XP_RECALC_KEY) && (await tryCreateUnlock(userId, XP_RECALC_KEY, 0, true))) have.add(XP_RECALC_KEY);
 
-    // Tickets « vidéo à la une » des paliers Confirmé I, Influent I,
-    // Référence I et Icône I (une seule fois chacun).
+    // Tickets « vidéo à la une » des paliers Artiste I, Guide I,
+    // Pionnier I et Visionnaire I (une seule fois chacun).
     for (const step of FEATURE_TICKET_STEPS) if (level.level >= step) await grantRankTicket(userId, step);
 
     // Anneaux d'avatar gagnés : activés tout de suite (désactivables dans Paramètres).
@@ -722,7 +722,7 @@ async function sendNotifications(
   }
 
   // Rang en attente : les XP sont là, il manque des compétences (ou, à
-  // partir de Confirmé, des records de qualité).
+  // partir d'Artiste, des records de qualité).
   if (level.pending && !ctx.catchUp) {
     const onlyRecords = level.pending.missing.every((m) => m.includes("record"));
     await notifyOnce(userId, {

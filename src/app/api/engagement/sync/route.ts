@@ -67,7 +67,10 @@ export async function POST(req: NextRequest) {
             text: item.text,
             permalink: item.permalink,
             publishedAt: item.publishedAt,
-            ownerRepliedAt: item.ownerRepliedAt ?? null
+            ownerRepliedAt: item.ownerRepliedAt ?? null,
+            // Contenu commenté (10/10/2026) : titre et miniature.
+            postTitle: item.postTitle ?? null,
+            postThumbnailUrl: item.postThumbnailUrl ?? null
           },
           // Un commentaire déjà connu ne redevient jamais "non lu" au fil des
           // resynchronisations — seul son contenu peut évoluer (édité côté
@@ -79,7 +82,10 @@ export async function POST(req: NextRequest) {
             authorName: item.authorName,
             authorAvatarUrl: item.authorAvatarUrl,
             permalink: item.permalink,
-            ...(item.ownerRepliedAt ? { ownerRepliedAt: item.ownerRepliedAt } : {})
+            ...(item.ownerRepliedAt ? { ownerRepliedAt: item.ownerRepliedAt } : {}),
+            // Les liens d'image des réseaux expirent : rafraîchis à chaque synchro.
+            ...(item.postTitle ? { postTitle: item.postTitle } : {}),
+            ...(item.postThumbnailUrl ? { postThumbnailUrl: item.postThumbnailUrl } : {})
           }
         });
       }

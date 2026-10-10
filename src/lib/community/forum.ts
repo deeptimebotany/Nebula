@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications";
 import { AUTHOR_SELECT, publicAuthor, type PublicAuthor } from "@/lib/reussites/public-author";
 import { displayHandle } from "./handle-rules";
+import { recordMentions } from "./mentions";
 
 export const FORUM_REPLY_MAX = 3000;
 export const LIKE = "like";
@@ -148,6 +149,15 @@ export async function postReply(userId: string, threadId: string, rawBody: strin
       dedupeKey: parent ? `forum-reply:${parent.id}:${recipient}` : `forum-thread:${threadId}`
     }).catch(() => undefined);
   }
+  // Mentions @pseudo (10/10/2026) : la personne à qui l'on répond est déjà prévenue.
+  await recordMentions({
+    authorId: userId,
+    text: body,
+    place: { replyId: created.id },
+    href: `/community/${threadId}#reponse-${created.id}`,
+    where: `Dans « ${thread.title} »`,
+    alreadyNotified: recipient !== userId ? [recipient] : []
+  });
 
   return {
     ok: true,

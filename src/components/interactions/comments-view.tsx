@@ -4,22 +4,24 @@
 // réunis dans une seule page « Interactions », /interactions, demande de
 // Lucas ; ce composant était la page /comments, qui redirige ici).
 //
-// Onglet COMMENTAIRES — la modération du TEXTE reçu sur vos publications,
-// tous comptes de la marque confondus (façon boîte de réception unifiée),
-// filtrable par compte et par état (non lus), regroupable par publication
-// pour lire un fil d'un coup. Les CHIFFRES (likes, partages…) sont dans
-// l'onglet Engagements (/engagements) : les deux notions étaient mélangées
-// dans l'ancien « Interactions », scindé depuis.
+// Façon YouTube Studio (10/10/2026, demande de Lucas) :
+//  - une barre de tri et de filtres sur une ligne : plus récents ou plus
+//    anciens, compte, état de la réponse (sans réponse / avec réponse),
+//    lecture (non lus), recherche, et le contenu choisi ;
+//  - un tableau : le commentaire à gauche (photo, nom, date, texte, puis
+//    Répondre, J'aime, ⋮), le contenu commenté à droite (miniature et
+//    titre ; un clic n'affiche que les commentaires de ce contenu) ;
+//  - J'aime : Facebook et Bluesky ; Supprimer (menu ⋮, avec confirmation) :
+//    Instagram et Facebook — ce que les réseaux ouvrent aux applications
+//    (voir src/lib/social/comment-actions-support.ts).
 //
 // ?connectionId=… (menu déroulant d'un compte sur la page Comptes, ou
-// ancien lien /interactions redirigé) présélectionne simplement le filtre de
-// compte — la page reste la même.
-//
-// ?post=… (bouton « Commentaires » d'une ligne de la page Publications,
-// 09/10/2026) : seulement les commentaires de cette publication, sur tous
-// ses réseaux ; une pastille « Publication : … ✕ » retire le filtre.
+// ancien lien /interactions redirigé) présélectionne le filtre de compte.
+// ?post=… (bouton « Commentaires » d'une ligne de la page Publications) :
+// seulement les commentaires de cette publication, sur tous ses réseaux ;
+// une pastille « Publication : … ✕ » retire le filtre.
 
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,16 +29,19 @@ import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NetworkBadge, NetworkTile } from "@/components/ui/network-badge";
+import { Input, Select } from "@/components/ui/input";
+import { NetworkLogo } from "@/components/ui/network-badge";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { useBrand } from "@/components/brand-context";
 import { useToast } from "@/components/dashboard/toast";
+import { useConfirm } from "@/components/dashboard/confirm";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
-import { IconAvatar, IconMessage, IconRefresh } from "@/components/dashboard/icons";
+import { IconAvatar, IconClose, IconDots, IconMessage, IconRefresh, IconSearch, IconThumbUp } from "@/components/dashboard/icons";
 import { NETWORK_META, commentNetworks, networksSentence, type Network } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 import { CommentReplyBox } from "@/components/comments/comment-reply-box";
 import type { CommentReplySupport } from "@/lib/social/comment-reply-support";
+import type { CommentActionSupport } from "@/lib/social/comment-actions-support";
 import { AiIcon } from "@/components/ai/ai-icon";
 import { commentOfPost, type TargetRef } from "@/lib/posts/comment-match";
 
@@ -54,6 +59,11 @@ interface CommentRow {
   read: boolean;
   /** Réponse du compte repérée à la synchro (Réussites, lot B). */
   ownerRepliedAt?: string | null;
+  /** J'aime du compte sur ce commentaire (10/10/2026). */
+  ownerLikedAt?: string | null;
+  /** Contenu commenté (10/10/2026). */
+  postTitle?: string | null;
+  postThumbnailUrl?: string | null;
 }
 
 interface ConnectionInfo {
@@ -65,10 +75,13 @@ interface ConnectionInfo {
   supportsEngagement: boolean;
   /** Répondre depuis Nebula (01/10/2026) : possible, ou pourquoi pas. */
   reply?: CommentReplySupport;
+  /** J'aime et suppression depuis Nebula (10/10/2026). */
+  actions?: CommentActionSupport;
 }
 
+type Sort = "recent" | "oldest";
+type ReplyState = "all" | "unanswered" | "answered";
 type ReadFilter = "all" | "unread";
-type Grouping = "date" | "post";
 
 function relativeDate(iso: string | null): string {
   if (!iso) return "";
@@ -78,8 +91,30 @@ function relativeDate(iso: string | null): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `il y a ${hours} h`;
   const days = Math.round(hours / 24);
-  if (days < 7) return `il y a ${days} j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
+  if (days < 30) return `il y a ${days} j`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `il y a ${months} mois`;
+  const years = Math.round(months / 12);
+  return `il y a ${years} an${years > 1 ? "s" : ""}`;
+}
+
+/** Clé d'un contenu commenté (compte + publication). */
+const contentKey = (it: Pick<CommentRow, "connectionId" | "postExternalId" | "postPermalink">) => `${it.connectionId}|${it.postExternalId ?? it.postPermalink ?? ""}`;
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
+  );
+}
+
+function IconFilterLines({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className={className} aria-hidden="true">
+      <path d="M4 7h16M7 12h10M10 17h4" />
+    </svg>
+  );
 }
 
 export function CommentsView({ tabs }: { tabs?: ReactNode }) {
@@ -93,6 +128,7 @@ export function CommentsView({ tabs }: { tabs?: ReactNode }) {
 function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
   const { activeBrand } = useBrand();
   const toast = useToast();
+  const confirm = useConfirm();
   const assistant = useAiAssistant();
   const params = useSearchParams();
   const preselected = params.get("connectionId");
@@ -123,7 +159,11 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
   const [items, setItems] = useState<CommentRow[] | null>(null);
   const [accountFilter, setAccountFilter] = useState<string | "all">(preselected ?? "all");
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
-  const [grouping, setGrouping] = useState<Grouping>("date");
+  const [replyState, setReplyState] = useState<ReplyState>("all");
+  const [sort, setSort] = useState<Sort>("recent");
+  const [query, setQuery] = useState("");
+  // Contenu choisi d'un clic sur sa miniature (colonne de droite).
+  const [contentFilter, setContentFilter] = useState<{ key: string; title: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncNotes, setSyncNotes] = useState<string[]>([]);
   // La marque a-t-elle des comptes, même sans commentaires lisibles ?
@@ -164,27 +204,32 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
 
   const filtered = useMemo(() => {
     if (!items) return [];
-    return items.filter(
-      (it) => (accountFilter === "all" || it.connectionId === accountFilter) && (readFilter === "all" || !it.read) && (!postFilter || commentOfPost(it, postFilter.targets))
+    const q = query.trim().toLowerCase();
+    const rows = items.filter(
+      (it) =>
+        (accountFilter === "all" || it.connectionId === accountFilter) &&
+        (readFilter === "all" || !it.read) &&
+        (replyState === "all" || (replyState === "unanswered" ? !it.ownerRepliedAt : Boolean(it.ownerRepliedAt))) &&
+        (!contentFilter || contentKey(it) === contentFilter.key) &&
+        (!postFilter || commentOfPost(it, postFilter.targets)) &&
+        (!q || [it.text, it.authorName, it.postTitle].some((v) => v?.toLowerCase().includes(q)))
     );
-  }, [items, accountFilter, readFilter, postFilter]);
-
-  // Regroupement par publication : clé = lien de la publication (ou son
-  // identifiant), tri par commentaire le plus récent.
-  const groups = useMemo(() => {
-    if (grouping !== "post") return null;
-    const map = new Map<string, { key: string; permalink: string | null; network: Network; rows: CommentRow[] }>();
-    for (const it of filtered) {
-      const key = it.postPermalink || it.postExternalId || `${it.connectionId}:sans-publication`;
-      const g = map.get(key) ?? { key, permalink: it.postPermalink, network: it.network, rows: [] };
-      g.rows.push(it);
-      map.set(key, g);
-    }
-    return [...map.values()];
-  }, [filtered, grouping]);
+    const time = (it: CommentRow) => (it.publishedAt ? new Date(it.publishedAt).getTime() : 0);
+    return rows.sort((a, b) => (sort === "recent" ? time(b) - time(a) : time(a) - time(b)));
+  }, [items, accountFilter, readFilter, replyState, contentFilter, postFilter, query, sort]);
 
   const unreadCount = items?.filter((it) => !it.read && (accountFilter === "all" || it.connectionId === accountFilter)).length ?? 0;
   const syncableCount = (connections ?? []).length;
+  const filtersActive = accountFilter !== "all" || readFilter !== "all" || replyState !== "all" || Boolean(contentFilter) || query.trim() !== "" || sort !== "recent";
+
+  function resetFilters() {
+    setAccountFilter("all");
+    setReadFilter("all");
+    setReplyState("all");
+    setContentFilter(null);
+    setQuery("");
+    setSort("recent");
+  }
 
   async function onSync() {
     if (!activeBrand) return;
@@ -231,6 +276,39 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
     setItems((prev) => (prev ? prev.map((it) => (it.id === id ? { ...it, read: true, ownerRepliedAt: it.ownerRepliedAt ?? repliedAt } : it)) : prev));
   }
 
+  // J'aime du compte (Facebook, Bluesky) : affiché tout de suite, annulé si le réseau refuse.
+  async function toggleLike(it: CommentRow) {
+    const like = !it.ownerLikedAt;
+    const label = NETWORK_META[it.network]?.label ?? it.network;
+    setItems((prev) => (prev ? prev.map((x) => (x.id === it.id ? { ...x, ownerLikedAt: like ? new Date().toISOString() : null, read: true } : x)) : prev));
+    const res = await fetch(`/api/engagement/${it.id}/like`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ like }) }).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as { error?: string } | null;
+    if (!res?.ok) {
+      setItems((prev) => (prev ? prev.map((x) => (x.id === it.id ? { ...x, ownerLikedAt: it.ownerLikedAt ?? null } : x)) : prev));
+      toast.error(data?.error ?? `${label} n'a pas pris en compte le j'aime : réessayez.`);
+    }
+  }
+
+  // Suppression (Instagram, Facebook) : confirmée, définitive sur le réseau.
+  async function remove(it: CommentRow) {
+    const label = NETWORK_META[it.network]?.label ?? it.network;
+    const ok = await confirm({
+      title: `Supprimer ce commentaire sur ${label} ?`,
+      message: `Le commentaire de ${it.authorName || "cette personne"} sera effacé de ${label} pour tout le monde, définitivement. La personne n'est pas prévenue.`,
+      confirmLabel: "Supprimer",
+      danger: true
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/engagement/${it.id}`, { method: "DELETE" }).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as { error?: string } | null;
+    if (!res?.ok) {
+      toast.error(data?.error ?? `Suppression impossible pour le moment : réessayez, ou supprimez-le sur ${label}.`);
+      return;
+    }
+    setItems((prev) => (prev ? prev.filter((x) => x.id !== it.id) : prev));
+    toast.success(`Commentaire supprimé de ${label}.`);
+  }
+
   const loading = connections === null || items === null;
 
   if (!loading && connections.length === 0) {
@@ -249,7 +327,7 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         icon={<IconMessage className="h-5 w-5" />}
         title="Interactions"
@@ -275,49 +353,63 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
       />
       {tabs}
 
-      {/* Filtres : publication (depuis la page Publications), compte, état, regroupement */}
+      {/* Tri et filtres sur une ligne, comme YouTube Studio. */}
       {!loading && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 border-b border-[color:var(--nb-sep)] pb-3 lg:flex lg:flex-wrap lg:items-center" role="group" aria-label="Trier et filtrer les commentaires" data-testid="comments-filters">
+          <span className="hidden text-slate-400 lg:block" aria-hidden="true">
+            <IconFilterLines className="h-5 w-5" />
+          </span>
           {postFilter && (
-            <>
-              <FilterChip active onClick={() => router.replace("/interactions")}>
-                <span className="max-w-[220px] truncate">Publication : « {postFilter.title} »</span>
-                <span aria-hidden="true">✕</span>
-                <span className="sr-only">Retirer le filtre de publication</span>
-              </FilterChip>
-              <span className="hidden h-5 w-px bg-white/10 sm:block" aria-hidden="true" />
-            </>
+            <FilterChip active onClick={() => router.replace("/interactions")} className="col-span-2 justify-self-start">
+              <span className="max-w-[220px] truncate">Publication : « {postFilter.title} »</span>
+              <span aria-hidden="true">✕</span>
+              <span className="sr-only">Retirer le filtre de publication</span>
+            </FilterChip>
           )}
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par compte">
-            <FilterChip active={accountFilter === "all"} onClick={() => setAccountFilter("all")}>
-              Tous les comptes
+          {contentFilter && (
+            <FilterChip active onClick={() => setContentFilter(null)} className="col-span-2 justify-self-start">
+              <span className="max-w-[220px] truncate">Contenu : « {contentFilter.title} »</span>
+              <span aria-hidden="true">✕</span>
+              <span className="sr-only">Retirer le filtre de contenu</span>
             </FilterChip>
+          )}
+          <Select aria-label="Trier" value={sort} onChange={(e) => setSort(e.target.value as Sort)} wrapperClassName="lg:w-44">
+            <option value="recent">Les plus récents</option>
+            <option value="oldest">Les plus anciens</option>
+          </Select>
+          <Select aria-label="Filtrer par compte" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)} wrapperClassName="lg:w-52">
+            <option value="all">Tous les comptes</option>
             {connections.map((c) => (
-              <FilterChip key={c.id} active={accountFilter === c.id} onClick={() => setAccountFilter(c.id)}>
-                {/* Filtre de compte : logo officiel + nom, sans pastille dans la pastille. */}
-                <NetworkTile network={c.network} size={18} />
-                <span className="max-w-[140px] truncate" title={NETWORK_META[c.network].label}>{c.displayName}</span>
-              </FilterChip>
+              <option key={c.id} value={c.id}>
+                {NETWORK_META[c.network].label} · {c.displayName}
+              </option>
             ))}
+          </Select>
+          <Select aria-label="État de la réponse" value={replyState} onChange={(e) => setReplyState(e.target.value as ReplyState)} wrapperClassName="lg:w-52">
+            <option value="all">Réponse : tous</option>
+            <option value="unanswered">Sans réponse</option>
+            <option value="answered">Avec réponse</option>
+          </Select>
+          <Select aria-label="Filtrer par lecture" value={readFilter} onChange={(e) => setReadFilter(e.target.value as ReadFilter)} wrapperClassName="lg:w-40">
+            <option value="all">Lus et non lus</option>
+            <option value="unread">Non lus{unreadCount > 0 ? ` (${unreadCount})` : ""}</option>
+          </Select>
+          <div className="relative col-span-2 lg:ml-auto lg:w-64">
+            <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input aria-label="Rechercher dans les commentaires" placeholder="Rechercher" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
           </div>
-          <span className="hidden h-5 w-px bg-white/10 sm:block" aria-hidden="true" />
-          <div className="flex gap-1.5" role="group" aria-label="Filtrer par état">
-            <FilterChip active={readFilter === "all"} onClick={() => setReadFilter("all")}>
-              Tous
-            </FilterChip>
-            <FilterChip active={readFilter === "unread"} onClick={() => setReadFilter("unread")}>
-              Non lus{unreadCount > 0 && <span className="ml-1 rounded-full bg-aurora-400/20 px-1.5 text-[10px] text-aurora-200">{unreadCount}</span>}
-            </FilterChip>
-          </div>
-          <span className="hidden h-5 w-px bg-white/10 sm:block" aria-hidden="true" />
-          <div className="flex gap-1.5" role="group" aria-label="Regrouper">
-            <FilterChip active={grouping === "date"} onClick={() => setGrouping("date")}>
-              Par date
-            </FilterChip>
-            <FilterChip active={grouping === "post"} onClick={() => setGrouping("post")}>
-              Par publication
-            </FilterChip>
-          </div>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-full text-xs text-slate-300 transition hover:bg-white/[0.08] hover:text-white lg:w-9 lg:gap-0"
+              title="Effacer les filtres"
+              aria-label="Effacer les filtres"
+            >
+              <IconClose className="h-4 w-4" />
+              <span className="lg:sr-only">Effacer les filtres</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -332,10 +424,8 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
         </GlassCard>
       )}
 
-      {!loading && items.length > 0 && filtered.length > 0 && unreadCount === 0 && readFilter === "all" && (
-        <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.05] text-center">
-          <p className="text-sm text-emerald-300">📭 Tout est traité, pour l&apos;instant.</p>
-        </GlassCard>
+      {!loading && items.length > 0 && filtered.length > 0 && unreadCount === 0 && readFilter === "all" && !filtersActive && (
+        <p className="text-sm text-emerald-300">📭 Tout est traité, pour l&apos;instant.</p>
       )}
 
       {loading ? (
@@ -352,64 +442,139 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
               ? "Aucun commentaire synchronisé pour l'instant — cliquez sur « Actualiser » pour aller les chercher sur vos réseaux."
               : postFilter
                 ? "Aucun commentaire synchronisé pour cette publication — cliquez sur « Actualiser » pour aller chercher les derniers."
-                : readFilter === "unread"
-                  ? "Aucun commentaire non lu avec ces filtres."
-                  : "Aucun commentaire pour ce compte."}
+                : "Aucun commentaire avec ces filtres."}
           </p>
+          {filtersActive && (
+            <button type="button" onClick={resetFilters} className="mt-2 text-sm text-aurora-300 hover:text-white">
+              Effacer les filtres
+            </button>
+          )}
         </GlassCard>
-      ) : groups ? (
-        <div className="space-y-4">
-          {groups.map((g) => (
-            <section key={g.key} className="space-y-2">
-              <div className="flex items-center justify-between gap-2 px-1">
-                <p className="flex items-center gap-2 text-xs text-slate-400">
-                  <NetworkBadge network={g.network} size="sm" />
-                  {g.permalink ? (
-                    <a href={g.permalink} target="_blank" rel="noreferrer" className="text-aurora-300 hover:underline">
-                      Voir la publication
-                    </a>
-                  ) : (
-                    <span>Publication</span>
-                  )}
-                  <span className="text-slate-600">·</span>
-                  <span>
-                    {g.rows.length} commentaire{g.rows.length > 1 ? "s" : ""}
-                  </span>
-                </p>
-              </div>
-              <div className="space-y-2 border-l border-white/[0.06] pl-3">
-                {g.rows.map((it) => (
-                  <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onReplied={onReplied} aiEnabled={assistant.enabled} compact />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((it) => (
-            <CommentCard key={it.id} item={it} connection={connectionById.get(it.connectionId)} onRead={markRead} onReplied={onReplied} aiEnabled={assistant.enabled} />
-          ))}
+        <div role="table" aria-label="Commentaires reçus" data-testid="comments-table">
+          <div role="rowgroup" className="hidden lg:block">
+            <div role="row" className="grid grid-cols-[minmax(0,1fr)_300px] gap-6 border-b border-[color:var(--nb-sep)] pb-2.5 text-xs font-medium text-slate-400">
+              <span role="columnheader">Commentaire</span>
+              <span role="columnheader">Contenu</span>
+            </div>
+          </div>
+          <ul role="rowgroup" className="divide-y divide-[color:var(--nb-sep)]">
+            {filtered.map((it) => (
+              <CommentRowView
+                key={it.id}
+                item={it}
+                connection={connectionById.get(it.connectionId)}
+                aiEnabled={assistant.enabled}
+                onRead={markRead}
+                onReplied={onReplied}
+                onLike={toggleLike}
+                onDelete={remove}
+                onPickContent={(title) => setContentFilter({ key: contentKey(it), title })}
+              />
+            ))}
+          </ul>
+          <p className="pt-3 text-center text-xs text-slate-500">
+            {filtered.length.toLocaleString("fr-FR")} commentaire{filtered.length > 1 ? "s" : ""}
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-function CommentCard({
+function RowMenu({ item, connection, onDelete, onRead }: { item: CommentRow; connection?: ConnectionInfo; onDelete: () => void; onRead: () => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const label = NETWORK_META[item.network]?.label ?? item.network;
+  const link = item.permalink || item.postPermalink;
+  const canRemove = Boolean(connection?.actions?.remove);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Plus d'actions"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+      >
+        <IconDots className="h-4 w-4" />
+      </button>
+      {open && (
+        <div role="menu" className="nb-popover glass-panel-solid absolute left-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border py-1 shadow-2xl">
+          {link && (
+            <a role="menuitem" href={link} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className="nb-menu-item flex items-center gap-2 px-3 py-2 text-sm text-slate-200">
+              Ouvrir sur {label} ↗
+            </a>
+          )}
+          {!item.read && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onRead();
+              }}
+              className="nb-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200"
+            >
+              Marquer comme lu
+            </button>
+          )}
+          {canRemove ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="nb-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-300"
+              data-testid="comment-delete"
+            >
+              <IconTrash className="h-4 w-4" /> Supprimer
+            </button>
+          ) : (
+            <p className="px-3 py-2 text-xs text-slate-500">
+              {item.network === "INSTAGRAM" || item.network === "FACEBOOK"
+                ? "Votre rôle sur cette marque ne permet pas de supprimer un commentaire."
+                : `${label} ne permet pas aux applications de supprimer un commentaire : faites-le sur ${label}.`}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommentRowView({
   item,
   connection,
+  aiEnabled,
   onRead,
   onReplied,
-  aiEnabled,
-  compact
+  onLike,
+  onDelete,
+  onPickContent
 }: {
   item: CommentRow;
   connection?: ConnectionInfo;
+  aiEnabled: boolean;
   onRead: (id: string) => void;
   onReplied: (id: string, repliedAt: string) => void;
-  aiEnabled: boolean;
-  compact?: boolean;
+  onLike: (item: CommentRow) => void;
+  onDelete: (item: CommentRow) => void;
+  onPickContent: (title: string) => void;
 }) {
   const networkLabel = NETWORK_META[item.network]?.label ?? item.network;
   const toast = useToast();
@@ -419,98 +584,148 @@ function CommentCard({
   const support: CommentReplySupport = connection?.reply ?? { mode: "manual", how: "Répondez directement sur le réseau." };
   const viaApi = support.mode === "api";
   const link = item.permalink || item.postPermalink;
+  const actions = connection?.actions;
+  const liked = Boolean(item.ownerLikedAt);
+  const contentTitle = item.postTitle || "Publication";
   const openReply = (mode: "write" | "suggest") => {
     if (!item.read) onRead(item.id);
     setReplying(mode);
   };
-  return (
-    <GlassCard
-      className={clsx("flex items-start gap-3", compact && "py-3", !item.read && "border-aurora-400/30 bg-aurora-400/[0.04]")}
-      onClick={() => !item.read && onRead(item.id)}
+
+  const content = (
+    <button
+      type="button"
+      onClick={() => onPickContent(contentTitle)}
+      className="group flex w-full items-start gap-3 text-left"
+      title="Voir seulement les commentaires de ce contenu"
+      data-testid="comment-content"
     >
-      {item.authorAvatarUrl ? (
-        <RemoteImage src={item.authorAvatarUrl} className="h-9 w-9 shrink-0 rounded-full" sizes="36px" />
-      ) : (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
-          <IconAvatar className="h-4 w-4" />
+      <span className="relative block aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] lg:w-[120px]">
+        <RemoteImage
+          src={item.postThumbnailUrl ?? ""}
+          className="h-full w-full transition group-hover:opacity-90"
+          sizes="120px"
+          fallback={
+            <span className="flex h-full w-full items-center justify-center">
+              <NetworkLogo network={item.network} className="h-6 w-6 opacity-70" />
+            </span>
+          }
+        />
+        <span className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded bg-black/60" aria-hidden="true">
+          <NetworkLogo network={item.network} className="h-3 w-3" />
         </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <p className="truncate text-sm font-medium text-white">{item.authorName || "Utilisateur"}</p>
-          {!item.read && <span role="img" className="h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-400" aria-label="Non lu" />}
-          {!compact && connection && (
-            <span className="flex items-center gap-1 text-[11px] text-slate-500">
-              <NetworkBadge network={item.network} size="sm" />
-              {connection.displayName}
-            </span>
-          )}
-          {item.publishedAt && (
-            <span className="shrink-0 text-xs text-slate-500" title={new Date(item.publishedAt).toLocaleString("fr-FR")}>
-              {relativeDate(item.publishedAt)}
-            </span>
-          )}
-        </div>
-        {item.text && <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-slate-300">{item.text}</p>}
-        <div className="mt-1.5 flex flex-wrap items-center gap-3">
-          {item.ownerRepliedAt && (
-            <span className="inline-flex items-center rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300" title="Réponse de votre compte, envoyée depuis Nebula ou repérée à la dernière actualisation">
-              Vous avez répondu
-            </span>
-          )}
-          {replying === null && (viaApi || aiEnabled) && (
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2 text-[13px] text-slate-200 group-hover:text-white">{contentTitle}</span>
+        {connection && <span className="mt-0.5 block truncate text-[11px] text-slate-500">{connection.displayName}</span>}
+      </span>
+    </button>
+  );
+
+  return (
+    <li
+      role="row"
+      className={clsx("grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6", !item.read && "bg-aurora-400/[0.035]")}
+      onClick={() => !item.read && onRead(item.id)}
+      data-testid="comment-row"
+    >
+      <div role="cell" className="flex min-w-0 items-start gap-3">
+        {item.authorAvatarUrl ? (
+          <RemoteImage src={item.authorAvatarUrl} className="h-10 w-10 shrink-0 rounded-full" sizes="40px" />
+        ) : (
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
+            <IconAvatar className="h-4 w-4" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+            <span className="truncate font-medium text-slate-200">{item.authorName || "Utilisateur"}</span>
+            {item.publishedAt && (
+              <span className="text-slate-500" title={new Date(item.publishedAt).toLocaleString("fr-FR")}>
+                · {relativeDate(item.publishedAt)}
+              </span>
+            )}
+            {!item.read && <span role="img" className="h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-400" aria-label="Non lu" />}
+          </p>
+          {item.text && <p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-slate-100">{item.text}</p>}
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {replying === null && (viaApi || aiEnabled) && (
+              <button type="button" onClick={() => openReply("write")} className="h-8 rounded-full bg-white/[0.08] px-3.5 text-xs font-semibold text-white transition hover:bg-white/[0.14]">
+                {viaApi ? "Répondre" : "Préparer une réponse"}
+              </button>
+            )}
+            {!viaApi && link && (
+              <a href={link} target="_blank" rel="noreferrer" className="h-8 rounded-full px-3 text-xs leading-8 text-slate-300 transition hover:bg-white/[0.08] hover:text-white">
+                Répondre sur {networkLabel} ↗
+              </a>
+            )}
+            {item.ownerRepliedAt && (
+              <span className="inline-flex items-center rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-medium text-emerald-300" title="Réponse de votre compte, envoyée depuis Nebula ou repérée à la dernière actualisation">
+                Vous avez répondu
+              </span>
+            )}
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openReply("write");
-              }}
-              className="inline-flex items-center gap-1 text-xs font-medium text-aurora-300 transition hover:text-white"
+              onClick={() => actions?.like && onLike(item)}
+              disabled={!actions?.like}
+              aria-pressed={liked}
+              aria-label={liked ? "Retirer le j'aime" : "J'aime"}
+              title={actions?.like ? (liked ? "Retirer le j'aime de votre compte" : "Mettre un j'aime au nom de votre compte") : (actions?.likeHow ?? undefined)}
+              data-testid="comment-like"
+              className={clsx(
+                "flex h-8 w-8 items-center justify-center rounded-full transition",
+                actions?.like ? "hover:bg-white/[0.08]" : "cursor-not-allowed opacity-35",
+                liked ? "text-aurora-300" : "text-slate-300"
+              )}
             >
-              <IconMessage className="h-3.5 w-3.5" /> {viaApi ? "Répondre" : "Préparer une réponse"}
+              <IconThumbUp className={clsx("h-[18px] w-[18px]", liked && "fill-current")} />
             </button>
-          )}
-          {replying === null && aiEnabled && item.text && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openReply("suggest");
-              }}
-              className="inline-flex items-center gap-1 text-xs text-slate-400 transition hover:text-white"
-              title="L'IA prépare une réponse dans le champ ; vous la relisez avant de l'envoyer"
-            >
-              <AiIcon className="h-3.5 w-3.5" /> Proposer une réponse
-            </button>
-          )}
-          {link && (
-            <a href={link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-slate-400 hover:text-white hover:underline">
-              {viaApi ? `Ouvrir sur ${networkLabel}` : `Répondre sur ${networkLabel}`} ↗
-            </a>
-          )}
-        </div>
-        {sentText && (
-          <div className="mt-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2">
-            <p className="text-[11px] font-medium text-emerald-300">Votre réponse, publiée sur {networkLabel}</p>
-            <p className="mt-0.5 whitespace-pre-line text-sm text-slate-200">{sentText}</p>
+            {replying === null && aiEnabled && item.text && (
+              <button
+                type="button"
+                onClick={() => openReply("suggest")}
+                className="flex h-8 items-center gap-1 rounded-full px-2.5 text-xs text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+                title="L'IA prépare une réponse dans le champ ; vous la relisez avant de l'envoyer"
+              >
+                <AiIcon className="h-3.5 w-3.5" /> Proposer une réponse
+              </button>
+            )}
+            <RowMenu item={item} connection={connection} onDelete={() => onDelete(item)} onRead={() => onRead(item.id)} />
           </div>
-        )}
-        {replying && (
-          <CommentReplyBox
-            item={item}
-            support={support}
-            aiEnabled={aiEnabled}
-            suggestOnOpen={replying === "suggest"}
-            onClose={() => setReplying(null)}
-            onSent={({ repliedAt, text }) => {
-              setReplying(null);
-              setSentText(text);
-              onReplied(item.id, repliedAt);
-              toast.success(`Réponse publiée sur ${networkLabel}.`);
-            }}
-          />
-        )}
+
+          {sentText && (
+            <div className="mt-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2">
+              <p className="text-[11px] font-medium text-emerald-300">Votre réponse, publiée sur {networkLabel}</p>
+              <p className="mt-0.5 whitespace-pre-line text-sm text-slate-200">{sentText}</p>
+            </div>
+          )}
+          {replying && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <CommentReplyBox
+                item={item}
+                support={support}
+                aiEnabled={aiEnabled}
+                suggestOnOpen={replying === "suggest"}
+                onClose={() => setReplying(null)}
+                onSent={({ repliedAt, text }) => {
+                  setReplying(null);
+                  setSentText(text);
+                  onReplied(item.id, repliedAt);
+                  toast.success(`Réponse publiée sur ${networkLabel}.`);
+                }}
+              />
+            </div>
+          )}
+          {/* Téléphone : le contenu sous le commentaire. */}
+          <div className="mt-3 lg:hidden" onClick={(e) => e.stopPropagation()}>
+            {content}
+          </div>
+        </div>
       </div>
-    </GlassCard>
+      <div role="cell" className="hidden lg:block" onClick={(e) => e.stopPropagation()}>
+        {content}
+      </div>
+    </li>
   );
 }

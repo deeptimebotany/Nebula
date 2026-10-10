@@ -8,6 +8,90 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-10-ecrire-a-l-equipe",
+    date: "2026-10-10",
+    title: "Écrire à l'équipe depuis Soutenir Nebula",
+    category: "Compte et facturation",
+    links: [{ href: "/support", label: "Soutenir Nebula" }],
+    result:
+      "Une fois connecté, la page Soutenir Nebula a un formulaire « Écrire à l'équipe » : une idée, un bug, un encouragement ou une question arrive directement à l'équipe Nebula, gratuitement, et la réponse vient par e-mail. L'assistant y renvoie quand on veut contacter l'équipe.",
+    change: "`src/components/support/team-message-form.tsx`, `POST /api/support/message`, `src/lib/contact-message.ts` (même circuit que /contact), carte de l'application de l'assistant. Branche `test`.",
+    readme: 153,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-rangs-renommes",
+    date: "2026-10-10",
+    title: "Nouveaux noms des rangs",
+    category: "Réussites",
+    links: [{ href: "/reussites", label: "Réussites" }],
+    result:
+      "Les 8 rangs de créateur s'appellent maintenant Débutant, Apprenti, Artisan, Artiste, Auteur, Guide, Pionnier et Visionnaire, chacun avec une phrase qui dit où l'on en est. Les rangs déjà gagnés restent les mêmes : seul le nom change.",
+    change: "`RANKS` et `STEP_REWARDS` de `src/lib/reussites/catalog.ts` (identifiants inchangés), textes de la fenêtre des rangs, de la vidéo à la une et des cosmétiques. Branche `test`.",
+    readme: 152,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-survol-du-rang",
+    date: "2026-10-10",
+    title: "Réussites : le rang ne déborde plus au survol",
+    category: "Réussites",
+    links: [{ href: "/reussites", label: "Réussites" }],
+    result:
+      "Passer la souris sur l'anneau du rang l'agrandissait et le coupait en haut. Il s'éclaire maintenant sans changer de taille, avec un peu de marge autour.",
+    change: "`reussites/page.tsx` : plus de `hover:scale` sur l'anneau, `py-1.5` sur le bloc du rang. Branche `test`.",
+    readme: 151,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-vue-d-ensemble-sans-barre-rapide",
+    date: "2026-10-10",
+    title: "Vue d'ensemble : barre de création rapide retirée",
+    category: "Interface",
+    links: [{ href: "/dashboard", label: "Vue d'ensemble" }],
+    result:
+      "La barre « Rédiger une publication en un clic », « Importer un média » et « Créer » n'est plus sur la Vue d'ensemble : le bouton « Nouvelle publication » en haut suffit.",
+    change: "`dashboard-client.tsx` (barre et `onQuickCreate` retirés). Branche `test`.",
+    readme: 150,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-commentaires-facon-youtube-studio",
+    date: "2026-10-10",
+    title: "Commentaires façon YouTube Studio",
+    category: "Interface",
+    links: [{ href: "/interactions", label: "Interactions" }],
+    result:
+      "Interactions → Commentaires se lit comme YouTube Studio : une barre pour trier (plus récents ou plus anciens) et filtrer (compte, sans réponse, non lus, recherche), le contenu commenté à droite avec sa miniature (un clic n'affiche que ses commentaires), Répondre, J'aime (Facebook et Bluesky) et Supprimer dans le menu ⋮ (Instagram et Facebook, avec confirmation).",
+    change: "`comments-view.tsx` refait, `src/lib/social/comment-actions-support.ts`, `src/lib/engagement/actions.ts` et `content.ts`, `POST /api/engagement/[id]/like`, `DELETE /api/engagement/[id]`, `likeComment` / `deleteComment` (Meta, Bluesky), titre et miniature relevés à la synchro. Branche `test`.",
+    readme: 149,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-auteur-supprime-commentaires",
+    date: "2026-10-10",
+    title: "Communauté : supprimer les messages sous son propre contenu",
+    category: "Communauté",
+    links: [{ href: "/community", label: "Communauté" }],
+    result:
+      "L'auteur d'un sujet peut supprimer les réponses des autres sur son sujet (avec les réponses en dessous), et l'auteur d'une demande d'avis les avis écrits dessous. La personne n'est pas prévenue.",
+    change: "`deleteCommunityContent` (`src/lib/community/moderation.ts`, `containerAuthorId`), `ContentActions` (`containerOwner`). Branche `test`.",
+    readme: 148,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-mentions-communaute",
+    date: "2026-10-10",
+    title: "Mentions @pseudo dans la Communauté",
+    category: "Communauté",
+    links: [{ href: "/community?onglet=mentions", label: "Mentions" }],
+    result:
+      "Tapez « @ » dans un sujet, une réponse ou un avis : Nebula propose les membres. La personne mentionnée reçoit une notification, et un nouvel onglet « Mentions » de la Communauté liste tous les endroits où l'on vous a mentionné. Les @pseudo deviennent des liens vers le profil.",
+    change: "`src/lib/community/mention-rules.ts` et `mentions.ts`, table `CommunityMention`, `mention-textarea.tsx`, `mention-text.tsx`, `mentions-tab.tsx`, `GET /api/community/members?q=`, `/api/community/mentions`. Branche `test`.",
+    readme: 147,
+    migrations: ["20261018090000_mentions_commentaires"]
+  },
+  {
     id: "2026-10-10-easter-eggs-sans-trou",
     date: "2026-10-10",
     title: "Easter eggs numérotés sans trou",
