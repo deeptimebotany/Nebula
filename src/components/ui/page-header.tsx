@@ -10,6 +10,11 @@
 // que la description, en une ligne discrète, et les boutons de la page,
 // alignés à droite. Hors de l'application (aucun emplacement), le titre
 // s'affiche dans la page comme avant.
+//
+// 10/10/2026 (demande de Lucas : « gagner de la place ») : dans
+// l'application, plus de petite phrase sous le titre — la description n'est
+// affichée que hors de l'application, ou si la page le demande
+// (`keepDescription`, ex. le message d'accueil personnalisé, un cosmétique).
 import Link from "next/link";
 import { useContext, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -32,6 +37,8 @@ interface PageHeaderProps {
   actions?: ReactNode;
   /** Petit état à côté du titre dans la barre du haut (ex. « Brouillon enregistré »). */
   status?: ReactNode;
+  /** Afficher quand même la description dans l'application (masquée sinon depuis le 10/10/2026). */
+  keepDescription?: boolean;
   className?: string;
 }
 
@@ -56,7 +63,7 @@ function Breadcrumb({ items }: { items: Crumb[] }) {
   );
 }
 
-export function PageHeader({ title, description, icon, breadcrumb, actions, status, className }: PageHeaderProps) {
+export function PageHeader({ title, description, icon, breadcrumb, actions, status, keepDescription = false, className }: PageHeaderProps) {
   const inShell = useContext(InShellContext);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -81,7 +88,8 @@ export function PageHeader({ title, description, icon, breadcrumb, actions, stat
   // Dans l'application, le titre n'est jamais dans la page (même avant
   // l'hydratation : la barre du haut affiche en attendant le nom du menu).
   const titleInPage = !inShell && !slot;
-  const hasBody = Boolean(description || actions || titleInPage);
+  const shownDescription = titleInPage || keepDescription ? description : null;
+  const hasBody = Boolean(shownDescription || actions || titleInPage);
   if (!hasBody) return topbarTitle;
 
   return (
@@ -102,7 +110,7 @@ export function PageHeader({ title, description, icon, breadcrumb, actions, stat
               </h1>
             </>
           )}
-          {description && <div className={clsx("max-w-2xl text-[14px] leading-relaxed text-slate-500", titleInPage && "mt-1")}>{description}</div>}
+          {shownDescription && <div className={clsx("max-w-2xl text-[14px] leading-relaxed text-slate-500", titleInPage && "mt-1")}>{shownDescription}</div>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </header>

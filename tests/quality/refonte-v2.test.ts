@@ -100,7 +100,10 @@ describe("titre de la page dans la barre du haut", () => {
   it("dans l'application, jamais dans la page (pas de saut à l'hydratation)", () => {
     const html = renderToStaticMarkup(createElement(InShellContext.Provider, { value: true }, createElement(PageHeader, { title: "Analytics", description: "Vos chiffres" })));
     expect(html).not.toContain("<h1");
-    expect(html).toContain("Vos chiffres");
+    // 10/10/2026 : plus de phrase sous le titre dans l'application, sauf si la page la garde.
+    expect(html).not.toContain("Vos chiffres");
+    const kept = renderToStaticMarkup(createElement(InShellContext.Provider, { value: true }, createElement(PageHeader, { title: "Accueil", description: "Bonjour Inès", keepDescription: true })));
+    expect(kept).toContain("Bonjour Inès");
   });
   it("hors de l'application : titre dans la page, comme avant", () => {
     const html = renderToStaticMarkup(createElement(PageHeader, { title: "Analytics" }));

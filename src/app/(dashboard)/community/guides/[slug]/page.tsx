@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { guideBodyHtml } from "@/lib/community/guides";
 import { GlassCard } from "@/components/ui/glass-card";
 
 interface Guide {
@@ -39,19 +40,8 @@ export default function GuideDetailPage() {
     );
   }
 
-  // Le corps est écrit en markdown léger (titres "## ", listes "- ") dans le
-  // seed — on le rend en HTML très simple, sans dépendance externe.
-  const html = guide.body
-    .split("\n\n")
-    .map((block) => {
-      if (block.startsWith("## ")) return `<h2>${block.slice(3)}</h2>`;
-      if (block.split("\n").every((l) => l.startsWith("- ") || l.trim() === "")) {
-        const items = block.split("\n").filter(Boolean).map((l) => `<li>${l.slice(2)}</li>`).join("");
-        return `<ul>${items}</ul>`;
-      }
-      return `<p>${block.replace(/\n/g, "<br/>")}</p>`;
-    })
-    .join("");
+  // Markdown léger (titres « ## », listes « - ») rendu en HTML simple (src/lib/community/guides.ts).
+  const html = guideBodyHtml(guide.body);
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">

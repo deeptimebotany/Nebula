@@ -47,9 +47,9 @@ import { NetworkTile } from "@/components/ui/network-badge";
 import { NETWORK_META, NETWORKS, commentNetworks, type Network } from "@/lib/types";
 import { POST_KINDS, POST_KIND_FILTER_LABEL, POST_KIND_LABEL, type PostKind } from "@/lib/posts/post-kind";
 import { IconAlert, IconCalendar, IconChart, IconClock, IconClose, IconLink, IconList, IconLock, IconMessage, IconPencilLine, IconPlus, IconSearch, IconUpload } from "@/components/dashboard/icons";
-import { useConfirm } from "@/components/dashboard/confirm";
 import { PostEditModal } from "@/components/dashboard/post-edit-modal";
 import { DeletePostDialog, type DeletableTarget } from "@/components/posts/delete-post-dialog";
+import { BulkDeleteDialog } from "@/components/posts/bulk-delete-dialog";
 import { useToast } from "@/components/dashboard/toast";
 import { clsx } from "@/lib/clsx";
 import { refreshUsage } from "@/lib/data/hooks";
@@ -156,9 +156,7 @@ function PublicationsPageInner() {
   const [deleting, setDeleting] = useState<{ id: string; targets: DeletableTarget[] } | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
   // Cases à cocher (09/10/2026) : publications sélectionnées de la liste affichée.
-  const confirm = useConfirm();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
   // Nouvelle liste (filtre, tri, marque, rechargement) : on ne garde que ce qui y est encore.
   useEffect(() => {
     setSelected((prev) => {
@@ -180,28 +178,17 @@ function PublicationsPageInner() {
     if (!posts) return;
     setSelected((prev) => (posts.every((p) => prev.has(p.id)) ? new Set() : new Set(posts.map((p) => p.id))));
   }
-  async function deleteSelected() {
+  // Suppression groupée (10/10/2026) : fenêtre qui propose aussi « Supprimer
+  // aussi sur … » réseau par réseau (bulk-delete-dialog.tsx).
+  const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  function deleteSelected() {
     const ids = Array.from(selected);
-    if (ids.length === 0) return;
-    const many = ids.length > 1;
-    const ok = await confirm({
-      title: many ? `Supprimer ${ids.length} publications ?` : "Supprimer cette publication ?",
-      message: `${many ? "Elles sont supprimées" : "Elle est supprimée"} de Nebula, avec ${many ? "leurs" : "ses"} statistiques et ${many ? "leurs" : "ses"} fichiers. Une publication déjà en ligne reste sur les réseaux : pour la retirer aussi d'un réseau, utilisez la corbeille de sa ligne.`,
-      confirmLabel: "Supprimer",
-      danger: true
-    });
-    if (!ok) return;
-    setBulkDeleting(true);
-    const res = await fetch("/api/posts/bulk-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }).catch(() => null);
-    const data = res ? await res.json().catch(() => ({})) : {};
-    setBulkDeleting(false);
-    if (!res || !res.ok) {
-      toast.error(typeof data.error === "string" ? data.error : "La suppression n'a pas abouti. Réessayez.");
-      return;
-    }
-    const n = Number(data.deleted) || 0;
-    toast.success(n > 1 ? `${n} publications supprimées.` : n === 1 ? "Publication supprimée." : "Aucune publication supprimée.");
-    if (data.publishing > 0) toast.info(`${data.publishing} publication${data.publishing > 1 ? "s" : ""} en cours d'envoi : laissée${data.publishing > 1 ? "s" : ""} de côté.`);
+    if (ids.length > 0) setBulkIds(ids);
+  }
+  function onBulkDone(message: string, info?: { publishing: number }) {
+    setBulkIds(null);
+    toast.success(message);
+    if (info && info.publishing > 0) toast.info(`${info.publishing} publication${info.publishing > 1 ? "s" : ""} en cours d'envoi : laissée${info.publishing > 1 ? "s" : ""} de côté.`);
     setSelected(new Set());
     setReloadKey((k) => k + 1);
     void refreshUsage();
@@ -433,8 +420,8 @@ function PublicationsPageInner() {
                 )}
               </p>
               <span className="hidden h-5 w-px bg-white/15 sm:block" aria-hidden="true" />
-              <Button variant="danger" onClick={() => void deleteSelected()} disabled={bulkDeleting} className="px-3 py-1.5">
-                <IconTrash className="h-4 w-4" /> {bulkDeleting ? "Suppression…" : "Supprimer"}
+              <Button variant="danger" onClick={deleteSelected} className="px-3 py-1.5">
+                <IconTrash className="h-4 w-4" /> Supprimer
               </Button>
               <button
                 type="button"
@@ -500,6 +487,7 @@ function PublicationsPageInner() {
           }}
         />
       )}
+      {bulkIds && <BulkDeleteDialog ids={bulkIds} onClose={() => setBulkIds(null)} onDone={onBulkDone} />}
       {deleting && (
         <DeletePostDialog
           postId={deleting.id}

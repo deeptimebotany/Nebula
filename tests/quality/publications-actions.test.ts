@@ -62,15 +62,17 @@ describe("page Publications : cases à cocher et suppression groupée", () => {
     expect(page).toContain('<SelectBox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Tout sélectionner" />');
     expect(page).toContain('data-testid="publications-selection-bar"');
     expect(page).toContain("grid-cols-[24px_minmax(0,1fr)_160px_150px_80px_116px_80px]");
-    expect(page).toContain("const ok = await confirm({");
-    expect(page).toContain('fetch("/api/posts/bulk-delete"');
+    // 10/10/2026 : fenêtre dédiée (plus la confirmation générique).
+    expect(page).toContain("<BulkDeleteDialog ids={bulkIds} onClose={() => setBulkIds(null)} onDone={onBulkDone} />");
+    expect(read("src/components/posts/bulk-delete-dialog.tsx")).toContain('fetch("/api/posts/bulk-delete"');
   });
-  it("route : seulement ses publications, pas celles en cours d'envoi, dans Nebula seulement", () => {
+  it("route : seulement ses publications, pas celles en cours d'envoi ; réseaux cochés en plus", () => {
     const route = read("src/app/api/posts/bulk-delete/route.ts");
     expect(route).toContain("brand: ownedBy(userId)");
-    expect(route).toContain('p.status !== "PUBLISHING"');
+    expect(read("src/lib/posts/bulk-delete.ts")).toContain('posts.filter((p) => p.status !== "PUBLISHING")');
     expect(route).toContain("z.array(z.string().min(1).max(64)).min(1).max(100)");
-    expect(route).toContain("deletePostAndOrphanMedia(p.id)");
+    expect(route).toContain("alsoDeleteOn: z.array(z.enum(NETWORKS))");
+    expect(route).toContain("await deletePostAndOrphanMedia(post.id);");
   });
 });
 

@@ -8,6 +8,44 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-10-guides-communaute",
+    date: "2026-10-10",
+    title: "Guides de la Communauté toujours affichés et mis à jour",
+    category: "Communauté",
+    links: [{ href: "/community?tab=guides", label: "Guides" }],
+    result:
+      "L'onglet « Guides » de la Communauté affiche les trois guides de Nebula partout (ils manquaient sur le site de test), réécrits pour la nouvelle interface : débuter, choisir sa formule, partager une vidéo. Le texte sous chaque titre de guide s'affiche maintenant normalement.",
+    change: "Guides dans le code (`src/lib/community/guides.ts`), routes `/api/community/guides`, page d'un guide (`guideBodyHtml`), `prisma/seed.ts` vidé. Branche `test`.",
+    readme: 122,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-sans-sous-titres",
+    date: "2026-10-10",
+    title: "Plus de phrase sous le titre des pages",
+    category: "Interface",
+    links: [
+      { href: "/publications", label: "Publications" },
+      { href: "/calendar", label: "Calendrier" }
+    ],
+    result: "La petite phrase grise sous le titre de chaque page a disparu : le contenu commence plus haut, il y a plus de place.",
+    change: "`page-header.tsx` (description masquée dans l'application, option `keepDescription`), `dashboard-client.tsx`. Branche `test`.",
+    readme: 121,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-suppression-groupee-reseaux",
+    date: "2026-10-10",
+    title: "Suppression groupée : supprimer aussi sur les réseaux",
+    category: "Publication",
+    links: [{ href: "/publications", label: "Publications" }],
+    result:
+      "En supprimant plusieurs publications d'un coup, la fenêtre dit clairement ce qui se passe et propose « Supprimer aussi sur Facebook » (ou un autre réseau qui le permet) pour celles déjà en ligne ; elle indique aussi celles qui resteront en ligne (YouTube, TikTok…) et comment les retirer.",
+    change: "Nouvelle fenêtre `bulk-delete-dialog.tsx`, route `/api/posts/bulk-delete/preview`, `alsoDeleteOn` dans `/api/posts/bulk-delete`, règles `src/lib/posts/bulk-delete.ts`. Branche `test`.",
+    readme: 120,
+    migrations: []
+  },
+  {
     id: "2026-10-10-zoom-chevauchement",
     date: "2026-10-10",
     title: "Zoom à 130 % et plus : plus rien ne se chevauche",

@@ -265,13 +265,10 @@ export function DashboardClient({ initial }: { initial: DashboardInitial | null 
     <div className="space-y-8">
       <PageHeader
         title={<>Vue d&apos;ensemble{activeBrand ? ` — ${activeBrand.name}` : ""}</>}
-        description={
-          cosmetics.has("message-accueil-perso")
-            ? greeting
-            : hasAnalytics
-              ? "Données réelles synchronisées depuis vos comptes connectés."
-              : "Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord."
-        }
+        // Plus de phrase sous le titre (10/10/2026) ; seul le message
+        // d'accueil personnalisé (cosmétique) reste, s'il est activé.
+        description={cosmetics.has("message-accueil-perso") ? greeting : undefined}
+        keepDescription
         actions={
           <ButtonLink href="/composer" className="inline-flex items-center gap-2">
             <IconPlus className="h-4 w-4" /> Nouvelle publication
