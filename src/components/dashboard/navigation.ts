@@ -116,7 +116,7 @@ export const NAV_GROUPS: NavGroup[] = [
         description: "Commentaires à lire et à qui répondre, likes, partages et vues de vos publications",
         keywords: ["commentaires", "engagements", "engagement", "messages", "modération", "réponses", "réactions", "likes", "partages", "stories", "vues"]
       },
-      { href: "/community", label: "Communauté", icon: NavIconCommunity, description: "Entraide, guides et partages", keywords: ["forum", "guides"] }
+      { href: "/community", label: "Communauté", icon: NavIconCommunity, description: "Entraide, avis et vidéos partagées", keywords: ["forum", "entraide", "avis"] }
     ]
   },
   {
@@ -195,7 +195,6 @@ const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] =
   ...TOOL_CATALOG.filter((t) => t.appHref.startsWith("/tools/")).map((t) => ({ prefix: t.appHref, label: t.title, parentHref: "/tools" })),
   { prefix: "/reussites/collection", label: "Collection des Easter eggs", parentHref: "/reussites" },
   { prefix: "/billing/garder", label: "Choisir ce que je garde", parentHref: "/billing" },
-  { prefix: "/community/guides/", label: "Guide", parentHref: "/community" },
   { prefix: "/community/", label: "Discussion", parentHref: "/community" }
 ];
 

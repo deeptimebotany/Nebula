@@ -180,7 +180,7 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
     maxOutputTokens: 1000
   },
   community: {
-    instruction: `Contexte : l'utilisateur est dans la Communauté Nebula (entraide, guides). Priorité : orienter vers les bons guides, aider à formuler une question claire, résumer des bonnes pratiques. ${HOWTO_HINT}`,
+    instruction: `Contexte : l'utilisateur est dans la Communauté Nebula (forum d'entraide, avis avant de publier, vidéos partagées). Il n'y a pas de guides : c'est toi qui expliques pas à pas comment faire dans Nebula. Priorité : répondre aux questions de prise en main, aider à formuler une question claire pour le forum, résumer des bonnes pratiques. ${HOWTO_HINT}`,
     needs: {},
     maxOutputTokens: 700
   },

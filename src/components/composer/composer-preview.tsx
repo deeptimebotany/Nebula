@@ -250,7 +250,7 @@ export function ComposerPreview({
   const tabBar = (
     <div className="flex min-w-0 items-center gap-2">
       <span className="nb-section-label shrink-0">Aperçu</span>
-      <div role="tablist" aria-label="Réseau affiché dans l'aperçu" className="flex min-w-0 flex-1 overflow-x-auto">
+      <div role="tablist" aria-label="Réseau affiché dans l'aperçu" className="nb-scroll-x flex min-w-0 flex-1">
         {tabs.map((n) => {
           const active = n === network;
           return (

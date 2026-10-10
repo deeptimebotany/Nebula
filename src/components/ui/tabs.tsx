@@ -61,9 +61,10 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
       aria-label={aria["aria-label"]}
       onKeyDown={onKeyDown}
       className={clsx(
-        "flex items-center gap-1 overflow-x-auto",
-        // V2 (07/10/2026) : trait fin, sans fond gris.
-        isLine ? "border-b border-[color:var(--nb-sep)]" : "rounded-lg border border-[color:var(--nb-sep-strong)] p-0.5",
+        "flex items-center gap-1",
+        // V2 (07/10/2026) : trait fin, sans fond gris. 10/10/2026 : rangée
+        // .nb-tabrow (globals.css), plus de barre de défilement à droite.
+        isLine ? "nb-tabrow" : "nb-scroll-x rounded-lg border border-[color:var(--nb-sep-strong)] p-0.5",
         className
       )}
     >
@@ -84,7 +85,7 @@ export function Tabs<T extends string>({ items, value, onChange, variant = "segm
               "flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
               isLine
                 ? clsx(
-                    "-mb-px border-b-2 px-3 py-2.5",
+                    "border-b-2 px-3 py-2.5",
                     active ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
                   )
                 : clsx(

@@ -4,7 +4,9 @@
 // classement des parrainages, le compteur d'easter eggs et la grille de
 // badges s'empilaient AU-DESSUS du forum, qui arrivait en troisième écran.
 // Maintenant :
-//   - le flux (Forum / Guides / Vidéos) occupe toute la largeur centrale ;
+//   - le flux (Forum / Avis / Vidéos) occupe toute la largeur centrale ;
+//     (onglet Guides retiré le 10/10/2026, demande de Lucas : les questions
+//     passent par « Demander à Nebula » et ses suggestions) ;
 //   - une fine colonne à droite porte une mini-carte profil (nom, badges,
 //     progression des easter eggs) et le top 3 des parrains — chacune ouvre
 //     le panneau « Mon profil » (profile-panel.tsx) pour le détail ;
@@ -35,7 +37,7 @@ import { ContentActions } from "@/components/community/content-actions";
 import { reportKey } from "@/lib/community/report-reasons";
 import { FeedbackTab } from "@/components/community/feedback/feedback-tab";
 
-type Tab = "forum" | "avis" | "guides" | "videos";
+type Tab = "forum" | "avis" | "videos";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -53,13 +55,6 @@ interface Thread {
   createdAt: string;
   author: CommunityAuthorInfo & { ring?: RingStyle | null };
   _count: { replies: number };
-}
-
-interface Guide {
-  id: string;
-  slug: string;
-  title: string;
-  summary: string;
 }
 
 interface SharedVideo {
@@ -113,7 +108,6 @@ export default function CommunityPage() {
   const [category, setCategory] = useState<string | "all">("all");
 
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [guides, setGuides] = useState<Guide[]>([]);
   const [videos, setVideos] = useState<SharedVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -143,10 +137,9 @@ export default function CommunityPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [tRes, gRes, vRes] = await Promise.all([fetch("/api/community/threads"), fetch("/api/community/guides"), fetch("/api/community/videos")]);
-      const [tData, gData, vData] = await Promise.all([tRes.json(), gRes.json(), vRes.json()]);
+      const [tRes, vRes] = await Promise.all([fetch("/api/community/threads"), fetch("/api/community/videos")]);
+      const [tData, vData] = await Promise.all([tRes.json(), vRes.json()]);
       if (tRes.ok) setThreads(tData.threads ?? []);
-      if (gRes.ok) setGuides(gData.guides ?? []);
       if (vRes.ok) setVideos(vData.videos ?? []);
       setCanModerate(Boolean(tData.viewer?.canModerate || vData.viewer?.canModerate));
       setReported(new Set<string>([...(tData.viewer?.reported ?? []), ...(vData.viewer?.reported ?? [])]));
@@ -165,7 +158,7 @@ export default function CommunityPage() {
   // une alerte de signalement).
   useEffect(() => {
     const onglet = new URLSearchParams(window.location.search).get("onglet");
-    if (onglet === "videos" || onglet === "guides" || onglet === "avis") setTab(onglet);
+    if (onglet === "videos" || onglet === "avis") setTab(onglet);
   }, []);
   useEffect(() => {
     if (loading || !window.location.hash.startsWith("#video-")) return;
@@ -253,7 +246,7 @@ export default function CommunityPage() {
       <PageHeader
         icon={<IconUsers className="h-5 w-5" />}
         title="Communauté"
-        description="Entraide, avis avant de publier, guides et vidéos partagées entre créateurs Nebula — un espace commun à tous."
+        description="Entraide, avis avant de publier et vidéos partagées entre créateurs Nebula — un espace commun à tous."
         actions={
           tab === "forum" && (
             <Button onClick={() => setComposerOpen((v) => !v)} variant={composerOpen ? "outline" : "glow"}>
@@ -283,12 +276,11 @@ export default function CommunityPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_272px]">
         {/* ---------- Flux central ---------- */}
         <div className="min-w-0 space-y-4">
-          <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--nb-sep)]" role="tablist" aria-label="Sections de la communauté">
+          <div className="nb-tabrow gap-1" role="tablist" aria-label="Sections de la communauté">
             {(
               [
                 ["forum", "Forum", threads.length],
                 ["avis", "Avis", feedbackCount],
-                ["guides", "Guides", guides.length],
                 ["videos", "Vidéos du jour", videos.length]
               ] as [Tab, string, number][]
             ).map(([id, label, count]) => (
@@ -298,7 +290,7 @@ export default function CommunityPage() {
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={clsx(
-                  "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[14px] transition",
+                  "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[14px] transition",
                   tab === id ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
                 )}
               >
@@ -424,20 +416,6 @@ export default function CommunityPage() {
           )}
 
           {tab === "avis" && <FeedbackTab viewerId={me?.user?.id ?? null} onCountChange={setFeedbackCount} />}
-
-          {!loading && tab === "guides" && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {guides.map((g) => (
-                <Link key={g.id} href={`/community/guides/${g.slug}`}>
-                  <GlassCard className="h-full">
-                    <h3 className="font-display text-base font-medium text-white">{g.title}</h3>
-                    <p className="mt-1.5 text-sm text-slate-400">{g.summary}</p>
-                  </GlassCard>
-                </Link>
-              ))}
-              {guides.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Aucun guide disponible encore sur cette instance.</p>}
-            </div>
-          )}
 
           {!loading && tab === "videos" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

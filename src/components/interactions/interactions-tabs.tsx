@@ -14,7 +14,7 @@ export const INTERACTIONS_TABS: { id: InteractionsView; label: string; href: str
 
 export function InteractionsTabs({ current }: { current: InteractionsView }) {
   return (
-    <nav aria-label="Interactions" className="flex gap-1 overflow-x-auto border-b border-[color:var(--nb-sep)]">
+    <nav aria-label="Interactions" className="nb-tabrow gap-1">
       {INTERACTIONS_TABS.map((t) => (
         <Link
           key={t.id}
@@ -22,7 +22,7 @@ export function InteractionsTabs({ current }: { current: InteractionsView }) {
           scroll={false}
           aria-current={t.id === current ? "page" : undefined}
           className={clsx(
-            "-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[14px] transition",
+            "shrink-0 border-b-2 px-3 py-2.5 text-[14px] transition",
             t.id === current ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
           )}
         >

@@ -8,11 +8,47 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-10-profil-devant-assistant",
+    date: "2026-10-10",
+    title: "Menu du profil devant « Demander à Nebula »",
+    category: "Interface",
+    links: [{ href: "/dashboard", label: "Vue d'ensemble" }],
+    result: "Avec l'assistant ouvert, le menu du profil et celui des notifications s'ouvrent maintenant devant lui, et plus derrière.",
+    change: "`globals.css` (barre du haut devant le tiroir quand un de ses menus est ouvert). Branche `test`.",
+    readme: 125,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-guides-retires",
+    date: "2026-10-10",
+    title: "Guides de la Communauté retirés",
+    category: "Communauté",
+    links: [{ href: "/community", label: "Communauté" }],
+    result: "L'onglet « Guides » de la Communauté disparaît : pour savoir comment faire quelque chose, on demande à « Demander à Nebula », qui propose ses suggestions et explique pas à pas.",
+    change: "Onglet retiré (`community/page.tsx`), anciens liens renvoyés vers la Communauté, routes `/api/community/guides` en 410, `src/lib/community/guides.ts` supprimé, contexte de l'assistant mis à jour. Branche `test`.",
+    readme: 124,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-onglets-sans-barre",
+    date: "2026-10-10",
+    title: "Onglets : plus de barre de défilement à droite",
+    category: "Interface",
+    links: [
+      { href: "/analytics", label: "Analytics" },
+      { href: "/interactions", label: "Interactions" }
+    ],
+    result: "Sur Windows, une petite barre de défilement apparaissait à droite des onglets d'Analytics, d'Interactions et de la Communauté. Elle a disparu, partout où il y a des onglets.",
+    change: "Rangée `.nb-tabrow` (`globals.css`), `tabs.tsx`, `analytics-client.tsx`, `interactions-tabs.tsx`, `community/page.tsx`, `composer-preview.tsx`. Branche `test`.",
+    readme: 123,
+    migrations: []
+  },
+  {
     id: "2026-10-10-guides-communaute",
     date: "2026-10-10",
     title: "Guides de la Communauté toujours affichés et mis à jour",
     category: "Communauté",
-    links: [{ href: "/community?tab=guides", label: "Guides" }],
+    links: [{ href: "/community", label: "Communauté" }],
     result:
       "L'onglet « Guides » de la Communauté affiche les trois guides de Nebula partout (ils manquaient sur le site de test), réécrits pour la nouvelle interface : débuter, choisir sa formule, partager une vidéo. Le texte sous chaque titre de guide s'affiche maintenant normalement.",
     change: "Guides dans le code (`src/lib/community/guides.ts`), routes `/api/community/guides`, page d'un guide (`guideBodyHtml`), `prisma/seed.ts` vidé. Branche `test`.",

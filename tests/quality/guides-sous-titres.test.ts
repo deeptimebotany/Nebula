@@ -1,56 +1,58 @@
-// 10/10/2026 (Lucas) : les guides de la Communauté sont dans le code (plus
-// besoin de commande sur chaque base) et à jour de l'interface V2 ; plus de
-// petite phrase sous le titre des pages de l'application.
+// 10/10/2026 (Lucas) : plus de guides dans la Communauté (les questions
+// passent par « Demander à Nebula » et ses suggestions), plus de petite
+// phrase sous le titre des pages, et plus de barre de défilement à droite
+// des rangées d'onglets.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { builtInGuides, guideBodyHtml, mergeGuides } from "@/lib/community/guides";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { ASSISTANT_CONTEXTS } from "@/lib/ai/assistant-contexts";
 
-describe("guides de la Communauté", () => {
-  const guides = builtInGuides();
-  it("trois guides écrits par l'équipe Nebula, dans l'ordre", () => {
-    expect(guides.map((g) => g.slug)).toEqual(["demarrer-avec-nebula", "choisir-sa-formule", "partager-une-video-communaute"]);
+const read = (f: string) => readFileSync(f, "utf8");
+
+describe("guides de la Communauté retirés", () => {
+  it("plus d'onglet Guides ; anciens liens et routes renvoyés ailleurs", () => {
+    const page = read("src/app/(dashboard)/community/page.tsx");
+    expect(page).not.toContain('"guides"');
+    expect(page).not.toContain("/api/community/guides");
+    expect(read("src/app/(dashboard)/community/guides/[slug]/page.tsx")).toContain('redirect("/community")');
+    expect(read("src/app/api/community/guides/route.ts")).toContain("status: 410");
+    expect(read("src/app/api/community/guides/[slug]/route.ts")).toContain("status: 410");
+    expect(read("prisma/seed.ts")).not.toContain("guide.upsert");
   });
-  it("à jour de l'interface V2 (plus de « Composer », de « + » à côté de la marque…)", () => {
-    const all = guides.map((g) => g.body).join("\n");
-    for (const old of ["Composer", "composer", "petit \"+\"", "en haut de l'écran", "Ctrl+Entrée"]) expect(all).not.toContain(old);
-    expect(all).toContain("Cliquez sur « Publier », en haut à droite.");
-    expect(all).toContain("« Programmer » ouvre un calendrier");
-    expect(all).toContain("ouvrez « Comptes connectés »");
-  });
-  it("formules : chiffres lus dans plans.ts (jamais recopiés), sans prix", () => {
-    const plan = guides.find((g) => g.slug === "choisir-sa-formule")!.body;
-    const pro = PLAN_LIMITS.PRO.tiers.map((t) => t.maxBrands);
-    expect(plan).toContain(`de ${pro[0]} à ${pro[pro.length - 1]} marques`);
-    expect(plan).toContain(`${PLAN_LIMITS.FREE.maxConnections} comptes connectés par marque`);
-    expect(plan).toContain(`${PLAN_LIMITS.FREE.maxPostsPerMonth} publications programmées par mois`);
-    expect(plan).not.toMatch(/€|\beuros?\b/);
-  });
-  it("un guide ajouté en base s'affiche en plus ; à identifiant égal, le code l'emporte", () => {
-    const merged = mergeGuides([
-      { id: "db1", slug: "demarrer-avec-nebula", title: "Ancien", summary: "", body: "", order: 0 },
-      { id: "db2", slug: "astuce-tiktok", title: "Astuce TikTok", summary: "", body: "", order: 5 }
-    ]);
-    expect(merged.map((g) => g.title)).toEqual(["Nebula pour les débutants absolus", "Quelle formule choisir : Gratuit, Pro ou Agence ?", "Partager une vidéo dans la Communauté", "Astuce TikTok"]);
-  });
-  it("le texte sous un titre reste un paragraphe (il s'affichait en titre)", () => {
-    expect(guideBodyHtml("## Étape 1\nConnectez vos comptes.")).toBe("<h2>Étape 1</h2><p>Connectez vos comptes.</p>");
-    expect(guideBodyHtml("Intro\n\n## Astuces\n- un\n- deux")).toBe("<p>Intro</p><h2>Astuces</h2><ul><li>un</li><li>deux</li></ul>");
-    expect(guideBodyHtml("a <b>")).toBe("<p>a &lt;b&gt;</p>");
-  });
-  it("les routes servent les guides du code, la commande de remplissage ne crée plus rien", () => {
-    expect(readFileSync("src/app/api/community/guides/route.ts", "utf8")).toContain("mergeGuides(fromDb)");
-    expect(readFileSync("src/app/api/community/guides/[slug]/route.ts", "utf8")).toContain("builtInGuides().find((g) => g.slug === params.slug)");
-    expect(readFileSync("prisma/seed.ts", "utf8")).not.toContain("guide.upsert");
+  it("l'assistant ne renvoie plus vers des guides : il explique lui-même", () => {
+    expect(ASSISTANT_CONTEXTS.community.suggestions).toContain("Par où commencer sur Nebula ?");
+    expect(ASSISTANT_CONTEXTS.community.suggestions.join(" ")).not.toMatch(/guide/i);
+    expect(ASSISTANT_CONTEXTS.community.welcome).not.toMatch(/guide/i);
+    expect(read("src/lib/ai/assistant-prompts.ts")).toContain("Il n'y a pas de guides : c'est toi qui expliques pas à pas comment faire dans Nebula.");
+    expect(read("src/components/dashboard/navigation.ts")).not.toContain('"/community/guides/"');
   });
 });
 
 describe("plus de phrase sous le titre des pages (gagner de la place)", () => {
   it("description masquée dans l'application ; seul le message d'accueil personnalisé (cosmétique) reste", () => {
-    const header = readFileSync("src/components/ui/page-header.tsx", "utf8");
+    const header = read("src/components/ui/page-header.tsx");
     expect(header).toContain("const shownDescription = titleInPage || keepDescription ? description : null;");
-    const dash = readFileSync("src/app/(dashboard)/dashboard/dashboard-client.tsx", "utf8");
+    const dash = read("src/app/(dashboard)/dashboard/dashboard-client.tsx");
     expect(dash).toContain('description={cosmetics.has("message-accueil-perso") ? greeting : undefined}');
     expect(dash).not.toContain("Connectez un compte puis synchronisez-le (page Analytics) pour remplir ce tableau de bord.");
+  });
+});
+
+describe("rangées d'onglets sans barre de défilement à droite", () => {
+  it("trait dessiné dans la rangée, onglets sans débordement, défilement en largeur seulement", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toMatch(/\.nb-tabrow \{[^}]*overflow-x: auto;[^}]*overflow-y: hidden;[^}]*scrollbar-width: none;[^}]*box-shadow: inset 0 -1px 0 var\(--nb-sep\);/);
+    for (const f of ["src/components/ui/tabs.tsx", "src/app/(dashboard)/analytics/analytics-client.tsx", "src/components/interactions/interactions-tabs.tsx", "src/app/(dashboard)/community/page.tsx"]) {
+      const src = read(f);
+      expect(src, f).toContain("nb-tabrow");
+      expect(src, f).not.toContain("-mb-px");
+    }
+    expect(read("src/components/ui/tabs.tsx")).toContain('"nb-scroll-x rounded-lg border');
+  });
+});
+
+describe("menu du profil devant l'assistant", () => {
+  it("la barre du haut passe devant le tiroir quand un de ses menus est ouvert", () => {
+    expect(read("src/app/globals.css")).toMatch(/\.nb-topbar:has\(\[aria-expanded="true"\]\) \{\s*z-index: 60;/);
+    expect(read("src/components/dashboard/profile-menu.tsx")).toContain("aria-expanded={open}");
   });
 });

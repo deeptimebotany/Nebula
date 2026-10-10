@@ -1,59 +1,8 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { guideBodyHtml } from "@/lib/community/guides";
-import { GlassCard } from "@/components/ui/glass-card";
-
-interface Guide {
-  id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  body: string;
-}
-
-export default function GuideDetailPage() {
-  const params = useParams<{ slug: string }>();
-  const [guide, setGuide] = useState<Guide | null>(null);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/community/guides/${params.slug}`)
-      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok) setGuide(data.guide);
-        else setNotFound(true);
-      });
-  }, [params.slug]);
-
-  if (notFound) return <p className="text-sm text-slate-500">Guide introuvable.</p>;
-  if (!guide) {
-    return (
-      <div className="space-y-4" aria-busy="true">
-        <Skeleton className="h-7 w-1/2" />
-        <SkeletonText lines={6} />
-        <span className="sr-only">Chargement du guide</span>
-      </div>
-    );
-  }
-
-  // Markdown léger (titres « ## », listes « - ») rendu en HTML simple (src/lib/community/guides.ts).
-  const html = guideBodyHtml(guide.body);
-
-  return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <Link href="/community?tab=guides" className="text-xs text-slate-500 hover:text-slate-300">← Retour aux guides</Link>
-      <GlassCard>
-        <h1 className="font-display text-2xl font-semibold text-white">{guide.title}</h1>
-        <p className="mt-1 text-sm text-slate-400">{guide.summary}</p>
-        <div
-          className="prose-invert mt-5 space-y-3 text-sm leading-relaxed text-slate-300 [&_h2]:mt-5 [&_h2]:font-display [&_h2]:text-base [&_h2]:font-medium [&_h2]:text-white [&_li]:ml-4 [&_li]:list-disc [&_ul]:space-y-1"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </GlassCard>
-    </div>
-  );
+// Les guides de la Communauté ont été retirés (10/10/2026, demande de
+// Lucas) : les questions de prise en main passent par « Demander à Nebula »
+// et ses suggestions. Un ancien lien vers un guide mène à la Communauté.
+export default function GuideRetired() {
+  redirect("/community");
 }

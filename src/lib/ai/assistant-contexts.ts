@@ -304,9 +304,9 @@ export const ASSISTANT_CONTEXTS: Record<AssistantContextKey, AssistantContextDef
   },
   community: {
     label: "Communauté",
-    welcome: "Vous êtes dans la communauté Nebula. Je peux vous orienter vers un guide, vous aider à formuler une question, ou résumer les bonnes pratiques partagées.",
+    welcome: "Vous êtes dans la communauté Nebula. Je peux vous expliquer comment faire quelque chose dans Nebula, vous aider à formuler une question, ou résumer les bonnes pratiques partagées.",
     suggestions: [
-      "Quels guides lire pour bien démarrer ?",
+      "Par où commencer sur Nebula ?",
       "Aide-moi à formuler ma question pour la communauté",
       "Résume les bonnes pratiques pour grandir sur TikTok",
       "Comment partager mon retour d'expérience ?",

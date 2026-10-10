@@ -632,7 +632,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
         )}
 
         {/* V2 (07/10/2026) : onglets soulignés, sur le fond de la page. */}
-        <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--nb-sep)]">
+        <div className="nb-tabrow gap-1">
           {(
             [
               ["overview", "Vue d'ensemble"],
@@ -646,7 +646,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
               key={id}
               onClick={() => setTab(id)}
               className={clsx(
-                "-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[14px] transition",
+                "shrink-0 border-b-2 px-3 py-2.5 text-[14px] transition",
                 tab === id ? "border-current font-semibold text-white" : "border-transparent text-slate-400 hover:text-white"
               )}
             >

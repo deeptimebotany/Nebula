@@ -187,7 +187,7 @@ const MORE = [
   { icon: IconMediaKit, title: "Media kit", desc: "Une page pour les marques, avec vos vrais chiffres relevés automatiquement." },
   { icon: IconLayers, title: "Multi-marques", desc: "Passez d'une marque à l'autre sans vous déconnecter." },
   { icon: IconPlug, title: "API et webhooks", desc: "Branchez Nebula à n8n, Make ou Zapier (palier Agence)." },
-  { icon: IconUsers, title: "Communauté", desc: "Un forum d'entraide, des guides et les vidéos partagées par d'autres créateurs." },
+  { icon: IconUsers, title: "Communauté", desc: "Un forum d'entraide, des avis avant de publier et les vidéos partagées par d'autres créateurs." },
   { icon: IconBioLink, title: "Liens de campagne", desc: "Des liens UTM prêts à coller, pour voir dans vos statistiques ce qui ramène du monde." },
   // 02/10/2026 : les outils gratuits du site, dans l'application et remplis avec le compte.
   { icon: IconWrench, title: "Outils", desc: "Taux d'engagement, meilleur moment, hashtags, bio, titres et audit, remplis avec vos vrais chiffres." }

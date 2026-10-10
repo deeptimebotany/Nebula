@@ -2982,3 +2982,36 @@ select option {
   .nb-settings-backdrop,
   .nb-settings-panel { animation: none; }
 }
+
+/* Rangées d'onglets (10/10/2026, retour de Lucas : « un petit truc qui
+   coulisse » à droite des onglets d'Analytics et d'Interactions). L'onglet
+   souligné débordait d'un pixel sous la rangée (-mb-px) ; une rangée qui
+   défile en largeur défile alors aussi en hauteur, et Windows affichait une
+   barre de défilement verticale. Le trait de séparation est maintenant
+   dessiné dans la rangée (ombre intérieure), les onglets ne débordent plus,
+   et la rangée ne défile qu'en largeur, sans barre visible (glisser, Maj +
+   molette ou flèches du clavier). */
+.nb-tabrow {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  box-shadow: inset 0 -1px 0 var(--nb-sep);
+}
+.nb-tabrow::-webkit-scrollbar,
+.nb-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+.nb-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+/* Menus de la barre du haut (profil, notifications) devant « Demander à
+   Nebula » (10/10/2026, retour de Lucas : le menu du profil s'ouvrait
+   derrière le tiroir de l'assistant). La barre du haut reste sous le tiroir
+   le reste du temps (sur téléphone, le tiroir prend tout l'écran). */
+.nb-topbar:has([aria-expanded="true"]) {
+  z-index: 60;
+}
