@@ -102,7 +102,11 @@ export function RetentionInsightView({ insight, onRedo, redoing, chartHeight = 1
   );
 }
 
-/** « 12 analyses restantes ce mois-ci + 20 achetées », et la recharge (Pro, Agence). */
+/**
+ * Recharge d'analyses (Pro, Agence) quand il en reste peu. 10/10/2026 (demande
+ * de Lucas) : plus aucun nombre d'analyses restantes ; seulement, quand tout
+ * est utilisé, la phrase « Analyses du mois utilisées ».
+ */
 export function RetentionQuotaLine({ className }: { className?: string }) {
   const { data: me } = useBootstrap();
   const q = me?.ai.quota;
@@ -112,20 +116,13 @@ export function RetentionQuotaLine({ className }: { className?: string }) {
 
 function RetentionQuotaText({ quota, className }: { quota: AiQuotaView; className?: string }) {
   const r = quota.retention;
-  const period = r.per === "trial" ? "pendant l'essai" : "ce mois-ci";
   const empty = r.remaining <= 0 && quota.retentionCredits <= 0;
+  const pack = quota.retentionPacks && r.remaining <= 3;
+  if (!empty && !pack) return null;
   return (
     <div className={clsx("flex flex-wrap items-center gap-3 text-xs", className)}>
-      <p className={clsx("tabular-nums", empty ? "text-amber-200" : "text-slate-400")}>
-        {r.remaining} analyse{r.remaining > 1 ? "s" : ""} restante{r.remaining > 1 ? "s" : ""} {period}
-        {quota.retentionCredits > 0 && (
-          <>
-            {" "}
-            + {quota.retentionCredits} achetée{quota.retentionCredits > 1 ? "s" : ""}
-          </>
-        )}
-      </p>
-      {quota.retentionPacks && r.remaining <= 3 && <RetentionPackButton />}
+      {empty && <p className="text-amber-200">Analyses {r.per === "trial" ? "de l'essai" : "du mois"} utilisées.</p>}
+      {pack && <RetentionPackButton />}
     </div>
   );
 }

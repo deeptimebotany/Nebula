@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // easter-eggs-registry.ts, clé "publish-sound-unlock"). Même schéma que
 // /api/settings/starfield, avec une nuance : ici `unlocked` reflète le fait
 // d'avoir TROUVÉ l'easter egg (ligne dans EasterEggFound), pas un palier
-// d'abonnement — cette option n'a rien à voir avec Facturation.
+// d'abonnement — cette option n'a rien à voir avec Abonnement.
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ enabled: false, unlocked: false }, { status: 200 });
@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
     });
     if (!found) {
       return NextResponse.json(
-        { error: "Publiez d'abord votre 10ᵉ post personnel pour débloquer cette option." },
+        { error: "Mettez d'abord en ligne votre 10ᵉ publication pour débloquer cette option." },
         { status: 403 }
       );
     }

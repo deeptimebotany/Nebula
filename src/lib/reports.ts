@@ -41,8 +41,9 @@ export async function computeReportData(brandId: string, periodDays: number): Pr
   const now = new Date();
   const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
+  // Comptes déconnectés exclus (10/10/2026) : leurs chiffres sont effacés.
   const connections = await prisma.socialConnection.findMany({
-    where: { brandId },
+    where: { brandId, status: { not: "DISCONNECTED" } },
     select: {
       id: true,
       network: true,

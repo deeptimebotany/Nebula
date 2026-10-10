@@ -34,7 +34,10 @@ export interface FeedbackOptionDTO {
   position: number;
   label: string;
   imageUrl: string | null;
-  /** Visible par l'auteur, par qui a voté, et pour tous une fois la demande terminée. */
+  /**
+   * Cœurs reçus (10/10/2026 : un cœur par personne et par proposition).
+   * Visible par l'auteur, par qui a mis un cœur, et pour tous une fois la demande terminée.
+   */
   votes: number | null;
 }
 
@@ -59,8 +62,10 @@ export interface FeedbackRequestDTO {
   author: PublicAuthor | null;
   mine: boolean;
   options: FeedbackOptionDTO[];
+  /** Nombre de personnes qui ont mis au moins un cœur (mêmes règles de visibilité). */
   totalVotes: number | null;
-  myVote: string | null;
+  /** Propositions où j'ai mis un cœur (plusieurs possibles). */
+  myHearts: string[];
   commentCount: number;
   /** Chargés seulement sur demande (fil d'un avis). */
   comments?: FeedbackCommentDTO[];
@@ -86,7 +91,7 @@ export function winningOptions(options: { id: string; votes: number | null }[]):
   return options.filter((o) => (o.votes ?? 0) === max).map((o) => o.id);
 }
 
-/** Pourcentage arrondi (0 sans vote). */
+/** Part des votants qui ont mis un cœur à cette proposition, arrondie (0 sans vote). */
 export function votePercent(votes: number | null, total: number | null): number {
   if (!votes || !total) return 0;
   return Math.round((votes / total) * 100);

@@ -20,8 +20,9 @@ const read = (f: string) => readFileSync(f, "utf8");
 describe("barre latérale sans catégories : principaux, un trait, secondaires (10/10/2026)", () => {
   it("onglets principaux dans l'ordre de Lucas, puis les secondaires", () => {
     expect(NAV_GROUPS.map((g) => g.key)).toEqual(["principal", "secondaire"]);
-    expect(NAV_GROUPS[0].items.map((i) => i.label)).toEqual(["Vue d'ensemble", "Calendrier", "Publications", "Analytics", "Interactions", "Communauté"]);
-    expect(NAV_GROUPS[1].items.map((i) => i.label)).toEqual(["Studio IA", "Outils", "Comptes connectés", "Page bio", "Media kit", "Rapports", "Calendrier client", "Réussites"]);
+    // 10/10/2026 : Réussites passe dans les principaux, sous Communauté.
+    expect(NAV_GROUPS[0].items.map((i) => i.label)).toEqual(["Vue d'ensemble", "Calendrier", "Publications", "Analytics", "Interactions", "Communauté", "Réussites"]);
+    expect(NAV_GROUPS[1].items.map((i) => i.label)).toEqual(["Studio IA", "Outils", "Comptes connectés", "Page bio", "Media kit", "Rapports", "Calendrier client"]);
     expect(SIDEBAR_NAV_ITEMS).toHaveLength(14);
   });
   it("« Publier » quitte le menu latéral mais reste dans la palette, le fil d'Ariane et la barre du bas", () => {
@@ -37,13 +38,13 @@ describe("barre latérale sans catégories : principaux, un trait, secondaires (
       expect(sidebar).not.toContain(item.href);
       expect(ALL_NAV_ITEMS.map((i) => i.href)).toContain(item.href);
     }
-    expect(ACCOUNT_NAV_ITEMS.map((i) => i.label)).toEqual(["Paramètres", "Facturation", "Automatisations", "Soutenir Nebula"]);
+    expect(ACCOUNT_NAV_ITEMS.map((i) => i.label)).toEqual(["Paramètres", "Abonnement", "Automatisations", "Soutenir Nebula"]);
   });
   it("groupe d'une page (pages secondaires comprises)", () => {
     expect(navGroupKeyFor("/calendar")).toBe("principal");
     expect(navGroupKeyFor("/posts/abc")).toBe("principal");
     expect(navGroupKeyFor("/tools/taux-engagement")).toBe("secondaire");
-    expect(navGroupKeyFor("/reussites")).toBe("secondaire");
+    expect(navGroupKeyFor("/reussites")).toBe("principal");
     expect(navGroupKeyFor("/composer")).toBeNull();
     expect(navGroupKeyFor("/settings")).toBeNull();
   });

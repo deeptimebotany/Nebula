@@ -237,7 +237,7 @@ export default function LegalPage() {
             Le palier Gratuit est limité (nombre de marques, de comptes connectés et de publications par mois,
             indiqué sur la page Tarifs). Les paliers Pro et Agence sont des abonnements mensuels ou annuels facturés
             via Stripe et renouvelés automatiquement à chaque échéance ; le prix dépend du nombre de marques choisi.
-            Vous pouvez changer de palier ou résilier à tout moment depuis la page Facturation ; la résiliation prend
+            Vous pouvez changer de palier ou résilier à tout moment depuis la page Abonnement ; la résiliation prend
             effet à la fin de la période déjà payée, sans remboursement au prorata sauf obligation légale contraire.
           </p>
           <p>
@@ -549,7 +549,9 @@ export default function LegalPage() {
             même si le compte a été supprimé entre-temps. Les rapports
             d&apos;audit de présence sont supprimés automatiquement au bout de 30 jours. Les messages du formulaire de
             contact sont supprimés 12 mois après leur réception. Les adresses de la liste « Prévenez-moi du lancement » sont
-            supprimées 6 mois après l&apos;e-mail d&apos;annonce. Les signalements de la Communauté sont supprimés avec
+            supprimées 6 mois après l&apos;e-mail d&apos;annonce. Quand vous déconnectez un compte social, ses statistiques,
+            les chiffres de ses publications, ses commentaires et ses analyses sont effacés tout de suite ; l&apos;historique
+            des publications faites avec {SITE_NAME} reste dans votre compte. Les signalements de la Communauté sont supprimés avec
             le contenu signalé ou avec votre compte. Les conversations avec l&apos;assistant sont supprimées 90 jours après leur dernier
             message, ou plus tôt si vous les supprimez. Les demandes d&apos;avis, leurs images, votes et avis écrits sont
             supprimés 30 jours après la fin de la demande (72 h après sa publication), ou plus tôt si vous la

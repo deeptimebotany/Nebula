@@ -38,7 +38,7 @@ export function FeaturedPanel({
   const consent = draft ?? featured.consent;
   const available = featured.shared.filter((v) => !v.featured);
   return (
-    <div className="space-y-3 rounded-2xl border border-amber-300/25 bg-amber-300/[0.03] p-4">
+    <div id="une" className="space-y-3 rounded-2xl border border-amber-300/25 bg-amber-300/[0.03] p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300">Vidéo à la une</p>

@@ -451,7 +451,7 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
                 <Skeleton className="h-8 w-full" />
               </div>
             ) : data.leaderboard.length === 0 ? (
-              <p className="text-xs text-slate-500">Personne n&apos;a encore parrainé de nouveau compte — soyez le premier.</p>
+              <p className="text-xs text-slate-500">Aucun filleul abonné pour l&apos;instant — soyez le premier. Seuls les filleuls abonnés (abonnement payé, toujours actif 30 jours après) comptent pour le classement.</p>
             ) : (
               <ol className="space-y-1">
                 {data.leaderboard.map((r, i) => (
@@ -462,7 +462,7 @@ export function ProfilePanel({ initialSection = null }: { initialSection?: Profi
                       {r.isMe && <span className="shrink-0 text-[11px] text-aurora-300">(vous)</span>}
                     </span>
                     <span className="shrink-0 text-xs font-medium text-white">
-                      {r.referrals} filleul{r.referrals > 1 ? "s" : ""}
+                      {r.referrals} filleul{r.referrals > 1 ? "s" : ""} abonné{r.referrals > 1 ? "s" : ""}
                     </span>
                   </li>
                 ))}

@@ -18,7 +18,7 @@
 //     Pro, 15. ») s'affiche tel quel ; le prix est lu dans plans.ts.
 // Offre unique de bienvenue : à la première ouverture par un compte dont
 // l'essai est terminé (ou sans essai), le serveur pose offerExpiresAt
-// (48 h) ; tant qu'elle est valide, la modale et Facturation affichent
+// (48 h) ; tant qu'elle est valide, la modale et Abonnement affichent
 // « -50 % sur votre premier mois » avec un compte à rebours. Une seule fois
 // par compte, jamais pour un compte payant, mensuel uniquement.
 // Offre « Fondateur » (02/10/2026) : tant qu'il reste des places et que le
@@ -170,7 +170,7 @@ const REASONS: Record<UpgradeReason, { title: string; lines: [string, string]; v
   },
   generic: {
     title: "Passez en Pro",
-    lines: ["Plusieurs marques, rapports clients, calendrier partagé, assistant IA, Studio IA et analyse de rétention.", "Sans engagement : résiliable ou mis en pause à tout moment depuis Facturation."],
+    lines: ["Plusieurs marques, rapports clients, calendrier partagé, assistant IA, Studio IA et analyse de rétention.", "Sans engagement : résiliable ou mis en pause à tout moment depuis Abonnement."],
     visual: "dashboard"
   }
 };
@@ -319,7 +319,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ open, close, openFromResponse }), [open, close, openFromResponse]);
   const def = reason ? REASONS[reason] : null;
   // Avis sans offre : adresse à confirmer, ou limite du jour d'un compte
-  // déjà payant (Agence : rien au-dessus ; Pro : lien vers Facturation).
+  // déjà payant (Agence : rien au-dessus ; Pro : lien vers Abonnement).
   const paidLimit = (reason === "ai_daily_limit" || reason === "ai_monthly_limit") && Boolean(me?.paid || me?.comp);
   // Déjà payant (ou accès offert) et limite de marques : pas d'offre Pro, un avis.
   const paidBrandLimit = reason === "second_brand" && Boolean(me?.paid || me?.comp);

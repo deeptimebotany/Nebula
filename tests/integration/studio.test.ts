@@ -141,7 +141,8 @@ describe.skipIf(!hasDatabase)("Studio IA : génération, quota, historique, rout
     await reserveMonthly(key, parisMonth(), "studio", 50, 50);
     const r = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: PRO });
     expect(r).toMatchObject({ ok: false, status: 429, reason: "ai_monthly_limit" });
-    expect((r as { error: string }).error).toMatch(/vos 50 générations du Studio de ce mois-ci.*En Agence, 120 par mois\. Vos résultats restent dans l'historique\.$/);
+    expect((r as { error: string }).error).toMatch(/^Limite de générations du Studio atteinte pour ce mois-ci.*En Agence, vous en avez beaucoup plus\. Vos résultats restent dans l'historique\.$/);
+    expect((r as { error: string }).error).not.toMatch(/\b(50|120)\b/);
     const agency = await generateStudio({ userId: user.id, brandId: brand.id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideasJson, plan: { plan: "AGENCY" as const, limits: PLAN_LIMITS.AGENCY } });
     expect(agency).toMatchObject({ ok: true, quota: { limit: 120, used: 51, remaining: 69 } });
 

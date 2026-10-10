@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { markEasterEggFound } from "@/lib/easter-eggs/server";
+import { topReferrers } from "@/lib/referral-leaderboard";
 
 // Easter egg à récompense "Couronne permanente" (referral-crown-30d) : il
 // faut rester en 1ère place du classement de parrainage (voir
@@ -16,31 +17,12 @@ function utcDateOnly(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-interface ReferredByCodeCount {
-  referredByCode: string | null;
-  _count: { _all: number };
-}
-
-// Calcule l'utilisateur actuellement en tête du classement de parrainage —
-// même règle que /api/referral/leaderboard (le plus de filleuls gagne),
-// mais on n'a besoin que du gagnant ici, pas de tout le classement.
+// Parrain actuellement en tête du classement — même règle que
+// /api/referral/leaderboard : le plus de filleuls ABONNÉS (10/10/2026, voir
+// src/lib/referral-leaderboard.ts ; avant, toutes les inscriptions avec le
+// code comptaient, faux comptes compris).
 async function computeTopReferrerId(): Promise<string | null> {
-  const counts = await prisma.user.groupBy({
-    by: ["referredByCode"],
-    where: { referredByCode: { not: null } },
-    _count: { _all: true }
-  });
-  if (counts.length === 0) return null;
-
-  const sorted = (counts as ReferredByCodeCount[]).slice().sort((a, b) => b._count._all - a._count._all);
-  const top = sorted[0];
-  if (!top.referredByCode || top._count._all === 0) return null;
-
-  const owner = await prisma.user.findFirst({
-    where: { referralCode: top.referredByCode },
-    select: { id: true }
-  });
-  return owner?.id ?? null;
+  return (await topReferrers(1))[0]?.userId ?? null;
 }
 
 export async function checkReferralCrownStreak(): Promise<void> {

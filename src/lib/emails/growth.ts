@@ -9,7 +9,7 @@ export async function sendRewardEmail(input: { to: string; firstName: string; re
   const how =
     input.mode === "credit" || input.mode === "coupon"
       ? "Il est déjà crédité sur votre compte : il sera déduit automatiquement de votre prochaine facture."
-      : "Il sera automatiquement déduit de votre prochaine souscription Pro (visible dans Facturation et dans votre profil).";
+      : "Il sera automatiquement déduit de votre prochaine souscription Pro (visible dans Abonnement et dans votre profil).";
   const appUrl = process.env.NEXTAUTH_URL || "https://nebulahub.space";
   return sendEmail({
     to: input.to,

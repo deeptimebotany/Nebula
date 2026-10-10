@@ -250,7 +250,7 @@ export default function KeepChoicePage() {
           Sans choix de votre part, la marque la plus utilisée sur les 14 derniers jours reste active. Les publications des marques en veille prévues dans les 7 jours après la fin de l&apos;essai partent normalement ; les
           suivantes repassent en brouillon, avec leur date d&apos;origine gardée, et repartent d&apos;un clic au passage en Pro.{" "}
           <Link href="/billing" className="text-aurora-300 underline underline-offset-2">
-            Retour à Facturation
+            Retour à Abonnement
           </Link>
         </p>
       </GlassCard>

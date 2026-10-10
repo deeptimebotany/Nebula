@@ -63,8 +63,9 @@ export async function loadMonthlySummary(brandId: string, month: MonthKey, opts:
   // Relevés : un peu avant le mois précédent, pour la valeur de départ des compteurs.
   const from = new Date(prevStart.getTime() - 10 * DAY);
 
+  // Comptes déconnectés exclus (10/10/2026) : leurs chiffres sont effacés.
   const connections = (await prisma.socialConnection.findMany({
-    where: { brandId },
+    where: { brandId, status: { not: "DISCONNECTED" } },
     select: { id: true, network: true, displayName: true, handle: true },
     orderBy: { connectedAt: "asc" }
   })) as { id: string; network: string; displayName: string; handle: string | null }[];

@@ -7,7 +7,9 @@
 //    métadonnées retirées, rangées sous u/<auteur>/avis/ ; une image venue
 //    de Publier doit appartenir à la personne ou à une de ses marques ;
 //  - limites : 2 demandes par semaine en Gratuit, 10 par jour en Pro,
-//    Agence ou essai ; un vote par personne, jamais sur sa propre demande ;
+//    Agence ou essai ; des cœurs (10/10/2026) : un par personne et par
+//    proposition, sur autant de propositions qu'on veut, jamais sur sa
+//    propre demande ;
 //  - résultats cachés tant qu'on n'a pas voté (pas d'effet de suivisme),
 //    visibles par l'auteur et par tous une fois la demande terminée ;
 //  - signalement et suppression comme le reste de la Communauté
@@ -19,6 +21,7 @@ import { getUserPlan } from "@/lib/billing/plan";
 import { deleteUploadedFile, localUploadPath, saveUploadedFile } from "@/lib/storage";
 import { ownStoragePath, sniffMediaMime, userUploadPrefix } from "@/lib/upload-policy";
 import { AUTHOR_SELECT, publicAuthor } from "@/lib/reussites/public-author";
+import { displayHandle } from "./handle-rules";
 import { notify, notifyOnce } from "@/lib/notifications";
 import { fetchPublic, readBodyCapped } from "@/lib/net-safety";
 import { NETWORKS } from "@/lib/types";
@@ -226,10 +229,10 @@ export function isClosed(row: { closesAt: Date; closedAt: Date | null }, now: Da
   return Boolean(row.closedAt) || row.closesAt.getTime() <= now.getTime();
 }
 
-function toDTO(row: RequestRow, viewerId: string, myVote: string | null, now: Date): FeedbackRequestDTO {
+function toDTO(row: RequestRow, viewerId: string, myHearts: string[], voters: number, now: Date): FeedbackRequestDTO {
   const mine = row.authorId === viewerId;
   const closed = isClosed(row, now);
-  const visible = canSeeResults({ mine, voted: Boolean(myVote), closed });
+  const visible = canSeeResults({ mine, voted: myHearts.length > 0, closed });
   return {
     id: row.id,
     kind: row.kind as FeedbackKind,
@@ -241,8 +244,8 @@ function toDTO(row: RequestRow, viewerId: string, myVote: string | null, now: Da
     author: publicAuthor(row.author),
     mine,
     options: row.options.map((o) => ({ id: o.id, position: o.position, label: o.label, imageUrl: o.imageUrl, votes: visible ? o._count.votes : null })),
-    totalVotes: visible ? row._count.votes : null,
-    myVote,
+    totalVotes: visible ? voters : null,
+    myHearts,
     commentCount: row._count.comments
   };
 }
@@ -264,24 +267,37 @@ export async function listFeedback(viewerId: string, scope: FeedbackScope, now: 
     orderBy: scope === "open" ? { closesAt: "asc" } : { createdAt: "desc" },
     take: 60
   })) as unknown as RequestRow[];
-  const votes = rows.length
-    ? await prisma.feedbackVote.findMany({ where: { userId: viewerId, requestId: { in: rows.map((r) => r.id) } }, select: { requestId: true, optionId: true } })
-    : [];
-  const byRequest = new Map(votes.map((v) => [v.requestId, v.optionId]));
-  const list = rows.map((r) => toDTO(r, viewerId, byRequest.get(r.id) ?? null, now));
-  // À voter : celles sans mon vote d'abord.
-  return scope === "open" ? [...list.filter((r) => !r.myVote), ...list.filter((r) => r.myVote)] : list;
+  const ids = rows.map((r) => r.id);
+  const [mineRows, voters] = await Promise.all([
+    ids.length ? prisma.feedbackVote.findMany({ where: { userId: viewerId, requestId: { in: ids } }, select: { requestId: true, optionId: true } }) : [],
+    votersByRequest(ids)
+  ]);
+  const byRequest = new Map<string, string[]>();
+  for (const v of mineRows) byRequest.set(v.requestId, [...(byRequest.get(v.requestId) ?? []), v.optionId]);
+  const list = rows.map((r) => toDTO(r, viewerId, byRequest.get(r.id) ?? [], voters.get(r.id) ?? 0, now));
+  // À voter : celles où je n'ai encore mis aucun cœur d'abord.
+  return scope === "open" ? [...list.filter((r) => r.myHearts.length === 0), ...list.filter((r) => r.myHearts.length > 0)] : list;
+}
+
+/** Nombre de personnes (pas de cœurs) qui ont mis au moins un cœur, par demande. */
+async function votersByRequest(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = (await prisma.feedbackVote.groupBy({ by: ["requestId", "userId"], where: { requestId: { in: ids } } })) as { requestId: string }[];
+  const out = new Map<string, number>();
+  for (const r of rows) out.set(r.requestId, (out.get(r.requestId) ?? 0) + 1);
+  return out;
 }
 
 export async function getFeedback(viewerId: string, id: string, now: Date = new Date()): Promise<FeedbackRequestDTO | null> {
   const row = (await prisma.feedbackRequest.findUnique({ where: { id }, include: REQUEST_INCLUDE })) as unknown as RequestRow | null;
   if (!row) return null;
-  const [vote, comments] = await Promise.all([
-    prisma.feedbackVote.findUnique({ where: { requestId_userId: { requestId: id, userId: viewerId } }, select: { optionId: true } }),
+  const [hearts, voters, comments] = await Promise.all([
+    prisma.feedbackVote.findMany({ where: { requestId: id, userId: viewerId }, select: { optionId: true } }),
+    votersByRequest([id]),
     prisma.feedbackComment.findMany({ where: { requestId: id }, orderBy: { createdAt: "asc" }, take: 200, include: { author: { select: AUTHOR_SELECT } } })
   ]);
   return {
-    ...toDTO(row, viewerId, vote?.optionId ?? null, now),
+    ...toDTO(row, viewerId, hearts.map((h) => h.optionId), voters.get(id) ?? 0, now),
     comments: (comments as unknown as { id: string; body: string; createdAt: Date; authorId: string; helpfulAt: Date | null; author: unknown }[]).map(
       (c): FeedbackCommentDTO => ({ id: c.id, body: c.body, createdAt: c.createdAt.toISOString(), author: publicAuthor(c.author), mine: c.authorId === viewerId, helpful: Boolean(c.helpfulAt) })
     )
@@ -292,17 +308,22 @@ export async function getFeedback(viewerId: string, id: string, now: Date = new 
 // Vote, commentaire, clôture
 // ---------------------------------------------------------------------------
 
+/**
+ * Cœur sur une proposition (10/10/2026, demande de Lucas) : un clic le met,
+ * un autre clic le retire ; on peut en mettre sur plusieurs propositions,
+ * ou sur toutes. Jamais sur sa propre demande ni une demande terminée.
+ */
 export async function voteFeedback(userId: string, requestId: string, optionId: string, now: Date = new Date()): Promise<FeedbackResult<{ request: FeedbackRequestDTO }>> {
   const row = await prisma.feedbackRequest.findUnique({ where: { id: requestId }, select: { authorId: true, closesAt: true, closedAt: true, options: { select: { id: true } } } });
   if (!row) return { ok: false, status: 404, error: "Demande d'avis introuvable." };
   if (row.authorId === userId) return { ok: false, status: 400, error: "Vous ne pouvez pas voter pour votre propre demande." };
   if (isClosed(row, now)) return { ok: false, status: 409, error: "Cette demande d'avis est terminée." };
   if (!row.options.some((o) => o.id === optionId)) return { ok: false, status: 400, error: "Proposition introuvable." };
-  await prisma.feedbackVote.upsert({
-    where: { requestId_userId: { requestId, userId } },
-    create: { requestId, optionId, userId },
-    update: { optionId, createdAt: now }
-  });
+  const existing = await prisma.feedbackVote.findUnique({ where: { optionId_userId: { optionId, userId } }, select: { id: true } });
+  if (existing) await prisma.feedbackVote.delete({ where: { id: existing.id } });
+  else {
+    await prisma.feedbackVote.create({ data: { requestId, optionId, userId, createdAt: now } }).catch(() => undefined); // double clic : déjà là
+  }
   const request = await getFeedback(userId, requestId, now);
   return { ok: true, request: request as FeedbackRequestDTO };
 }
@@ -348,8 +369,8 @@ export async function markFeedbackHelpful(
 ): Promise<FeedbackResult<{ helpful: boolean; commentAuthorId: string }>> {
   const comment = (await prisma.feedbackComment.findUnique({
     where: { id: commentId },
-    select: { id: true, requestId: true, authorId: true, helpfulAt: true, request: { select: { authorId: true, context: true, author: { select: { name: true } } } } }
-  })) as { id: string; requestId: string; authorId: string; helpfulAt: Date | null; request: { authorId: string; context: string; author: { name: string | null } | null } } | null;
+    select: { id: true, requestId: true, authorId: true, helpfulAt: true, request: { select: { authorId: true, context: true, author: { select: { handle: true } } } } }
+  })) as { id: string; requestId: string; authorId: string; helpfulAt: Date | null; request: { authorId: string; context: string; author: { handle: string | null } | null } } | null;
   if (!comment || comment.requestId !== requestId) return { ok: false, status: 404, error: "Avis introuvable." };
   if (comment.request.authorId !== userId) return { ok: false, status: 403, error: "Seul l'auteur de la demande peut marquer un avis utile." };
   if (comment.authorId === userId) return { ok: false, status: 400, error: "Vos propres messages ne comptent pas comme avis utiles." };
@@ -360,7 +381,7 @@ export async function markFeedbackHelpful(
   }
   await prisma.feedbackComment.update({ where: { id: commentId }, data: { helpfulAt: helpful ? now : null } });
   if (helpful) {
-    const who = comment.request.author?.name?.trim() || "Un créateur";
+    const who = comment.request.author?.handle ? displayHandle(comment.request.author.handle) : "Un créateur";
     // Une seule notification par avis, même s'il est démarqué puis remarqué.
     await notifyOnce(comment.authorId, {
       kind: "feedback",
@@ -396,14 +417,16 @@ export async function deleteFeedbackRequest(requestId: string): Promise<void> {
 // Cron : fin des demandes (avec résultat), purge
 // ---------------------------------------------------------------------------
 
-function resultSentence(kind: string, options: { id: string; position: number; label: string; votes: number }[], total: number): string {
-  if (total === 0) return "Aucun vote cette fois : relancez une demande en précisant ce que vous voulez savoir.";
+/** `total` : nombre de votants ; `votes` d'une option : ses cœurs. */
+export function resultSentence(kind: string, options: { id: string; position: number; label: string; votes: number }[], total: number): string {
+  if (total === 0) return "Aucun cœur cette fois : relancez une demande en précisant ce que vous voulez savoir.";
   const winners = winningOptions(options);
   const what = (o: { position: number; label: string }) => (kind === "TITLE" ? `« ${o.label} »` : `la miniature ${optionLetter(o.position)}${o.label ? ` (${o.label})` : ""}`);
   const best = options.filter((o) => winners.includes(o.id));
-  if (best.length > 1) return `Égalité entre ${best.map(what).join(" et ")} (${total} vote${total > 1 ? "s" : ""}).`;
+  const voters = `${total} votant${total > 1 ? "s" : ""}`;
+  if (best.length > 1) return `Égalité entre ${best.map(what).join(" et ")} (${voters}).`;
   const top = best[0];
-  return `${what(top).charAt(0).toUpperCase()}${what(top).slice(1)} l'emporte : ${top.votes} vote${top.votes > 1 ? "s" : ""} sur ${total}.`;
+  return `${what(top).charAt(0).toUpperCase()}${what(top).slice(1)} l'emporte : ${top.votes} cœur${top.votes > 1 ? "s" : ""}, ${voters}.`;
 }
 
 /** Demandes arrivées à 72 h : marquées terminées, l'auteur reçoit le résultat. */
@@ -414,12 +437,13 @@ export async function closeDueFeedback(now: Date = new Date()): Promise<{ closed
     take: 100
   });
   let closed = 0;
+  const votersOf = await votersByRequest(due.map((r) => r.id));
   for (const r of due) {
     const { count } = await prisma.feedbackRequest.updateMany({ where: { id: r.id, closedAt: null }, data: { closedAt: now } });
     if (count === 0) continue;
     closed++;
     const options = r.options.map((o) => ({ id: o.id, position: o.position, label: o.label, votes: o._count.votes }));
-    const total = options.reduce((s, o) => s + o.votes, 0);
+    const total = votersOf.get(r.id) ?? 0;
     await notify(r.authorId, {
       kind: "feedback",
       title: r.kind === "TITLE" ? "Résultat de votre demande d'avis (titres)" : "Résultat de votre demande d'avis (miniatures)",

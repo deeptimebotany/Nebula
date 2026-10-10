@@ -49,7 +49,7 @@ import {
   ALL_TIERS,
   EGG_XP,
   FEATURE_TICKET_STEPS,
-  LINKED_EGG_KEYS,
+  COLLECTION_EGG_KEYS,
   QUALITY_KEYS,
   REWARDS,
   STEPS,
@@ -84,6 +84,31 @@ const DAY = 86_400_000;
 const THROTTLE_MS = 5 * 60_000;
 /** Repère du passage à la v2 (voir l'en-tête). Jamais affiché, 0 XP. */
 export const MIGRATION_KEY = "migration:v2";
+
+/**
+ * Rangs rééquilibrés (10/10/2026, avant le lancement) : repère posé une fois
+ * par compte. Un compte déjà évalué sans ce repère est recalculé une seule
+ * fois : les XP enregistrés reprennent les valeurs actuelles du catalogue et
+ * le rang est recalculé avec les nouveaux seuils (il peut baisser, cette fois
+ * seulement ; les paliers au-dessus du nouveau rang sont retirés, en
+ * silence). Un compte neuf reçoit le repère dès sa première évaluation.
+ */
+export const XP_RECALC_KEY = "recalc:xp-2026-10";
+
+/** XP actuel du catalogue pour une clé enregistrée (accomplissement ou étoile), sinon null. */
+export function catalogXp(key: string): number | null {
+  const tier = findTier(key);
+  if (tier) return tier.xp;
+  const star = findStar(key);
+  return star ? star.xp : null;
+}
+
+async function realignStoredXp(existing: { id: string; key: string; xp: number }[]): Promise<void> {
+  for (const u of existing) {
+    const xp = catalogXp(u.key);
+    if (xp !== null && xp !== u.xp) await achievementUnlockDb.update({ where: { id: u.id }, data: { xp } });
+  }
+}
 const MIN_REPLY_CHARS = 20;
 const MIN_VIEWS_FOR_ENGAGEMENT = 200;
 
@@ -179,8 +204,9 @@ async function communityStats(userId: string) {
       where: { authorId: userId, thread: { authorId: { not: userId } } },
       select: { threadId: true, body: true }
     }) as Promise<{ threadId: string; body: string }[]>,
+    // Les je n'aime pas du forum (10/10/2026) ne comptent jamais.
     prisma.communityReaction.count({
-      where: { userId: { not: userId }, OR: [{ thread: { authorId: userId } }, { reply: { authorId: userId } }] }
+      where: { userId: { not: userId }, emoji: { not: "dislike" }, OR: [{ thread: { authorId: userId } }, { reply: { authorId: userId } }] }
     }),
     // Avis de la communauté (02/10/2026) : un avis écrit sur la demande d'un
     // autre créateur compte comme un sujet aidé (même seuil de 20 caractères).
@@ -336,7 +362,7 @@ export async function computeXp(userId: string): Promise<number> {
   const [unlocks, challenges, eggs] = await Promise.all([
     achievementUnlockDb.aggregate({ _sum: { xp: true }, where: { userId } }),
     challengeCompletionDb.aggregate({ _sum: { xp: true }, where: { userId } }),
-    prisma.easterEggFound.count({ where: { userId, key: { notIn: LINKED_EGG_KEYS } } })
+    prisma.easterEggFound.count({ where: { userId, key: { in: COLLECTION_EGG_KEYS } } })
   ]);
   return (unlocks._sum.xp ?? 0) + (challenges._sum.xp ?? 0) + eggs * EGG_XP;
 }
@@ -414,6 +440,9 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     // Compte déjà évalué avant la v2 : ce qui est déjà mérité est enregistré
     // en silence (une seule annonce), et le rang déjà atteint est gardé.
     const catchUp = !firstRun && !have.has(MIGRATION_KEY);
+    // Rangs rééquilibrés (voir XP_RECALC_KEY) : recalcul unique.
+    const recalc = !firstRun && !have.has(XP_RECALC_KEY);
+    if (recalc) await realignStoredXp(existing);
 
     // Missions de la semaine (créées à la première évaluation de la semaine).
     const weekly = await evaluateWeekMissions(userId, posts, now, { record: true, celebrated: firstRun });
@@ -490,7 +519,9 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
     // partir de Confirmé, des records de qualité (v3). Un palier déjà
     // atteint (ou mérité avant) n'est jamais retiré.
     const xp = await computeXp(userId);
-    const reached = Math.max(
+    const reached = recalc
+      ? 1
+      : Math.max(
       Number(user.creatorLevel) || 1,
       ...Array.from(have)
         .filter((k) => k.startsWith("rank-"))
@@ -498,15 +529,22 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
       catchUp ? rankFor(Number(user.creatorXp) || 0).level : 1
     );
     const level = gatedRank(xp, skillLevels(have), reached, qualityCount(have));
+    if (recalc) {
+      // Paliers au-dessus du rang recalculé, et anciens niveaux (avant la v2) : retirés.
+      const stale = Array.from(have).filter((k) => k.startsWith("level-") || (k.startsWith("rank-") && (Number(k.slice(5)) || 0) > level.level));
+      if (stale.length) await achievementUnlockDb.deleteMany({ where: { userId, key: { in: stale } } });
+      for (const k of stale) have.delete(k);
+    }
     for (const st of STEPS) {
       if (st.step < 2 || st.step > level.level || have.has(rankKey(st.step))) continue;
       // Premier passage : seule la carte du palier atteint s'affiche.
-      const celebrated = catchUp || (firstRun && st.step !== level.level);
+      const celebrated = recalc || catchUp || (firstRun && st.step !== level.level);
       if (await tryCreateUnlock(userId, rankKey(st.step), 0, celebrated)) {
         have.add(rankKey(st.step));
-        if (!catchUp) fresh.push({ type: "level", key: rankKey(st.step) });
+        if (!catchUp && !recalc) fresh.push({ type: "level", key: rankKey(st.step) });
       }
     }
+    if ((firstRun || recalc) && !have.has(XP_RECALC_KEY) && (await tryCreateUnlock(userId, XP_RECALC_KEY, 0, true))) have.add(XP_RECALC_KEY);
 
     // Tickets « vidéo à la une » des paliers Confirmé I, Influent I,
     // Référence I et Icône I (une seule fois chacun).
@@ -532,6 +570,7 @@ export async function evaluateReussites(userId: string, opts: { force?: boolean 
       fresh,
       firstRun,
       catchUp,
+      recalc,
       level,
       xp,
       metrics,
@@ -572,6 +611,8 @@ async function sendNotifications(
     fresh: FreshItem[];
     firstRun: boolean;
     catchUp: boolean;
+    /** Recalcul unique des rangs (10/10/2026, XP_RECALC_KEY). */
+    recalc?: boolean;
     level: LevelProgress;
     xp: number;
     metrics: Metrics;
@@ -617,6 +658,17 @@ async function sendNotifications(
       href: "/reussites",
       actionLabel: "Voir mes réussites",
       dedupeKey: "reussites:v2"
+    });
+  }
+
+  if (ctx.recalc) {
+    await notifyOnce(userId, {
+      kind: "achievement",
+      title: "Les rangs ont été rééquilibrés",
+      body: `Il faut maintenant un peu plus d'XP pour monter, et les premiers pas en rapportent moins : chaque rang compte davantage. Votre rang a été recalculé : vous êtes ${level.name} (${ctx.xp.toLocaleString("fr-FR")} XP).`,
+      href: "/reussites?focus=level",
+      actionLabel: "Voir mon rang",
+      dedupeKey: "reussites:recalc-2026-10"
     });
   }
 
@@ -821,7 +873,7 @@ function formatValue(n: number): string {
 export async function unseenReussites(userId: string, seenAt: Date | null): Promise<number> {
   const since = seenAt ?? new Date(0);
   const [a, c] = await Promise.all([
-    achievementUnlockDb.count({ where: { userId, unlockedAt: { gt: since }, NOT: { key: MIGRATION_KEY } } }),
+    achievementUnlockDb.count({ where: { userId, unlockedAt: { gt: since }, key: { notIn: [MIGRATION_KEY, XP_RECALC_KEY] } } }),
     // Le coffre s'ouvre sur la page elle-même : il n'est pas une nouveauté.
     challengeCompletionDb.count({ where: { userId, completedAt: { gt: since }, kind: { not: "CHEST" } } })
   ]);

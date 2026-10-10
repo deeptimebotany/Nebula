@@ -6,6 +6,7 @@ import AppleProvider from "next-auth/providers/apple";
 import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { ensureHandle } from "@/lib/community/handle";
 import { generateUniqueReferralCode } from "@/lib/referral";
 import { cookies, headers as nextHeaders } from "next/headers";
 import { ATTRIBUTION_COOKIE, attributionToUserFields, parseAttributionCookie, trackGrowth } from "@/lib/growth";
@@ -178,6 +179,8 @@ async function createOAuthUser(
       }
     }
   });
+  // Pseudo de la Communauté (10/10/2026) : attribué tout de suite.
+  await ensureHandle(user.id);
   await trackGrowth("signup", { source: attribution?.source ?? "direct", via: attribution?.via ?? "", referred: Boolean(referrerCode), oauth: true }, user.id);
   // Intro de création de compte au premier affichage du tableau de bord
   // (lib/intro/welcome.ts) : ce callback s'exécute dans la route handler de

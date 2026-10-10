@@ -1,7 +1,7 @@
 "use client";
 
 import { isReussiteRewardKey } from "@/lib/reussites/catalog";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { BACKGROUNDS, canUseBackground } from "@/lib/backgrounds";
 import type { Plan } from "@/lib/plans";
@@ -43,6 +43,23 @@ export function BackgroundCarousel({
   const [isDragging, setIsDragging] = useState(false);
   // Vignettes dans la déclinaison du mode actif (clair ou sombre).
   const { mode } = useMode();
+
+  // Flèches seulement quand les vignettes ne tiennent pas toutes (10/10/2026 :
+  // il ne reste que 3 fonds, ils tiennent d'habitude sur une ligne).
+  const [overflow, setOverflow] = useState(false);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const check = () => setOverflow(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", check);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, []);
 
   function scrollByAmount(amount: number) {
     trackRef.current?.scrollBy({ left: amount, behavior: "smooth" });
@@ -99,6 +116,7 @@ export function BackgroundCarousel({
 
   return (
     <div className="relative">
+      {overflow && (
       <button
         type="button"
         onClick={() => scrollByAmount(-CARD_WIDTH * 3)}
@@ -107,6 +125,7 @@ export function BackgroundCarousel({
       >
         <IconChevron className="h-4 w-4 rotate-90" />
       </button>
+      )}
 
       <div
         ref={trackRef}
@@ -115,8 +134,9 @@ export function BackgroundCarousel({
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
         className={clsx(
-          "flex gap-3 overflow-x-auto scroll-smooth px-9 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-          isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+          "flex gap-3 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          overflow ? "px-9" : "px-1",
+          overflow ? (isDragging ? "cursor-grabbing select-none" : "cursor-grab") : "cursor-default"
         )}
       >
         {BACKGROUNDS.map((bg) => {
@@ -148,6 +168,7 @@ export function BackgroundCarousel({
         })}
       </div>
 
+      {overflow && (
       <button
         type="button"
         onClick={() => scrollByAmount(CARD_WIDTH * 3)}
@@ -156,6 +177,7 @@ export function BackgroundCarousel({
       >
         <IconChevron className="h-4 w-4 -rotate-90" />
       </button>
+      )}
     </div>
   );
 }

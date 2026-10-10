@@ -16,6 +16,8 @@ import { clsx } from "@/lib/clsx";
 
 interface EggStatus {
   number: number;
+  /** Grille numérotée (sinon : bloc « à récompense »), fixe pour chaque easter egg. */
+  numbered?: boolean;
   found: boolean;
   key?: string;
   emoji?: string;
@@ -71,8 +73,11 @@ export function EggSummary() {
 /** Collection complète (page /reussites/collection). */
 export function EggCollection() {
   const { eggs, foundCount, total } = useEggs();
-  const normalEggs = eggs?.filter((e) => !e.reward) ?? [];
-  const rewardEggs = eggs?.filter((e) => e.reward) ?? [];
+  // Place fixe (10/10/2026) : un easter egg secret trouvé reste dans la
+  // grille numérotée, les numéros se suivent toujours (1, 2, 3…).
+  const numbered = (e: EggStatus) => e.numbered ?? !e.reward;
+  const normalEggs = eggs?.filter(numbered) ?? [];
+  const rewardEggs = eggs?.filter((e) => !numbered(e)) ?? [];
 
   return (
     <section aria-labelledby="collection-title" className="space-y-5">
@@ -106,6 +111,7 @@ export function EggCollection() {
                       </div>
                       <p className="mt-2 text-sm font-medium text-white">{egg.title}</p>
                       <p className="mt-1 flex-1 text-xs text-slate-400">{egg.hint}</p>
+                      {egg.reward && <p className="mt-2 text-[11px] font-medium text-emerald-300">Récompense : {egg.reward}</p>}
                       {egg.foundAt && <p className="mt-2 text-[11px] text-amber-300">Trouvé le {new Date(egg.foundAt).toLocaleDateString("fr-FR")}</p>}
                     </div>
                   ) : (

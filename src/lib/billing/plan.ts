@@ -168,7 +168,7 @@ export async function assertConnectionQuota(brandId: string) {
   const count = await countConnectionSlots(brandId);
   if (count >= limits.maxConnections) {
     throw new Error(
-      `Limite de comptes connectés atteinte pour le palier ${limits.label} (${limits.maxConnections} comptes par marque). Passez sur un palier supérieur dans Facturation.`
+      `Limite de comptes connectés atteinte pour le palier ${limits.label} (${limits.maxConnections} comptes par marque). Passez sur un palier supérieur dans Abonnement.`
     );
   }
 }
@@ -192,7 +192,7 @@ export async function assertPostQuota(brandId: string) {
   const count = await countPostsThisMonth(brandId);
   if (count >= limits.maxPostsPerMonth) {
     throw new Error(
-      `Limite de publications atteinte pour le palier ${limits.label} (${limits.maxPostsPerMonth}/mois). Passez sur un palier supérieur dans Facturation.`
+      `Limite de publications atteinte pour le palier ${limits.label} (${limits.maxPostsPerMonth}/mois). Passez sur un palier supérieur dans Abonnement.`
     );
   }
 }
@@ -208,7 +208,7 @@ export async function assertBrandQuota(userId: string) {
   const owned = await countOwnedBrands(userId);
   if (owned >= maxBrands) {
     throw new Error(
-      `Limite de marques atteinte pour votre palier ${limits.label} (${maxBrands}). Passez à un palier supérieur, ou à un nombre de marques plus élevé, dans Facturation.`
+      `Limite de marques atteinte pour votre palier ${limits.label} (${maxBrands}). Passez à un palier supérieur, ou à un nombre de marques plus élevé, dans Abonnement.`
     );
   }
 }

@@ -390,7 +390,7 @@ export async function runFounderJobs(now: Date = new Date()): Promise<{ reminder
       title: `Votre année Fondateur Premium se termine ${when}`,
       paragraphs: [
         `Merci encore d'avoir soutenu Nebula. Votre palier <strong>${PLAN_LIMITS.PRO.label} 1 marque</strong> reste actif jusqu'au <strong>${frDate(until)}</strong>.`,
-        "Rien ne sera prélevé automatiquement. Pour continuer sans interruption, choisissez votre forfait dans Facturation ; sinon, vous repasserez au palier Gratuit, sans rien perdre. Votre badge « Fondateur », lui, reste à vie."
+        "Rien ne sera prélevé automatiquement. Pour continuer sans interruption, choisissez votre forfait dans Abonnement ; sinon, vous repasserez au palier Gratuit, sans rien perdre. Votre badge « Fondateur », lui, reste à vie."
       ],
       cta: { label: "Choisir mon forfait", url: `${appUrl()}/billing#paliers` },
       signature: true
@@ -426,7 +426,7 @@ export async function runFounderJobs(now: Date = new Date()): Promise<{ reminder
       title: "Votre année Fondateur Premium est terminée",
       paragraphs: [
         "Merci d'avoir soutenu Nebula pendant cette première année. Rien n'a été prélevé : votre compte est passé au palier Gratuit, et tout est conservé (les marques en trop sont en veille, pas supprimées).",
-        "Quel forfait vous faut-il maintenant ? Pro 1 marque, Pro 5 ou 10 marques, Agence : choisissez dans Facturation, tout se réactive aussitôt. Votre badge « Fondateur » reste à vie."
+        "Quel forfait vous faut-il maintenant ? Pro 1 marque, Pro 5 ou 10 marques, Agence : choisissez dans Abonnement, tout se réactive aussitôt. Votre badge « Fondateur » reste à vie."
       ],
       cta: { label: "Choisir mon forfait", url: `${appUrl()}/billing#paliers` },
       signature: true

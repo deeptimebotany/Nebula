@@ -213,7 +213,7 @@ interface Delegate<Row> {
 
 const extra = prisma as unknown as {
   notification: Delegate<NotificationRow>;
-  referralReward: Delegate<ReferralRewardRow>;
+  referralReward: Delegate<ReferralRewardRow> & { groupBy(args: Args): Promise<{ beneficiaryId: string; _count: { _all: number } }[]> };
   integrationAccount: Delegate<IntegrationAccountRow> & { upsert(args: Args): Promise<IntegrationAccountRow> };
   apiKey: Delegate<ApiKeyRow>;
   webhookEndpoint: Delegate<WebhookEndpointRow>;

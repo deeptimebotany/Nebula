@@ -24,9 +24,13 @@ function parseJson<T>(text: string | null | undefined, fallback: T): T {
 const isNetwork = (n: string): n is Network => (NETWORKS as readonly string[]).includes(n);
 
 export async function loadStudioFacts(brandId: string, now: Date = new Date()): Promise<StudioFacts> {
-  // Les comptes déconnectés gardent leur historique de chiffres, mais ne
-  // comptent pas comme réseaux « connectés » (idées proposées pour eux).
-  const connections = (await prisma.socialConnection.findMany({ where: { brandId }, select: { id: true, network: true, status: true } })) as { id: string; network: string; status: string }[];
+  // Comptes déconnectés exclus (10/10/2026) : à la déconnexion, leurs
+  // chiffres sont effacés (voir social/disconnected-data.ts).
+  const connections = (await prisma.socialConnection.findMany({ where: { brandId, status: { not: "DISCONNECTED" } }, select: { id: true, network: true, status: true } })) as {
+    id: string;
+    network: string;
+    status: string;
+  }[];
   const ids = connections.map((c) => c.id);
   const since = new Date(now.getTime() - STUDIO_WINDOW_DAYS * DAY);
 

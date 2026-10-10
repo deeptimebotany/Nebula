@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest) {
     const plan = previewPlan ?? (await getUserPlan(userId)).plan;
     if (!canUseBackground(background, plan)) {
       return NextResponse.json(
-        { error: `Le fond "${background.label}" nécessite le palier ${background.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },
+        { error: `Le fond "${background.label}" nécessite le palier ${background.requiresPlan}. Passez sur ce palier dans Abonnement pour le débloquer.` },
         { status: 403 }
       );
     }

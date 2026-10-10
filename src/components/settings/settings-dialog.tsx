@@ -8,7 +8,7 @@
 //     ou la croix ferment la fenêtre (le focus revient où il était).
 //   - Onglets à gauche (en haut sur téléphone, la fenêtre prend alors tout
 //     l'écran) : Marque, Apparence, Focus et réussites, Sons, Notifications,
-//     Parrainage, Compte. Raccourcis vers Facturation et Automatisations en
+//     Parrainage, Compte. Raccourcis vers Abonnement et Automatisations en
 //     bas de la colonne.
 //   - Chaque réglage est une ligne : nom et explication à gauche, interrupteur
 //     ou bouton à droite, lignes séparées par un trait fin. Les interrupteurs
@@ -38,6 +38,7 @@ import { useMode } from "@/components/mode-provider";
 import { useToast } from "@/components/dashboard/toast";
 import { IconBell, IconCard, IconChevronRight, IconClose, IconFocus, IconGift, IconLock, IconPlug, IconShield, IconUpload, IconSun, IconMoon } from "@/components/dashboard/icons";
 import { BackgroundCarousel } from "@/components/settings/background-carousel";
+import { HandleSettings } from "./handle-settings";
 import { AccountPrivacyCard } from "@/components/settings/account-privacy-card";
 import { StatsConsentCard } from "@/components/settings/stats-consent-card";
 import { useStarfield } from "@/components/starfield-provider";
@@ -528,7 +529,7 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
   function onPickTheme(themeKeyToPick: string) {
     const theme = THEMES.find((t) => t.key === themeKeyToPick);
     if (theme && !canUseTheme(theme, effectivePlan)) {
-      toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Facturation.`);
+      toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Abonnement.`);
       return;
     }
     setThemeKey(themeKeyToPick);
@@ -537,7 +538,7 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
   function onPickBackground(backgroundKeyToPick: string) {
     const bg = BACKGROUNDS.find((b) => b.key === backgroundKeyToPick);
     if (bg?.requiresPlan && !canUseBackground(bg, effectivePlan)) {
-      toast.error(`Le fond "${bg.label}" nécessite le palier ${bg.requiresPlan}. Débloquez-le dans Facturation.`);
+      toast.error(`Le fond "${bg.label}" nécessite le palier ${bg.requiresPlan}. Débloquez-le dans Abonnement.`);
       return;
     }
     if (bg?.requiresEgg && !effectiveFoundEggKeys.has(bg.requiresEgg)) {
@@ -549,7 +550,7 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
 
   async function onToggleStarfield() {
     if (!starfieldAllowed) {
-      toast.error("Le thème étoilé animé nécessite le palier Pro ou Agence. Débloquez-le dans Facturation.");
+      toast.error("Le thème étoilé animé nécessite le palier Pro ou Agence. Débloquez-le dans Abonnement.");
       return;
     }
     setSavingStarfield(true);
@@ -629,7 +630,7 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
           <div className="mt-auto hidden space-y-0.5 px-3 pb-5 pt-4 sm:block">
             <Link href="/billing" onClick={onClose} className="nb-settings-tab flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] text-slate-400 transition hover:text-white">
               <IconCard className="h-[18px] w-[18px] shrink-0" />
-              <span className="flex-1">Facturation</span>
+              <span className="flex-1">Abonnement</span>
               <IconChevronRight className="h-4 w-4" />
             </Link>
             <Link href="/automatisations" onClick={onClose} className="nb-settings-tab flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] text-slate-400 transition hover:text-white">
@@ -712,7 +713,7 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
                     <p className="text-[13px] text-slate-500">
                       Disponible avec le palier Agence.{" "}
                       <Link href="/billing" onClick={onClose} className={inlineLink}>
-                        Voir Facturation
+                        Voir Abonnement
                       </Link>
                     </p>
                   ) : (
@@ -774,13 +775,13 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
                   <p className="mt-3 text-[12px] text-slate-500">
                     Les thèmes verrouillés se débloquent avec un abonnement —{" "}
                     <Link href="/billing" onClick={onClose} className={inlineLink}>
-                      voir Facturation
+                      voir Abonnement
                     </Link>
                     .
                   </p>
                 </Block>
 
-                <Block title="Fond d'écran" description="15 fonds assortis à votre thème, en mode sombre comme en mode clair, dont 4 animés. Flèches ou glisser pour faire défiler.">
+                <Block title="Fond d'écran" description="Le fond uni, ou les fonds « Constellation » et « Galaxie spirale » (animée), à gagner dans Réussites. Ils s'accordent à votre thème, en mode sombre comme en mode clair.">
                   <BackgroundCarousel selected={backgroundKey} onSelect={onPickBackground} plan={effectivePlan} unlockedEggKeys={effectiveFoundEggKeys} />
                 </Block>
 
@@ -861,11 +862,11 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
               <div className="nb-settings-list">
                 <Row
                   title="Sons de l'interface"
-                  description="Des sons très courts sur quelques actions clés (visite guidée, première publication programmée, mission réussie, coffre ouvert). Toujours après un clic. Coupé ici : plus aucun son, sur tous vos appareils."
+                  description="Des sons courts et doux sur quelques actions clés (visite guidée, première publication programmée, mission réussie, coffre ouvert). Toujours après un clic. Coupé ici : plus aucun son, sur tous vos appareils."
                 >
                   <Toggle checked={uiSoundsOn} onChange={onToggleUiSounds} disabled={savingUiSounds} aria-label="Sons de l'interface" />
                 </Row>
-                <Row title="Son des succès" description="Un petit arpège accompagne l'animation « Succès débloqué ». Réglage de cet appareil ; rien ne sonne en Mode focus.">
+                <Row title="Son des succès" description="Une courte mélodie grave accompagne l'animation « Succès débloqué ». Réglage de cet appareil ; rien ne sonne en Mode focus.">
                   <button type="button" onClick={playArpeggio} className="rounded-full px-3 py-1.5 text-[13px] text-slate-400 transition hover:bg-[color:var(--nb-hover)] hover:text-white">
                     ▶ Écouter
                   </button>
@@ -950,8 +951,13 @@ export function SettingsDialog({ tab, onTabChange, onClose }: SettingsDialogProp
             )}
 
             {tab === "compte" && (
-              <div className="pt-5">
-                <AccountPrivacyCard bare beforeDanger={<StatsConsentCard bare />} />
+              <div>
+                <div className="nb-settings-list">
+                  <HandleSettings />
+                </div>
+                <div className="pt-5">
+                  <AccountPrivacyCard bare beforeDanger={<StatsConsentCard bare />} />
+                </div>
               </div>
             )}
           </div>

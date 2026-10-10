@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
@@ -12,6 +14,7 @@ import { openSettings } from "@/components/settings/settings-events";
 import { IconAvatar, IconCommand, IconFocus, IconMoon, IconPlus, IconSun, IconTrophy } from "./icons";
 import { restartGuidedTour } from "@/lib/tour-events";
 import { findEasterEgg, secretEggFor } from "@/lib/easter-eggs-registry";
+import { EGG_XP } from "@/lib/reussites/catalog";
 
 interface Command {
   id: string;
@@ -173,9 +176,21 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
   // Codes secrets du commentaire caché dans le code source (page 404, page
   // Soutenir) et du message de la console : « Vu dans le code source » et
   // « Message dans la console » (voir easter-eggs-registry.ts).
+  // 10/10/2026 (retour de Lucas : « ça m'a rien débloqué ») : la palette dit
+  // si l'easter egg est nouveau ou déjà dans la collection (le toast de
+  // succès ne s'affiche pas en Mode focus, actif par défaut).
   const secretEgg = secretEggFor(query);
+  const [secretState, setSecretState] = useState<"checking" | "new" | "known" | "error">("checking");
   useEffect(() => {
-    if (secretEgg) reportEasterEggFound(secretEgg);
+    if (!secretEgg) return;
+    let cancelled = false;
+    setSecretState("checking");
+    void reportEasterEggFound(secretEgg).then((isNew) => {
+      if (!cancelled) setSecretState(isNew === null ? "error" : isNew ? "new" : "known");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [secretEgg]);
 
   function execute(cmd: Command) {
@@ -221,9 +236,23 @@ export function CommandPalette({ isOwner = false }: { isOwner?: boolean }) {
         </div>
         <div id="command-palette-list" role="listbox" className="max-h-[60vh] overflow-y-auto p-1.5">
           {secretEgg ? (
-            <p className="px-3 py-4 text-center text-sm text-amber-200" role="status">
-              {findEasterEgg(secretEgg)?.emoji} Code secret reconnu : « {findEasterEgg(secretEgg)?.title} » est à vous.
-            </p>
+            <div className="px-3 py-4 text-center text-sm" role="status" data-testid="secret-code-status">
+              <p className={secretState === "error" ? "text-red-300" : "text-amber-200"}>
+                {findEasterEgg(secretEgg)?.emoji}{" "}
+                {secretState === "checking"
+                  ? "Code secret reconnu…"
+                  : secretState === "new"
+                    ? `Débloqué : « ${findEasterEgg(secretEgg)?.title} » rejoint votre collection (+${EGG_XP} XP).`
+                    : secretState === "known"
+                      ? `Vous l'aviez déjà : « ${findEasterEgg(secretEgg)?.title} » est dans votre collection.`
+                      : "Code reconnu, mais impossible de l'enregistrer pour l'instant : réessayez dans un instant."}
+              </p>
+              {(secretState === "new" || secretState === "known") && (
+                <Link href="/reussites/collection" onClick={() => setOpen(false)} className="mt-2 inline-block text-xs text-aurora-300 underline underline-offset-2 hover:text-white">
+                  Voir ma collection d&apos;easter eggs
+                </Link>
+              )}
+            </div>
           ) : (
             filtered.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Aucun résultat.</p>
           )}

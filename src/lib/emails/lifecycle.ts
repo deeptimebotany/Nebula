@@ -251,12 +251,12 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
           paragraphs: [
             `Rien n'a été supprimé. En Gratuit : ${PLAN_LIMITS.FREE.maxBioLinks} liens actifs sur la page bio (les autres sont conservés, désactivés), rapports, calendrier client et media kit dépubliés, assistant IA, Rétention IA et Studio IA en pause.`,
             dormant > 0
-              ? `Une seule marque reste active ; ${dormant === 1 ? "l'autre est en veille" : `les ${dormant} autres sont en veille`} : tout reste visible, rien ne se publie ni ne se synchronise. Vous pouvez changer de marque active depuis Facturation.`
+              ? `Une seule marque reste active ; ${dormant === 1 ? "l'autre est en veille" : `les ${dormant} autres sont en veille`} : tout reste visible, rien ne se publie ni ne se synchronise. Vous pouvez changer de marque active depuis Abonnement.`
               : `Votre marque reste active, et vos publications déjà programmées partiront normalement.`,
             ...(drafted > 0
               ? [`${drafted} publication${drafted > 1 ? "s" : ""} prévue${drafted > 1 ? "s" : ""} plus de ${7} jours après la fin de l'essai ${drafted > 1 ? "sont repassées" : "est repassée"} en brouillon. Elle${drafted > 1 ? "s repartent" : " repart"} dès que vous passez en Pro.`]
               : []),
-            `Pour reprendre là où vous en étiez : <strong>-50 % sur votre premier mois Pro</strong>, valable 48 heures depuis la page Facturation (mensuel uniquement).`
+            `Pour reprendre là où vous en étiez : <strong>-50 % sur votre premier mois Pro</strong>, valable 48 heures depuis la page Abonnement (mensuel uniquement).`
           ],
           cta: { label: "Profiter de l'offre", url: `${base}/billing` },
           signature: sig
@@ -298,7 +298,7 @@ export function renderLifecycleEmail(key: LifecycleKey, ctx: LifecycleContext): 
           title: `${ctx.annualMonths ?? annualFreeMonths(pro)} mois offerts avec l'annuel`,
           paragraphs: [
             "Vous utilisez Nebula depuis trois mois — merci. En passant à la facturation annuelle, vous payez dix mois au lieu de douze, en une fois, et vous n'y pensez plus.",
-            "Le changement se fait depuis Facturation : basculez sur « Annuel », choisissez votre palier, Stripe fait le reste."
+            "Le changement se fait depuis Abonnement : basculez sur « Annuel », choisissez votre palier, Stripe fait le reste."
           ],
           cta: { label: "Passer à l'annuel", url: `${base}/billing` },
           signature: sig

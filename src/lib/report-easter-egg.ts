@@ -19,22 +19,31 @@ export interface EasterEggUnlockedDetail {
   emoji: string;
 }
 
-export function reportEasterEggFound(key: string) {
-  fetch("/api/easter-eggs/found", {
+/**
+ * Envoie la découverte ; renvoie `true` si c'est la première fois, `false`
+ * si l'easter egg était déjà trouvé, `null` si l'envoi a échoué (10/10/2026 :
+ * la palette le dit, au lieu d'annoncer « est à vous » à chaque fois).
+ */
+export function reportEasterEggFound(key: string): Promise<boolean | null> {
+  return fetch("/api/easter-eggs/found", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key })
   })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
-      if (!d?.isNew) return;
+      if (!d) return null;
+      if (!d.isNew) return false;
       const egg = findEasterEgg(key);
-      if (!egg) return;
-      const detail: EasterEggUnlockedDetail = { key: egg.key, title: egg.title, emoji: egg.emoji };
-      window.dispatchEvent(new CustomEvent("nebula:achievement", { detail }));
+      if (egg) {
+        const detail: EasterEggUnlockedDetail = { key: egg.key, title: egg.title, emoji: egg.emoji };
+        window.dispatchEvent(new CustomEvent("nebula:achievement", { detail }));
+      }
+      return true;
     })
     .catch(() => {
       // Pas grave : l'easter egg a quand même eu lieu pour la personne, il
       // sera juste marqué "trouvé" une prochaine fois qu'il se déclenche.
+      return null;
     });
 }

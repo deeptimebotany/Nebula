@@ -5,7 +5,6 @@ import { requireBrandMembership } from "@/lib/brand-access";
 import { prisma } from "@/lib/prisma";
 import { isAiEnabled, chatComplete, GeminiQuotaError, type ChatMessage } from "@/lib/ai/gemini";
 import { gateAppAi } from "@/lib/ai/guard";
-import { markEasterEggFound } from "@/lib/easter-eggs/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { isAssistantContextKey, type AssistantContextKey } from "@/lib/ai/assistant-contexts";
 import { CONTEXT_PROMPTS, buildSystemInstruction, extractThumbnailBrief, toolContextLines, trimHistory } from "@/lib/ai/assistant-prompts";
@@ -56,72 +55,6 @@ const bodySchema = z.object({
 const AI_CHAT_LIMIT = 30;
 const AI_CHAT_WINDOW_MINUTES = 10;
 
-// Easter egg : quelques questions "méta" classiques (qui es-tu, es-tu
-// vivant...) reçoivent une réponse maison au lieu d'être envoyées à Gemini —
-// plus sûr d'obtenir quelque chose d'à propos qu'en laissant le modèle
-// improviser, et ça économise un appel API pour une question qui revient
-// souvent. On ne matche que le DERNIER message de l'utilisateur, normalisé
-// (minuscules, accents et ponctuation retirés) pour couvrir les variantes
-// d'écriture ("qui es-tu", "Qui es tu ?", ...).
-const IDENTITY_TRIGGERS = [
-  "qui es tu",
-  "qui etes vous",
-  "cest qui toi",
-  "tes qui",
-  "tu es qui",
-  "es tu vivant",
-  "es tu une ia",
-  "es tu une intelligence artificielle",
-  "es tu un robot",
-  "es tu humain",
-  "who are you",
-  "are you alive",
-  "are you a robot",
-  "are you sentient",
-  "are you human"
-];
-
-const IDENTITY_REPLIES = [
-  "Je suis l'assistant intégré de Nebula — une IA, pas un être vivant, mais bien réel dans le sens où je ne travaille qu'avec vos vraies statistiques, jamais des chiffres inventés.",
-  "Ni vivant ni humain : je suis le modèle d'IA branché sur votre compte Nebula, pour vous aider à publier au bon moment sur les bons réseaux.",
-  "Une intelligence artificielle, oui — née dans le code de Nebula pour lire vos analytics et vous faire gagner du temps. Rien de plus mystérieux que ça !"
-];
-
-function normalizeForEasterEgg(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // retire les accents
-    .replace(/[^a-z0-9\s]/g, " ") // ponctuation -> espace
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function matchIdentityEasterEgg(lastUserText: string): string | null {
-  const normalized = normalizeForEasterEgg(lastUserText);
-  if (!normalized) return null;
-  if (!IDENTITY_TRIGGERS.some((t) => normalized === t || normalized.includes(t))) return null;
-  return IDENTITY_REPLIES[Math.floor(Math.random() * IDENTITY_REPLIES.length)];
-}
-
-// Easter egg "42" : deux occurrences du nombre 42 (mot entier) dans le même
-// message — pense "42 fois 42", "42 * 42", "42x42"... — reçoivent le vrai
-// calcul PLUS un clin d'œil, sans appeler Gemini.
-function matchMathEasterEgg(lastUserText: string): string | null {
-  const matches = lastUserText.match(/\b42\b/g);
-  if (!matches || matches.length < 2) return null;
-  return "1764 — et 42 reste la réponse à tout le reste 😉";
-}
-
-// Easter egg "merci" : le mot "merci" répété au moins 5 fois dans le même
-// message (n'importe où, n'importe quelle casse) — pas besoin d'appeler
-// Gemini pour dire merci en retour.
-function matchThanksEasterEgg(lastUserText: string): string | null {
-  const matches = lastUserText.toLowerCase().match(/merci/g);
-  if (!matches || matches.length < 5) return null;
-  return "🥹 C'est nous qui vous remercions !";
-}
-
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -149,30 +82,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ...body, conversationId: savedId ?? conversationId ?? null });
   };
-
-  // Easter egg "qui es-tu" : répond avant même de vérifier que Gemini est
-  // configuré ou que le palier permet l'IA — une réponse maison ne coûte
-  // rien et ne doit jamais être bloquée par ces garde-fous.
-  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
-  if (lastUserMessage) {
-    const identityEgg = matchIdentityEasterEgg(lastUserMessage.text);
-    if (identityEgg) {
-      await markEasterEggFound(userId, "ai-identity");
-      return reply({ reply: identityEgg, contextKey });
-    }
-
-    const mathEgg = matchMathEasterEgg(lastUserMessage.text);
-    if (mathEgg) {
-      await markEasterEggFound(userId, "ai-answer-42");
-      return reply({ reply: mathEgg, contextKey });
-    }
-
-    const thanksEgg = matchThanksEasterEgg(lastUserMessage.text);
-    if (thanksEgg) {
-      await markEasterEggFound(userId, "support-thanks");
-      return reply({ reply: thanksEgg, contextKey });
-    }
-  }
 
   if (!isAiEnabled()) {
     return NextResponse.json(

@@ -1,5 +1,6 @@
 // Petits sons de l'interface. La plupart sont synthétisés à la volée via
-// WebAudio : chaque fonction crée son propre AudioContext et le referme
+// WebAudio (briques communes : sound-synth.ts, style Pulsar depuis le
+// 10/10/2026) : chaque fonction crée son propre AudioContext et le referme
 // après usage. Seule exception, le « Son Pulsar » des notifications : depuis
 // le 08/10/2026, c'est le son fourni par Lucas (« Nebula Mail – Arrivée et
 // départ », public/sounds/notification-pulsar.mp3, 0,9 s). Les navigateurs
@@ -7,6 +8,7 @@
 // (catch vide), ce qui est le comportement souhaité pour un agrément sonore.
 
 import { getPref, setPref } from "@/lib/ui-prefs-client";
+import { NOTE, pulsarChord, soundBus, swell } from "@/lib/sound-synth";
 
 function getCtx(): AudioContext | null {
   try {
@@ -45,57 +47,46 @@ export function playPulsarChime() {
   }
 }
 
-/** Souffle de décollage montant — easter egg "Son Décollage" (voir publish.ts / composer/page.tsx). */
+/**
+ * Son « Décollage » — easter egg (voir publish.ts / composer/page.tsx).
+ * 10/10/2026 : « Étages » (proposition 5-G, choisie par Lucas) : trois petits
+ * accords graves qui montent comme des étages, puis l'accord du Pulsar, ≈ 1,3 s.
+ */
 export function playLaunchWhoosh() {
   const ctx = getCtx();
   if (!ctx) return;
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  const filter = ctx.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(180, now);
-  filter.frequency.exponentialRampToValueAtTime(2200, now + 0.9);
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(90, now);
-  osc.frequency.exponentialRampToValueAtTime(340, now + 0.9);
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.09, now + 0.15);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
-  osc.connect(filter).connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 1.2);
-  window.setTimeout(() => ctx.close().catch(() => undefined), 1600);
+  const out = soundBus(ctx, { reverb: 0.25, level: 0.34 });
+  for (const [f, t] of [
+    [NOTE.A2, 0],
+    [NOTE.D3, 0.11],
+    [NOTE.E3, 0.22]
+  ] as const) {
+    swell(ctx, out, { t, notes: [[f, 1], [f * 1.5, 0.5], [f * 2, 0.25]], attack: 0.09, release: 0.22, peak: 0.3, lp: [500, 1800, 500] });
+  }
+  swell(ctx, out, { t: 0.33, notes: pulsarChord(NOTE.A3), attack: 0.12, release: 0.7, peak: 0.42, lp: [600, 2800, 550], lpClose: 0.25 });
+  window.setTimeout(() => ctx.close().catch(() => undefined), 3000);
 }
 
 /**
- * Arpège « succès débloqué » (choisi le 24/09/2026, proposition n° 3) :
- * quatre notes montantes (do, mi, sol, do) puis une petite cloche — joué
- * avec l'animation de achievement-toast-listener.tsx. Désactivable dans
+ * Son des succès, joué avec l'animation de achievement-toast-listener.tsx
+ * (mission, accomplissement, easter egg, coffre). Désactivable dans
  * Paramètres → Sons (voir isAchievementSoundOn).
+ * 10/10/2026 : « Mélodie » (proposition 6-H, choisie par Lucas) : une nappe
+ * grave et trois notes douces qui montent par-dessus (do#, mi, la), ≈ 2 s.
  */
 export function playAchievementArpeggio() {
   const ctx = getCtx();
   if (!ctx) return;
-  const now = ctx.currentTime;
-  const note = (freq: number, start: number, dur: number, gainValue: number, type: OscillatorType) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, now + start);
-    gain.gain.setValueAtTime(0.0001, now + start);
-    gain.gain.exponentialRampToValueAtTime(gainValue, now + start + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now + start);
-    osc.stop(now + start + dur + 0.05);
-  };
-  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(f, i * 0.09, 0.35, 0.12, "triangle"));
-  // Cloche finale (fondamentale + deux harmoniques).
-  note(1318.5, 0.38, 0.9, 0.1, "sine");
-  note(1318.5 * 2.01, 0.38, 0.54, 0.035, "sine");
-  note(1318.5 * 3.02, 0.38, 0.32, 0.015, "sine");
-  window.setTimeout(() => ctx.close().catch(() => undefined), 1800);
+  const out = soundBus(ctx, { reverb: 0.35, seconds: 2, level: 0.44 });
+  swell(ctx, out, { notes: [[NOTE.A2, 1], [NOTE.E3, 0.6], [NOTE.A3, 0.3]], attack: 0.4, release: 1.5, peak: 0.3, lp: [250, 1800, 500], lpClose: 0.6 });
+  for (const [f, t, release] of [
+    [NOTE.Cs4, 0.15, 0.4],
+    [NOTE.E4, 0.34, 0.4],
+    [NOTE.A4, 0.53, 1.0]
+  ] as const) {
+    swell(ctx, out, { t, notes: [[f, 1], [f * 2, 0.12]], attack: 0.1, release, peak: 0.18, lp: [1500, 2600, 1200], lpClose: 0.3 });
+  }
+  window.setTimeout(() => ctx.close().catch(() => undefined), 3500);
 }
 
 const ACHIEVEMENT_SOUND_KEY = "nebula:achievement-sound";

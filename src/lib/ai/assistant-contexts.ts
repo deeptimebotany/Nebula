@@ -315,7 +315,7 @@ export const ASSISTANT_CONTEXTS: Record<AssistantContextKey, AssistantContextDef
     ]
   },
   billing: {
-    label: "Facturation",
+    label: "Abonnement",
     welcome: "Vous êtes dans la facturation. Je peux expliquer les différences entre les paliers, ce qui est inclus dans le vôtre, ou comment gérer votre abonnement.",
     suggestions: [
       "Quelle est la différence entre les paliers ?",

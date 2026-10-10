@@ -1,6 +1,6 @@
 "use client";
 
-// Grille tarifaire publique — même source de vérité que la page Facturation
+// Grille tarifaire publique — même source de vérité que la page Abonnement
 // (PLAN_LIMITS dans src/lib/plans.ts), pour ne jamais afficher deux grilles
 // de prix différentes. Pas de paiement ici : les CTA renvoient vers
 // /register, le choix précis du palier se fait après connexion.

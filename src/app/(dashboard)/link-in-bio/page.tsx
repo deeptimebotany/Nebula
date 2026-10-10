@@ -182,7 +182,7 @@ export default function LinkInBioPage() {
   function onPickTheme(key: string) {
     const theme = THEMES.find((t) => t.key === key);
     if (theme && !canUseTheme(theme, plan)) {
-      toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Facturation.`);
+      toast.error(`Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Débloquez-le dans Abonnement.`);
       return;
     }
     patchPage({ theme: key });

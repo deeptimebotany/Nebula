@@ -152,7 +152,7 @@ export function monthlyResetLabel(now: Date = new Date()): string {
 
 const KIND_LABEL: Record<AiKind, { many: string; unit: string }> = {
   text: { many: "générations de texte", unit: "textes" },
-  image: { many: "images", unit: "miniatures" },
+  image: { many: "miniatures", unit: "miniatures" },
   studio: { many: "générations du Studio", unit: "générations du Studio" },
   assistant: { many: "messages à l'assistant", unit: "messages" },
   retention: { many: "analyses Rétention", unit: "analyses Rétention" }
@@ -178,22 +178,26 @@ export function aiRefusalResponse(r: AiRefusal): NextResponse {
   );
 }
 
-/** Message d'un quota atteint (mois, essai ou jour). */
+/**
+ * Message d'un quota atteint (mois, essai ou jour). 10/10/2026 (demande de
+ * Lucas) : jamais de chiffre (ni le quota, ni ce qui reste), seulement quand
+ * le compteur repart et ce que donne le palier au-dessus.
+ */
 function quotaMessage(limits: UserPlanInfo["limits"], kind: AiKind, limit: number, per: "day" | "month" | "trial", now: Date, canBuyPack: boolean): string {
   const label = KIND_LABEL[kind];
+  // « Limite d'analyses », « Limite de générations ».
+  const of = /^[aeiouéèêh]/i.test(label.many) ? `d'${label.many}` : `de ${label.many}`;
   const next = limits.upgradeTo ? PLAN_LIMITS[limits.upgradeTo] : null;
   const nextLimit = next ? aiLimit(next, kind) : 0;
-  if (per === "trial") {
-    return `Pendant l'essai, ${limit} ${label.unit} en tout : c'est atteint.${next && nextLimit > 0 ? ` En ${next.label}, ${nextLimit} par mois.` : ""}`;
-  }
+  const more = next && nextLimit > limit ? ` En ${next.label}, vous en avez beaucoup plus.` : "";
+  if (per === "trial") return `Limite ${of} de l'essai atteinte.${next && nextLimit > 0 ? ` En ${next.label}, vous en avez beaucoup plus chaque mois.` : ""}`;
   if (per === "day") {
-    if (next && limits.aiGuardrails) return `En ${limits.label}, ${limit} ${label.unit} par jour : c'est atteint pour aujourd'hui (retour à minuit, heure de Paris). En ${next.label}, ${aiLimit(next, kind)}.`;
-    return `Vous avez utilisé vos ${limit} ${label.many} d'aujourd'hui : le compteur repart à zéro à minuit (heure de Paris).`;
+    const base = `Limite ${of} atteinte pour aujourd'hui : elle repart à zéro à minuit (heure de Paris).`;
+    return next && limits.aiGuardrails ? `${base}${more}` : base;
   }
-  const base = `Vous avez utilisé vos ${limit} ${label.many} de ce mois-ci : le compteur repart ${monthlyResetLabel(now)}.`;
+  const base = `Limite ${of} atteinte pour ce mois-ci : elle repart ${monthlyResetLabel(now)}.`;
   if (canBuyPack) return `${base} Vous pouvez ajouter ${RETENTION_PACK.credits} analyses pour ${formatEuroCents(RETENTION_PACK.priceCents)}, sans date limite.`;
-  if (next && nextLimit > limit) return `${base} En ${next.label}, ${nextLimit} par mois.`;
-  return base;
+  return `${base}${more}`;
 }
 
 export async function assertAiAllowed(params: {
@@ -220,7 +224,7 @@ export async function assertAiAllowed(params: {
 
   // 1. Inclus dans le palier ?
   if (limit <= 0) {
-    return refuse(planId, 402, MISSING_REASON[kind], `Cette fonction IA fait partie des paliers Pro et Agence. Passez à un palier supérieur dans Facturation.`);
+    return refuse(planId, 402, MISSING_REASON[kind], `Cette fonction IA fait partie des paliers Pro et Agence. Passez à un palier supérieur dans Abonnement.`);
   }
 
   // 2. Âge (tous les paliers) et adresse confirmée (Gratuit, Essai).
@@ -369,7 +373,7 @@ export type AiQuotaSnapshot = Record<AiKind, AiQuotaEntry> & {
 
 /**
  * Ce qu'il reste à ce compte, par type d'IA (pour /api/me, la page
- * Facturation, Rétention, le Studio et les outils).
+ * Abonnement, Rétention, le Studio et les outils).
  */
 export async function aiQuotaSnapshot(userId: string, plan: PlanForAi, now: Date = new Date()): Promise<AiQuotaSnapshot> {
   const key = accountCounterKey(userId);
@@ -394,11 +398,11 @@ export async function aiQuotaSnapshot(userId: string, plan: PlanForAi, now: Date
 }
 
 const NOT_INCLUDED: Record<AiKind, { reason: AiRefusalReason; error: string }> = {
-  text: { reason: "ai_assistant", error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-  image: { reason: "ai_assistant", error: "La génération d'images fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-  assistant: { reason: "ai_assistant", error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-  retention: { reason: "retention", error: "L'analyse de rétention fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." },
-  studio: { reason: "studio", error: "Le Studio fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Facturation." }
+  text: { reason: "ai_assistant", error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Abonnement." },
+  image: { reason: "ai_assistant", error: "La génération d'images fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Abonnement." },
+  assistant: { reason: "ai_assistant", error: "L'assistant IA fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Abonnement." },
+  retention: { reason: "retention", error: "L'analyse de rétention fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Abonnement." },
+  studio: { reason: "studio", error: "Le Studio fait partie des paliers Pro/Agence. Passez à un palier supérieur dans Abonnement." }
 };
 
 /**

@@ -111,57 +111,16 @@ function def(
   return { key, label, css: paint(makeHelpers(DARK_INK)), lightCss: paint(makeHelpers(LIGHT_INK)), ...extra };
 }
 
-// Grand ménage du 24/09/2026 : 35 fonds → 15. On garde les plus distincts
-// et les plus marquants (11 fixes + les 4 animés, dont deux récompenses
-// Pro / easter egg déjà promises). Les 20 fonds retirés sont redirigés vers
-// le plus proche (LEGACY_BACKGROUNDS plus bas) : un compte qui en avait
-// choisi un voit automatiquement son remplaçant, sans rien perdre.
+// Grand ménage du 24/09/2026 (35 fonds → 15), puis du 10/10/2026 (demande
+// de Lucas) : il ne reste que le fond uni et les deux fonds gagnés dans
+// Réussites, « Constellation » et « Galaxie spirale ». Tous les fonds
+// retirés mènent au fond uni (LEGACY_BACKGROUNDS plus bas) : un compte qui
+// en avait choisi un retrouve simplement le fond par défaut.
 export const BACKGROUNDS: BackgroundDefinition[] = [
   // Fond par défaut : vraiment uni depuis la refonte V2 (07/10/2026, « fond
   // unique » demandé par Lucas) — noir neutre en sombre, #F9FAFB en clair.
-  // Avant : à peine éclairé en haut.
   def("mesh", "Uni (défaut)", ({ i }) => i.BASE),
-  def("nebuleuse", "Nébuleuse", ({ i, blob, dots }) => `${blob("15%", "10%", i.NEBULA, "55%")}, ${blob("85%", "90%", i.AURORA, "60%", 0.16)}, ${dots(i.AURORA, "28px")}, ${i.BASE}`),
-  def("aurora-polaire", "Aurore polaire", ({ i, blob }) => `${blob("20%", "0%", i.AURORA, "70%", 0.2)}, ${blob("80%", "20%", i.CYAN, "60%", 0.14)}, ${blob("50%", "100%", i.VIOLET, "65%", 0.12)}, ${i.BASE}`),
-  def("horizon", "Horizon", ({ i, alpha }) => `linear-gradient(180deg, transparent 0%, rgb(${i.NEBULA} / ${alpha(0.18)}) 70%, rgb(${i.AURORA} / ${alpha(0.1)}) 100%), ${i.BASE}`),
-  def("graphite", "Graphite", ({ i, grid }) => `${grid(i.AURORA_S, "56px", 0.06)}, ${i.BASE}`),
-  def("prisme", "Prisme", ({ i, stripes }) => `${stripes("35deg", i.CYAN, "1px", "34px", 0.09)}, ${stripes("-35deg", i.MAGENTA, "1px", "34px", 0.07)}, ${i.BASE}`),
-  def("geode", "Géode", ({ i, rings, blob }) => `${rings("50%", "40%", i.CYAN, "26px", 0.1)}, ${blob("50%", "40%", i.VIOLET, "70%", 0.15)}, ${i.BASE}`),
-  def("eclipse", "Éclipse", ({ i, blob, rings }) => `${blob("50%", "45%", i.AURORA, "35%", 0.28)}, ${rings("50%", "45%", i.AURORA_S, "18px", 0.07)}, ${i.BASE}`),
-  def("vitrail", "Vitrail", ({ i, rays, blob }) => `${rays("50%", "0%", i.AURORA, 0.07)}, ${blob("50%", "100%", i.MAGENTA, "70%", 0.14)}, ${i.BASE}`),
-  def("supernova", "Supernova", ({ i, blob }) => `${blob("50%", "20%", i.CYAN, "18%", 0.35)}, ${blob("50%", "20%", i.AURORA, "50%", 0.16)}, ${i.BASE}`),
-  def("solstice", "Solstice", ({ i, blob }) => `${blob("100%", "0%", i.CYAN, "60%", 0.22)}, ${blob("0%", "100%", i.MAGENTA, "60%", 0.18)}, ${i.BASE}`),
-
-  // --- Fonds animés (voir globals.css, [data-background-animated]) : deux
-  // de palier, un gratuit, un débloqué par easter egg.
-  def(
-    "aurore-boreale-animee",
-    "Aurore boréale (Pro)",
-    ({ i, blob }) => `${blob("20%", "0%", i.AURORA, "70%", 0.22)}, ${blob("80%", "10%", i.CYAN, "60%", 0.16)}, ${blob("50%", "100%", i.VIOLET, "65%", 0.14)}, ${i.BASE}`,
-    { requiresPlan: "PRO", animationClass: "nebula-bg-anim-aurora" }
-  ),
-  def(
-    "nebuleuse-violette-animee",
-    "Nébuleuse violette (Pro)",
-    ({ i, blob, dots }) => `${blob("15%", "30%", i.VIOLET, "65%", 0.24)}, ${blob("85%", "70%", i.MAGENTA, "60%", 0.16)}, ${dots(i.VIOLET, "26px", 0.08)}, ${i.BASE}`,
-    { requiresPlan: "PRO", animationClass: "nebula-bg-anim-drift" }
-  ),
-  // Fond animé GRATUIT : un fond animé reste accessible à tout le monde.
-  def(
-    "nebuleuse-scintillante-animee",
-    "Nébuleuse scintillante",
-    ({ i, blob, dots }) => `${dots(i.AURORA_S, "22px", 0.16)}, ${blob("30%", "20%", i.NEBULA, "60%", 0.2)}, ${blob("75%", "80%", i.AURORA, "55%", 0.14)}, ${i.BASE}`,
-    { animationClass: "nebula-bg-anim-shimmer" }
-  ),
   // --- Fonds gagnés dans Réussites (25/09/2026, voir src/lib/reussites/catalog.ts).
-  // « Première lumière » : une aube discrète qui se lève en bas de l'écran.
-  def(
-    "premiere-lumiere",
-    "Première lumière",
-    ({ i, blob, dots, alpha }) =>
-      `linear-gradient(0deg, rgb(242 180 110 / ${alpha(0.14)}) 0%, transparent 40%), ${blob("50%", "118%", "255 196 120", "60%", 0.3)}, ${blob("50%", "100%", i.MAGENTA, "70%", 0.08)}, ${dots(i.AURORA_S, "64px", 0.1)}, ${i.BASE}`,
-    { requiresEgg: "ach:bg-premiere-lumiere" }
-  ),
   // « Constellation » : deux constellations dessinées (étoiles reliées par
   // des traits très fins), sur une nébuleuse discrète.
   def(
@@ -178,45 +137,27 @@ export const BACKGROUNDS: BackgroundDefinition[] = [
     "Galaxie spirale",
     ({ i, blob, dots }) => `${blob("50%", "42%", i.AURORA, "16%", 0.2)}, ${blob("50%", "42%", i.VIOLET, "48%", 0.12)}, ${dots(i.AURORA_S, "48px", 0.08)}, ${i.BASE}`,
     { requiresEgg: "ach:bg-galaxie-spirale", animationClass: "nebula-bg-anim-spiral" }
-  ),
-  // Easter egg « Pluie d'étincelles » (voir easter-eggs-registry.ts).
-  def(
-    "pluie-meteores-animee",
-    "Pluie de météores",
-    ({ i, stripes }) => `${stripes("115deg", i.AURORA_S, "2px", "70px", 0.09)}, ${stripes("115deg", i.CYAN, "1px", "140px", 0.06)}, ${i.BASE}`,
-    { requiresEgg: "meteor-shower-unlock", animationClass: "nebula-bg-anim-meteors" }
   )
 ];
 
-/** Fonds retirés le 24/09/2026 → fond conservé le plus proche. */
-export const LEGACY_BACKGROUNDS: Record<string, string> = {
-  "maree-nocturne": "horizon",
-  "poussiere-etoiles": "nebuleuse-scintillante-animee",
-  dunes: "horizon",
-  origami: "graphite",
-  comete: "supernova",
-  abysse: "mesh",
-  "brume-violette": "solstice",
-  constellation: "nebuleuse-scintillante-animee",
-  cristaux: "prisme",
-  "marais-cyan": "aurora-polaire",
-  "onde-magenta": "vitrail",
-  toile: "graphite",
-  "foret-boreale": "aurora-polaire",
-  mineral: "vitrail",
-  lagune: "aurora-polaire",
-  flux: "prisme",
-  opale: "solstice",
-  spirale: "geode",
-  glacier: "aurora-polaire",
-  obsidienne: "mesh"
-};
+/** Fonds retirés (24/09/2026, puis 10/10/2026) → fond uni. */
+export const LEGACY_BACKGROUNDS: Record<string, string> = Object.fromEntries(
+  [
+    // 24/09/2026
+    "maree-nocturne", "poussiere-etoiles", "dunes", "origami", "comete", "abysse", "brume-violette", "constellation", "cristaux", "marais-cyan",
+    "onde-magenta", "toile", "foret-boreale", "mineral", "lagune", "flux", "opale", "spirale", "glacier", "obsidienne",
+    // 10/10/2026
+    "nebuleuse", "aurora-polaire", "horizon", "graphite", "prisme", "geode", "eclipse", "vitrail", "supernova", "solstice",
+    "aurore-boreale-animee", "nebuleuse-violette-animee", "nebuleuse-scintillante-animee", "premiere-lumiere", "pluie-meteores-animee"
+  ].map((k) => [k, "mesh"])
+);
 
 /** Clé d'un fond existant : redirige les anciennes clés, sinon le défaut. */
 export function resolveBackgroundKey(key: string | null | undefined): string {
   if (!key) return "mesh";
   if (BACKGROUNDS.some((b) => b.key === key)) return key;
-  return LEGACY_BACKGROUNDS[key] ?? "mesh";
+  const legacy = LEGACY_BACKGROUNDS[key];
+  return legacy && BACKGROUNDS.some((b) => b.key === legacy) ? legacy : "mesh";
 }
 
 export const DEFAULT_BACKGROUND_KEY = "mesh";

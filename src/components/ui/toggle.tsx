@@ -3,7 +3,7 @@
 // Interrupteur Activé/Désactivé partagé (role="switch", utilisable au
 // clavier : Espace/Entrée). Remplace les deux implémentations divergentes
 // qui existaient (pilule texte « Activé/Désactivé » dans Paramètres,
-// interrupteur dessiné à la main dans Facturation).
+// interrupteur dessiné à la main dans Abonnement).
 import { clsx } from "@/lib/clsx";
 
 interface ToggleProps {

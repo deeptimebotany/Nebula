@@ -1706,7 +1706,7 @@ function ComposerPageInner() {
         // agrément sonore facultatif — jamais bloquant
       }
     } else if (data.firstPost) {
-      // Première publication programmée ou publiée du compte : accord court (lot U5).
+      // Première publication programmée ou publiée du compte : « Grand pulsar » (lot U5, refait le 10/10/2026).
       playUiSound("first-post");
     }
     router.push(`/posts/${data.postId}`);

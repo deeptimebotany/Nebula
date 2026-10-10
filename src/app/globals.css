@@ -3015,3 +3015,14 @@ select option {
 .nb-topbar:has([aria-expanded="true"]) {
   z-index: 60;
 }
+
+/* Cœur posé sur une proposition de demande d'avis (10/10/2026). */
+@keyframes nb-heart-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.nb-heart-pop { animation: nb-heart-pop 0.32s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .nb-heart-pop { animation: none; }
+}

@@ -5,9 +5,10 @@ import { authOptions } from "@/lib/auth";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { voteFeedback } from "@/lib/community/feedback";
 
-// POST { optionId } — vote pour une proposition (un vote par personne,
-// modifiable tant que la demande est ouverte ; jamais sur la sienne). Tous
-// les paliers, Gratuit compris (choix de Lucas, 02/10/2026).
+// POST { optionId } — met ou retire un cœur sur une proposition (10/10/2026 :
+// plusieurs cœurs possibles, un par proposition ; tant que la demande est
+// ouverte ; jamais sur la sienne). Tous les paliers, Gratuit compris (choix
+// de Lucas, 02/10/2026).
 const bodySchema = z.object({ optionId: z.string().min(1).max(64) });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

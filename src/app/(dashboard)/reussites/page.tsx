@@ -49,6 +49,7 @@ import dynamic from "next/dynamic";
 import { LevelRing } from "@/components/reussites/level-ring";
 import { EggSummary } from "@/components/reussites/succes-section";
 import { WeeklyReview } from "@/components/reussites/weekly-review";
+import { REUSSITES_GOTO_EVENT } from "@/lib/reussites/goto";
 import { CollectiveCard, LaunchCard, RarityMark, SeasonShelf } from "@/components/reussites/social-cards";
 import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { getPref, setPref } from "@/lib/ui-prefs-client";
@@ -82,7 +83,8 @@ function tabFromHash(hash: string): ReussitesTab | null {
 /** Onglet d'un élément ciblé (?focus=… ou lien interne #…). */
 const MISSIONS_TARGETS = new Set(["missions", "missions-section", "defis", "defi-mois", "coffre", "bilan", "collectif"]);
 const SKILL_TARGETS = new Set(["constellation"]);
-const REWARD_TARGETS = new Set(["vitrine", "succes", "saisons", "album", "near"]);
+// « une » : le panneau « Vidéo à la une » (liens « Mettre ma vidéo à la une »).
+const REWARD_TARGETS = new Set(["vitrine", "succes", "saisons", "album", "near", "une"]);
 
 const CONSTELLATION_COLLAPSED = "nebula:reussites-constellation-collapsed";
 const SHOWCASE_COLLAPSED = "nebula:reussites-vitrine-collapsed";
@@ -716,6 +718,17 @@ export default function ReussitesPage() {
     },
     [changeTab]
   );
+
+  // « Faire mon bilan » (étoile ou leçon de l'onglet Compétences) : ouvre
+  // l'onglet du bloc visé puis y fait défiler (10/10/2026, src/lib/reussites/goto.ts).
+  useEffect(() => {
+    function onGoTo(e: Event) {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) goTo(id);
+    }
+    window.addEventListener(REUSSITES_GOTO_EVENT, onGoTo);
+    return () => window.removeEventListener(REUSSITES_GOTO_EVENT, onGoTo);
+  }, [goTo]);
 
   // Surbrillance de l'élément ciblé par ?focus=…, une fois les données là,
   // dans le bon onglet (lot U3 : chaque notification ouvre le sien).

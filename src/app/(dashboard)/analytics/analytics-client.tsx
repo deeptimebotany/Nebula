@@ -1,26 +1,23 @@
 "use client";
 
-import { useAvailableNetworks } from "@/lib/use-available-networks";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { MonthlySummaryPromo } from "@/components/monthly-summary/summary-settings";
-import { PageSkeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
+import { PageSkeleton, SkeletonGrid } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { m as motion, AnimatePresence } from "framer-motion";
 import { useBrand } from "@/components/brand-context";
-import { GlassCard } from "@/components/ui/glass-card";
 import { MotionGlassCard } from "@/components/ui/motion-glass-card";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
-import { NetworkBadge, networkInkStyle } from "@/components/ui/network-badge";
-import { NETWORK_META, NETWORKS, type ChartPoint, type Network } from "@/lib/types";
+import { NetworkBadge } from "@/components/ui/network-badge";
+import { NETWORK_META, type ChartPoint, type Network } from "@/lib/types";
 import { GrowthChart } from "@/components/dashboard/growth-chart";
 import { useToast } from "@/components/dashboard/toast";
-import { useConfirm } from "@/components/dashboard/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
-import { IconLink, IconUsers } from "@/components/dashboard/icons";
+import { IconLink } from "@/components/dashboard/icons";
 import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { ReferralPrompt, type ReferralPromptKey } from "@/components/dashboard/referral-prompt";
 import { clsx } from "@/lib/clsx";
@@ -40,8 +37,10 @@ const RetentionTool = dynamic(() => import("@/components/retention/retention-too
   loading: () => <SkeletonGrid count={2} />
 });
 
-type AnalyticsTab = "overview" | "competitors" | "retention" | "ads";
-const ANALYTICS_TABS: readonly AnalyticsTab[] = ["overview", "competitors", "retention", "ads"];
+// Onglet « Concurrence » retiré le 10/10/2026 (demande de Lucas) : un ancien
+// lien `?tab=competitors` ouvre la Vue d'ensemble.
+type AnalyticsTab = "overview" | "retention" | "ads";
+const ANALYTICS_TABS: readonly AnalyticsTab[] = ["overview", "retention", "ads"];
 const isAnalyticsTab = (v: string | null): v is AnalyticsTab => (ANALYTICS_TABS as readonly string[]).includes(v ?? "");
 
 // Onglet Publicité : module à part (tableaux, graphique des dépenses),
@@ -104,200 +103,6 @@ function markFiredSupernova(brandId: string) {
   } catch {
     // stockage indisponible — tant pis, la célébration pourra se redéclencher
   }
-}
-
-interface CompetitorSnapshotRow {
-  id: string;
-  followers: number;
-  postsCount: number | null;
-  capturedAt: string;
-}
-
-interface CompetitorTrackRow {
-  id: string;
-  network: Network;
-  handle: string;
-  label: string | null;
-  snapshots: CompetitorSnapshotRow[];
-}
-
-// Sous-onglet "Concurrence" : suivi manuel de jusqu'à 3 concurrents. Aucune
-// API publique ne permet de récupérer légalement et automatiquement les
-// stats d'un compte tiers arbitraire sur ces réseaux — chaque relevé est
-// donc un chiffre que VOUS avez constaté (visible publiquement sur son
-// profil) et saisi vous-même, jamais une valeur inventée par Nebula.
-function CompetitorTab({ brandId }: { brandId: string }) {
-  const offeredNetworks = useAvailableNetworks();
-  const toast = useToast();
-  const confirmDialog = useConfirm();
-  const [tracks, setTracks] = useState<CompetitorTrackRow[] | null>(null);
-  const [network, setNetwork] = useState<Network>("INSTAGRAM");
-  const [handle, setHandle] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [snapshotDrafts, setSnapshotDrafts] = useState<Record<string, string>>({});
-
-  function load() {
-    fetch(`/api/competitors?brandId=${brandId}`)
-      .then((r) => r.json())
-      .then((d) => setTracks(d.tracks ?? []));
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandId]);
-
-  async function addCompetitor() {
-    if (!handle.trim()) return;
-    setAdding(true);
-    const res = await fetch("/api/competitors", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, network, handle: handle.trim() })
-    });
-    const data = await res.json();
-    setAdding(false);
-    if (!res.ok) {
-      toast.error(data.error ?? "Erreur lors de l'ajout.");
-      return;
-    }
-    setHandle("");
-    load();
-  }
-
-  async function removeCompetitor(id: string, handle: string) {
-    const ok = await confirmDialog({
-      title: "Retirer ce concurrent ?",
-      message: `Le suivi de @${handle} et tous ses relevés seront supprimés. Cette action est définitive.`,
-      confirmLabel: "Retirer",
-      danger: true
-    });
-    if (!ok) return;
-    const res = await fetch(`/api/competitors/${id}`, { method: "DELETE" }).catch(() => null);
-    if (!res || !res.ok) {
-      toast.error("Impossible de retirer ce concurrent pour le moment.");
-      return;
-    }
-    toast.success(`@${handle} retiré du suivi.`);
-    load();
-  }
-
-  async function addSnapshot(trackId: string) {
-    const raw = snapshotDrafts[trackId];
-    const followers = Number(raw);
-    if (!raw || Number.isNaN(followers) || followers < 0) {
-      toast.error("Entrez un nombre d'abonnés valide.");
-      return;
-    }
-    await fetch(`/api/competitors/${trackId}/snapshots`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ followers: Math.round(followers) })
-    });
-    setSnapshotDrafts((prev) => ({ ...prev, [trackId]: "" }));
-    load();
-  }
-
-  return (
-    <div className="space-y-4">
-      <GlassCard>
-        <p className="text-sm text-slate-400">
-          Suivez jusqu&apos;à 3 comptes concurrents en relevant vous-même leur nombre d&apos;abonnés (visible
-          publiquement sur leur profil) : Nebula ne dispose d&apos;aucun accès officiel aux statistiques d&apos;un
-          compte tiers, donc chaque relevé reste une donnée que vous avez constatée, jamais une estimation.
-        </p>
-        {(!tracks || tracks.length < 3) && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <select
-              value={network}
-              onChange={(e) => setNetwork(e.target.value as Network)}
-              className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
-            >
-              {offeredNetworks.map((n) => (
-                <option key={n} value={n}>{NETWORK_META[n].label}</option>
-              ))}
-            </select>
-            <input
-              value={handle}
-              onChange={(e) => setHandle(e.target.value)}
-              placeholder="@identifiant du concurrent"
-              className="min-w-[180px] flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-aurora-400/60"
-            />
-            <Button onClick={addCompetitor} disabled={adding}>
-              {adding ? "Ajout..." : "Ajouter"}
-            </Button>
-          </div>
-        )}
-      </GlassCard>
-
-      {!tracks ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
-          <SkeletonCard lines={3} />
-          <SkeletonCard lines={3} />
-          <SkeletonCard lines={3} />
-        </div>
-      ) : tracks.length === 0 ? (
-        <EmptyState
-          icon={<IconUsers className="h-5 w-5" />}
-          title="Aucun concurrent suivi"
-          description="Ajoutez jusqu'à trois comptes à surveiller (leur @) : vous relèverez leurs abonnés quand vous le souhaitez et verrez la tendance à côté de la vôtre."
-        />
-      ) : (
-        <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tracks.map((t) => {
-            const latest = t.snapshots.at(-1);
-            const previous = t.snapshots.at(-2);
-            const delta = latest && previous ? latest.followers - previous.followers : null;
-            return (
-              <RevealItem key={t.id}>
-              <MotionGlassCard>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">{t.label || t.handle}</p>
-                    <p className="network-ink text-xs" style={networkInkStyle(t.network)}>
-                      {NETWORK_META[t.network].label} · {t.handle}
-                    </p>
-                  </div>
-                  <button onClick={() => removeCompetitor(t.id, t.handle)} className="text-xs text-slate-500 hover:text-red-300">
-                    ✕
-                  </button>
-                </div>
-                <div className="mt-3">
-                  <p className="font-display text-2xl text-white">
-                    {latest ? latest.followers.toLocaleString("fr-FR") : "—"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {latest
-                      ? `abonnés constatés le ${new Date(latest.capturedAt).toLocaleDateString("fr-FR")}`
-                      : "aucun relevé encore"}
-                    {delta !== null && (
-                      <span className={delta >= 0 ? "ml-1.5 text-emerald-400" : "ml-1.5 text-red-400"}>
-                        ({delta >= 0 ? "+" : ""}{delta})
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={snapshotDrafts[t.id] ?? ""}
-                    onChange={(e) => setSnapshotDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))}
-                    placeholder="Nouveau relevé (abonnés)"
-                    className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white outline-none focus:border-aurora-400/60"
-                  />
-                  <Button variant="outline" onClick={() => addSnapshot(t.id)}>
-                    Ajouter
-                  </Button>
-                </div>
-              </MotionGlassCard>
-              </RevealItem>
-            );
-          })}
-        </RevealGroup>
-      )}
-    </div>
-  );
 }
 
 /** Données préparées par le serveur pour le premier affichage (lot 10, voir page.tsx). */
@@ -418,7 +223,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
         markFiredFollowerMilestone(c.id, MILESTONE_FOLLOWERS_10K);
         toast.success(`🥇 ${c.displayName} vient de franchir les ${MILESTONE_FOLLOWERS_10K.toLocaleString("fr-FR")} abonnés !`);
         reportEasterEggFound("followers-10k");
-        // Easter egg "Éclat mérité" (#48) : même seuil, débloque en plus le
+        // Easter egg "Éclat mérité" : même seuil, débloque en plus le
         // cosmétique "Éclat doré" (voir src/lib/cosmetics.ts) — deux clés
         // distinctes pour deux récompenses distinctes au même franchissement.
         reportEasterEggFound("golden-glow-unlock");
@@ -636,9 +441,7 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           {(
             [
               ["overview", "Vue d'ensemble"],
-              // Rétention IA avant Concurrence (09/10/2026, demande de Lucas).
               ["retention", "Rétention IA"],
-              ["competitors", "Concurrence"],
               ...(adsEnabled ? [["ads", "Publicité"]] : [])
             ] as [AnalyticsTab, string][]
           ).map(([id, label]) => (
@@ -669,8 +472,6 @@ function AnalyticsPageInner({ initial }: { initial: AnalyticsInitial | null }) {
           activeBrand ? <AdsTab key={activeBrand.id} brandId={activeBrand.id} /> : null
         ) : tab === "retention" ? (
           <RetentionTool embedded />
-        ) : tab === "competitors" ? (
-          activeBrand ? <CompetitorTab brandId={activeBrand.id} /> : null
         ) : connections.length === 0 && !loading ? (
           <Reveal>
             <EmptyState

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 // mesurées sur les données réelles, condition de variété des rangs (rang en
 // attente, rang déjà atteint jamais retiré), bilan de la semaine, vitrine.
 import { prisma } from "@/lib/prisma";
-import { MIGRATION_KEY, evaluateReussites } from "@/lib/reussites/engine";
+import { MIGRATION_KEY, XP_RECALC_KEY, evaluateReussites } from "@/lib/reussites/engine";
 import { saveReview } from "@/lib/reussites/review";
 import { saveShowcase } from "@/lib/reussites/showcase";
 import { publicAuthor, AUTHOR_SELECT } from "@/lib/reussites/public-author";
@@ -27,9 +27,10 @@ async function setup(networks: string[] = ["INSTAGRAM", "YOUTUBE"]) {
       })
     );
   }
-  // Compte déjà passé à la v2 : ni premier passage, ni rattrapage.
+  // Compte déjà passé à la v2 et déjà recalculé (rangs du 10/10/2026) : ni premier passage, ni rattrapage.
   await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY) } });
   await achievementUnlockDb.create({ data: { userId: user.id, key: MIGRATION_KEY, xp: 0, celebratedAt: new Date() } });
+  await achievementUnlockDb.create({ data: { userId: user.id, key: XP_RECALC_KEY, xp: 0, celebratedAt: new Date() } });
   return { user, brand, connections };
 }
 
@@ -90,7 +91,7 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
     expect(keys.has("star-formats-1")).toBe(false); // aucun import
     expect(r!.skillMetrics).toMatchObject({ scheduledPublished: 1, verticalVideos: 3, youtubeThumbnails: 5 });
     const star = await achievementUnlockDb.findFirst({ where: { userId: user.id, key: "star-regularite-1" } });
-    expect(star?.xp).toBe(40);
+    expect(star?.xp).toBe(15); // ★1 : 15 XP depuis le 10/10/2026
     // Plus de 3 étoiles d'un coup : une seule notification groupée.
     const batch = await prisma.notification.findMany({ where: { userId: user.id, dedupeKey: { startsWith: "stars:batch:" } } });
     expect(batch).toHaveLength(1);
@@ -125,9 +126,9 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
 
   it("rang en attente : XP suffisants mais pas les compétences ; entré dès que la condition est remplie", async () => {
     const { user } = await setup();
-    // 1 000 XP (Régulier I demande 900 XP et 2 compétences au niveau 2), palier 6 atteint.
-    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 1000, celebratedAt: new Date() } });
-    await userReussitesDb.update({ where: { id: user.id }, data: { creatorLevel: 6, creatorXp: 1000 } });
+    // 2 000 XP (Régulier I demande 1 800 XP et 2 compétences au niveau 2), palier 6 atteint.
+    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 2000, celebratedAt: new Date() } });
+    await userReussitesDb.update({ where: { id: user.id }, data: { creatorLevel: 6, creatorXp: 2000 } });
     const r = await evaluateReussites(user.id, { force: true });
     expect(r!.level).toMatchObject({ level: 6, name: "Émergent III", pct: 100 });
     expect(r!.level.pending).toMatchObject({ step: 7, name: "Régulier I", condition: "2 compétences au niveau 2" });
@@ -149,8 +150,9 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot B : constellation, rangs, bila
       connections: [await prisma.socialConnection.create({ data: { brandId: x.brand.id, network: "INSTAGRAM", externalAccountId: `ig-${x.brand.id}`, displayName: "IG", accessToken: "t" } })]
     }));
     await published(user.id, brand.id, [connections[0].id], new Date(Date.now() - 3 * DAY), { scheduledLeadMs: 2 * HOUR });
-    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 1000, celebratedAt: new Date() } });
-    await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY), creatorXp: 1000, creatorLevel: 5 } });
+    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 2000, celebratedAt: new Date() } });
+    await achievementUnlockDb.create({ data: { userId: user.id, key: XP_RECALC_KEY, xp: 0, celebratedAt: new Date() } });
+    await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY), creatorXp: 2000, creatorLevel: 5 } });
     const r = await evaluateReussites(user.id, { force: true });
     expect(r!.level.name).toBe("Régulier I");
     expect(r!.level.pending).toBeNull();

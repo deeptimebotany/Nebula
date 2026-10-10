@@ -321,7 +321,7 @@ function RetentionToolInner({ embedded }: { embedded: boolean }) {
 const RETENTION_INTRO =
   "Analysez n'importe quelle vidéo de votre chaîne YouTube connectée — publiée via Nebula ou non. Nebula relève les chutes de la vraie courbe YouTube Analytics ; l'IA regarde la vidéo (si elle est publique) pour expliquer ce qui se passe à ces moments.";
 
-// useSearchParams (retour de Stripe, ?recharge=) : sous Suspense, comme Facturation.
+// useSearchParams (retour de Stripe, ?recharge=) : sous Suspense, comme Abonnement.
 export function RetentionTool({ embedded = false }: { embedded?: boolean }) {
   return (
     <Suspense fallback={null}>

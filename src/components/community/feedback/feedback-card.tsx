@@ -3,10 +3,13 @@
 // Une demande d'avis dans l'onglet Avis de la Communauté (02/10/2026) :
 // propositions à voter, résultats (après son vote, pour l'auteur, ou une
 // fois terminée), avis écrits, et actions (terminer, signaler, supprimer).
+// 10/10/2026 (demande de Lucas) : on vote en touchant l'image (ou le titre)
+// pour lui mettre un cœur, qui s'affiche dessus ; un 2e toucher le retire ;
+// on peut en mettre sur plusieurs propositions, ou sur toutes.
 // Réussites v3 : l'auteur de la demande marque jusqu'à 3 avis « Cet avis m'a
 // aidé » (compte pour « Avis utiles » de leurs auteurs).
 import { useState } from "react";
-import { AvatarRing } from "@/components/reussites/avatar-ring";
+import { MemberAvatar } from "@/components/community/member-avatar";
 import { CommunityAuthor } from "@/components/reussites/community-author";
 import { ContentActions } from "@/components/community/content-actions";
 import { NetworkBadge } from "@/components/ui/network-badge";
@@ -15,6 +18,7 @@ import { useToast } from "@/components/dashboard/toast";
 import { useConfirm } from "@/components/dashboard/confirm";
 import { IconMessage } from "@/components/dashboard/icons";
 import { clsx } from "@/lib/clsx";
+import { HeartBadge, HeartGlyph } from "@/components/community/heart";
 import { reportKey } from "@/lib/community/report-reasons";
 import type { Network } from "@/lib/types";
 import {
@@ -28,17 +32,18 @@ import {
   type FeedbackRequestDTO
 } from "@/lib/community/feedback-rules";
 
-function initials(name: string | null | undefined): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
-
 function ago(iso: string): string {
   const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   if (m < 60) return `il y a ${m} min`;
   const h = Math.round(m / 60);
   if (h < 24) return `il y a ${h} h`;
   return `il y a ${Math.round(h / 24)} j`;
+}
+
+/** « 1 votant », « 3 votants » (personnes qui ont mis au moins un cœur). */
+function votersLabel(n: number | null): string {
+  const v = n ?? 0;
+  return `${v} votant${v > 1 ? "s" : ""}`;
 }
 
 export function FeedbackCard({
@@ -74,6 +79,9 @@ export function FeedbackCard({
   async function vote(optionId: string) {
     if (!canVote || voting) return;
     setVoting(optionId);
+    // Le cœur s'affiche tout de suite ; la réponse du serveur fait foi ensuite.
+    const was = r.myHearts.includes(optionId);
+    onChange({ ...r, myHearts: was ? r.myHearts.filter((id) => id !== optionId) : [...r.myHearts, optionId] });
     const res = await fetch(`/api/community/feedback/${r.id}/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,7 +90,8 @@ export function FeedbackCard({
     const data = (await res?.json().catch(() => null)) as { request?: FeedbackRequestDTO; error?: string } | null;
     setVoting(null);
     if (!res?.ok || !data?.request) {
-      toast.error(data?.error ?? "Vote impossible pour le moment.");
+      onChange(r);
+      toast.error(data?.error ?? "Cœur impossible pour le moment.");
       return;
     }
     const { comments: fresh, ...rest } = data.request;
@@ -159,11 +168,7 @@ export function FeedbackCard({
   return (
     <article id={`avis-${r.id}`} className="glass-panel scroll-mt-24 rounded-2xl p-4" aria-labelledby={`avis-${r.id}-titre`}>
       <header className="flex items-start gap-3">
-        <AvatarRing ring={r.author?.ring} shapeClassName="rounded-full" className="mt-0.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
-            {initials(r.author?.name)}
-          </span>
-        </AvatarRing>
+        <MemberAvatar author={r.author} size={36} className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-300">{r.kind === "TITLE" ? "Titres" : "Miniatures"}</span>
@@ -182,22 +187,24 @@ export function FeedbackCard({
       <div className={clsx("mt-3", r.kind === "THUMBNAIL" ? "grid grid-cols-1 gap-2 sm:grid-cols-3" : "space-y-2")} role="group" aria-label="Propositions">
         {r.options.map((o) => {
           const pct = votePercent(o.votes, r.totalVotes);
-          const chosen = r.myVote === o.id;
+          const hearted = r.myHearts.includes(o.id);
           const won = winners.includes(o.id);
+          const hearts = o.votes ?? 0;
           const label = r.kind === "TITLE" ? o.label : `Miniature ${optionLetter(o.position)}`;
-          const result = resultsVisible ? `${pct} % (${o.votes ?? 0} vote${(o.votes ?? 0) > 1 ? "s" : ""})` : null;
+          const result = resultsVisible ? `${hearts} cœur${hearts > 1 ? "s" : ""}, ${pct} % des votants` : null;
           return (
             <button
               key={o.id}
               type="button"
               onClick={() => void vote(o.id)}
               disabled={!canVote || voting !== null}
-              aria-pressed={canVote ? chosen : undefined}
-              aria-label={`${canVote ? "Voter pour " : ""}${label}${result ? `, ${result}` : ""}${chosen ? ", votre choix" : ""}${won ? ", en tête" : ""}`}
+              aria-pressed={canVote ? hearted : undefined}
+              aria-label={`${canVote ? (hearted ? "Retirer le cœur de " : "Mettre un cœur à ") : ""}${label}${result ? `, ${result}` : ""}${won ? ", en tête" : ""}`}
+              data-testid="feedback-option"
               className={clsx(
                 "group relative w-full overflow-hidden rounded-xl border text-left transition",
-                chosen ? "border-aurora-400 ring-1 ring-aurora-400/60" : won ? "border-emerald-400/60" : "border-white/10",
-                canVote ? "hover:border-white/30" : "cursor-default"
+                hearted ? "border-rose-400/80 ring-1 ring-rose-400/50" : won ? "border-emerald-400/60" : "border-white/10",
+                canVote ? "cursor-pointer hover:border-white/30" : "cursor-default"
               )}
             >
               {r.kind === "THUMBNAIL" ? (
@@ -205,20 +212,27 @@ export function FeedbackCard({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={o.imageUrl ?? ""} alt="" loading="lazy" className="aspect-video w-full object-cover" />
                   <span className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 text-xs font-semibold text-white">{optionLetter(o.position)}</span>
+                  {(canVote || hearted) && <HeartBadge on={hearted} className="absolute right-1.5 top-1.5" />}
                   {resultsVisible && (
                     <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/70 px-2 py-1 text-xs text-white">
-                      <span className="font-semibold tabular-nums">{pct} %</span>
-                      <span className="text-white/70">{chosen ? "Votre choix" : won ? "En tête" : `${o.votes ?? 0} vote${(o.votes ?? 0) > 1 ? "s" : ""}`}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold tabular-nums">
+                        <HeartGlyph on className="h-3.5 w-3.5 text-rose-400" /> {hearts}
+                      </span>
+                      <span className="text-white/70">{won ? "En tête" : `${pct} %`}</span>
                     </span>
                   )}
                 </>
               ) : (
                 <span className="relative flex items-center gap-3 px-3 py-2.5">
-                  {resultsVisible && <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-aurora-400/15 transition-[width]" style={{ width: `${pct}%` }} />}
+                  {resultsVisible && <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-rose-400/10 transition-[width]" style={{ width: `${pct}%` }} />}
                   <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.08] text-xs font-semibold text-slate-200">{optionLetter(o.position)}</span>
                   <span className="relative min-w-0 flex-1 text-sm text-white">{o.label}</span>
-                  {resultsVisible && <span className="relative shrink-0 text-xs font-semibold tabular-nums text-slate-200">{pct} %</span>}
-                  {chosen && <span className="relative shrink-0 text-[11px] text-aurora-300">Votre choix</span>}
+                  {resultsVisible && (
+                    <span className="relative inline-flex shrink-0 items-center gap-1 text-xs font-semibold tabular-nums text-slate-200">
+                      <HeartGlyph on className="h-3.5 w-3.5 text-rose-400" /> {hearts}
+                    </span>
+                  )}
+                  {(canVote || hearted) && <HeartBadge on={hearted} className="relative shrink-0" />}
                 </span>
               )}
             </button>
@@ -229,13 +243,13 @@ export function FeedbackCard({
       <p className="mt-2 text-xs text-slate-500" aria-live="polite">
         {r.mine
           ? r.closed
-            ? `Terminée : ${r.totalVotes ?? 0} vote${(r.totalVotes ?? 0) > 1 ? "s" : ""}.`
-            : `Votre demande : ${r.totalVotes ?? 0} vote${(r.totalVotes ?? 0) > 1 ? "s" : ""} pour l'instant. Vous recevrez le résultat à la fin.`
+            ? `Terminée : ${votersLabel(r.totalVotes)}.`
+            : `Votre demande : ${votersLabel(r.totalVotes)} pour l'instant. Vous recevrez le résultat à la fin.`
           : r.closed
-            ? `Terminée : ${r.totalVotes ?? 0} vote${(r.totalVotes ?? 0) > 1 ? "s" : ""}.`
-            : r.myVote
-              ? "Merci ! Vous pouvez changer d'avis tant que la demande est ouverte."
-              : "Votez pour voir les résultats."}
+            ? `Terminée : ${votersLabel(r.totalVotes)}.`
+            : r.myHearts.length > 0
+              ? "Merci ! Touchez à nouveau pour retirer un cœur ; vous pouvez en mettre sur plusieurs."
+              : `Touchez ${r.kind === "TITLE" ? "un titre" : "une miniature"} pour lui mettre un cœur (une ou plusieurs). Les résultats s'affichent ensuite.`}
       </p>
 
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-white/[0.06] pt-3">

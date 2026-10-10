@@ -42,7 +42,7 @@ export function useAiStatusData(brandId: string | null | undefined): AiStatus | 
   return data ?? null;
 }
 
-/** Usage du mois et limites du palier (barre de quota, Facturation). */
+/** Usage du mois et limites du palier (barre de quota, Abonnement). */
 export function useUsage<T>(brandId: string | null | undefined) {
   const { data, error, isLoading, mutate: revalidate } = useSWR<T>(brandId ? `/api/billing/usage?brandId=${brandId}` : null, jsonFetcher);
   return { usage: data ?? null, error: error as Error | undefined, isLoading: Boolean(brandId) && isLoading, revalidate };

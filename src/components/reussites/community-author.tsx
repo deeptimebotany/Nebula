@@ -1,13 +1,20 @@
-// Nom d'un membre dans la Communauté, avec son rang de créateur (Réussites),
+// Pseudo d'un membre dans la Communauté (lien vers sa page de profil depuis
+// le 10/10/2026), avec son rang de créateur (Réussites),
 // sa vitrine (jusqu'à 3 badges choisis) et la mention « Mentor » (étoile
 // Communauté ★5), et le badge « Fondateur » (offres fondateurs, à vie) :
 // « Lucas [Confirmé II] Fondateur Mentor 🎬 📅 ».
+import Link from "next/link";
 import { LevelPill } from "./level-pill";
+import type { RingStyle } from "@/lib/reussites/catalog";
 import { FounderBadge } from "./founder-badge";
 
 export interface CommunityAuthorInfo {
   id: string;
+  /** « @pseudo » (10/10/2026 : plus jamais le nom du compte). */
   name: string;
+  handle?: string | null;
+  avatarUrl?: string | null;
+  ring?: RingStyle | null;
   level?: number;
   levelName?: string;
   title?: string | null;
@@ -20,7 +27,14 @@ export function CommunityAuthor({ author, fallback = "utilisateur" }: { author: 
   if (!author) return <span>{fallback}</span>;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
-      <span>{author.name || fallback}</span>
+      {/* Le pseudo mène à la page de profil (10/10/2026). */}
+      {author.handle ? (
+        <Link href={`/community/membre/${author.handle}`} className="relative z-10 font-medium text-slate-200 transition hover:text-white hover:underline" onClick={(e) => e.stopPropagation()}>
+          {author.name}
+        </Link>
+      ) : (
+        <span>{author.name || fallback}</span>
+      )}
       <LevelPill level={author.level} name={author.levelName} />
       {author.founder && <FounderBadge />}
       {author.mentor && (

@@ -26,6 +26,11 @@ model User {
   passwordHash String?
   name         String
   avatarUrl    String?
+  // Pseudo de la Communauté (10/10/2026) : unique, en minuscules, sans @ ;
+  // affiché à la place du nom dans toute la Communauté. Attribué à
+  // l'inscription (src/lib/community/handle.ts), modifiable dans Paramètres
+  // → Compte. Nul seulement le temps de l'attribution.
+  handle       String?       @unique
   createdAt    DateTime      @default(now())
   memberships  Membership[]
   composerDrafts ComposerDraft[]
@@ -933,12 +938,18 @@ model ForumReply {
   threadId  String
   authorId  String
   body      String
+  // Réponse à une réponse (10/10/2026, forum façon YouTube) : un seul niveau,
+  // parentId désigne toujours une réponse de premier niveau du même sujet.
+  parentId  String?
   createdAt DateTime    @default(now())
   thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent    ForumReply?  @relation("ReplyThread", fields: [parentId], references: [id], onDelete: Cascade)
+  children  ForumReply[] @relation("ReplyThread")
   reactions CommunityReaction[]
 
   @@index([threadId, createdAt])
+  @@index([parentId])
 
   // Index (lot 3, qualité) : clés étrangères et filtres fréquents — Postgres
   // n'indexe pas les clés étrangères tout seul.
@@ -1075,8 +1086,10 @@ model FeedbackVote {
   option    FeedbackOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([requestId, userId])
-  @@index([optionId])
+  // Cœurs (10/10/2026) : un cœur par personne et par proposition, autant de
+  // propositions que l'on veut (avant : un seul vote par demande).
+  @@unique([optionId, userId])
+  @@index([requestId, userId])
   @@index([userId])
 }
 

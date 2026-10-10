@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Le thème étoilé animé nécessite le palier Pro ou Agence. Passez sur ce palier dans Facturation pour le débloquer."
+            "Le thème étoilé animé nécessite le palier Pro ou Agence. Passez sur ce palier dans Abonnement pour le débloquer."
         },
         { status: 403 }
       );

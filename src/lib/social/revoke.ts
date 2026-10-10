@@ -14,6 +14,7 @@ import { sendRequest } from "./base";
 import { deleteBlueskySession } from "./bluesky";
 import { envValue } from "@/lib/env-value";
 import { deleteYoutubeAuthorizedData } from "./youtube-data-policy";
+import { deleteConnectionData } from "./disconnected-data";
 
 type ConnectionRow = {
   id: string;
@@ -109,6 +110,10 @@ export async function disconnectConnection(connectionId: string): Promise<{ revo
   // toutes les données obtenues avec cette autorisation sont effacées
   // (statistiques, vidéos, commentaires, rétention, nom et photo de la chaîne).
   if (connection.network === "YOUTUBE") await deleteYoutubeAuthorizedData(connectionId);
+  // Autres réseaux (10/10/2026, retour de Lucas) : même chose — statistiques,
+  // métriques, commentaires et analyses effacés ; le compte disparaît des
+  // pages (Interactions, kit média…). L'historique des publications reste.
+  else await deleteConnectionData(connectionId);
   // Marque revenue dans la limite de son palier (09/10/2026) : ses comptes
   // mis en veille publient de nouveau (connection-limit.ts).
   await wakeConnectionsWithinLimit(connection.brandId).catch((err: Error) => console.warn("[déconnexion] réveil des comptes :", err.message));

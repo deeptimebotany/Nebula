@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EASTER_EGGS as ALL_EASTER_EGGS } from "@/lib/easter-eggs-registry";
+import { EASTER_EGGS as ALL_EASTER_EGGS, isNumberedEgg } from "@/lib/easter-eggs-registry";
 import { LINKED_EGG_KEYS } from "@/lib/reussites/catalog";
 import { reussiteRewardKeys } from "@/lib/reussites/unlocks";
 
 // Les easter eggs devenus des accomplissements (cadres d'audience, paliers
 // ambassadeur) s'affichent dans Réussites → Accomplissements, plus ici.
 const EASTER_EGGS = ALL_EASTER_EGGS.filter((e) => !LINKED_EGG_KEYS.includes(e.key));
-import { markEasterEggFound } from "@/lib/easter-eggs/server";
+import { checkMetaAchievements, markEasterEggFound } from "@/lib/easter-eggs/server";
 import { checkAudienceMilestones } from "@/lib/easter-eggs/audience";
 import { ownerUnlocksAll } from "@/lib/dev-preview";
 
@@ -30,7 +30,7 @@ export async function GET() {
       total: EASTER_EGGS.length,
       foundCount: 0,
       isOwner: false,
-      eggs: EASTER_EGGS.map((e) => ({ number: e.number, found: false, reward: e.secret ? undefined : e.reward }))
+      eggs: EASTER_EGGS.map((e) => ({ number: e.number, numbered: isNumberedEgg(e), found: false, reward: e.secret ? undefined : e.reward }))
     });
   }
 
@@ -45,7 +45,7 @@ export async function GET() {
   //
   // Note : `loginStreakDays`/`lastLoginDate` restent calculés et enregistrés
   // ci-dessous même si plus aucun easter egg n'en dépend depuis la
-  // suppression de "Fidélité rétro" (ex #46, qui déverrouillait l'« Icône
+  // suppression de "Fidélité rétro" (easter egg retiré, qui déverrouillait l'« Icône
   // rétro », elle-même supprimée) — pas de migration de schéma pour un
   // simple retrait de déclencheur, et ces champs restent disponibles si un
   // futur easter egg veut s'appuyer sur une série de connexions.
@@ -71,7 +71,7 @@ export async function GET() {
       // easter egg directement, voir la note ci-dessus, mais reste calculé).
       const nextStreakDays = isNextConsecutiveDay ? (me.loginStreakDays ?? 0) + 1 : 1;
 
-      // "Toujours à l'heure" (#46) : connexions à peu près à la même heure
+      // "Toujours à l'heure" : connexions à peu près à la même heure
       // (± 1h, heure entière) sur des jours consécutifs.
       const nowHour = now.getHours();
       const sameHourAsLast =
@@ -97,6 +97,9 @@ export async function GET() {
   // Succès d'audience (cadres de la page bio) : revérifiés à chaque visite.
   // (Les Réussites sont évaluées par /api/reussites, appelé par la même page.)
   await checkAudienceMilestones(userId, { evaluate: false });
+  // Chasseur d'étoiles / Complétion totale : revérifiés ici aussi, les
+  // conditions ayant changé avec le retrait de cinq easter eggs (10/10/2026).
+  await checkMetaAchievements(userId).catch(() => undefined);
 
   // Types explicites : le client Prisma généré dans ce sandbox n'a pas accès
   // au réseau (voir schema.prisma), donc `findMany` ne renvoie pas de type
@@ -111,9 +114,13 @@ export async function GET() {
     const foundAt = foundByKey.get(e.key);
     // Succès « secret » : rien de sa récompense ne fuit tant qu'il n'est
     // pas trouvé — il s'affiche comme un easter egg numéroté ordinaire.
-    if (!foundAt) return { number: e.number, found: false, reward: e.secret ? undefined : e.reward };
+    // `numbered` (10/10/2026) : la place de l'easter egg dans la collection
+    // (grille numérotée ou bloc « à récompense ») ne change jamais, trouvé ou
+    // non — un cadre secret trouvé ne quitte plus la grille (pas de trou).
+    if (!foundAt) return { number: e.number, numbered: isNumberedEgg(e), found: false, reward: e.secret ? undefined : e.reward };
     return {
       number: e.number,
+      numbered: isNumberedEgg(e),
       found: true,
       key: e.key,
       emoji: e.emoji,

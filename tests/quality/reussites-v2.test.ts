@@ -1,7 +1,7 @@
 // Réussites v2 (lot A) : rangs à paliers, missions de la semaine, coffre,
 // série et boucliers — règles pures.
 import { describe, expect, it } from "vitest";
-import { REWARDS, STEPS, levelKey, rankFor, rankKey } from "@/lib/reussites/catalog";
+import { RANKS, REWARDS, STEPS, levelKey, rankFor, rankKey } from "@/lib/reussites/catalog";
 import { CHEST_TABLE, MISSIONS, chestItemFromRoll, findMission, habitTargetFor, pickWeeklyMissions, type MissionContext } from "@/lib/reussites/missions";
 import { shieldToGrant, shieldsToUse, streakOf } from "@/lib/reussites/streak";
 
@@ -19,17 +19,28 @@ describe("rangs à paliers", () => {
 
   it("rang, palier et progression dans le palier", () => {
     expect(rankFor(0)).toMatchObject({ level: 1, name: "Lancement I", rank: 1, tier: 1, pct: 0, nextName: "Lancement II" });
-    expect(rankFor(520)).toMatchObject({ level: 5, name: "Émergent II", rankId: "emergent", levelXp: 450, nextXp: 650, pct: 35 });
-    expect(rankFor(9000)).toMatchObject({ level: 15, name: "Établi III", nextXp: 10000, nextName: "Influent I" });
-    expect(rankFor(45000)).toMatchObject({ level: 24, name: "Icône III", nextXp: null, pct: 100 });
+    // Seuils relevés le 10/10/2026 (rangs trop rapides au début).
+    expect(rankFor(520)).toMatchObject({ level: 3, name: "Lancement III", rankId: "lancement", levelXp: 350, nextXp: 600, pct: 68 });
+    expect(rankFor(1000)).toMatchObject({ level: 5, name: "Émergent II", rankId: "emergent", levelXp: 900, nextXp: 1300 });
+    expect(rankFor(11000)).toMatchObject({ level: 15, name: "Établi III", nextXp: 13500, nextName: "Influent I" });
+    expect(rankFor(60000)).toMatchObject({ level: 24, name: "Icône III", nextXp: null, pct: 100 });
     expect(rankFor(-5).xp).toBe(0);
   });
 
-  it("mêmes XP que les anciens niveaux aux récompenses : personne ne perd rien", () => {
-    // Ancien niveau 3 (300), 7 (3 000), 8 (5 000) = Émergent I, Confirmé II, Établi I.
-    expect(rankFor(300).name).toBe("Émergent I");
-    expect(rankFor(3000).name).toBe("Confirmé II");
-    expect(rankFor(5000).name).toBe("Établi I");
+  it("seuils du 10/10/2026 ; récompenses accordées par l'ancienne clé et par le palier", () => {
+    expect(RANKS.map((r) => r.tiers)).toEqual([
+      [0, 150, 350],
+      [600, 900, 1300],
+      [1800, 2400, 3100],
+      [4000, 5000, 6200],
+      [7500, 9000, 11000],
+      [13500, 16500, 20000],
+      [24000, 28500, 33500],
+      [39000, 45000, 52000]
+    ]);
+    expect(rankFor(600).name).toBe("Émergent I");
+    expect(rankFor(5000).name).toBe("Confirmé II");
+    expect(rankFor(7500).name).toBe("Établi I");
     // Les récompenses restent accordées par l'ancienne clé ET par le nouveau palier.
     const byKey = (k: string) => REWARDS.find((r) => r.key === k)!.grantedBy;
     expect(byKey("ach:ring-argent")).toEqual(expect.arrayContaining([levelKey(5), rankKey(7)]));

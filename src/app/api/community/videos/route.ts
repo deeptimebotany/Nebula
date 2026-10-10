@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { displayHandle } from "@/lib/community/handle-rules";
 import { canModerate, reportedKeys } from "@/lib/community/moderation";
 
 // "Vidéos du jour" — fil public des vidéos que des utilisateurs ont choisi de
@@ -14,13 +15,14 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   const videos = await prisma.sharedVideo.findMany({
-    include: { author: { select: { id: true, name: true } } },
+    include: { author: { select: { id: true, handle: true, avatarUrl: true } } },
     orderBy: { createdAt: "desc" },
     take: 100
   });
 
   const reported = await reportedKeys((session.user as { id: string }).id, videos.map((v) => ({ type: "VIDEO" as const, id: v.id })));
-  return NextResponse.json({ videos, viewer: { canModerate: canModerate(session.user.email), reported } });
+  // Pseudo de la Communauté, jamais le nom (10/10/2026).
+  return NextResponse.json({ videos: videos.map((v) => ({ ...v, author: v.author ? { id: v.author.id, name: displayHandle(v.author.handle), handle: v.author.handle, avatarUrl: v.author.avatarUrl } : null })), viewer: { canModerate: canModerate(session.user.email), reported } });
 }
 
 // POST { postTargetId, note? } — partage volontaire d'une publication déjà
@@ -66,8 +68,8 @@ export async function POST(req: NextRequest) {
       thumbnailUrl,
       note: typeof note === "string" ? note.trim().slice(0, 300) || null : null
     },
-    include: { author: { select: { id: true, name: true } } }
+    include: { author: { select: { id: true, handle: true, avatarUrl: true } } }
   });
 
-  return NextResponse.json({ ok: true, video: shared });
+  return NextResponse.json({ ok: true, video: { ...shared, author: shared.author ? { id: shared.author.id, name: displayHandle(shared.author.handle), handle: shared.author.handle, avatarUrl: shared.author.avatarUrl } : null } });
 }

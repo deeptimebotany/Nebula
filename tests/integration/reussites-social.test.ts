@@ -240,7 +240,7 @@ describe.skipIf(!hasDatabase)("Réussites v2, lot C : défis partagés, une, dé
     const done = await evaluateReussites(user.id, { force: true });
     expect(done!.launch).toMatchObject({ active: false, done: 5, pct: 100 });
     expect((await unlocked(user.id)).has("launch")).toBe(true);
-    expect((await achievementUnlockDb.findFirst({ where: { userId: user.id, key: "launch" } }))?.xp).toBe(100);
+    expect((await achievementUnlockDb.findFirst({ where: { userId: user.id, key: "launch" } }))?.xp).toBe(50);
 
     // Compte ancien : pas de carte, même sans étapes faites.
     const old = await setup();

@@ -16,7 +16,7 @@ export { isAdminEmail } from "@/lib/admin-emails";
 // ---------------------------------------------------------------------------
 // Garde « compte propriétaire » pour les routes et pages d'administration
 // du brief growth (/admin/acquisition, aperçus d'emails) : même mécanisme
-// que le message Stripe de la page Facturation (isOwnerEmail, voir
+// que le message Stripe de la page Abonnement (isOwnerEmail, voir
 // src/lib/dev-preview.ts) — distinct des ADMIN_EMAILS ci-dessus (éditorial
 // communautaire). Renvoie l'identifiant de l'utilisateur, ou null si ce
 // n'est pas le propriétaire — les appelants répondent alors 404.

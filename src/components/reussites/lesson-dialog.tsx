@@ -9,6 +9,7 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Modal } from "@/components/ui/modal";
 import type { Lesson } from "@/lib/reussites/lessons";
 import type { SkillDTO, StarDTO } from "@/lib/reussites/types";
+import { goToInReussites } from "@/lib/reussites/goto";
 
 /** « **gras** » → <strong>. */
 function rich(text: string): ReactNode {
@@ -92,7 +93,8 @@ export function LessonDialog({ star, skill, onClose }: { star: StarDTO | null; s
                   className={actionCls}
                   onClick={() => {
                     onClose();
-                    window.setTimeout(() => document.getElementById(star.href.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+                    // Bloc d'un autre onglet (ex. le bilan, dans Missions) : la page l'ouvre puis y fait défiler.
+                    window.setTimeout(() => goToInReussites(star.href.slice(1)), 150);
                   }}
                 >
                   {star.action} <span aria-hidden="true">→</span>

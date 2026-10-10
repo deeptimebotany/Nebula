@@ -2,7 +2,7 @@
 
 // Ce qu'il reste d'IA à ce compte (30/09/2026, quotas mensuels) : analyses
 // Rétention (+ achetées), miniatures, Studio, messages à l'assistant, et les
-// textes du jour. Page Facturation ; masquée si le palier n'a pas d'IA.
+// textes du jour. Page Abonnement ; masquée si le palier n'a pas d'IA.
 import { GlassCard } from "@/components/ui/glass-card";
 import { useBootstrap } from "@/components/bootstrap-provider";
 import { RetentionPackButton } from "@/components/billing/retention-pack";

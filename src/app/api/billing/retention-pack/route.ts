@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
   ]);
   const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  // Retour : Facturation, ou l'onglet Rétention IA d'Analytics (09/10/2026).
+  // Retour : Abonnement, ou l'onglet Rétention IA d'Analytics (09/10/2026).
   const back = parsed.data.returnTo === "billing" ? "/billing?" : "/analytics?tab=retention&";
   const metadata = { userId, kind: RETENTION_PACK_KIND, credits: String(RETENTION_PACK.credits), waivedWithdrawalAt: new Date().toISOString() };
 

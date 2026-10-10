@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { passwordTooLong } from "@/lib/password-rules";
 import { prisma } from "@/lib/prisma";
+import { ensureHandle } from "@/lib/community/handle";
 import { generateUniqueReferralCode } from "@/lib/referral";
 import { TURNSTILE_FAILED_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { consumeRateLimit, clientIpFromHeaders, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -150,6 +151,8 @@ export async function POST(req: Request) {
       ...attributionToUserFields(attribution)
     }
   });
+  // Pseudo de la Communauté (10/10/2026) : attribué tout de suite.
+  await ensureHandle(user.id);
   await prisma.membership.create({
     data: { role: "OWNER", user: { connect: { id: user.id } }, brand: { create: { name: brandName, slug } } }
   });

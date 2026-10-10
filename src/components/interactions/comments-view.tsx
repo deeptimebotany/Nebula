@@ -34,7 +34,6 @@ import { useToast } from "@/components/dashboard/toast";
 import { useAiAssistant } from "@/components/dashboard/ai-assistant-context";
 import { IconAvatar, IconMessage, IconRefresh } from "@/components/dashboard/icons";
 import { NETWORK_META, commentNetworks, networksSentence, type Network } from "@/lib/types";
-import { reportEasterEggFound } from "@/lib/report-easter-egg";
 import { clsx } from "@/lib/clsx";
 import { CommentReplyBox } from "@/components/comments/comment-reply-box";
 import type { CommentReplySupport } from "@/lib/social/comment-reply-support";
@@ -160,11 +159,6 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
   useEffect(() => {
     if (connections && accountFilter !== "all" && !connections.some((c) => c.id === accountFilter)) setAccountFilter("all");
   }, [connections, accountFilter]);
-
-  // Easter egg « Inbox zero » : tout est traité sur au moins un compte.
-  useEffect(() => {
-    if (items && items.length > 0 && items.every((it) => it.read)) reportEasterEggFound("inbox-zero");
-  }, [items]);
 
   const connectionById = useMemo(() => new Map((connections ?? []).map((c) => [c.id, c])), [connections]);
 
@@ -340,7 +334,7 @@ function CommentsPageInner({ tabs }: { tabs?: ReactNode }) {
 
       {!loading && items.length > 0 && filtered.length > 0 && unreadCount === 0 && readFilter === "all" && (
         <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.05] text-center">
-          <p className="text-sm text-emerald-300">📭 Inbox zero — tout est traité, pour l&apos;instant.</p>
+          <p className="text-sm text-emerald-300">📭 Tout est traité, pour l&apos;instant.</p>
         </GlassCard>
       )}
 

@@ -72,9 +72,9 @@ export function FounderEndModal() {
         window.location.assign(d.url);
         return;
       }
-      setError(typeof d.error === "string" ? d.error : "Le paiement n'a pas pu s'ouvrir : choisissez votre forfait dans Facturation.");
+      setError(typeof d.error === "string" ? d.error : "Le paiement n'a pas pu s'ouvrir : choisissez votre forfait dans Abonnement.");
     } catch {
-      setError("Le paiement n'a pas pu s'ouvrir : choisissez votre forfait dans Facturation.");
+      setError("Le paiement n'a pas pu s'ouvrir : choisissez votre forfait dans Abonnement.");
     } finally {
       setBusy(null);
     }
@@ -128,7 +128,7 @@ export function FounderEndModal() {
             Plus tard
           </button>
         </div>
-        <p className="mt-3 text-xs text-slate-500">L&apos;annuel (2 mois offerts) et tous les détails sont dans Facturation.</p>
+        <p className="mt-3 text-xs text-slate-500">L&apos;annuel (2 mois offerts) et tous les détails sont dans Abonnement.</p>
       </div>
     </div>
   );

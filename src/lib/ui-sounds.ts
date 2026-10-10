@@ -2,10 +2,11 @@
 // Créés pour Nebula, synthétisés avec Web Audio (aucun fichier) ; le code
 // des sons (ui-sounds-synth.ts) n'est chargé qu'au premier son.
 //
-// Moments : « Suivant » de la visite guidée (tic léger), fin de la visite
-// (petit accord montant), première publication programmée ou publiée (accord
-// court), mission réussie et coffre ouvert (son n° 3 des célébrations, déjà
-// existant). La création du compte garde le son de l'intro, inchangé.
+// Moments : « Suivant » de la visite guidée (« Bulle »), fin de la visite
+// (« Accord qui s'ouvre »), première publication programmée ou publiée
+// (« Grand pulsar ») — sons refaits le 10/10/2026 dans le style du Pulsar,
+// voir ui-sounds-synth.ts —, mission réussie et coffre ouvert (son des
+// célébrations). La création du compte garde le son de l'intro, inchangé.
 //
 // Règles :
 //   - réglage « Sons de l'interface » (Paramètres → Sons),

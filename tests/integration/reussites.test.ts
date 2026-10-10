@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 // Réussites v2 (lot A) sur une vraie base : missions de la semaine, choix,
 // coffre, boucliers de série et passage des niveaux aux rangs.
 import { prisma } from "@/lib/prisma";
-import { evaluateReussites } from "@/lib/reussites/engine";
+import { XP_RECALC_KEY, evaluateReussites } from "@/lib/reussites/engine";
 import { chooseProgress, openChest } from "@/lib/reussites/weekly";
 import { weekOf } from "@/lib/reussites/periods";
 import { findMission } from "@/lib/reussites/missions";
@@ -144,9 +144,10 @@ describe.skipIf(!hasDatabase)("Réussites v2 : missions, coffre, boucliers", () 
 
   it("passage des niveaux aux rangs : paliers enregistrés sans avalanche, une seule annonce", async () => {
     const { user } = await setup();
-    // Compte déjà évalué par l'ancienne version : 700 XP, ancien niveau 4.
-    await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY), creatorXp: 700, creatorLevel: 4 } });
-    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 700, celebratedAt: new Date() } });
+    // Compte déjà évalué par l'ancienne version : 1 400 XP, ancien niveau 4 (déjà recalculé le 10/10/2026).
+    await userReussitesDb.update({ where: { id: user.id }, data: { reussitesCheckedAt: new Date(Date.now() - DAY), creatorXp: 1400, creatorLevel: 4 } });
+    await achievementUnlockDb.create({ data: { userId: user.id, key: "posts-500", xp: 1400, celebratedAt: new Date() } });
+    await achievementUnlockDb.create({ data: { userId: user.id, key: XP_RECALC_KEY, xp: 0, celebratedAt: new Date() } });
     await achievementUnlockDb.create({ data: { userId: user.id, key: "level-4", xp: 0, celebratedAt: new Date() } });
     const r = await evaluateReussites(user.id, { force: true });
     expect(r!.level.name).toBe("Émergent III");

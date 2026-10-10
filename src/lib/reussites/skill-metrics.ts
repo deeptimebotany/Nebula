@@ -109,7 +109,7 @@ export async function computeSkillMetrics(userId: string, posts: PublishedPost[]
     prisma.forumThread.count({ where: { authorId: userId } }),
     prisma.forumReply.findMany({
       where: { authorId: userId },
-      select: { body: true, thread: { select: { authorId: true } }, _count: { select: { reactions: { where: { userId: { not: userId } } } } } }
+      select: { body: true, thread: { select: { authorId: true } }, _count: { select: { reactions: { where: { userId: { not: userId }, emoji: { not: "dislike" } } } } } }
     }) as unknown as Promise<{ body: string; thread: { authorId: string }; _count: { reactions: number } }[]>,
     weeklyMissionsDb.findMany({ where: { userId, reviewedAt: { not: null } }, select: { reviewedAt: true } }),
     bioReady(userId)

@@ -157,7 +157,8 @@ function AccountsPageInner() {
   async function disconnect(provider: string, connectionId: string, displayName: string) {
     const ok = await confirmDialog({
       title: "Déconnecter ce compte ?",
-      message: `"${displayName}" ne sera plus utilisable pour publier tant qu'il ne sera pas reconnecté.`,
+      // 10/10/2026 : la déconnexion efface aussi ses chiffres et ses commentaires (social/disconnected-data.ts).
+      message: `"${displayName}" ne pourra plus publier tant qu'il ne sera pas reconnecté. Ses statistiques et ses commentaires seront effacés de Nebula. Vos publications restent dans l'historique.`,
       confirmLabel: "Déconnecter",
       danger: true
     });

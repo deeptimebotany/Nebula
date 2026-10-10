@@ -106,7 +106,7 @@ export function FounderOffersPublic({ initialOpen = true }: { initialOpen?: bool
         ))}
       </div>
       <p className="mt-4 text-center text-xs text-slate-500">
-        L&apos;offre se choisit dans Facturation après l&apos;inscription, jusqu&apos;au {FOUNDERS_SALE_END_LABEL} (ou avant si les places partent). Fondateur :
+        L&apos;offre se choisit dans Abonnement après l&apos;inscription, jusqu&apos;au {FOUNDERS_SALE_END_LABEL} (ou avant si les places partent). Fondateur :
         premier abonnement, mensuel. Fondateur Premium : paiement unique, accès immédiat.
       </p>
     </div>

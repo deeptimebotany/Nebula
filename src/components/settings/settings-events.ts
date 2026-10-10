@@ -16,7 +16,7 @@ export const SETTINGS_TABS: { value: SettingsTab; label: string; description: st
   { value: "sons", label: "Sons", description: "Les sons de l'interface, des succès et des publications." },
   { value: "notifications", label: "Notifications", description: "Les e-mails que Nebula vous envoie." },
   { value: "parrainage", label: "Parrainage", description: "Votre lien d'invitation." },
-  { value: "compte", label: "Compte", description: "Mot de passe, vos données et suppression du compte." }
+  { value: "compte", label: "Compte", description: "Pseudo, mot de passe, vos données et suppression du compte." }
 ];
 
 export const SETTINGS_TAB_LABELS = SETTINGS_TABS.map((t) => t.label);

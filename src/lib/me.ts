@@ -13,8 +13,7 @@ import { retentionPackAvailable } from "@/lib/billing/retention-pack";
 import { DEFAULT_THEME_KEY, THEMES, canUseTheme } from "@/lib/themes";
 import { DEFAULT_BACKGROUND_KEY, canUseBackground, findBackground, resolveBackgroundKey } from "@/lib/backgrounds";
 import type { MeResponse } from "@/lib/me-types";
-import { EASTER_EGGS } from "@/lib/easter-eggs-registry";
-import { LINKED_EGG_KEYS, rankAt } from "@/lib/reussites/catalog";
+import { COLLECTION_EGG_KEYS, rankAt } from "@/lib/reussites/catalog";
 import { unseenReussites } from "@/lib/reussites/engine";
 import { userReussitesDb } from "@/lib/prisma-extra";
 import { isOfferActive, trialDaysLeft } from "@/lib/trial";
@@ -22,6 +21,7 @@ import { availableNetworks } from "@/lib/network-availability";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { aiEmailConfirmed, aiQuotaSnapshot } from "@/lib/ai/guard";
 import { ACTIVE_BRAND_CHANGE_DAYS, countReschedulable } from "@/lib/billing/free-limits";
+import { ensureHandle } from "@/lib/community/handle";
 
 /** Bootstrap du compte de la session, ou null si le compte n'existe plus. */
 export async function buildMe(session: Session): Promise<MeResponse | null> {
@@ -37,6 +37,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
         name: true,
         email: true,
         avatarUrl: true,
+        handle: true,
         emailVerifiedAt: true,
         emailVerifySentAt: true,
         ageConfirmedAt: true,
@@ -83,7 +84,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     getUserPlan(userId),
     countOwnedBrands(userId),
     getAppearanceAccess(userId, sessionUser.email),
-    prisma.easterEggFound.count({ where: { userId, key: { notIn: LINKED_EGG_KEYS } } })
+    prisma.easterEggFound.count({ where: { userId, key: { in: COLLECTION_EGG_KEYS } } })
   ]);
   // Réussites : valeurs gardées à jour par le moteur (src/lib/reussites/engine.ts).
   const reussitesRow = await userReussitesDb
@@ -93,6 +94,8 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
   const levelInfo = rankAt(reussitesRow?.creatorXp ?? 0, reussitesRow?.creatorLevel ?? 1);
   const unseen = await unseenReussites(userId, reussitesRow?.reussitesSeenAt ? new Date(reussitesRow.reussitesSeenAt) : null).catch(() => 0);
   if (!user) return null;
+  // Pseudo de la Communauté (10/10/2026) : attribué au premier passage s'il manque.
+  const handle = (user.handle as string | null | undefined) ?? (await ensureHandle(userId));
   const [aiQuota, dormantBrands, reschedulable] = await Promise.all([
     aiQuotaSnapshot(userId, planInfo),
     prisma.brand.count({ where: { dormantAt: { not: null }, memberships: { some: { userId, role: "OWNER" } } } }),
@@ -122,7 +125,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     // Pas encore de photo en base : celle du compte Google/Apple de la
     // session, pour que « Mon profil » affiche la même que le sélecteur de
     // compte en haut à droite.
-    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, emailVerified: Boolean(user.emailVerifiedAt), hasPassword: Boolean(user.passwordHash), verifyEmailSentAt: user.emailVerifiedAt ? null : (user.emailVerifySentAt?.toISOString() ?? null) },
+    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl ?? sessionUser.image ?? null, handle, emailVerified: Boolean(user.emailVerifiedAt), hasPassword: Boolean(user.passwordHash), verifyEmailSentAt: user.emailVerifiedAt ? null : (user.emailVerifySentAt?.toISOString() ?? null) },
     plan: planInfo.plan,
     maxBrands: planInfo.maxBrands,
     brandsOwned,
@@ -130,7 +133,7 @@ export async function buildMe(session: Session): Promise<MeResponse | null> {
     retentionPacksOpen: retentionPackAvailable(),
     isOwner: access.isOwner,
     // Easter eggs devenus des accomplissements : comptés dans Réussites, plus ici.
-    eggs: { found: eggsFound, total: EASTER_EGGS.length - LINKED_EGG_KEYS.length },
+    eggs: { found: eggsFound, total: COLLECTION_EGG_KEYS.length },
     reussites: { level: levelInfo.level, name: levelInfo.name, pct: levelInfo.pct, xp: levelInfo.xp, nextXp: levelInfo.nextXp, unseen },
     previewPlan: access.previewPlan,
     theme: effectiveTheme,

@@ -96,7 +96,7 @@ describe("badge Explorateur", () => {
     const explorer = SERIES.find((s) => s.id === "explorer")!;
     expect(explorer).toMatchObject({ hiddenUntilUnlocked: true, metric: "toolsExplored" });
     expect(explorer.tiers[0].target).toBe(2);
-    expect(SERIES.find((s) => s.id === "launch")!.tiers[0]).toMatchObject({ target: 5, xp: 100 });
+    expect(SERIES.find((s) => s.id === "launch")!.tiers[0]).toMatchObject({ target: 5, xp: 50 });
     expect(SERIES.find((s) => s.id === "first-post")!.name).toBe("Première publication");
   });
 });

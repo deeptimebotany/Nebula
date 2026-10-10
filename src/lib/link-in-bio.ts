@@ -30,7 +30,7 @@ export async function assertBioLinkQuota(brandId: string) {
   const count = linkPage ? await prisma.linkItem.count({ where: { linkPageId: linkPage.id } }) : 0;
   if (count >= limits.maxBioLinks) {
     throw new Error(
-      `Limite de liens atteinte pour le palier ${limits.label} (${limits.maxBioLinks} liens sur la page "link in bio"). Passez sur un palier supérieur dans Facturation.`
+      `Limite de liens atteinte pour le palier ${limits.label} (${limits.maxBioLinks} liens sur la page "link in bio"). Passez sur un palier supérieur dans Abonnement.`
     );
   }
 }

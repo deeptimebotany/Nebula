@@ -25,6 +25,7 @@ import { SocialApiError } from "./base";
 import { classifyProviderError } from "./errors";
 import { freshYoutubeToken } from "./youtube";
 import { DAY_MS, YOUTUBE_DATA_MAX_DAYS } from "./youtube-data-retention";
+import { ANONYMIZED_CHANNEL_NAME, anonymizeYoutubeChannel, deleteConnectionData } from "./disconnected-data";
 
 export { YOUTUBE_DATA_MAX_DAYS, isStaleYoutubeComment } from "./youtube-data-retention";
 /**
@@ -38,8 +39,7 @@ const AUTH_CHECK_SPACING_MS = DAY_MS;
 /** Vérifications par passage du cron (le cron passe souvent). */
 const AUTH_CHECKS_PER_RUN = 10;
 
-/** Nom affiché d'une chaîne déconnectée (le vrai nom vient de YouTube : effacé). */
-export const ANONYMIZED_CHANNEL_NAME = "Chaîne YouTube déconnectée";
+export { ANONYMIZED_CHANNEL_NAME };
 
 export interface YoutubeDeletion {
   analytics: number;
@@ -54,19 +54,11 @@ export interface YoutubeDeletion {
  * (déconnexion ou autorisation retirée).
  */
 export async function deleteYoutubeAuthorizedData(connectionId: string, { anonymize = true }: { anonymize?: boolean } = {}): Promise<YoutubeDeletion> {
-  const [analytics, videoStats, comments, retention] = await Promise.all([
-    prisma.analyticsSnapshot.deleteMany({ where: { connectionId } }),
-    prisma.postMetric.deleteMany({ where: { connectionId } }),
-    prisma.engagementItem.deleteMany({ where: { connectionId } }),
-    prisma.videoInsight.deleteMany({ where: { OR: [{ connectionId }, { postTarget: { connectionId } }] } })
-  ]);
-  if (anonymize) {
-    await prisma.socialConnection.update({
-      where: { id: connectionId },
-      data: { displayName: ANONYMIZED_CHANNEL_NAME, handle: null, avatarUrl: null }
-    });
-  }
-  return { analytics: analytics.count, videoStats: videoStats.count, comments: comments.count, retention: retention.count };
+  // Même effacement que pour les autres réseaux (disconnected-data.ts), plus
+  // le nom et la photo de la chaîne.
+  const deleted = await deleteConnectionData(connectionId);
+  if (anonymize) await anonymizeYoutubeChannel(connectionId);
+  return deleted;
 }
 
 /**

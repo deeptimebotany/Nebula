@@ -11,6 +11,7 @@ import { useMemo, type ReactNode } from "react";
 import type { ConstellationDTO, SkillDTO, StarDTO } from "@/lib/reussites/types";
 import { RarityMark } from "./social-cards";
 import { clsx } from "@/lib/clsx";
+import { goToInReussites } from "@/lib/reussites/goto";
 
 const fmt = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
@@ -128,7 +129,7 @@ function RequirementBars({ star, color }: { star: StarDTO; color: string }) {
 function ActionLink({ href, className, children }: { href: string; className: string; children: ReactNode }) {
   if (href.startsWith("#")) {
     return (
-      <button type="button" className={className} onClick={() => document.getElementById(href.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+      <button type="button" className={className} onClick={() => goToInReussites(href.slice(1))}>
         {children}
       </button>
     );

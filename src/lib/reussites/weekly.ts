@@ -51,7 +51,8 @@ export async function bioReady(userId: string): Promise<boolean> {
 
 export async function missionContext(userId: string, posts: PublishedPost[], now: Date): Promise<MissionContext> {
   const [connections, bio] = await Promise.all([
-    prisma.socialConnection.findMany({ where: { brand: ownedBy(userId) }, select: { network: true } }) as Promise<{ network: string }[]>,
+    // Réseaux connectés seulement (10/10/2026) : pas de mission pour un compte déconnecté.
+    prisma.socialConnection.findMany({ where: { brand: ownedBy(userId), status: { not: "DISCONNECTED" } }, select: { network: true } }) as Promise<{ network: string }[]>,
     bioReady(userId)
   ]);
   return {

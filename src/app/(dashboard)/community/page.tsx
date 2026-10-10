@@ -14,7 +14,6 @@
 // Sur téléphone, la colonne passe sous le flux.
 
 import { CommunityAuthor, type CommunityAuthorInfo } from "@/components/reussites/community-author";
-import { AvatarRing } from "@/components/reussites/avatar-ring";
 import { FeaturedStrip } from "@/components/reussites/featured-strip";
 import type { RingStyle } from "@/lib/reussites/catalog";
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -36,8 +35,11 @@ import type { EarnedBadge } from "@/lib/badges";
 import { ContentActions } from "@/components/community/content-actions";
 import { reportKey } from "@/lib/community/report-reasons";
 import { FeedbackTab } from "@/components/community/feedback/feedback-tab";
+import { CommunityHome } from "@/components/community/community-home";
+import { MemberAvatar, handleInitial } from "@/components/community/member-avatar";
 
-type Tab = "forum" | "avis" | "videos";
+// 10/10/2026 (demande de Lucas) : « Accueil » façon YouTube, ouvert par défaut.
+type Tab = "accueil" | "forum" | "avis" | "videos";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GENERAL: "Général",
@@ -85,16 +87,6 @@ function relativeDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR");
 }
 
-function initials(name: string | null | undefined): string {
-  if (!name) return "?";
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p.charAt(0).toUpperCase())
-    .join("");
-}
-
 const TIER_CLASS: Record<string, string> = {
   or: "bg-amber-400/15 text-amber-300 border-amber-400/30",
   argent: "bg-slate-300/15 text-slate-200 border-slate-300/30",
@@ -104,7 +96,7 @@ const TIER_CLASS: Record<string, string> = {
 export default function CommunityPage() {
   const toast = useToast();
   const { data: me } = useBootstrap();
-  const [tab, setTab] = useState<Tab>("forum");
+  const [tab, setTab] = useState<Tab>("accueil");
   const [category, setCategory] = useState<string | "all">("all");
 
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -158,7 +150,7 @@ export default function CommunityPage() {
   // une alerte de signalement).
   useEffect(() => {
     const onglet = new URLSearchParams(window.location.search).get("onglet");
-    if (onglet === "videos" || onglet === "avis") setTab(onglet);
+    if (onglet === "videos" || onglet === "avis" || onglet === "forum" || onglet === "accueil") setTab(onglet);
   }, []);
   useEffect(() => {
     if (loading || !window.location.hash.startsWith("#video-")) return;
@@ -169,7 +161,7 @@ export default function CommunityPage() {
   useEffect(() => {
     fetch("/api/community/feedback?scope=open", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.requests && setFeedbackCount((d.requests as { myVote: string | null }[]).filter((x) => !x.myVote).length))
+      .then((d) => d?.requests && setFeedbackCount((d.requests as { myHearts: string[] }[]).filter((x) => x.myHearts.length === 0).length))
       .catch(() => undefined);
   }, []);
 
@@ -260,7 +252,7 @@ export default function CommunityPage() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs text-slate-400">
         <IconGift className="h-4 w-4 shrink-0 text-aurora-300" />
         <p className="min-w-0 flex-1 basis-56">
-          <span className="text-slate-200">Parrainez un créateur</span> : il reçoit l&apos;assistant IA offert 14 jours, et vous montez au classement.
+          <span className="text-slate-200">Parrainez un créateur</span> : il reçoit l&apos;assistant IA offert 14 jours, et chaque filleul abonné vous fait monter au classement.
         </p>
         <button type="button" onClick={copyReferralLink} className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-200 transition hover:border-aurora-400/50 hover:text-white">
           Copier mon lien
@@ -270,15 +262,14 @@ export default function CommunityPage() {
         </button>
       </div>
 
-      {/* À la une (Réussites v2, lot C) */}
-      <FeaturedStrip />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_272px]">
+      {/* Accueil plein largeur ; les autres onglets gardent la colonne de droite. */}
+      <div className={clsx("grid gap-6", tab !== "accueil" && "lg:grid-cols-[minmax(0,1fr)_272px]")}>
         {/* ---------- Flux central ---------- */}
         <div className="min-w-0 space-y-4">
           <div className="nb-tabrow gap-1" role="tablist" aria-label="Sections de la communauté">
             {(
               [
+                ["accueil", "Accueil", 0],
                 ["forum", "Forum", threads.length],
                 ["avis", "Avis", feedbackCount],
                 ["videos", "Vidéos du jour", videos.length]
@@ -369,11 +360,7 @@ export default function CommunityPage() {
                   // Titre en « lien étiré » sur toute la carte : les actions
                   // (Signaler, Supprimer) restent des boutons à part.
                   <GlassCard key={t.id} className="relative flex items-start gap-3">
-                    <AvatarRing ring={t.author?.ring} shapeClassName="rounded-full" className="mt-0.5">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-slate-300" aria-hidden="true">
-                        {initials(t.author?.name)}
-                      </span>
-                    </AvatarRing>
+                    <MemberAvatar author={t.author} size={36} className="mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {t.pinned && (
@@ -415,8 +402,19 @@ export default function CommunityPage() {
             </div>
           )}
 
+          {tab === "accueil" && (
+            <CommunityHome
+              videos={videos}
+              threads={[...threads].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
+              loading={loading}
+              onOpenTab={(t) => setTab(t)}
+              onAskFeedback={() => setTab("avis")}
+            />
+          )}
+
           {tab === "avis" && <FeedbackTab viewerId={me?.user?.id ?? null} onCountChange={setFeedbackCount} />}
 
+          {tab === "videos" && <FeaturedStrip />}
           {!loading && tab === "videos" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videos.map((v) => (
@@ -463,6 +461,7 @@ export default function CommunityPage() {
         </div>
 
         {/* ---------- Colonne droite ---------- */}
+        {tab !== "accueil" && (
         <aside className="space-y-4 lg:sticky lg:top-[calc(var(--nb-topbar-offset)_+_16px)] lg:self-start">
           {/* Mini-carte profil */}
           <GlassCard hover={false} className="p-4">
@@ -470,10 +469,17 @@ export default function CommunityPage() {
               {me?.user?.avatarUrl ? (
                 <RemoteImage src={me.user.avatarUrl} className="h-10 w-10 shrink-0 rounded-full" sizes="40px" />
               ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nebula-600/70 to-accent-cyan/40 text-sm font-semibold text-white">{initials(me?.user?.name)}</span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nebula-600/70 to-accent-cyan/40 text-sm font-semibold text-white">{handleInitial(me?.user?.handle)}</span>
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white">{me?.user?.name || "Mon compte"}</p>
+                {/* Pseudo, jamais le nom (10/10/2026) ; lien vers mon profil. */}
+                {me?.user?.handle ? (
+                  <Link href={`/community/membre/${me.user.handle}`} className="block truncate text-sm font-medium text-white hover:underline">
+                    @{me.user.handle}
+                  </Link>
+                ) : (
+                  <p className="truncate text-sm font-medium text-white">Mon compte</p>
+                )}
                 <p className="text-[11px] text-slate-500">Membre de la communauté</p>
               </div>
             </div>
@@ -532,7 +538,7 @@ export default function CommunityPage() {
                 <Skeleton className="h-6 w-full" />
               </div>
             ) : leaderboard.length === 0 ? (
-              <p className="mt-2 text-xs text-slate-500">Personne n&apos;a encore parrainé — soyez le premier.</p>
+              <p className="mt-2 text-xs text-slate-500">Aucun filleul abonné pour l&apos;instant — soyez le premier.</p>
             ) : (
               <ol className="mt-2 space-y-1">
                 {leaderboard.slice(0, 3).map((r, i) => (
@@ -541,7 +547,9 @@ export default function CommunityPage() {
                       <span className="w-4 shrink-0 text-center text-slate-500">{i === 0 ? "👑" : i + 1}</span>
                       <span className="truncate">{r.displayName}</span>
                     </span>
-                    <span className="shrink-0 font-medium text-white">{r.referrals}</span>
+                    <span className="shrink-0 font-medium text-white" title={`${r.referrals} filleul${r.referrals > 1 ? "s" : ""} abonné${r.referrals > 1 ? "s" : ""}`}>
+                      {r.referrals}
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -551,6 +559,7 @@ export default function CommunityPage() {
             </button>
           </GlassCard>
         </aside>
+        )}
       </div>
     </div>
   );

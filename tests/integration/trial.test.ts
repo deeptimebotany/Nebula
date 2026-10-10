@@ -121,7 +121,8 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     expect(refused.status).toBe(429);
     const body = await refused.json();
     expect(body.reason).toBe("trial_ai_limit");
-    expect(body.error).toMatch(/En Essai, 20 textes par jour.*En Pro, 60/);
+    expect(body.error).toMatch(/^Limite de générations de texte atteinte pour aujourd'hui.*En Pro, vous en avez beaucoup plus/);
+    expect(body.error).not.toMatch(/\b(20|60)\b/);
     expect(gemini.copy).toHaveBeenCalledTimes(20);
 
     // Miniatures IA (06/10/2026 : l'outil public est retiré, la règle est vérifiée sur la porte de l'IA).
@@ -132,7 +133,7 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
       await gate.run(async () => "ok");
     }
     const sixthImage = await assertAiAllowed({ userId: user.id, plan: trialPlan, kind: "image" });
-    expect(sixthImage).toMatchObject({ ok: false, status: 429, reason: "trial_ai_limit", error: expect.stringMatching(/Pendant l'essai, 5 miniatures en tout.*En Pro, 20 par mois/) });
+    expect(sixthImage).toMatchObject({ ok: false, status: 429, reason: "trial_ai_limit", error: expect.stringMatching(/^Limite de miniatures de l'essai atteinte\. En Pro, vous en avez beaucoup plus chaque mois\.$/) });
     // Compté sur la période de l'essai (clé « essai:<dernier jour> »), pas le mois.
     const monthly = await prisma.aiMonthlyUsage.findMany();
     expect(monthly.map((m) => [m.period.startsWith("essai:"), m.kind, m.count])).toEqual([[true, "image", 5]]);
@@ -147,7 +148,7 @@ describe.skipIf(!hasDatabase)("palier Essai et porte de l'IA (lots E1, E2)", () 
     }
     const sixteenth = await generateStudio({ userId: user.id, brandId: brands[0].id, brandName: "B", kind: "ideas", input: { network: null, theme: "" }, llm: async () => ideas, plan: info });
     expect(sixteenth).toMatchObject({ ok: false, status: 429, reason: "trial_ai_limit" });
-    expect((sixteenth as { error: string }).error).toMatch(/Pendant l'essai, 15 générations du Studio en tout.*En Pro, 50 par mois/);
+    expect((sixteenth as { error: string }).error).toMatch(/^Limite de générations du Studio de l'essai atteinte\. En Pro, vous en avez beaucoup plus chaque mois\./);
   });
 
   it("budget global atteint : 429 trial_ai_busy pour l'essai ; un compte Pro passe sans être compté", async () => {

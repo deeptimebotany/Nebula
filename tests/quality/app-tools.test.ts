@@ -102,9 +102,10 @@ describe("menu « Outils »", () => {
     expect(APP_MAP).toMatch(/Outils \(Taux d'engagement/);
     // 09/10/2026 : Rétention IA dans Analytics, Commentaires + Engagements = Interactions.
     // 10/10/2026 : menu sans catégories (principaux, puis secondaires), Paramètres en fenêtre.
-    expect(APP_MAP).toMatch(/Analytics \(onglets Vue d'ensemble, Rétention IA, Concurrence, Publicité\), Interactions \(onglets Commentaires et Engagement\), Communauté/);
+    // 10/10/2026 : onglet Concurrence retiré.
+    expect(APP_MAP).toMatch(/Analytics \(onglets Vue d'ensemble, Rétention IA, Publicité\), Interactions \(onglets Commentaires et Engagement\), Communauté/);
     expect(APP_MAP).toMatch(/onglets secondaires → Studio IA, Outils \(Taux d'engagement[^)]*\), Comptes connectés, Page bio, Media kit/);
-    expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Facturation, Automatisations, Soutenir Nebula, changer de compte, Paramètres/);
+    expect(APP_MAP).toMatch(/Menu du profil \(photo en haut à droite\) → Mon profil, Abonnement, Automatisations, Soutenir Nebula, changer de compte, Paramètres/);
   });
 });
 

@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     const plan = previewPlan ?? (await getUserPlan(userId)).plan;
     if (!canUseTheme(theme, plan)) {
       return NextResponse.json(
-        { error: `Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },
+        { error: `Le thème "${theme.label}" nécessite le palier ${theme.requiresPlan}. Passez sur ce palier dans Abonnement pour le débloquer.` },
         { status: 403 }
       );
     }

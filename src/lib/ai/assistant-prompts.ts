@@ -24,7 +24,7 @@ import { ENGAGEMENT_BENCHMARKS, engagementRate, frNumber } from "@/lib/tools/eng
  */
 /** Onglets à l'intérieur d'une page (09/10/2026 : Rétention IA dans Analytics, Commentaires et Engagement dans Interactions). */
 const PAGE_TABS: Record<string, string> = {
-  "/analytics": "onglets Vue d'ensemble, Rétention IA, Concurrence, Publicité",
+  "/analytics": "onglets Vue d'ensemble, Rétention IA, Publicité",
   "/interactions": "onglets Commentaires et Engagement"
 };
 
@@ -185,7 +185,7 @@ export const CONTEXT_PROMPTS: Record<AssistantContextKey, ContextPromptModule> =
     maxOutputTokens: 700
   },
   billing: {
-    instruction: `Contexte : l'utilisateur est dans la Facturation. Paliers : Gratuit (1 marque, sans IA), Pro (plusieurs marques, IA, rapports), Agence (plus de marques, marque blanche). Le palier actuel est fourni ci-dessous. Ne donne JAMAIS de prix chiffré : renvoie vers la page Facturation pour les tarifs à jour. ${HOWTO_HINT}`,
+    instruction: `Contexte : l'utilisateur est dans la page Abonnement. Paliers : Gratuit (1 marque, sans IA), Pro (plusieurs marques, IA, rapports), Agence (plus de marques, marque blanche). Le palier actuel est fourni ci-dessous. Ne donne JAMAIS de prix chiffré : renvoie vers la page Abonnement pour les tarifs à jour. ${HOWTO_HINT}`,
     needs: {},
     maxOutputTokens: 700
   },

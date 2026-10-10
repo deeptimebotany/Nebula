@@ -5,10 +5,10 @@
 // d'essai, résiliation, palier inférieur), toute l'application est bloquée
 // par une fenêtre qu'on ne peut pas fermer, jusqu'à ce que les comptes en
 // trop soient déconnectés — ou qu'un abonnement soit pris. Seule la page
-// Facturation reste ouverte, pour pouvoir payer.
+// Abonnement reste ouverte, pour pouvoir payer.
 //
 // Léger sur toutes les pages : la vérification réutilise la consommation de
-// la marque déjà chargée par la page Comptes et la Facturation
+// la marque déjà chargée par la page Comptes et la page Abonnement
 // (/api/billing/usage, même cache) ; la fenêtre n'est téléchargée que si la
 // limite est dépassée. Règle côté serveur : src/lib/billing/connection-limit.ts.
 import dynamic from "next/dynamic";

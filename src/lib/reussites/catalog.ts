@@ -14,6 +14,8 @@
 // Les clés (accomplissements, récompenses) sont stockées en base : ne
 // jamais les renommer. Ajouter un palier = ajouter une entrée.
 
+import { EASTER_EGG_KEYS } from "@/lib/easter-eggs-registry";
+
 export type ReussiteCategory = "publication" | "regularite" | "qualite" | "croissance" | "communaute" | "bio";
 
 export const CATEGORIES: { id: ReussiteCategory; label: string; emoji: string }[] = [
@@ -50,22 +52,29 @@ export interface RankDef {
   tiers: [number, number, number];
 }
 
+// 10/10/2026 (retour de Lucas : « une vidéo et deux, trois succès, et je suis
+// presque Émergent III ») : seuils relevés, surtout au début, et XP des
+// premiers pas réduits (étoiles ★1, Premier décollage, premières fois, 3
+// réseaux, easter eggs). Repères pour un créateur actif : Émergent vers 2
+// semaines, Régulier vers 1 mois et demi, Confirmé vers 3 mois et demi,
+// Établi vers 6 mois, Influent vers 1 an, Icône vers 3 ans. Les comptes déjà
+// évalués sont recalculés une fois (engine.ts, XP_RECALC_KEY).
 export const RANKS: RankDef[] = [
-  { rank: 1, id: "lancement", name: "Lancement", tagline: "Vos premières publications : tout se met en place.", tiers: [0, 60, 150] },
-  { rank: 2, id: "emergent", name: "Émergent", tagline: "Vous publiez régulièrement : votre ligne se dessine.", tiers: [300, 450, 650] },
-  { rank: 3, id: "regulier", name: "Régulier", tagline: "Votre rythme tient dans la durée : votre audience sait quand vous retrouver.", tiers: [900, 1250, 1700] },
-  { rank: 4, id: "confirme", name: "Confirmé", tagline: "Vos formats, votre rythme et vos résultats se tiennent.", tiers: [2300, 3000, 3800] },
-  { rank: 5, id: "etabli", name: "Établi", tagline: "Vos contenus retiennent leur public et votre audience grandit pour de vrai.", tiers: [5000, 6500, 8500] },
-  { rank: 6, id: "influent", name: "Influent", tagline: "Vos résultats parlent d'eux-mêmes : on attend vos prochaines publications.", tiers: [10000, 12500, 15000] },
-  { rank: 7, id: "reference", name: "Référence", tagline: "Les autres créateurs s'inspirent de votre travail et de vos conseils.", tiers: [18000, 21500, 25000] },
-  { rank: 8, id: "icone", name: "Icône", tagline: "Le sommet de Nebula : constance, qualité et entraide, sur la durée.", tiers: [29000, 34000, 40000] }
+  { rank: 1, id: "lancement", name: "Lancement", tagline: "Vos premières publications : tout se met en place.", tiers: [0, 150, 350] },
+  { rank: 2, id: "emergent", name: "Émergent", tagline: "Vous publiez régulièrement : votre ligne se dessine.", tiers: [600, 900, 1300] },
+  { rank: 3, id: "regulier", name: "Régulier", tagline: "Votre rythme tient dans la durée : votre audience sait quand vous retrouver.", tiers: [1800, 2400, 3100] },
+  { rank: 4, id: "confirme", name: "Confirmé", tagline: "Vos formats, votre rythme et vos résultats se tiennent.", tiers: [4000, 5000, 6200] },
+  { rank: 5, id: "etabli", name: "Établi", tagline: "Vos contenus retiennent leur public et votre audience grandit pour de vrai.", tiers: [7500, 9000, 11000] },
+  { rank: 6, id: "influent", name: "Influent", tagline: "Vos résultats parlent d'eux-mêmes : on attend vos prochaines publications.", tiers: [13500, 16500, 20000] },
+  { rank: 7, id: "reference", name: "Référence", tagline: "Les autres créateurs s'inspirent de votre travail et de vos conseils.", tiers: [24000, 28500, 33500] },
+  { rank: 8, id: "icone", name: "Icône", tagline: "Le sommet de Nebula : constance, qualité et entraide, sur la durée.", tiers: [39000, 45000, 52000] }
 ];
 
 const ROMAN = ["I", "II", "III"];
 
 /** Récompenses de palier (texte) ; les clés correspondantes sont dans REWARDS. */
 const STEP_REWARDS: Record<number, string> = {
-  4: "Insigne Émergent et fond « Première lumière »",
+  4: "Insigne Émergent",
   7: "Insigne Régulier et anneau d'avatar argent",
   10: "Insigne Confirmé et une vidéo à la une 7 jours",
   11: "Cadre de page bio « Astre »",
@@ -288,7 +297,7 @@ export const SERIES: SeriesDef[] = [
     name: "Première publication",
     metric: "publishedPosts",
     unit: "publication",
-    tiers: [{ key: "first-post", target: 1, xp: 50, description: "Publier votre première publication" }]
+    tiers: [{ key: "first-post", target: 1, xp: 20, description: "Publier votre première publication" }]
   },
   {
     // Lot C : les 5 étapes du Premier décollage (7 premiers jours).
@@ -299,7 +308,7 @@ export const SERIES: SeriesDef[] = [
     metric: "launchSteps",
     unit: "étapes",
     note: "Connecter un réseau, ajouter une vidéo, programmer, publier, synchroniser ses statistiques.",
-    tiers: [{ key: "launch", target: 5, xp: 100, description: "Terminer les 5 étapes du Premier décollage" }]
+    tiers: [{ key: "launch", target: 5, xp: 50, description: "Terminer les 5 étapes du Premier décollage" }]
   },
   {
     // Lot C : outils gratuits essayés AVANT l'inscription (cookie « outils
@@ -312,7 +321,7 @@ export const SERIES: SeriesDef[] = [
     metric: "toolsExplored",
     unit: "outils",
     hiddenUntilUnlocked: true,
-    tiers: [{ key: "explorer", target: 2, xp: 50, description: "Essayer 2 outils gratuits de Nebula avant de vous inscrire" }]
+    tiers: [{ key: "explorer", target: 2, xp: 20, description: "Essayer 2 outils gratuits de Nebula avant de vous inscrire" }]
   },
   {
     id: "posts",
@@ -322,7 +331,7 @@ export const SERIES: SeriesDef[] = [
     metric: "publishedPosts",
     unit: "publications",
     tiers: [
-      { key: "posts-10", target: 10, xp: 20, description: "Publier 10 publications", reward: "ach:bg-premiere-lumiere" },
+      { key: "posts-10", target: 10, xp: 20, description: "Publier 10 publications" },
       { key: "posts-50", target: 50, xp: 30, description: "Publier 50 publications" },
       { key: "posts-100", target: 100, xp: 40, description: "Publier 100 publications", reward: "ach:ring-or" },
       { key: "posts-250", target: 250, xp: 50, description: "Publier 250 publications" },
@@ -361,7 +370,7 @@ export const SERIES: SeriesDef[] = [
     name: "Multi-réseaux",
     metric: "maxNetworksOnePost",
     unit: "réseaux",
-    tiers: [{ key: "multi-network", target: 3, xp: 80, description: "Mettre une même publication en ligne sur 3 réseaux" }]
+    tiers: [{ key: "multi-network", target: 3, xp: 40, description: "Mettre une même publication en ligne sur 3 réseaux" }]
   },
 
   // Régularité (8)
@@ -615,7 +624,7 @@ export const SERIES: SeriesDef[] = [
     name: "Première prise de parole",
     metric: "forumThreads",
     unit: "sujet",
-    tiers: [{ key: "first-thread", target: 1, xp: 50, description: "Ouvrir un sujet dans le forum de la Communauté" }]
+    tiers: [{ key: "first-thread", target: 1, xp: 20, description: "Ouvrir un sujet dans le forum de la Communauté" }]
   },
   {
     id: "voice",
@@ -690,7 +699,7 @@ export const SERIES: SeriesDef[] = [
     name: "Vitrine",
     metric: "bioPublished",
     unit: "page publiée",
-    tiers: [{ key: "bio-live", target: 1, xp: 50, description: "Publier votre page bio" }]
+    tiers: [{ key: "bio-live", target: 1, xp: 20, description: "Publier votre page bio" }]
   },
   {
     id: "bio-clicks",
@@ -754,8 +763,17 @@ export function findTier(key: string): FlatTier | undefined {
 /** Easter eggs devenus des accomplissements (hors XP des easter eggs, hors liste Succès). */
 export const LINKED_EGG_KEYS: string[] = ALL_TIERS.map((t) => t.linkedEgg).filter((k): k is string => Boolean(k));
 
+/**
+ * Easter eggs de la collection (ceux qui comptent dans « N / M trouvés », le
+ * profil et l'XP) : les clés du registre, moins celles devenues des
+ * accomplissements. Les clés retirées du registre (10/10/2026 : n° 9, 15,
+ * 21, 22, 23) restent peut-être en base pour d'anciens comptes, mais n'y
+ * figurent plus, donc ne comptent plus.
+ */
+export const COLLECTION_EGG_KEYS: string[] = EASTER_EGG_KEYS.filter((k) => !LINKED_EGG_KEYS.includes(k));
+
 /** XP d'un easter egg trouvé (bonus). */
-export const EGG_XP = 10;
+export const EGG_XP = 5;
 
 // --- Récompenses -------------------------------------------------------------
 
@@ -777,7 +795,7 @@ export const REWARDS: RewardDef[] = [
   { key: "ach:ring-argent", label: "Anneau d'avatar argent", kind: "ring", grantedBy: [levelKey(5), rankKey(7)], autoCosmetic: "anneau-argent-avatar" },
   { key: "ach:ring-or", label: "Anneau d'avatar or", kind: "ring", grantedBy: ["posts-100"], autoCosmetic: "anneau-or-avatar" },
   { key: "ach:ring-stellaire", label: "Anneau stellaire animé", kind: "ring", grantedBy: [levelKey(8), rankKey(13)], autoCosmetic: "anneau-stellaire-avatar" },
-  { key: "ach:bg-premiere-lumiere", label: "Fond « Première lumière »", kind: "background", grantedBy: ["posts-10", levelKey(3), rankKey(4)] },
+  // Fond « Première lumière » retiré le 10/10/2026 (seuls Constellation et Galaxie spirale restent).
   { key: "ach:bg-constellation", label: "Fond « Constellation »", kind: "background", grantedBy: ["videos-25"] },
   { key: "ach:bg-galaxie-spirale", label: "Fond « Galaxie spirale »", kind: "background", grantedBy: ["streak-8"] },
   { key: "ach:frame-carrefour", label: "Cadre de page bio « Carrefour »", kind: "frame", grantedBy: ["bio-clicks-1000"] },

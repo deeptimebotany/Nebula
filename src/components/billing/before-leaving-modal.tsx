@@ -1,6 +1,6 @@
 "use client";
 
-// « Avant de partir » (brief growth, lot G2.c) : sur Facturation, « Résilier »
+// « Avant de partir » (brief growth, lot G2.c) : sur Abonnement, « Résilier »
 // ouvre cette modale plutôt que le portail Stripe directement. Trois choix :
 // mettre en pause 1, 2 ou 3 mois (Stripe pause_collection, données
 // conservées, reprise automatique), passer au Gratuit (portail Stripe :

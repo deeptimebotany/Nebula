@@ -82,7 +82,9 @@ export interface SkillDef {
 }
 
 /** XP d'une étoile selon son rang dans la compétence. */
-export const STAR_XP = [40, 60, 80, 120, 150] as const;
+// 10/10/2026 (rangs rééquilibrés) : la première étoile de chaque compétence
+// (un premier pas) passe de 40 à 15 XP.
+export const STAR_XP = [15, 60, 80, 120, 150] as const;
 
 const starKey = (skill: SkillId, n: number) => `star-${skill}-${n}`;
 
@@ -140,11 +142,13 @@ export const SKILLS: SkillDef[] = [
     },
     {
       name: "Vertical natif",
-      description: "Mettre en ligne 3 vidéos verticales (plus hautes que larges).",
-      requirements: [{ metric: "verticalVideos", target: 3, unit: "vidéos verticales" }],
-      note: "Le format est reconnu dans l'aperçu de Publier.",
+      // « 3 shorts » plutôt que des « vidéos verticales » (10/10/2026, demande
+      // de Lucas) : un short = vidéo verticale (Short, Reel, TikTok).
+      description: "Mettre en ligne 3 shorts.",
+      requirements: [{ metric: "verticalVideos", target: 3, unit: "shorts" }],
+      note: "Short, Reel ou TikTok : une vidéo verticale, reconnue dans l'aperçu de Publier.",
       href: "/composer",
-      action: "Publier une vidéo verticale"
+      action: "Publier un short"
     },
     {
       name: "Recyclage malin",

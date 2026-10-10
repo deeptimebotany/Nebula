@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { reussiteItemDb } from "@/lib/prisma-extra";
 import type { ActionResult } from "./weekly";
+import { displayHandle } from "@/lib/community/handle-rules";
 
 export const FEATURE_DAYS = 7;
 export const FEATURE_SLOTS = 3;
@@ -54,7 +55,7 @@ interface SharedVideoRow {
   externalUrl: string;
   thumbnailUrl: string | null;
   createdAt: Date;
-  author?: { id: string; name: string; featureConsent?: boolean };
+  author?: { id: string; name: string; handle?: string | null; avatarUrl?: string | null; featureConsent?: boolean };
 }
 
 /**
@@ -99,7 +100,7 @@ export interface FeaturedCard {
   network: string;
   externalUrl: string;
   thumbnailUrl: string | null;
-  author: { id: string; name: string };
+  author: { id: string; name: string; handle?: string | null; avatarUrl?: string | null };
   /** « reward » (gagnée), « admin » (choix de Nebula) ou « auto » (sélection du moment). */
   source: "reward" | "admin" | "auto";
   endsAt: string | null;
@@ -113,7 +114,8 @@ function card(v: SharedVideoRow, source: FeaturedCard["source"], id: string, end
     network: v.network,
     externalUrl: v.externalUrl,
     thumbnailUrl: v.thumbnailUrl,
-    author: { id: v.author?.id ?? v.authorId, name: v.author?.name ?? "Créateur" },
+    // Pseudo de la Communauté, jamais le nom (10/10/2026).
+    author: { id: v.author?.id ?? v.authorId, name: displayHandle(v.author?.handle), handle: v.author?.handle ?? null, avatarUrl: v.author?.avatarUrl ?? null },
     source,
     endsAt: endsAt ? endsAt.toISOString() : null
   };
@@ -123,7 +125,7 @@ function card(v: SharedVideoRow, source: FeaturedCard["source"], id: string, end
 export async function currentFeatured(now: Date = new Date()): Promise<FeaturedCard[]> {
   const active = (await featuredDb.findMany({
     where: { removedAt: null, startsAt: { lte: now }, endsAt: { gt: now }, user: { featureConsent: true } },
-    include: { sharedVideo: { include: { author: { select: { id: true, name: true } } } } },
+    include: { sharedVideo: { include: { author: { select: { id: true, name: true, handle: true, avatarUrl: true } } } } },
     orderBy: { startsAt: "asc" },
     take: FEATURE_SLOTS
   })) as unknown as (FeaturedRow & { sharedVideo: SharedVideoRow })[];
@@ -133,7 +135,7 @@ export async function currentFeatured(now: Date = new Date()): Promise<FeaturedC
     const authors = new Set(out.map((c) => c.author.id));
     const recent = (await prisma.sharedVideo.findMany({
       where: { createdAt: { gte: new Date(now.getTime() - AUTO_WINDOW_DAYS * DAY) }, author: { featureConsent: true } },
-      include: { author: { select: { id: true, name: true } } },
+      include: { author: { select: { id: true, name: true, handle: true, avatarUrl: true } } },
       orderBy: { createdAt: "desc" },
       take: 30
     })) as unknown as SharedVideoRow[];

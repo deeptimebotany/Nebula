@@ -115,7 +115,8 @@ export async function getAnalyticsInsights(brandId: string) {
   const [brand, connections, publishedPosts] = await Promise.all([
     prisma.brand.findUnique({ where: { id: brandId }, select: { timezone: true } }) as Promise<{ timezone: string | null } | null>,
     prisma.socialConnection.findMany({
-      where: { brandId },
+      // Comptes déconnectés exclus (10/10/2026) : leurs chiffres sont effacés.
+      where: { brandId, status: { not: "DISCONNECTED" } },
       select: { id: true, network: true, analytics: { select: { capturedAt: true, followersDelta: true, engagementRate: true } } }
     }),
     prisma.post.findMany({

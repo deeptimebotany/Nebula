@@ -226,7 +226,9 @@ describe.skipIf(!hasDatabase)("Rétention IA : l'IA regarde la vidéo, Nebula ca
     expect(refused.status).toBe(429);
     const body = await refused.json();
     expect(body).toMatchObject({ reason: "ai_monthly_limit", retentionPack: true });
-    expect(body.error).toMatch(/vos 15 analyses Rétention de ce mois-ci : le compteur repart le 1er .+ Vous pouvez ajouter 20 analyses pour 5,99 €/);
+    // 10/10/2026 : message sans chiffre de quota (seulement l'offre de recharge).
+    expect(body.error).toMatch(/^Limite d'analyses Rétention atteinte pour ce mois-ci : elle repart le 1er .+ Vous pouvez ajouter 20 analyses pour 5,99 €/);
+    expect(body.error).not.toContain("15");
     expect(await retentionCount()).toBe(15);
   });
 

@@ -57,7 +57,7 @@ export function connectionLimitMessage(slots: number, max: number, planLabel: st
 }
 
 export function connectionLimitReachedMessage(planLabel: string, max: number): string {
-  return `Limite de comptes connectés atteinte pour le palier ${planLabel} (${max} comptes par marque). Passez sur un palier supérieur dans Facturation pour en connecter un autre.`;
+  return `Limite de comptes connectés atteinte pour le palier ${planLabel} (${max} comptes par marque). Passez sur un palier supérieur dans Abonnement pour en connecter un autre.`;
 }
 
 /** La marque dépasse-t-elle les comptes de son palier, maintenant ? */

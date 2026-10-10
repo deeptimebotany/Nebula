@@ -124,7 +124,8 @@ export default function StudioPage() {
   const quotaLine = quota
     ? locked
       ? "Aperçu : vos chiffres sont calculés sans IA. Les idées et les scripts font partie des paliers Pro et Agence."
-      : `${quota.remaining} génération${quota.remaining > 1 ? "s" : ""} restante${quota.remaining > 1 ? "s" : ""} ${quota.per === "trial" ? "pendant l'essai" : "ce mois-ci"} sur ${quota.limit} · l'historique est gratuit`
+      : // 10/10/2026 (demande de Lucas) : plus de nombre de générations restantes.
+        "L'historique de vos générations est gratuit : le rouvrir ne compte pas."
     : null;
 
   return (

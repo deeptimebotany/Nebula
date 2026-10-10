@@ -1,7 +1,7 @@
 // Consommation RÉELLE d'une marque par rapport à son palier — calculée par
 // les mêmes fonctions que les quotas appliqués côté serveur (voir plan.ts :
 // assertPostQuota / assertConnectionQuota), pour que la barre de quota du
-// calendrier, la page Comptes et la page Facturation affichent exactement ce
+// calendrier, la page Comptes et la page Abonnement affichent exactement ce
 // que le serveur vérifiera au moment d'agir. Avant le Lot 4, chaque page
 // recomptait de son côté (publications du mois, comptes connectés) avec ses
 // propres règles.

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const found = await prisma.socialConnection.findMany({
     where: body.connectionId
-      ? { id: body.connectionId, brand: ownedBy(userId) }
+      ? { id: body.connectionId, status: { not: "DISCONNECTED" }, brand: ownedBy(userId) }
       : { brandId: body.brandId as string, status: "CONNECTED", brand: ownedBy(userId) }
   });
   if (found.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });

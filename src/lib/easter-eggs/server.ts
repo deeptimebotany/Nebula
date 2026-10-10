@@ -81,7 +81,10 @@ export async function markEasterEggFound(userId: string, key: string, opts: { si
 // à jour, au prix d'une requête de comptage supplémentaire par trouvaille
 // (négligeable comparé au reste de l'opération qui accroche l'easter egg,
 // ex : publier un post).
-async function checkMetaAchievements(userId: string): Promise<void> {
+// Exportée (10/10/2026) : après le retrait de cinq easter eggs, quelqu'un
+// peut remplir les conditions sans rien trouver de nouveau — GET
+// /api/easter-eggs la rappelle donc à chaque ouverture de la collection.
+export async function checkMetaAchievements(userId: string): Promise<void> {
   const found = await prisma.easterEggFound.findMany({ where: { userId }, select: { key: true } });
   const foundKeys = new Set((found as { key: string }[]).map((f) => f.key));
 

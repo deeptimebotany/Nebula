@@ -42,7 +42,7 @@ export function FeedbackTab({ viewerId, onCountChange }: { viewerId: string | nu
     setQuota(data.quota ?? null);
     setCanModerate(Boolean(data.viewer?.canModerate));
     setReported(new Set(data.viewer?.reported ?? []));
-    if (s === "open") onCountChange?.(data.requests.filter((r) => !r.myVote).length);
+    if (s === "open") onCountChange?.(data.requests.filter((r) => r.myHearts.length === 0).length);
   }, [onCountChange]);
 
   useEffect(() => {

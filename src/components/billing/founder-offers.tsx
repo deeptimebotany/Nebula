@@ -2,7 +2,7 @@
 
 // Offres fondateurs dans l'application (02/10/2026, voir
 // src/lib/billing/founders.ts) :
-//   - FounderMonthlyChoice : sous Pro 1 marque (mensuel) dans Facturation,
+//   - FounderMonthlyChoice : sous Pro 1 marque (mensuel) dans Abonnement,
 //     la case « Offre Fondateur : 10 € pendant 3 mois » (cochée par défaut) ;
 //   - FounderPremiumCard : « Fondateur Premium », 100 € une fois, Pro
 //     1 marque pendant 1 an, sans renouvellement ; fenêtre de confirmation
@@ -52,7 +52,7 @@ export function FounderMonthlyChoice({ founders, checked, onChange }: { founders
   );
 }
 
-/** Carte « Fondateur Premium » (Facturation). */
+/** Carte « Fondateur Premium » (Abonnement). */
 export function FounderPremiumCard({ founders }: { founders: FoundersResponse }) {
   const [open, setOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -156,7 +156,7 @@ export function FounderPremiumCard({ founders }: { founders: FoundersResponse })
   );
 }
 
-/** Le palier mensuel « Fondateur » s'applique-t-il à ce choix dans Facturation ? */
+/** Le palier mensuel « Fondateur » s'applique-t-il à ce choix dans Abonnement ? */
 export function founderMonthlyApplies(founders: FoundersResponse | null, plan: string, maxBrands: number, interval: string): boolean {
   return Boolean(founders?.me?.monthlyEligible && founders.monthly.left > 0 && plan === FOUNDER_MONTHLY.plan && maxBrands === FOUNDER_MONTHLY.maxBrands && interval === "month");
 }

@@ -1,7 +1,7 @@
 // Anti-abus de l'essai (lot E3, brief « Essai 14 jours », 29/09/2026).
 // Une même personne ne doit pas enchaîner les essais. Un refus ne bloque
 // JAMAIS l'inscription : le compte est créé en Gratuit, sans essai
-// (User.trialDeniedAt / trialDeniedReason), et la page Facturation le dit.
+// (User.trialDeniedAt / trialDeniedReason), et la page Abonnement le dit.
 //
 //   1. adresse d'un domaine jetable connu (src/data/disposable-domains.ts) ;
 //   2. un essai par adresse email CANONIQUE, même après suppression du

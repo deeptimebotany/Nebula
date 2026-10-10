@@ -33,7 +33,11 @@ describe("Interactions et Rétention IA", () => {
   });
   it("Analytics : onglet Rétention IA (chargé à l'ouverture), gardé dans l'adresse, retour de Stripe au bon endroit", () => {
     const a = read("src/app/(dashboard)/analytics/analytics-client.tsx");
-    expect(a).toMatch(/\["overview", "Vue d'ensemble"\],[\s\S]*\["retention", "Rétention IA"\],\s*\["competitors", "Concurrence"\]/);
+    expect(a).toMatch(/\["overview", "Vue d'ensemble"\],[\s\S]*\["retention", "Rétention IA"\],\s*\.\.\.\(adsEnabled/);
+    // Onglet Concurrence retiré (10/10/2026, demande de Lucas).
+    expect(a).not.toContain('"competitors"');
+    expect(a).not.toContain('"Concurrence"');
+    expect(a).not.toContain("CompetitorTab");
     expect(a).toContain("<RetentionTool embedded />");
     expect(a).toContain('import("@/components/retention/retention-tool")');
     expect(a).toContain('setAssistantOverride?.(tab === "retention" ? "retention" : null);');

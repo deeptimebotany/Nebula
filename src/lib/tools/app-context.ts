@@ -29,7 +29,8 @@ export async function getToolContext(brandId: string, now: Date = new Date()): P
       select: { name: true, slug: true, timezone: true, mediaKit: { select: { headline: true, about: true } }, linkPage: { select: { bio: true, published: true } } }
     }),
     prisma.socialConnection.findMany({
-      where: { brandId },
+      // Comptes déconnectés exclus (10/10/2026) : l'assistant ne les cite plus.
+      where: { brandId, status: { not: "DISCONNECTED" } },
       orderBy: [{ connectedAt: "asc" }, { id: "asc" }],
       select: {
         id: true,

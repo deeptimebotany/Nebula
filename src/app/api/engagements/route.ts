@@ -24,8 +24,10 @@ export async function GET(req: NextRequest) {
   const brandId = req.nextUrl.searchParams.get("brandId");
   if (!brandId) return NextResponse.json({ error: "brandId requis" }, { status: 400 });
 
+  // Comptes déconnectés exclus (10/10/2026) : leurs chiffres sont effacés et
+  // ils ne s'affichent plus (voir social/disconnected-data.ts).
   const connections = await prisma.socialConnection.findMany({
-    where: { brandId, brand: ownedBy(userId) },
+    where: { brandId, status: { not: "DISCONNECTED" }, brand: ownedBy(userId) },
     orderBy: { connectedAt: "asc" }
   });
 

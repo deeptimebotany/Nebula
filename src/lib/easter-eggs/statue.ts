@@ -1,4 +1,4 @@
-// Easter egg #28 « Statue » : curseur immobile 60 secondes sur le tableau de
+// Easter egg « Statue » : curseur immobile 60 secondes sur le tableau de
 // bord. Correctif du lot U6 (brief « Essai 14 jours », 29/09/2026) : il se
 // déclenchait quand on quittait l'onglet ou l'application — le navigateur
 // n'envoie plus de mousemove, et le script prenait ce silence pour un

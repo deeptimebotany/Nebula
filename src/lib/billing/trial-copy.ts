@@ -2,7 +2,7 @@
 // sans dépendance serveur : importables depuis un composant client.
 import { PLAN_LIMITS } from "@/lib/plans";
 
-/** Page Facturation, compte créé sans essai (anti-abus, lot E3). */
+/** Page Abonnement, compte créé sans essai (anti-abus, lot E3). */
 export const TRIAL_DENIED_MESSAGE = "Votre essai n'a pas pu démarrer : un essai a déjà été utilisé avec cette adresse ou récemment depuis ce réseau.";
 
 /** Note affichée pendant l'essai à la création d'une marque ou d'un compte au-delà du Gratuit (lot E4). */

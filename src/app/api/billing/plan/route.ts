@@ -9,7 +9,7 @@ import { PLAN_LIMITS } from "@/lib/plans";
 // GET /api/billing/plan[?brandId=...] — avec brandId, résout le plan via le
 // propriétaire de cette marque (comportement historique, utilisé par le
 // composer/la quota bar/etc.) ; sans brandId, résout le plan du compte
-// connecté directement (utilisé par la page Facturation, qui n'est plus
+// connecté directement (utilisé par la page Abonnement, qui n'est plus
 // liée à une marque précise).
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);

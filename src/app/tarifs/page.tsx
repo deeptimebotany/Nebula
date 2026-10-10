@@ -16,7 +16,7 @@ import { SEO_PRICING } from "@/lib/seo-pages";
 export const metadata = pageMetadata(SEO_PRICING);
 
 // Questions spécifiques aux tarifs — les réponses reprennent le
-// fonctionnement réel de la facturation (Stripe, plans.ts, page Facturation).
+// fonctionnement réel de la facturation (Stripe, plans.ts, page Abonnement).
 const PRICING_FAQ: { q: string; a: string }[] = [
   {
     q: "Qu'est-ce qu'une « marque » ?",
@@ -24,21 +24,21 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Puis-je changer de palier ou de nombre de marques plus tard ?",
-    a: "Oui, à tout moment depuis la page Facturation. Le changement est géré par Stripe, qui ajuste la facturation en conséquence et vous affiche le détail avant confirmation."
+    a: "Oui, à tout moment depuis la page Abonnement. Le changement est géré par Stripe, qui ajuste la facturation en conséquence et vous affiche le détail avant confirmation."
   },
   {
     q: "Que se passe-t-il si j'ai plus de marques que mon nouveau palier n'en autorise ?",
-    a: "Rien n'est supprimé. Les marques en trop restent visibles en lecture seule (elles ne publient plus) et vous choisissez celle qui reste active, dans Facturation → « Choisir ce que je garde ». Vous ne pouvez pas en créer de nouvelles tant que vous dépassez la limite ; un palier avec plus de marques les réactive aussitôt."
+    a: "Rien n'est supprimé. Les marques en trop restent visibles en lecture seule (elles ne publient plus) et vous choisissez celle qui reste active, dans Abonnement → « Choisir ce que je garde ». Vous ne pouvez pas en créer de nouvelles tant que vous dépassez la limite ; un palier avec plus de marques les réactive aussitôt."
   },
   {
     q: "L'abonnement se renouvelle-t-il automatiquement ?",
-    a: "Oui : Pro et Agence sont prélevés automatiquement chaque mois (ou chaque année) par Stripe, sans engagement. Vous pouvez résilier ou mettre en pause à tout moment depuis Facturation. Seule exception : Fondateur Premium, payé une fois, ne se renouvelle jamais tout seul."
+    a: "Oui : Pro et Agence sont prélevés automatiquement chaque mois (ou chaque année) par Stripe, sans engagement. Vous pouvez résilier ou mettre en pause à tout moment depuis Abonnement. Seule exception : Fondateur Premium, payé une fois, ne se renouvelle jamais tout seul."
   },
   {
     q: "Qu'est-ce que l'offre Fondateur ?",
     // Page générée au build : après le 1er janvier 2027, le prochain déploiement passe au passé.
     a: foundersSaleOpen()
-      ? `Pour les ${FOUNDER_MONTHLY.places} premiers abonnés, jusqu'au ${FOUNDERS_SALE_END_LABEL} : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} € par mois, prélevé automatiquement et sans engagement. Elle se choisit dans Facturation, pour un premier abonnement mensuel, et donne le badge « Fondateur » à vie (Communauté, carte de créateur).`
+      ? `Pour les ${FOUNDER_MONTHLY.places} premiers abonnés, jusqu'au ${FOUNDERS_SALE_END_LABEL} : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois, puis ${founderRegularPrice()} € par mois, prélevé automatiquement et sans engagement. Elle se choisit dans Abonnement, pour un premier abonnement mensuel, et donne le badge « Fondateur » à vie (Communauté, carte de créateur).`
       : `Une offre de lancement terminée le ${FOUNDERS_SALE_END_LABEL} : ${PLAN_LIMITS.PRO.label} 1 marque à ${FOUNDER_MONTHLY.priceMonthly} € par mois pendant ${FOUNDER_MONTHLY.months} mois pour les premiers abonnés. Ceux qui l'ont prise gardent ce tarif jusqu'au bout des ${FOUNDER_MONTHLY.months} mois et le badge « Fondateur » à vie.`
   },
   {
@@ -51,7 +51,7 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Comment fonctionnent les quotas de l'IA ?",
-    a: `Chaque palier inclut un nombre d'usages de l'IA par mois : en Pro, ${AI_MONTHLY.PRO.retention} analyses Rétention, ${AI_MONTHLY.PRO.image} miniatures, ${AI_MONTHLY.PRO.studio} générations du Studio et ${AI_MONTHLY.PRO.assistant} messages à l'assistant ; en Agence, ${AI_MONTHLY.AGENCY.retention}, ${AI_MONTHLY.AGENCY.image}, ${AI_MONTHLY.AGENCY.studio} et ${AI_MONTHLY.AGENCY.assistant}. Ils repartent à zéro le 1er de chaque mois, et la page Facturation affiche ce qu'il vous reste. Un appel qui échoue n'est jamais décompté. Nebula utilise les modèles récents de Google Gemini, en version payante : Google n'utilise pas vos contenus pour améliorer ses produits.`
+    a: `Chaque palier inclut un nombre d'usages de l'IA par mois : en Pro, ${AI_MONTHLY.PRO.retention} analyses Rétention, ${AI_MONTHLY.PRO.image} miniatures, ${AI_MONTHLY.PRO.studio} générations du Studio et ${AI_MONTHLY.PRO.assistant} messages à l'assistant ; en Agence, ${AI_MONTHLY.AGENCY.retention}, ${AI_MONTHLY.AGENCY.image}, ${AI_MONTHLY.AGENCY.studio} et ${AI_MONTHLY.AGENCY.assistant}. Ils repartent à zéro le 1er de chaque mois. Un appel qui échoue n'est jamais décompté. Nebula utilise les modèles récents de Google Gemini, en version payante : Google n'utilise pas vos contenus pour améliorer ses produits.`
   },
   {
     q: "Et si je n'ai plus d'analyses Rétention avant la fin du mois ?",
@@ -59,11 +59,11 @@ const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Comment se passe le paiement ?",
-    a: "Par carte bancaire via Stripe, sur une page de paiement sécurisée. Nebula ne voit ni ne stocke votre numéro de carte. Vos factures sont disponibles depuis le portail Stripe accessible dans Facturation."
+    a: "Par carte bancaire via Stripe, sur une page de paiement sécurisée. Nebula ne voit ni ne stocke votre numéro de carte. Vos factures sont disponibles depuis le portail Stripe accessible dans Abonnement."
   },
   {
     q: "Comment résilier ?",
-    a: "Depuis la page Facturation, via le portail de gestion Stripe, en quelques clics. L'abonnement reste actif jusqu'à la fin de la période déjà payée, puis le compte repasse en palier Gratuit sans rien perdre : vos publications, comptes et statistiques restent accessibles dans les limites du Gratuit."
+    a: "Depuis la page Abonnement, via le portail de gestion Stripe, en quelques clics. L'abonnement reste actif jusqu'à la fin de la période déjà payée, puis le compte repasse en palier Gratuit sans rien perdre : vos publications, comptes et statistiques restent accessibles dans les limites du Gratuit."
   }
 ];
 

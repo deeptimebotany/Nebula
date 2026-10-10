@@ -57,26 +57,21 @@ export function ToolDemoNotice({
   );
 }
 
-/** Ligne sous le bouton : générations restantes, ou rappel de la démo. */
+/**
+ * Ligne sous le bouton : rappel de la démo pour un visiteur. 10/10/2026
+ * (demande de Lucas) : plus jamais le nombre de générations restantes, nulle
+ * part (« pour pas qu'il sache, c'est une stratégie ») ; la limite atteinte
+ * reste expliquée par le message d'erreur, sans chiffre.
+ */
 export function ToolQuotaLine({
-  status,
-  remaining,
-  kind,
-  per = kind === "thumbnail" ? "month" : "day"
+  status
 }: {
   status: "loading" | "visitor" | "member";
-  remaining: number | null;
-  kind: "text" | "thumbnail";
-  /** Période du quota : textes par jour, miniatures par mois (ou pendant l'essai). */
+  /** Gardés pour les appelants ; jamais affichés. */
+  remaining?: number | null;
+  kind?: "text" | "thumbnail";
   per?: "day" | "month" | "trial" | null;
 }) {
   if (status === "visitor") return <p className="mt-2 text-center text-[11px] text-slate-500">Sans compte : démo préparée à l&apos;avance, sans IA.</p>;
-  if (status !== "member" || remaining === null) return null;
-  const what = kind === "thumbnail" ? "miniature(s)" : "génération(s)";
-  const when = per === "trial" ? "pendant l'essai" : per === "month" ? "ce mois-ci" : "aujourd'hui";
-  return (
-    <p className="mt-2 text-right text-[11px] text-slate-500">
-      {remaining} {what} restante(s) {when}
-    </p>
-  );
+  return null;
 }

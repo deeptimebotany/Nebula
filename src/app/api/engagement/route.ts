@@ -24,8 +24,12 @@ export async function GET(req: NextRequest) {
   if (!connectionId && !brandId) return NextResponse.json({ error: "connectionId ou brandId requis" }, { status: 400 });
 
   // Les comptes doivent appartenir à une des marques de l'utilisateur.
+  // Comptes déconnectés exclus (10/10/2026) : leurs commentaires sont effacés
+  // et ils ne s'affichent plus (voir social/disconnected-data.ts).
   const connections = await prisma.socialConnection.findMany({
-    where: connectionId ? { id: connectionId, brand: ownedBy(userId) } : { brandId: brandId as string, brand: ownedBy(userId) },
+    where: connectionId
+      ? { id: connectionId, status: { not: "DISCONNECTED" }, brand: ownedBy(userId) }
+      : { brandId: brandId as string, status: { not: "DISCONNECTED" }, brand: ownedBy(userId) },
     orderBy: { connectedAt: "asc" }
   });
   if (connectionId && connections.length === 0) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });

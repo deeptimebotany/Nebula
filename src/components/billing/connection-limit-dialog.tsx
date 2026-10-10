@@ -6,7 +6,7 @@
 // que je garde », sinon les plus utilisés) ; la personne change la sélection,
 // confirme, et les comptes cochés sont déconnectés comme avec le bouton
 // « Déconnecter » de la page Comptes. Pas de bouton fermer : seules issues,
-// déconnecter les comptes en trop, passer à un palier supérieur (Facturation)
+// déconnecter les comptes en trop, passer à un palier supérieur (Abonnement)
 // ou se déconnecter de Nebula.
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";

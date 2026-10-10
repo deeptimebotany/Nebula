@@ -95,8 +95,10 @@ export interface KitSources {
 }
 
 export async function loadKitSources(brandId: string, now: Date): Promise<KitSources> {
+  // Comptes déconnectés exclus (10/10/2026) : ils ne sont plus listés dans
+  // « Comptes affichés » (leurs chiffres sont effacés à la déconnexion).
   const rows = (await prisma.socialConnection.findMany({
-    where: { brandId },
+    where: { brandId, status: { not: "DISCONNECTED" } },
     select: { id: true, network: true, displayName: true, handle: true, avatarUrl: true, externalAccountId: true, status: true },
     orderBy: { connectedAt: "asc" }
   })) as (Omit<KitConnectionRow, "network"> & { network: string })[];

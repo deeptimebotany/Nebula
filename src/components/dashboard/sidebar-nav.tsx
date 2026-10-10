@@ -9,7 +9,7 @@
 //     plus ici : c'est le bouton en haut à droite.
 //   - Mode réduit (icônes seules) : le même trait sépare les deux groupes,
 //     chaque icône a une infobulle (nom + une ligne).
-//   - Plus de compte ici : Paramètres, Facturation, Automatisations, Soutenir
+//   - Plus de compte ici : Paramètres, Abonnement, Automatisations, Soutenir
 //     Nebula, l'administration, la marque, le mode clair/sombre et la
 //     déconnexion sont dans le menu du profil (profile-menu.tsx).
 // Le même composant sert la colonne fixe (ordinateur) et le tiroir

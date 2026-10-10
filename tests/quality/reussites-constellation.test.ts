@@ -59,38 +59,40 @@ describe("condition de variété des rangs", () => {
   });
 
   it("rang en attente : barre pleine et ce qui manque, compétences les plus proches d'abord", () => {
-    const r = gatedRank(1000, levels({ regularite: 2, formats: 1 }));
+    const r = gatedRank(2000, levels({ regularite: 2, formats: 1 }));
     expect(r).toMatchObject({ level: 6, name: "Émergent III", pct: 100, nextName: "Régulier I" });
     expect(r.pending).toEqual({ step: 7, name: "Régulier I", condition: "2 compétences au niveau 2", missing: ["1 compétence de plus au niveau 2", "Formats vidéo (1/2)"] });
-    expect(gatedRank(500, levels()).pending).toBeNull(); // XP insuffisants : rien en attente
+    expect(gatedRank(1000, levels()).pending).toBeNull(); // XP insuffisants : rien en attente
   });
 
   it("rang en attente faute de records de qualité : ce qui manque est dit", () => {
-    const r = gatedRank(2400, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 0);
+    const r = gatedRank(4200, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 0);
     expect(r).toMatchObject({ level: 9, name: "Régulier III", pct: 100 });
     expect(r.pending).toEqual({ step: 10, name: "Confirmé I", condition: "3 compétences au niveau 3 et 1 record de qualité", missing: ["1 record de qualité de plus (0/1), dans l'album « Qualité »"] });
-    expect(gatedRank(2400, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 1)).toMatchObject({ level: 10, name: "Confirmé I", pending: null });
+    expect(gatedRank(4200, levels({ regularite: 3, formats: 3, portee: 3 }), 1, 1)).toMatchObject({ level: 10, name: "Confirmé I", pending: null });
   });
 
   it("un rang déjà atteint n'est jamais retiré, mais jamais au-delà des XP", () => {
-    expect(gatedRank(1300, levels(), 8)).toMatchObject({ level: 8, name: "Régulier II" });
-    expect(gatedRank(1300, levels(), 12).level).toBe(8);
-    expect(gatedRank(1300, levels({ regularite: 2, portee: 2 }), 1)).toMatchObject({ level: 8, pending: null });
+    expect(gatedRank(2600, levels(), 8)).toMatchObject({ level: 8, name: "Régulier II" });
+    expect(gatedRank(2600, levels(), 12).level).toBe(8);
+    expect(gatedRank(2600, levels({ regularite: 2, portee: 2 }), 1)).toMatchObject({ level: 8, pending: null });
     // Palier Confirmé gagné avant la v3 (sans record de qualité) : gardé.
-    expect(gatedRank(3100, levels({ regularite: 3, formats: 3, portee: 3 }), 11, 0)).toMatchObject({ level: 11, name: "Confirmé II" });
+    expect(gatedRank(5200, levels({ regularite: 3, formats: 3, portee: 3 }), 11, 0)).toMatchObject({ level: 11, name: "Confirmé II" });
   });
 
   it("rankAt : progression dans le palier enregistré", () => {
-    expect(rankAt(520, 5)).toMatchObject({ name: "Émergent II", pct: 35, pending: null });
+    expect(rankAt(1000, 5)).toMatchObject({ name: "Émergent II", pct: 25, pending: null });
     expect(missingForRank(3, levels({ regularite: 2, formats: 2 }))).toEqual([]);
   });
 
-  it("la migration v2 garde le palier des XP : les 15 premiers paliers gardent leurs seuils", () => {
+  it("la migration v2 garde le palier des XP : les 15 premiers paliers gardent leurs seuils (seuils de l'époque)", () => {
     const dir = join(process.cwd(), "prisma/migrations");
     const name = readdirSync(dir).find((d) => d.endsWith("_reussites_constellation"))!;
     const sql = readFileSync(join(dir, name, "migration.sql"), "utf8");
     const pairs = Array.from(sql.matchAll(/WHEN "creatorXp" >= (\d+) THEN (\d+)/g)).map((m) => [Number(m[1]), Number(m[2])]);
-    const expected = STEPS.filter((s) => s.step > 1 && s.step <= 15).map((s) => [s.minXp, s.step]).reverse();
+    // Seuils en vigueur à cette migration (relevés le 10/10/2026, recalcul unique : engine.ts → XP_RECALC_KEY).
+    const then = [60, 150, 300, 450, 650, 900, 1250, 1700, 2300, 3000, 3800, 5000, 6500, 8500];
+    const expected = then.map((xp, i) => [xp, i + 2]).reverse();
     expect(pairs).toEqual(expected);
   });
 });

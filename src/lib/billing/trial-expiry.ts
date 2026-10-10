@@ -98,7 +98,7 @@ export async function assertBrandWritable(
       // marques → Pro 1 marque) : choisir la marque active, ou plus de marques.
       message:
         info.paid || info.comp
-          ? `Cette marque est en lecture seule : votre palier ${info.limits.label} (${upToBrandsText(info.maxBrands)}) est complet. Choisissez la marque qui publie dans Facturation → « Choisir ce que je garde », ou passez à un palier avec plus de marques.`
+          ? `Cette marque est en lecture seule : votre palier ${info.limits.label} (${upToBrandsText(info.maxBrands)}) est complet. Choisissez la marque qui publie dans Abonnement → « Choisir ce que je garde », ou passez à un palier avec plus de marques.`
           : `Cette marque est en lecture seule : votre palier ${info.limits.label} permet ${info.maxBrands} marque${info.maxBrands > 1 ? "s" : ""}. Passez en Pro pour publier à nouveau depuis celle-ci.`
     };
   }

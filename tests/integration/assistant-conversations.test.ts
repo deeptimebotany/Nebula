@@ -6,6 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const session = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn(async () => (session.userId ? { user: { id: session.userId } } : null)) }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// Les réponses maison (« Qui es-tu ? », « merci » × 5) ont été retirées avec
+// leurs easter eggs (10/10/2026) : l'appel à Gemini et la porte de l'IA sont
+// simulés, comme dans assistant-tools-context.test.ts.
+vi.mock("@/lib/ai/gemini", async (orig) => ({
+  ...(await orig<typeof import("@/lib/ai/gemini")>()),
+  isAiEnabled: () => true,
+  chatComplete: vi.fn(async () => "Réponse de test")
+}));
+vi.mock("@/lib/ai/guard", async (orig) => ({
+  ...(await orig<typeof import("@/lib/ai/guard")>()),
+  gateAppAi: vi.fn(async () => ({ ok: true, info: { plan: "PRO" }, allowance: { run: (fn: () => Promise<unknown>) => fn(), release: async () => undefined } }))
+}));
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -26,7 +38,7 @@ describe.skipIf(!hasDatabase)("conversations de l'assistant", () => {
     session.userId = null;
   });
 
-  it("enregistrée à chaque réponse (ici une réponse maison, sans Gemini), puis continuée", async () => {
+  it("enregistrée à chaque réponse (Gemini simulé), puis continuée", async () => {
     const { user, brand } = await makeBrand();
     session.userId = user.id;
     const first = await (await post({ brandId: brand.id, messages: [{ role: "user", text: "Qui es-tu ?" }], save: true, conversationId: null })).json();

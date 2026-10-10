@@ -4,7 +4,7 @@
 // Lucas). Tout ce qui concerne le COMPTE quitte la barre latérale et se
 // retrouve ici :
 //   - en-tête : avatar, nom, marque active et palier ;
-//   - Mon profil, Facturation (palier), Automatisations, Soutenir Nebula ;
+//   - Mon profil, Abonnement (palier), Automatisations, Soutenir Nebula ;
 //   - ADMINISTRATION (compte propriétaire seulement) : Statistiques
 //     anonymes, Partenaires, Journal des mises à jour, puis « Toute
 //     l'administration » qui déplie les autres pages ;

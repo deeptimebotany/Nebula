@@ -1,5 +1,5 @@
 // Tableau comparatif des paliers, construit à partir de PLAN_LIMITS
-// (src/lib/plans.ts) — la même source que la page Facturation et la grille
+// (src/lib/plans.ts) — la même source que la page Abonnement et la grille
 // tarifaire, pour que les trois ne puissent jamais se contredire.
 import { PLAN_LIMITS, PUBLIC_PLANS as PLANS, RETENTION_PACK, formatEuroCents, isUnlimitedPlan, type AiMonthlyLimits, type PublicPlan as Plan } from "@/lib/plans";
 import { IconCheck } from "@/components/dashboard/icons";

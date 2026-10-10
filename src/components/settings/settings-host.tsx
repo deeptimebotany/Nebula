@@ -44,7 +44,7 @@ export function SettingsHost() {
     };
   }, [show]);
 
-  // Un lien de la fenêtre mène à une autre page (Facturation, Réussites…) :
+  // Un lien de la fenêtre mène à une autre page (Abonnement, Réussites…) :
   // elle se ferme. Sauf en quittant /settings, qui vient justement de l'ouvrir.
   const pathname = usePathname();
   const prevPath = useRef(pathname);

@@ -8,6 +8,257 @@ import type { JournalEntry } from "./journal-types";
 
 const NEW_ENTRIES: JournalEntry[] = [
   {
+    id: "2026-10-10-easter-eggs-sans-trou",
+    date: "2026-10-10",
+    title: "Easter eggs numérotés sans trou",
+    category: "Réussites",
+    links: [{ href: "/reussites/collection", label: "Collection d'easter eggs" }],
+    result:
+      "La collection d'easter eggs se suit maintenant de 1 à 32, sans numéro sauté, et les easter eggs à récompense restent dans leur bloc à part. L'accueil du site annonce le vrai nombre d'easter eggs à trouver.",
+    change:
+      "`easter-eggs-registry.ts` : numéro calculé d'après la place, trois blocs (collection, à récompense, accomplissements) ; `numbered` dans `GET /api/easter-eggs` et `succes-section.tsx` ; nombres calculés sur l'accueil (`page.tsx`). Branche `test`.",
+    readme: 146,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-analytics-sans-concurrence",
+    date: "2026-10-10",
+    title: "Analytics : l'onglet Concurrence est retiré",
+    category: "Analytics",
+    links: [{ href: "/analytics", label: "Analytics" }],
+    result: "Analytics garde trois onglets : Vue d'ensemble, Rétention IA et Publicité. Un ancien lien vers Concurrence ouvre la Vue d'ensemble.",
+    change: "`analytics-client.tsx` (onglet et `CompetitorTab` retirés), routes `/api/competitors` supprimées, menu, assistant et accueil du site mis à jour. Tables gardées en base. Branche `test`.",
+    readme: 145,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-easter-eggs-tri",
+    date: "2026-10-10",
+    title: "Easter eggs : cinq retirés, Centenaire à la 100ᵉ publication",
+    category: "Réussites",
+    links: [{ href: "/reussites/collection", label: "Collection d'easter eggs" }],
+    result:
+      "La collection perd cinq easter eggs (« Qui es-tu ? », « Inbox zero », « Banane », « Le sens de la vie », « Merci beaucoup ») ; « Chasseur d'étoiles » demande les 18 easter eggs d'origine restants. « Centenaire » se gagne à votre 100ᵉ publication mise en ligne (sur au moins un réseau), et les indices parlent de publications, plus de « posts ».",
+    change:
+      "`easter-eggs-registry.ts`, `easter-eggs.tsx`, `api/ai/chat/route.ts`, `comments-view.tsx`, `publish.ts` (`checkPersonalPublishMilestone`), `COLLECTION_EGG_KEYS` (`reussites/catalog.ts`) dans `me.ts`, `engine.ts`, `member-profile.ts`. Branche `test`.",
+    readme: 144,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-palette-codes-secrets",
+    date: "2026-10-10",
+    title: "Codes secrets : la palette dit si c'est nouveau",
+    category: "Interface",
+    links: [{ href: "/reussites/collection", label: "Collection d'easter eggs" }],
+    result:
+      "Taper un code secret dans la recherche (Ctrl+K) dit maintenant si l'easter egg vient d'être débloqué ou s'il était déjà dans votre collection, avec un lien vers la collection (la carte de succès ne s'affiche pas en Mode focus).",
+    change: "`command-palette.tsx`, `src/lib/report-easter-egg.ts`. Branche `test`.",
+    readme: 143,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-accueil-communaute",
+    date: "2026-10-10",
+    title: "La Communauté a son accueil",
+    category: "Communauté",
+    links: [{ href: "/community", label: "Communauté" }],
+    result:
+      "La Communauté s'ouvre sur un accueil : les vidéos à la une en grand, une rangée « Aidez-les à choisir » où vous mettez des cœurs directement sur les miniatures et les titres des autres créateurs, les vidéos qu'ils proposent d'aller voir, et les discussions du moment. « Mettre ma vidéo à la une » vous emmène maintenant au bon endroit dans Réussites.",
+    change: "`src/components/community/community-home.tsx`, onglet « Accueil » de `community/page.tsx` ; liens « à la une » vers `/reussites?focus=une#recompenses` (`featured-panel.tsx`). Branche `test`.",
+    readme: 142,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-profils-membres",
+    date: "2026-10-10",
+    title: "Profils des membres : une bulle et une page",
+    category: "Communauté",
+    links: [{ href: "/community", label: "Communauté" }],
+    result:
+      "Touchez la photo d'un membre : une petite bulle montre son pseudo, son rang, ses badges, et la bio et les liens de sa Page bio s'il l'a publiée. Touchez son pseudo : sa page de profil, avec sa vitrine, ses réussites et ses derniers sujets.",
+    change: "`profile-bubble.tsx`, `member-avatar.tsx`, page `community/membre/[handle]`, `src/lib/community/member-profile.ts`, `/api/community/members/[key]`. Branche `test`.",
+    readme: 141,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-forum-youtube",
+    date: "2026-10-10",
+    title: "Forum : réponses en fil, j'aime et je n'aime pas",
+    category: "Communauté",
+    links: [{ href: "/community?onglet=forum", label: "Forum" }],
+    result:
+      "Les sujets du forum se lisent comme des commentaires : on répond à une réponse, les réponses se replient derrière « N réponses » sous un trait, et chaque message a son j'aime (avec le nombre) et son je n'aime pas (nombre jamais affiché).",
+    change: "`src/lib/community/forum.ts`, `/api/community/vote`, réponses avec `parentId`, page du sujet refaite. Les je n'aime pas ne comptent pas dans Réussites. Branche `test`.",
+    readme: 140,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-pseudo-communaute",
+    date: "2026-10-10",
+    title: "Un @pseudo à la place de votre nom",
+    category: "Communauté",
+    links: [{ href: "/settings#compte", label: "Paramètres → Compte" }],
+    result:
+      "Dans toute la Communauté, votre nom est remplacé par un @pseudo : vous en avez reçu un (un mot de l'espace et des chiffres), et vous pouvez le changer dans Paramètres → Compte.",
+    change: "`User.handle`, `src/lib/community/handle.ts`, `handle-rules.ts`, `/api/settings/handle`, auteur public (`public-author.ts`), vidéos, à la une, classement des parrains. Branche `test`.",
+    readme: 139,
+    migrations: ["20261017090000_communaute_coeurs_pseudos"]
+  },
+  {
+    id: "2026-10-10-coeurs-avis",
+    date: "2026-10-10",
+    title: "Demandes d'avis : des cœurs sur les miniatures",
+    category: "Communauté",
+    links: [{ href: "/community?onglet=avis", label: "Avis" }],
+    result:
+      "Pour voter, touchez la miniature (ou le titre) : un cœur s'affiche dessus ; touchez à nouveau pour le retirer. Vous pouvez en mettre sur plusieurs propositions, ou sur toutes. Les résultats comptent les cœurs et les votants.",
+    change: "`FeedbackVote` (un cœur par proposition), `src/lib/community/feedback.ts`, `feedback-card.tsx`, `heart.tsx`. Branche `test`.",
+    readme: 138,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-plus-de-compteur-ia",
+    date: "2026-10-10",
+    title: "Plus de compteur de générations restantes",
+    category: "IA",
+    links: [{ href: "/tools", label: "Outils" }],
+    result:
+      "Les outils (hashtags, bio, titres), le Studio IA et la Rétention IA n'affichent plus combien de générations il vous reste. Quand une limite est atteinte, un message le dit, avec le moment où le compteur repart.",
+    change: "`tool-demo-notice.tsx`, `studio/page.tsx`, `retention/insight-view.tsx`, page Abonnement (compteurs de l'essai), messages de limite de `src/lib/ai/guard.ts`. Branche `test`.",
+    readme: 137,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-reussites-onglet-principal",
+    date: "2026-10-10",
+    title: "Réussites rejoint les onglets principaux",
+    category: "Interface",
+    links: [{ href: "/reussites", label: "Réussites" }],
+    result: "Dans le menu de gauche, Réussites est maintenant dans les onglets principaux, juste sous Communauté.",
+    change: "`src/components/dashboard/navigation.ts`. Branche `test`.",
+    readme: 136,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-abonnement",
+    date: "2026-10-10",
+    title: "« Facturation » devient « Abonnement »",
+    category: "Compte et facturation",
+    links: [{ href: "/billing", label: "Abonnement" }],
+    result: "La page où vous gérez votre formule s'appelle maintenant « Abonnement », dans le menu du profil, les Paramètres et partout où elle est citée.",
+    change: "Libellés de toute l'application, e-mails, page Tarifs, conditions. La recherche (Ctrl+K) trouve encore « facturation ». Branche `test`.",
+    readme: 135,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-rangs-reequilibres",
+    date: "2026-10-10",
+    title: "Rangs rééquilibrés : chaque rang compte davantage",
+    category: "Réussites",
+    links: [{ href: "/reussites", label: "Réussites" }],
+    result:
+      "Il faut maintenant plus d'XP pour monter (Émergent dès 600 XP, Régulier dès 1 800, Icône dès 39 000), et les premiers pas en rapportent moins (première étoile de chaque compétence 15 XP, premières fois 20, easter eggs 5). Les comptes existants ont été recalculés une fois, avec une notification.",
+    change: "`src/lib/reussites/catalog.ts` (seuils, XP), `skills.ts` (étoiles ★1), `engine.ts` (recalcul unique, `XP_RECALC_KEY`). Branche `test`.",
+    readme: 134,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-sons-decollage-celebration",
+    date: "2026-10-10",
+    title: "Sons Décollage et Célébration refaits",
+    category: "Interface",
+    links: [{ href: "/settings#sons", label: "Paramètres → Sons" }],
+    result: "Le son Décollage devient trois petits accords graves qui montent, puis le Pulsar ; le son des succès devient une courte mélodie grave.",
+    change: "`src/lib/cosmic-audio.ts` (sur `sound-synth.ts`), textes de Paramètres → Sons. Branche `test`.",
+    readme: 133,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-sons-style-pulsar",
+    date: "2026-10-10",
+    title: "Nouveaux sons, plus graves, dans le style du Pulsar",
+    category: "Interface",
+    links: [{ href: "/settings#sons", label: "Paramètres → Sons" }],
+    result:
+      "Les sons de la visite guidée et de la première publication sont refaits : plus graves et plus doux, ils gonflent puis retombent comme le son Pulsar. Une petite « bulle » à chaque étape de la visite, un accord qui s'ouvre à la fin, et un grand Pulsar pour votre toute première publication.",
+    change: "`src/lib/sound-synth.ts` (briques des sons), `src/lib/ui-sounds-synth.ts`, texte de Paramètres → Sons. Le son Pulsar ne change pas. Branche `test`.",
+    readme: 132,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-vitrine-changer-badge",
+    date: "2026-10-10",
+    title: "Réussites : changer un badge de la vitrine",
+    category: "Réussites",
+    links: [{ href: "/reussites", label: "Réussites → Récompenses" }],
+    result:
+      "Vitrine pleine, on ne pouvait plus changer de badge : les autres étaient grisés tant qu'on n'en retirait pas un. Touchez maintenant un badge de votre vitrine (« Changer ») ou une place dans « Modifier ma vitrine », puis le badge qui le remplace. Une croix retire un badge.",
+    change: "`src/components/reussites/showcase-section.tsx`, `src/lib/reussites/showcase-slots.ts`. Branche `test`.",
+    readme: 131,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-comptes-deconnectes-effaces",
+    date: "2026-10-10",
+    title: "Compte déconnecté : ses chiffres et commentaires effacés, il disparaît d'Interactions",
+    category: "Sécurité",
+    links: [
+      { href: "/accounts", label: "Comptes connectés" },
+      { href: "/comments", label: "Interactions" }
+    ],
+    result:
+      "Quand vous déconnectez un compte, quel que soit le réseau, ses statistiques, les chiffres de ses publications, ses commentaires et ses analyses sont effacés de Nebula, et il n'apparaît plus dans Interactions (Commentaires et Engagement), le kit média, les rapports ni l'assistant. Vos publications restent dans l'historique. Les comptes déjà déconnectés sont nettoyés automatiquement.",
+    change:
+      "`src/lib/social/disconnected-data.ts` (effacement, tâche du cron), `revoke.ts`, `youtube-data-policy.ts`, `account-jobs.ts`, `/api/engagement`, `/api/engagements` et leur synchro, kit média, rapports, Studio, bilan du mois, assistant, missions, fenêtre « Déconnecter ce compte ? », politique de confidentialité. Branche `test`.",
+    readme: 130,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-facturation-sans-quotas-ia",
+    date: "2026-10-10",
+    title: "Facturation : bloc des quotas d'IA retiré",
+    category: "Compte et facturation",
+    links: [{ href: "/billing", label: "Abonnement" }],
+    result: "La page Facturation n'affiche plus le tableau « IA : ce qu'il vous reste ». Les limites d'IA de chaque formule ne changent pas.",
+    change: "`billing/page.tsx`, FAQ de `tarifs/page.tsx`. Branche `test`.",
+    readme: 129,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-fonds-ecran",
+    date: "2026-10-10",
+    title: "Fonds d'écran : le fond uni et les deux fonds de Réussites",
+    category: "Interface",
+    links: [{ href: "/settings#apparence", label: "Paramètres → Apparence" }],
+    result: "Il ne reste que trois fonds d'écran : le fond uni, et « Constellation » et « Galaxie spirale », à gagner dans Réussites. Si vous utilisiez un fond retiré, le fond uni le remplace.",
+    change: "`src/lib/backgrounds.ts`, récompenses de Réussites (`catalog.ts`), easter egg « Pluie d'étincelles », Paramètres. Branche `test`.",
+    readme: 128,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-reussites-bilan-shorts",
+    date: "2026-10-10",
+    title: "Réussites : « Faire mon bilan » ouvre le bilan, étoile « 3 shorts »",
+    category: "Réussites",
+    links: [{ href: "/reussites#competences", label: "Réussites" }],
+    result: "Dans Compétences, « Faire mon bilan » ouvre maintenant l'onglet Missions et va directement au bilan de la semaine (avant, rien ne se passait). L'étoile « Vertical natif » demande 3 shorts.",
+    change: "`src/lib/reussites/goto.ts`, `lesson-dialog.tsx`, `constellation.tsx`, page Réussites, `skills.ts`. Branche `test`.",
+    readme: 127,
+    migrations: []
+  },
+  {
+    id: "2026-10-10-classement-filleuls-abonnes",
+    date: "2026-10-10",
+    title: "Classement des parrains : seuls les filleuls abonnés comptent",
+    category: "Communauté",
+    links: [{ href: "/community", label: "Communauté" }],
+    result:
+      "Le classement « Top parrains » et la Couronne ne comptent plus que les filleuls abonnés (abonnement payé, toujours actif 30 jours après). Créer de faux comptes avec son code ne fait plus monter au classement.",
+    change: "`src/lib/referral-leaderboard.ts`, `/api/referral/leaderboard`, `referral-crown-streak.ts`, textes de la Communauté et de Mon profil. Branche `test`.",
+    readme: 126,
+    migrations: []
+  },
+  {
     id: "2026-10-10-profil-devant-assistant",
     date: "2026-10-10",
     title: "Menu du profil devant « Demander à Nebula »",
@@ -252,7 +503,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     category: "Compte et facturation",
     links: [
       { href: "/accounts", label: "Comptes connectés" },
-      { href: "/billing", label: "Facturation" }
+      { href: "/billing", label: "Abonnement" }
     ],
     result:
       "Chaque compte connecté compte pour un, Instagram et Facebook compris : une Page Facebook prend une place comme un compte TikTok ou YouTube. La mention « Instagram + Facebook comptent ensemble » disparaît de la page Comptes connectés et des messages de limite.",
@@ -282,7 +533,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     category: "Compte et facturation",
     links: [
       { href: "/accounts", label: "Comptes connectés" },
-      { href: "/billing", label: "Facturation" }
+      { href: "/billing", label: "Abonnement" }
     ],
     result:
       "Sur la page Comptes connectés, tous les réseaux proposés par Nebula restent affichés, même en Gratuit à la limite de comptes : un réseau pas encore relié (Pinterest, par exemple) propose « Débloquer avec Pro » et rappelle combien de comptes ce palier permet, au lieu d'un bouton grisé ou d'un réseau absent.",
@@ -364,7 +615,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     category: "Compte et facturation",
     links: [
       { href: "/accounts", label: "Comptes connectés" },
-      { href: "/billing", label: "Facturation" }
+      { href: "/billing", label: "Abonnement" }
     ],
     result:
       "Quand une marque a plus de comptes connectés que son palier n'en permet (fin de l'essai, résiliation, palier inférieur), une fenêtre « Trop de comptes connectés pour votre palier » bloque l'application jusqu'à ce que les comptes en trop soient déconnectés : ils sont cochés d'avance (ceux choisis dans « Choisir ce que je garde », sinon les moins utilisés), on peut changer la sélection, puis confirmer. Seule la Facturation reste ouverte, pour passer à un palier supérieur. Plus aucune publication ne part de la marque tant qu'elle dépasse, et un nouveau compte n'est accepté que s'il tient dans le palier ; reconnecter un compte déjà relié reste toujours possible.",
@@ -834,7 +1085,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     category: "Compte et facturation",
     links: [
       { href: "/tarifs#fondateurs", label: "Tarifs" },
-      { href: "/billing", label: "Facturation" }
+      { href: "/billing", label: "Abonnement" }
     ],
     result:
       "Les offres Fondateur et Fondateur Premium affichent leur date de fin, le 1er janvier 2027, sur l'accueil, /tarifs, Facturation, la modale Pro, les FAQ et les conditions. Ce jour-là à 0 h (heure de Paris), la vente s'arrête toute seule ; les fondateurs gardent leurs avantages et leur badge.",
@@ -931,7 +1182,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     title: "Recharge Rétention à 5,99 €",
     category: "Compte et facturation",
     links: [
-      { href: "/billing", label: "Facturation" },
+      { href: "/billing", label: "Abonnement" },
       { href: "/retention", label: "Rétention IA" },
       { href: "/tarifs", label: "Tarifs" }
     ],
@@ -949,7 +1200,7 @@ const NEW_ENTRIES: JournalEntry[] = [
     category: "Compte et facturation",
     links: [
       { href: "/tarifs", label: "Tarifs" },
-      { href: "/billing", label: "Facturation" },
+      { href: "/billing", label: "Abonnement" },
       { href: "/community", label: "Communauté" },
       { href: "/legal", label: "Conditions" }
     ],
@@ -1181,7 +1432,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Gemini payant : quotas du mois et recharges",
     category: "IA",
-    links: [{ href: "/billing", label: "Facturation" }, { href: "/retention", label: "Rétention IA" }, { href: "/admin/ia", label: "Coûts de l'IA" }],
+    links: [{ href: "/billing", label: "Abonnement" }, { href: "/retention", label: "Rétention IA" }, { href: "/admin/ia", label: "Coûts de l'IA" }],
     result: "L'IA passe aux meilleurs modèles « Flash » de Gemini en version payante, sans les refus du palier gratuit. Chaque palier a ses quotas du mois (Rétention, miniatures, Studio, assistant), affichés dans Facturation, et une recharge ajoute 20 analyses Rétention pour 3,99 € en Pro et Agence. Nebula est désormais réservé aux 18 ans et plus : case à cocher à l'inscription, confirmation unique pour les comptes existants.",
     change: "Modèles `gemini-3.8-flash` et `gemini-3.1-flash-image`, quotas mensuels par compte remis à zéro le 1er à l'heure de Paris (`AI_MONTHLY` dans `src/lib/plans.ts`, table `AiMonthlyUsage`), recharge en paiement unique Stripe créditée une seule fois (`src/lib/billing/retention-pack.ts`). Sans âge confirmé, l'IA est refusée ; `/admin/ia` montre les modèles, les prix en vigueur et le coût moyen par action.",
     readme: 43,
@@ -1268,7 +1519,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Fin d'essai propre : rien n'est supprimé",
     category: "Compte et facturation",
-    links: [{ href: "/billing/garder", label: "Choisir ce que je garde" }, { href: "/billing", label: "Facturation" }],
+    links: [{ href: "/billing/garder", label: "Choisir ce que je garde" }, { href: "/billing", label: "Abonnement" }],
     result: "À la fin de l'essai, l'utilisateur choisit la marque et les comptes qui restent actifs en Gratuit (sinon la marque la plus utilisée sur 14 jours) ; les autres passent « en veille », sans rien perdre. Les publications à plus de 7 jours repassent en brouillon et repartent d'un clic au passage en Pro.",
     change: "Une seule fonction, `applyFreeLimits` (`src/lib/billing/free-limits.ts`), sert à toutes les descentes en Gratuit : marques et comptes en veille ne publient ni ne se synchronisent, et la réactivation passe par le webhook, la reprise de pause ou un filet du cron. Changer de marque active est possible une fois tous les 30 jours.",
     readme: 36,
@@ -1279,7 +1530,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Un essai par personne",
     category: "Compte et facturation",
-    links: [{ href: "/register", label: "Inscription" }, { href: "/billing", label: "Facturation" }],
+    links: [{ href: "/register", label: "Inscription" }, { href: "/billing", label: "Abonnement" }],
     result: "Une adresse déjà passée par un essai (y compris avec un +alias ou des points Gmail), un compte supprimé puis recréé, une adresse jetable ou une 3e inscription depuis un même réseau en 30 jours donnent un compte Gratuit, sans essai. L'inscription n'est jamais bloquée : une ligne discrète l'explique dans Facturation.",
     change: "Les adresses ayant eu un essai sont gardées sous forme d'empreinte HMAC pendant 12 mois (table `TrialGrant`, `src/lib/billing/trial-eligibility.ts`), avec une liste de domaines jetables. Les inscriptions sont limitées à 5 par heure et par IP, et la politique de confidentialité est à jour.",
     readme: 35,
@@ -1290,7 +1541,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "IA protégée par une porte unique",
     category: "IA",
-    links: [{ href: "/billing", label: "Facturation" }, { href: "/outils", label: "Outils gratuits" }],
+    links: [{ href: "/billing", label: "Abonnement" }, { href: "/outils", label: "Outils gratuits" }],
     result: "Tous les usages de l'IA suivent les mêmes règles : adresse e-mail confirmée en Gratuit et en Essai, quota du compte, plafond par connexion sur les outils et budget global du jour. Un refus ouvre la fenêtre « Passer en Pro » ou « Confirmez votre adresse », jamais un simple message.",
     change: "Tous les appels à Gemini passent par `assertAiAllowed` (`src/lib/ai/guard.ts`), avec réservation atomique du quota en base et remboursement si Google n'a rien facturé. Les budgets du jour de l'Essai et du Gratuit sont réglables par des variables Vercel facultatives.",
     readme: 34,
@@ -1301,7 +1552,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-30",
     title: "Palier « Essai » de 14 jours",
     category: "Compte et facturation",
-    links: [{ href: "/billing", label: "Facturation" }, { href: "/dashboard", label: "Vue d'ensemble" }],
+    links: [{ href: "/billing", label: "Abonnement" }, { href: "/dashboard", label: "Vue d'ensemble" }],
     result: "L'essai devient un palier à part entière (14 jours, 30 avec parrainage), avec ses propres limites d'IA et 2 marques à la création. Un bandeau « Essai — n jours restants » et une carte « Essai jusqu'au … » dans Facturation indiquent où l'on en est, et une fenêtre claire s'ouvre quand une limite du jour est atteinte.",
     change: "`getUserPlan` renvoie `TRIAL` et les gardes lisent des capacités au lieu de comparer des noms de paliers, ce qu'un test vérifie dans tout le code. L'essai ne s'achète pas et n'est jamais écrit par le webhook Stripe ; la migration ajoute aussi le registre des essais, l'état « en veille », le suivi des coûts de l'IA, la visite guidée et les sons.",
     readme: 33,
@@ -1580,7 +1831,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-24",
     title: "E-mails, anti-robot, paiement et Linktree encadrés",
     category: "Fiabilité",
-    links: [{ href: "/register", label: "Inscription" }, { href: "/billing", label: "Facturation" }, { href: "/link-in-bio", label: "Page bio" }],
+    links: [{ href: "/register", label: "Inscription" }, { href: "/billing", label: "Abonnement" }, { href: "/link-in-bio", label: "Page bio" }],
     result: "Les e-mails automatiques ne partent qu'une fois, même si le cron réessaie, et le propriétaire est prévenu quand plus aucun e-mail ne peut partir ou que la clé anti-robot est refusée. Une inscription ne reste plus bloquée sans fin, et un appel au paiement ne dépasse plus la durée d'une fonction Vercel.",
     change: "Délais garantis : 15 s pour Resend, 8 s pour Turnstile, 20 s par appel Stripe avec 2 nouvelles tentatives sans double paiement ; clé d'idempotence sur les e-mails automatiques (`src/lib/email.ts`). L'import Linktree passe par `fetchPublic`, qui revérifie chaque redirection.",
     migrations: []
@@ -1683,7 +1934,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-24",
     title: "Quota de comptes connectés corrigé",
     category: "Compte et facturation",
-    links: [{ href: "/accounts", label: "Comptes connectés" }, { href: "/billing", label: "Facturation" }],
+    links: [{ href: "/accounts", label: "Comptes connectés" }, { href: "/billing", label: "Abonnement" }],
     result: "Les comptes Bluesky, Threads, Pinterest et LinkedIn comptent désormais dans la limite de comptes du palier, et la paire Instagram et Facebook compte pour un seul emplacement.",
     change: "`countConnectionSlots` ne comptait que quatre réseaux ; le calcul (`connectionSlotsFor`, `src/lib/billing/plan.ts`) couvre maintenant tous les réseaux et est couvert par des tests.",
     migrations: []
@@ -1764,7 +2015,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-24",
     title: "Codes promo et accès partenaires",
     category: "Administration",
-    links: [{ href: "/admin/partenaires", label: "Partenaires" }, { href: "/billing", label: "Facturation" }],
+    links: [{ href: "/admin/partenaires", label: "Partenaires" }, { href: "/billing", label: "Abonnement" }],
     result: "Les codes promo Stripe sont acceptés sur la page de paiement. Le propriétaire peut offrir Pro ou Agence à une adresse e-mail pour 1, 3, 6 ou 12 mois, ou sans limite, sans carte bancaire, et révoquer cet accès.",
     change: "Nouvelle page `/admin/partenaires` et modèle `PartnerGrant` ; l'accès offert est lu par `getUserPlan()` juste après l'abonnement payant, et appliqué à l'inscription si le compte n'existe pas encore.",
     migrations: []
@@ -1814,7 +2065,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-23",
     title: "14 jours de Pro offerts et offres au bon moment",
     category: "Compte et facturation",
-    links: [{ href: "/billing", label: "Facturation" }, { href: "/register", label: "Inscription" }],
+    links: [{ href: "/billing", label: "Abonnement" }, { href: "/register", label: "Inscription" }],
     result: "Tout nouvel inscrit a 14 jours de Pro (30 avec un parrainage), sans carte bancaire, puis repasse en Gratuit sans rien perdre. Une fenêtre présente chaque fonction réservée au moment où on la touche, avec, après l'essai, une offre unique de -50 % sur le premier mois valable 48 h ; « Résilier » propose aussi une pause.",
     change: "`trialEndsAt` sur le compte et palier effectif calculé par `getUserPlan()` (`src/lib/billing/plan.ts`) ; fenêtre `UpgradeModal` ouverte depuis la raison renvoyée par l'API, pause Stripe par `pause_collection`. Des e-mails de cycle de vie (bienvenue, fin d'essai…) partent selon l'étape réelle, avec désinscription.",
     migrations: []
@@ -1984,7 +2235,7 @@ const HISTORY: JournalEntry[] =[
     date: "2026-09-19",
     title: "Tarifs par nombre de marques",
     category: "Compte et facturation",
-    links: [{ href: "/billing", label: "Facturation" }, { href: "/calendar", label: "Calendrier" }],
+    links: [{ href: "/billing", label: "Abonnement" }, { href: "/calendar", label: "Calendrier" }],
     result: "Un seul abonnement par compte, Pro ou Agence, dont le prix dépend du nombre de marques choisi, en mensuel ou en annuel (environ 2 mois offerts). Une barre au-dessus du calendrier montre les publications programmées du mois (20 en Gratuit, 100 en Pro), et le palier actif s'affiche à côté du nom de la marque avec un bouton de mise à niveau.",
     change: "Paliers et prix définis dans `src/lib/plans.ts`, paiement et portail client Stripe, mode vitrine sans clé Stripe ; nouvelle icône diamant en SVG pour les mises à niveau.",
     migrations: []

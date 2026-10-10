@@ -17,7 +17,6 @@ import { useBootstrap } from "@/components/bootstrap-provider";
 import { useBrand } from "@/components/brand-context";
 import type { BrandUsage } from "@/lib/billing/usage";
 import { useUsage } from "@/lib/data/hooks";
-import { AiQuotaCard } from "@/components/billing/ai-quota-card";
 import { FounderMonthlyChoice, FounderPremiumCard, founderMonthlyApplies, useFounders } from "@/components/billing/founder-offers";
 import { FounderBadge } from "@/components/reussites/founder-badge";
 import { FOUNDER_MONTHLY } from "@/lib/founders-offer";
@@ -192,7 +191,7 @@ function BillingPageInner() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Facturation" description="Gérez l'abonnement de votre compte Nebula." />
+      <PageHeader title="Abonnement" description="Gérez l'abonnement de votre compte Nebula." />
 
       {checkoutStatus === "success" && (
         <GlassCard className="border-emerald-500/30 bg-emerald-500/[0.06]">
@@ -300,11 +299,7 @@ function BillingPageInner() {
               </tbody>
             </table>
           </div>
-          {me.ai && (
-            <p className="mt-3 text-xs text-slate-400">
-              Pendant l&apos;essai : {me.ai.quota.retention.used}/{me.ai.quota.retention.limit} analyses Rétention, {me.ai.quota.image.used}/{me.ai.quota.image.limit} miniatures, {me.ai.quota.studio.used}/{me.ai.quota.studio.limit} Studio, {me.ai.quota.assistant.used}/{me.ai.quota.assistant.limit} messages ; aujourd&apos;hui, {me.ai.quota.text.used}/{me.ai.quota.text.limit} textes (retour à minuit, heure de Paris).
-            </p>
-          )}
+          {/* Compteurs d'IA de l'essai retirés le 10/10/2026 (demande de Lucas : aucun nombre restant affiché). */}
           {me.brandsOwned > PLAN_LIMITS.FREE.tiers[0].maxBrands && (
             <p className="mt-2 text-xs text-slate-400">
               Après l&apos;essai, en Gratuit, une seule marque reste active ; les autres sont mises en veille, rien n&apos;est supprimé.{" "}
@@ -355,7 +350,7 @@ function BillingPageInner() {
         </GlassCard>
       )}
 
-      {!me?.onTrial && <AiQuotaCard />}
+      {/* « IA : ce qu'il vous reste » retiré le 10/10/2026 (demande de Lucas). */}
 
       {data && (
         <GlassCard>

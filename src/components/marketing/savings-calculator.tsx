@@ -1,7 +1,7 @@
 "use client";
 
 // Calculateur d'économies public (brief growth, lot G5.b), dérivé du
-// simulateur de la page Facturation : nombre de marques et de comptes
+// simulateur de la page Abonnement : nombre de marques et de comptes
 // (pour un utilisateur : Nebula n'a pas encore de comptes d'équipe) → coût
 // mensuel et annuel chez trois concurrents au choix
 // (données src/data/competitors.ts) contre Nebula (src/lib/plans.ts). Les

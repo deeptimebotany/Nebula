@@ -87,7 +87,7 @@ export const PUBLISH_NAV_ITEM: NavItem = {
 // « Créer », « Analyser », « Présence », « Clients » ni d'accordéons. Les
 // onglets PRINCIPAUX en haut, dans l'ordre choisi par Lucas, puis un trait
 // fin et les onglets SECONDAIRES (pas d'épingles). Tout ce qui concerne le
-// COMPTE (Paramètres, Facturation, Automatisations, Soutenir Nebula) et
+// COMPTE (Paramètres, Abonnement, Automatisations, Soutenir Nebula) et
 // l'administration est dans le menu du profil, en haut à droite (voir
 // ACCOUNT_NAV_ITEMS plus bas et profile-menu.tsx).
 export const NAV_GROUPS: NavGroup[] = [
@@ -103,8 +103,8 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/analytics",
         label: "Analytics",
         icon: NavIconAnalytics,
-        description: "Abonnés, portée, concurrence, rétention IA de vos vidéos YouTube",
-        keywords: ["statistiques", "stats", "audience", "rétention", "rétention ia", "vidéo", "youtube", "analyse", "concurrence", "publicité"]
+        description: "Abonnés, portée, rétention IA de vos vidéos YouTube",
+        keywords: ["statistiques", "stats", "audience", "rétention", "rétention ia", "vidéo", "youtube", "analyse", "publicité"]
       },
       // 09/10/2026 (demande de Lucas) : Commentaires et Engagements réunis en
       // « Interactions » (onglets Commentaires et Engagement) ; les anciennes
@@ -116,7 +116,10 @@ export const NAV_GROUPS: NavGroup[] = [
         description: "Commentaires à lire et à qui répondre, likes, partages et vues de vos publications",
         keywords: ["commentaires", "engagements", "engagement", "messages", "modération", "réponses", "réactions", "likes", "partages", "stories", "vues"]
       },
-      { href: "/community", label: "Communauté", icon: NavIconCommunity, description: "Entraide, avis et vidéos partagées", keywords: ["forum", "entraide", "avis"] }
+      { href: "/community", label: "Communauté", icon: NavIconCommunity, description: "Entraide, avis et vidéos partagées", keywords: ["forum", "entraide", "avis"] },
+      // 10/10/2026 (demande de Lucas) : Réussites passe dans les onglets
+      // principaux, juste sous Communauté (« c'est un onglet important »).
+      SUCCESS_NAV_ITEM
     ]
   },
   {
@@ -135,8 +138,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/link-in-bio", label: "Page bio", icon: NavIconBio, description: "Votre page « link in bio » publique", keywords: ["liens", "linktree", "bio"] },
       { href: "/media-kit", label: "Media kit", icon: NavIconMediaKit, description: "La page à envoyer aux sponsors, avec vos vrais chiffres", keywords: ["sponsors", "marques", "partenariats", "collaboration", "kit média", "presse", "pdf"] },
       { href: "/reports", label: "Rapports", icon: NavIconReports, description: "Page de reporting partageable et envoi automatique", keywords: ["reporting", "client", "email"] },
-      { href: "/calendar-share", label: "Calendrier client", icon: NavIconClientCalendar, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] },
-      SUCCESS_NAV_ITEM
+      { href: "/calendar-share", label: "Calendrier client", icon: NavIconClientCalendar, description: "Vue en lecture seule des publications à venir", keywords: ["partage", "client"] }
     ]
   }
 ];
@@ -150,7 +152,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
  */
 export const ACCOUNT_NAV_ITEMS: NavItem[] = [
   { href: "/settings", label: "Paramètres", icon: IconSettings, description: "Marque, apparence, sons, notifications, compte", keywords: ["réglages", "préférences", "thème", "mode focus", "mot de passe", "fuseau horaire", "notifications", "parrainage"] },
-  { href: "/billing", label: "Facturation", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "plan", "stripe", "prix", "tarif"] },
+  { href: "/billing", label: "Abonnement", icon: IconCard, description: "Palier, paiement, factures", keywords: ["abonnement", "facturation", "factures", "plan", "stripe", "prix", "tarif"] },
   { href: "/automatisations", label: "Automatisations", icon: IconPlug, description: "API, webhooks, n8n, Make, Zapier (Agence)", keywords: ["api", "webhook", "zapier", "make", "n8n", "intégrations", "clé"] },
   { href: "/support", label: "Soutenir Nebula", icon: IconHeart, description: "Donner un coup de pouce au projet", keywords: ["don", "soutien"] }
 ];
@@ -195,6 +197,7 @@ const SECONDARY_PAGES: { prefix: string; label: string; parentHref: string }[] =
   ...TOOL_CATALOG.filter((t) => t.appHref.startsWith("/tools/")).map((t) => ({ prefix: t.appHref, label: t.title, parentHref: "/tools" })),
   { prefix: "/reussites/collection", label: "Collection des Easter eggs", parentHref: "/reussites" },
   { prefix: "/billing/garder", label: "Choisir ce que je garde", parentHref: "/billing" },
+  { prefix: "/community/membre/", label: "Profil", parentHref: "/community" },
   { prefix: "/community/", label: "Discussion", parentHref: "/community" }
 ];
 

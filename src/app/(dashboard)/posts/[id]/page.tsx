@@ -582,7 +582,7 @@ export default function PostDetailPage() {
           {messages.length === 0 && (
             <p className="text-sm text-slate-500">
               Discutez de cette publication et de ses statistiques avec l&apos;assistant IA
-              {!aiStatus?.enabled && " (activez l'IA dans Facturation pour obtenir des réponses)"}.
+              {!aiStatus?.enabled && " (activez l'IA dans Abonnement pour obtenir des réponses)"}.
             </p>
           )}
           {messages.map((m) => (

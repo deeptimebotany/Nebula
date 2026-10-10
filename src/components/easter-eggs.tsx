@@ -62,7 +62,6 @@ const KONAMI = [
 ];
 
 const WORD = "nebula";
-const WORD_BANANA = "banana";
 
 // Session "marathon" (4h en continu) : horodatage de début posé une seule
 // fois par onglet dans sessionStorage (pas localStorage : on veut vraiment
@@ -99,14 +98,6 @@ interface ShootingStar {
   delay: number;
 }
 
-interface BananaDrop {
-  id: number;
-  left: number;
-  delay: number;
-  duration: number;
-  rotate: number;
-}
-
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -118,34 +109,10 @@ export function EasterEggs() {
   const [confetti, setConfetti] = useState<ConfettiPiece[] | null>(null);
   const [shootingStars, setShootingStars] = useState<ShootingStar[] | null>(null);
   const [blackCat, setBlackCat] = useState(false);
-  const [bananas, setBananas] = useState<BananaDrop[] | null>(null);
   const konamiProgress = useRef(0);
   const wordProgress = useRef(0);
-  const bananaProgress = useRef(0);
   const nextId = useRef(0);
   const cooldown = useRef(false);
-  const bananaCooldown = useRef(false);
-
-  // Easter egg "banana" : pluie de bananes pendant 2s, indépendante du
-  // cooldown confettis (fire()) pour pouvoir se déclencher juste après.
-  function fireBananaRain() {
-    if (bananaCooldown.current) return;
-    bananaCooldown.current = true;
-    reportEasterEggFound("banana-word");
-    const drops: BananaDrop[] = Array.from({ length: 40 }, () => ({
-      id: nextId.current++,
-      left: Math.random() * 100,
-      delay: Math.random() * 0.5,
-      duration: 1.8 + Math.random() * 1.2,
-      rotate: Math.random() * 360
-    }));
-    setBananas(drops);
-    toast.success("🍌 Vous avez trouvé la banane !");
-    window.setTimeout(() => setBananas(null), 2600);
-    window.setTimeout(() => {
-      bananaCooldown.current = false;
-    }, 2600);
-  }
 
   // Minuit : 2 ou 3 étoiles filantes traversent l'écran en diagonale — pas
   // de confettis ici (trop bruyant pour un effet censé être discret), pas
@@ -238,18 +205,6 @@ export function EasterEggs() {
       } else {
         wordProgress.current = key === WORD[0] ? 1 : 0;
       }
-
-      // Le mot "banana".
-      const expectedBanana = WORD_BANANA[bananaProgress.current];
-      if (key === expectedBanana) {
-        bananaProgress.current += 1;
-        if (bananaProgress.current === WORD_BANANA.length) {
-          bananaProgress.current = 0;
-          fireBananaRain();
-        }
-      } else {
-        bananaProgress.current = key === WORD_BANANA[0] ? 1 : 0;
-      }
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -269,7 +224,7 @@ export function EasterEggs() {
       // stockage indisponible — l'egg "marathon" ne pourra pas se déclencher
     }
 
-    // Curseur immobile 60 s (Easter egg #28, corrigé au lot U6 : onglet
+    // Curseur immobile 60 s (easter egg « Statue », corrigé au lot U6 : onglet
     // visible, fenêtre active et curseur dans la page — voir statue.ts).
     const stopStatue = watchStatue(() => {
       toast.info("💤 Toujours là ?");
@@ -422,26 +377,10 @@ export function EasterEggs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!confetti && !shootingStars && !blackCat && !bananas) return null;
+  if (!confetti && !shootingStars && !blackCat) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] overflow-hidden">
-      {bananas &&
-        bananas.map((b) => (
-          <span
-            key={b.id}
-            className="absolute top-[-8%] text-2xl"
-            style={{
-              left: `${b.left}%`,
-              animation: `nebula-confetti-fall ${b.duration}s ease-in ${b.delay}s forwards`,
-              // @ts-expect-error propriété custom lue par l'animation nebula-confetti-fall
-              "--drift": "0px",
-              "--rotate": `${b.rotate}deg`
-            }}
-          >
-            🍌
-          </span>
-        ))}
       {shootingStars &&
         shootingStars.map((s) => (
           <span

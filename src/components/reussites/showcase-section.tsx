@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ImageShareDialog } from "@/components/reussites/image-share-dialog";
 import type { ReussitesPageDTO, ShowcaseDTO } from "@/lib/reussites/types";
 import { clsx } from "@/lib/clsx";
+import { initialSlots, placeBadge } from "@/lib/reussites/showcase-slots";
 
 const CARD_URL = "/api/reussites/card";
 
@@ -27,29 +28,91 @@ function CreatorCardDialog({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
-function ShowcasePicker({ showcase, busy, onSave, onCancel }: { showcase: ShowcaseDTO; busy: boolean; onSave: (keys: string[]) => void; onCancel: () => void }) {
-  const [picked, setPicked] = useState<string[]>(showcase.selected.map((b) => b.key));
-  const toggle = (key: string) =>
-    setPicked((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : prev.length >= showcase.max ? prev : [...prev, key]));
+/**
+ * Choix des badges (10/10/2026, retour de Lucas : vitrine pleine = impossible
+ * de changer de badge, il fallait deviner qu'on devait d'abord en retirer
+ * un). Les places de la vitrine sont en haut : on touche une place, puis le
+ * badge à y mettre ; vitrine pleine, le badge choisi remplace celui de la
+ * place active (la dernière par défaut). Aucun badge n'est grisé.
+ */
+function ShowcasePicker({
+  showcase,
+  busy,
+  startSlot,
+  onSave,
+  onCancel
+}: {
+  showcase: ShowcaseDTO;
+  busy: boolean;
+  startSlot?: number;
+  onSave: (keys: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [state, setState] = useState(() => initialSlots(showcase.selected.map((b) => b.key), showcase.max, startSlot));
+  const byKey = new Map(showcase.candidates.map((b) => [b.key, b]));
+  const keys = state.slots.filter((k): k is string => Boolean(k));
+  const full = keys.length >= showcase.max;
   return (
     <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
       <p className="text-sm text-slate-300">
-        Choisissez jusqu&apos;à {showcase.max} badges ({picked.length} / {showcase.max}).
+        {full ? "Touchez une place, puis le badge qui la remplace." : "Touchez les badges à montrer"} ({keys.length} / {showcase.max}).
       </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Places de la vitrine">
+        {state.slots.map((key, i) => {
+          const b = key ? byKey.get(key) : null;
+          const on = state.active === i;
+          return (
+            <div
+              key={i}
+              data-testid="showcase-slot"
+              className={clsx(
+                "relative flex min-h-[56px] items-center rounded-2xl border transition",
+                on ? "border-aurora-400/70 bg-aurora-400/[0.08] ring-1 ring-aurora-400/40" : b ? "border-amber-300/30 bg-amber-300/[0.05]" : "border-dashed border-white/[0.16]"
+              )}
+            >
+              <button
+                type="button"
+                aria-pressed={on}
+                disabled={busy}
+                onClick={() => setState((s) => ({ ...s, active: i }))}
+                className="flex min-h-[56px] w-full min-w-0 items-center gap-2.5 rounded-2xl p-2.5 pr-9 text-left"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-lg" aria-hidden="true">
+                  {b ? b.emoji : "+"}
+                </span>
+                <span className="min-w-0">
+                  <span className={clsx("block truncate text-xs", b ? "font-medium text-white" : "text-slate-400")}>{b ? b.label : `Place ${i + 1} libre`}</span>
+                  {on && <span className="block text-[10px] text-aurora-300">{b ? "Choisissez un badge pour le remplacer" : "Choisissez un badge"}</span>}
+                </span>
+              </button>
+              {b && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setState((s) => placeBadge(s.slots, s.active, b.key))}
+                  aria-label={`Retirer ${b.label} de la vitrine`}
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
       <div className="nb-thin-scroll grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2" role="group" aria-label="Badges gagnés">
         {showcase.candidates.map((b) => {
-          const on = picked.includes(b.key);
-          const full = !on && picked.length >= showcase.max;
+          const on = keys.includes(b.key);
           return (
             <button
               key={b.key}
               type="button"
               aria-pressed={on}
-              disabled={full || busy}
-              onClick={() => toggle(b.key)}
+              disabled={busy}
+              onClick={() => setState((s) => placeBadge(s.slots, s.active, b.key))}
               className={clsx(
                 "flex min-h-[40px] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left text-xs transition",
-                on ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : full ? "cursor-not-allowed border-white/[0.05] text-slate-500" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40"
+                on ? "border-aurora-400/60 bg-aurora-400/[0.12] font-semibold text-white" : "border-white/[0.1] text-slate-300 hover:border-aurora-400/40"
               )}
             >
               <span className="text-base leading-none" aria-hidden="true">
@@ -64,7 +127,7 @@ function ShowcasePicker({ showcase, busy, onSave, onCancel }: { showcase: Showca
         <button
           type="button"
           disabled={busy}
-          onClick={() => onSave(picked)}
+          onClick={() => onSave(keys)}
           className="min-h-[40px] rounded-xl bg-nebula-500 px-4 text-sm font-semibold text-white transition hover:bg-nebula-400 disabled:opacity-60"
         >
           {busy ? "Enregistrement…" : "Enregistrer ma vitrine"}
@@ -95,7 +158,8 @@ export function ShowcaseSection({
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  // Place à changer en ouvrant le choix (une place touchée dans la vitrine), ou -1.
+  const [editing, setEditing] = useState<number | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
   const owned = rewards.filter((r) => r.unlocked);
   const locked = rewards.filter((r) => !r.unlocked);
@@ -128,30 +192,40 @@ export function ShowcaseSection({
       {!collapsed && (
       <div id="vitrine-body" className="space-y-3">
 
-      {editing ? (
+      {editing !== null ? (
         <ShowcasePicker
           showcase={showcase}
           busy={busy}
-          onCancel={() => setEditing(false)}
+          startSlot={editing >= 0 ? editing : undefined}
+          onCancel={() => setEditing(null)}
           onSave={async (keys) => {
-            if (await onSave(keys)) setEditing(false);
+            if (await onSave(keys)) setEditing(null);
           }}
         />
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {slots.map((b, i) =>
             b ? (
-              <div key={b.key} className="flex items-center gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.05] p-3">
+              // Une place touchée = la changer directement (10/10/2026).
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setEditing(i)}
+                title="Changer ce badge"
+                aria-label={`${b.label} : changer ce badge`}
+                className="group flex items-center gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.05] p-3 text-left transition hover:border-aurora-400/50"
+              >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-300/10 text-xl" aria-hidden="true">
                   {b.emoji}
                 </span>
-                <span className="min-w-0 text-sm font-medium text-white">{b.label}</span>
-              </div>
+                <span className="min-w-0 flex-1 text-sm font-medium text-white">{b.label}</span>
+                <span className="shrink-0 text-[11px] text-slate-500 transition group-hover:text-aurora-300">Changer</span>
+              </button>
             ) : (
               <button
                 key={`empty-${i}`}
                 type="button"
-                onClick={() => setEditing(true)}
+                onClick={() => setEditing(i)}
                 disabled={showcase.candidates.length === 0}
                 className="flex min-h-[64px] items-center justify-center rounded-2xl border border-dashed border-white/[0.16] p-3 text-xs text-slate-400 transition hover:border-aurora-400/40 hover:text-white disabled:cursor-default disabled:hover:border-white/[0.16] disabled:hover:text-slate-400"
               >
@@ -161,8 +235,8 @@ export function ShowcaseSection({
           )}
         </div>
       )}
-      {!editing && showcase.candidates.length > 0 && showcase.selected.length > 0 && (
-        <button type="button" onClick={() => setEditing(true)} className="text-xs font-medium text-aurora-300 transition hover:text-white">
+      {editing === null && showcase.candidates.length > 0 && showcase.selected.length > 0 && (
+        <button type="button" onClick={() => setEditing(-1)} className="text-xs font-medium text-aurora-300 transition hover:text-white">
           Modifier ma vitrine
         </button>
       )}

@@ -48,17 +48,21 @@ async function checkGlobalPublishMilestone(): Promise<number | null> {
   return GLOBAL_PUBLISH_MILESTONES.find((m) => totalPublished === m) ?? null;
 }
 
-// Easter egg "Centenaire" : 100ᵉ post PERSONNEL publié (par auteur, pas
-// global comme GLOBAL_PUBLISH_MILESTONES ci-dessus) — même logique
-// d'égalité stricte, exacte pour la même raison.
-const PERSONAL_PUBLISH_MILESTONE = 100;
+// Easter egg "Centenaire" : 100ᵉ PUBLICATION de la personne (10/10/2026,
+// demande de Lucas : une publication, pas un message du forum). Compte
+// comme les Réussites (src/lib/reussites/posts.ts) : chaque publication
+// créée par la personne et réellement en ligne sur au moins un réseau, une
+// seule fois même si elle part sur plusieurs réseaux. « Au moins 100 » (et
+// non « exactement 100 ») : deux publications terminées en même temps ne
+// font jamais rater le cap, et l'easter egg n'est enregistré qu'une fois.
+export const PERSONAL_PUBLISH_MILESTONE = 100;
 
-async function checkPersonalPublishMilestone(userId: string): Promise<boolean> {
-  const total = await prisma.post.count({ where: { status: "PUBLISHED", createdById: userId } });
-  return total === PERSONAL_PUBLISH_MILESTONE;
+export async function checkPersonalPublishMilestone(userId: string): Promise<boolean> {
+  const total = await prisma.post.count({ where: { createdById: userId, targets: { some: { status: "PUBLISHED" } } } });
+  return total >= PERSONAL_PUBLISH_MILESTONE;
 }
 
-// Easter egg "Son Décollage" (#44, dernier easter egg réel de ce lot — voir
+// Easter egg "Son Décollage" (dernier easter egg réel de ce lot — voir
 // easter-eggs-registry.ts) : débloque l'option de son de publication dans
 // Paramètres au 10ᵉ post personnel PUBLIÉ, immédiat OU programmé confondus
 // (donc vérifié ici, dans publishPost(), qui est le point de passage commun
@@ -70,7 +74,7 @@ async function checkPublishSoundUnlock(userId: string): Promise<boolean> {
   return total === PUBLISH_SOUND_UNLOCK_THRESHOLD;
 }
 
-// Easter egg "Pluie d'étincelles" (#45, quatrième vague — voir
+// Easter egg "Pluie d'étincelles" (quatrième vague — voir
 // easter-eggs-registry.ts) : débloque le fond animé "Pluie de météores" au
 // 3ᵉ post personnel PUBLIÉ le même jour. Approximation documentée comme les
 // autres triggers datés de ce fichier : "le même jour" = la date du SERVEUR
@@ -565,11 +569,13 @@ export async function finalizePostIfDone(postId: string) {
     await markEasterEggFound(post.createdById, "publish-milestone");
   }
 
+  // Easter egg "Centenaire" (100ᵉ publication) : une publication partie sur
+  // une partie seulement des réseaux compte aussi.
+  if ((finalStatus === "PUBLISHED" || finalStatus === "PARTIAL") && (await checkPersonalPublishMilestone(post.createdById))) {
+    await markEasterEggFound(post.createdById, "posts-100");
+  }
+
   if (finalStatus === "PUBLISHED") {
-    // Easter egg "Centenaire" (100ᵉ post personnel).
-    if (await checkPersonalPublishMilestone(post.createdById)) {
-      await markEasterEggFound(post.createdById, "posts-100");
-    }
     // Easter egg "Son Décollage" (10ᵉ post personnel, voir plus haut).
     if (await checkPublishSoundUnlock(post.createdById)) {
       await markEasterEggFound(post.createdById, "publish-sound-unlock");

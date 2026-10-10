@@ -34,6 +34,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { PRELAUNCH_PAGE, isSiteOpen } from "@/lib/launch";
 import { organizationLd, pageMetadata, softwareApplicationLd, websiteLd } from "@/lib/seo";
 import { SEO_HOME } from "@/lib/seo-pages";
+import { COLLECTION_EGG_KEYS, RANKS } from "@/lib/reussites/catalog";
 
 // L'accueil garde le titre par défaut du site (voir layout.tsx) et déclare
 // son adresse canonique : c'est LA page à référencer.
@@ -95,7 +96,7 @@ const TOUR: TourScreen[] = [
     alt: "Page Analytics de Nebula : abonnés par réseau et courbe d'évolution des abonnés sur 30 jours",
     title: "Toutes vos statistiques, réunies",
     desc: "Abonnés, portée et engagement de chaque compte, au même endroit et mis à jour automatiquement, sans ouvrir quatre applications.",
-    points: ["Évolution des abonnés, réseau par réseau", "Export CSV et rapport PDF", "Suivi de vos concurrents"]
+    points: ["Évolution des abonnés, réseau par réseau", "Export CSV et rapport PDF", "Rétention IA de vos vidéos YouTube"]
   },
   {
     id: "studio",
@@ -156,7 +157,10 @@ const AUDIENCES = [
 
 // Réussites (30/09/2026, demande de Lucas : « notre avantage concurrentiel
 // majeur ») : section juste après l'introduction. Tout ce qui est décrit
-// existe (src/lib/reussites/catalog.ts, easter-eggs-registry.ts).
+// existe (src/lib/reussites/catalog.ts, easter-eggs-registry.ts). Nombres
+// calculés (10/10/2026) : la page disait « 60 easter eggs » alors que la
+// collection en compte moins depuis que certains sont devenus des
+// accomplissements ou ont été retirés.
 const REUSSITES = [
   {
     icon: IconTrophy,
@@ -165,7 +169,7 @@ const REUSSITES = [
   },
   {
     icon: IconSparkle,
-    title: "8 rangs, de Lancement à Icône",
+    title: `${RANKS.length} rangs, de ${RANKS[0].name} à ${RANKS[RANKS.length - 1].name}`,
     desc: "La régularité fait monter, les vrais résultats aussi : records de vues, rétention, croissance nette, avis utiles. Les rangs débloquent insignes, anneaux d'avatar, fonds et cadres pour votre page bio."
   },
   {
@@ -175,7 +179,7 @@ const REUSSITES = [
   },
   {
     icon: IconSearch,
-    title: "60 easter eggs à trouver",
+    title: `${COLLECTION_EGG_KEYS.length} easter eggs à trouver`,
     desc: "Des secrets cachés un peu partout dans l'application, à découvrir en l'utilisant."
   }
 ];

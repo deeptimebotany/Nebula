@@ -69,7 +69,7 @@ export function UpgradeButton({
 
 // Petit badge verrouillé (gemme grisée + cadenas discret) pour indiquer
 // qu'une action (ajouter une marque, un compte...) est bloquée par le
-// palier actuel, avec lien direct vers Facturation.
+// palier actuel, avec lien direct vers Abonnement.
 export function LockedUpgradeBadge({ label = "Passer à un palier supérieur" }: { label?: string }) {
   return (
     <Link

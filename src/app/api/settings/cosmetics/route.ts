@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest) {
       const plan = previewPlan ?? (await getUserPlan(userId)).plan;
       if (!canUseCosmetic(cosmetic, plan)) {
         return NextResponse.json(
-          { error: `"${cosmetic.label}" nécessite le palier ${cosmetic.requiresPlan}. Passez sur ce palier dans Facturation pour le débloquer.` },
+          { error: `"${cosmetic.label}" nécessite le palier ${cosmetic.requiresPlan}. Passez sur ce palier dans Abonnement pour le débloquer.` },
           { status: 403 }
         );
       }

@@ -11,6 +11,8 @@ export interface MeResponse {
     name: string;
     email: string;
     avatarUrl: string | null;
+    /** Pseudo de la Communauté, sans @ (10/10/2026). */
+    handle?: string | null;
     emailVerified: boolean;
     hasPassword: boolean;
     /** Dernier envoi du lien de confirmation (décompte du bouton « Renvoyer »). */

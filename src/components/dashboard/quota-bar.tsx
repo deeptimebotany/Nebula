@@ -13,7 +13,7 @@ import { useUsage } from "@/lib/data/hooks";
  * chiffres viennent de /api/billing/usage (une seule requête, mêmes règles
  * que le quota appliqué côté serveur) au lieu d'être recomptés ici. */
 export function QuotaBar({ brandId }: { brandId: string | undefined }) {
-  // Cache partagé avec Facturation et Comptes (lot 6), rafraîchi après
+  // Cache partagé avec Abonnement et Comptes (lot 6), rafraîchi après
   // chaque publication créée (voir refreshUsage).
   const { usage } = useUsage<BrandUsage>(brandId);
 

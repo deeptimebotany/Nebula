@@ -1,52 +1,26 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { topReferrers } from "@/lib/referral-leaderboard";
 
-// GET /api/referral/leaderboard — "Boucle de parrainage intégrée" de
-// l'espace Communauté : classement des comptes par nombre RÉEL de
-// filleuls (comptes dont referredByCode correspond au code de ce compte),
-// calculé directement en base — aucun chiffre inventé. Les prénoms sont
-// tronqués (première lettre du nom masquée) pour rester public sans exposer
-// l'identité complète d'un tiers.
+// GET /api/referral/leaderboard — classement des parrains de la Communauté
+// et de Mon profil. Depuis le 10/10/2026 (demande de Lucas), seuls les
+// filleuls ABONNÉS comptent (abonnés, ayant réellement payé, toujours
+// abonnés 30 jours après : voir src/lib/referral-leaderboard.ts) — de faux
+// comptes ne font plus monter au classement. Calculé en base, aucun chiffre
+// inventé. Depuis le 10/10/2026 : le @pseudo de la Communauté, jamais le nom.
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const myUserId = (session.user as { id: string }).id;
 
-  const users = await prisma.user.findMany({
-    where: { referralCode: { not: null } },
-    select: { id: true, name: true, referralCode: true }
-  });
+  const leaderboard = (await topReferrers(10)).map((t) => ({
+    id: t.userId,
+    // 10/10/2026 : le @pseudo de la Communauté, en entier (plus de nom tronqué).
+    displayName: t.name,
+    referrals: t.referrals,
+    isMe: t.userId === myUserId
+  }));
 
-  const counts = await prisma.user.groupBy({
-    by: ["referredByCode"],
-    where: { referredByCode: { not: null } },
-    _count: { _all: true }
-  });
-  const countByCode = new Map(
-    (counts as { referredByCode: string | null; _count: { _all: number } }[]).map((c) => [
-      c.referredByCode as string,
-      c._count._all
-    ])
-  );
-
-  interface UserRow {
-    id: string;
-    name: string;
-    referralCode: string | null;
-  }
-
-  const ranked = (users as UserRow[])
-    .map((u) => ({
-      id: u.id,
-      displayName: u.name ? `${u.name.charAt(0).toUpperCase()}${u.name.slice(1, 2).toLowerCase()}...` : "Utilisateur",
-      referrals: countByCode.get(u.referralCode ?? "") ?? 0,
-      isMe: u.id === myUserId
-    }))
-    .filter((u) => u.referrals > 0)
-    .sort((a, b) => b.referrals - a.referrals)
-    .slice(0, 10);
-
-  return NextResponse.json({ leaderboard: ranked });
+  return NextResponse.json({ leaderboard });
 }

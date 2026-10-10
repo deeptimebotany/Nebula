@@ -37,7 +37,7 @@ function form(fields: Record<string, string | Blob>) {
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
   return create(new NextRequest("http://localhost/api/community/feedback", { method: "POST", body: f }));
 }
-const listOf = async (scope: string) => (await (await list(new NextRequest(`http://localhost/api/community/feedback?scope=${scope}`))).json()) as { requests: { id: string; totalVotes: number | null; options: { id: string; votes: number | null }[]; myVote: string | null }[]; quota: { used: number; limit: number } };
+const listOf = async (scope: string) => (await (await list(new NextRequest(`http://localhost/api/community/feedback?scope=${scope}`))).json()) as { requests: { id: string; totalVotes: number | null; options: { id: string; votes: number | null }[]; myHearts: string[] }[]; quota: { used: number; limit: number } };
 
 describe.skipIf(!hasDatabase)("avis de la communauté", () => {
   beforeAll(() => {
@@ -90,7 +90,7 @@ describe.skipIf(!hasDatabase)("avis de la communauté", () => {
     expect(existsSync(path.join(uploadDir, "deja-la.png"))).toBe(true);
   });
 
-  it("votes : jamais sur la sienne, résultats cachés avant de voter, vote modifiable", async () => {
+  it("cœurs : jamais sur la sienne, résultats cachés avant le premier cœur, plusieurs cœurs, retirés d'un 2e clic", async () => {
     const author = (await makeBrand()).user;
     const voter = (await makeBrand()).user;
     const other = (await makeBrand()).user;
@@ -102,19 +102,28 @@ describe.skipIf(!hasDatabase)("avis de la communauté", () => {
     as(voter);
     const before = (await listOf("open")).requests.find((r) => r.id === id)!;
     expect(before.totalVotes).toBeNull();
+    expect(before.myHearts).toEqual([]);
     expect(before.options.every((o) => o.votes === null)).toBe(true);
-    const voted = await (await json(vote, "/x", { optionId: a.id }, { id })).json();
-    expect(voted.request.totalVotes).toBe(1);
-    await json(vote, "/x", { optionId: b.id }, { id });
+    const first = await (await json(vote, "/x", { optionId: a.id }, { id })).json();
+    expect(first.request.totalVotes).toBe(1);
+    expect(first.request.myHearts).toEqual([a.id]);
+    // Un cœur de plus sur B : deux cœurs, toujours un seul votant.
+    const both = await (await json(vote, "/x", { optionId: b.id }, { id })).json();
+    expect(both.request.myHearts.sort()).toEqual([a.id, b.id].sort());
+    expect(both.request.totalVotes).toBe(1);
+    expect(both.request.options.map((o: { votes: number }) => o.votes)).toEqual([1, 1]);
+    // 2e clic sur A : cœur retiré.
+    const changed = await (await json(vote, "/x", { optionId: a.id }, { id })).json();
+    expect(changed.request.myHearts).toEqual([b.id]);
     expect(await prisma.feedbackVote.count({ where: { requestId: id } })).toBe(1);
-    expect((await prisma.feedbackVote.findFirst({ where: { requestId: id } }))?.optionId).toBe(b.id);
 
     as(other);
     await json(vote, "/x", { optionId: b.id }, { id });
-    // L'auteur voit les totaux sans voter.
+    // L'auteur voit les totaux sans voter : cœurs par proposition, votants.
     as(author);
     const mine = (await listOf("mine")).requests[0];
     expect(mine.options.map((o) => o.votes)).toEqual([0, 2]);
+    expect(mine.totalVotes).toBe(2);
   });
 
   it("avis écrit : notifié à l'auteur (une notification par demande) ; fin à 72 h avec le gagnant ; plus de vote ni d'avis", async () => {
@@ -135,7 +144,7 @@ describe.skipIf(!hasDatabase)("avis de la communauté", () => {
     expect(await closeDueFeedback()).toEqual({ closed: 1 });
     expect(await closeDueFeedback()).toEqual({ closed: 0 });
     const result = await prisma.notification.findFirst({ where: { userId: author.id, dedupeKey: `feedback-result:${id}` } });
-    expect(result?.body).toBe("« On a arrêté de se disputer pour l'argent » l'emporte : 1 vote sur 1.");
+    expect(result?.body).toBe("« On a arrêté de se disputer pour l'argent » l'emporte : 1 cœur, 1 votant.");
     expect((await json(vote, "/x", { optionId: b.id }, { id })).status).toBe(409);
     expect((await json(comment, "/x", { body: "Trop tard ?" }, { id })).status).toBe(409);
     // Terminée : visible dans « Terminées », résultats pour tous.

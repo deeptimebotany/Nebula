@@ -1,6 +1,6 @@
 // Offres fondateurs (02/10/2026, avant l'ouverture) — valeurs partagées par
 // le serveur (src/lib/billing/founders.ts) et l'affichage (Tarifs,
-// Facturation, modale de mise à niveau). Aucun import serveur ici.
+// Abonnement, modale de mise à niveau). Aucun import serveur ici.
 //
 //   - « Fondateur » : Pro 1 marque à 10 € par mois pendant 3 mois, puis le
 //     prix normal (12 €), prélevé automatiquement comme tout abonnement.
